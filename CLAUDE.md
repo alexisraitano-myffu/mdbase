@@ -45,6 +45,8 @@ src/
                            jamais d'eval (invariant 8, testé sur les sources)
     temps.ts               jours ISO en UTC pur, grille du calendrier, placement des plages,
                            gestes (déplacer, étirer), étendue et graduations de la timeline
+    dashboard.ts           lecture/réécriture des `_dashboards/*.yaml`, même opération en mémoire
+    recherche.ts           index plein texte (MiniSearch) de toutes les bases, extraits surlignés
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)

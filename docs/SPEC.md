@@ -436,6 +436,11 @@ rangees:
 - Résultats groupés par base, ouverture de la page en un clic.
 - Index en mémoire (MiniSearch ou équivalent), mis à jour à chaque écriture.
 
+Précisions d'implémentation :
+- MiniSearch. Poids : titre ×3, champs texte (text, url) ×1,5, corps ×1. Tous les mots doivent être présents ; débuts de mots et petites fautes acceptés ; accents et casse ignorés.
+- L'index suit l'état affiché (pas seulement l'écrit) : une modification est trouvable avant d'être écrite. Seules les lignes dont le texte a changé sont réindexées.
+- Un résultat donne un extrait (champs texte, sinon corps) avec les mots trouvés surlignés. Les groupes suivent l'ordre du meilleur résultat de chaque base.
+
 ---
 
 ## 12. Architecture

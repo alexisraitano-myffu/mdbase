@@ -14,6 +14,7 @@ import { BarreLaterale } from './BarreLaterale'
 import { ContexteEspace } from './contexte-espace'
 import { VueBase } from './VueBase'
 import { VueDashboard } from './Dashboard'
+import { RechercheGlobale } from './RechercheGlobale'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string }
 
@@ -122,7 +123,28 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   const choisie = selection?.type === 'base' ? selection.id : null
   const base = choisie ? etat.bases.get(choisie) : undefined
   const dashboard = selection?.type === 'dashboard' ? etat.dashboards.find((d) => d.id === selection.id) : undefined
-  const choisir = (id: string) => setSelection({ type: 'base', id })
+  const choisir = (id: string) => {
+    setSelection({ type: 'base', id })
+    setPageDemandee(null) // une demande de page ne survit pas à un changement de base
+  }
+  const [recherche, setRecherche] = useState(false)
+  const [pageDemandee, setPageDemandee] = useState<{ base: string; id: string; jeton: number } | null>(null)
+
+  // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11).
+  useEffect(() => {
+    const clavier = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setRecherche(true)
+      }
+    }
+    document.addEventListener('keydown', clavier)
+    return () => document.removeEventListener('keydown', clavier)
+  }, [])
+  const ouvrirResultat = (base: string, id: string) => {
+    setSelection({ type: 'base', id: base })
+    setPageDemandee((d) => ({ base, id, jeton: (d?.jeton ?? 0) + 1 }))
+  }
 
   return (
     <ContexteEspace.Provider value={{ espace, etat }}>
@@ -135,6 +157,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           choisir={choisir}
           choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
           changerDossier={changer}
+          chercher={() => setRecherche(true)}
         />
         <main className="contenu">
           {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}
@@ -145,10 +168,11 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             </p>
           )}
           {base?.chargement.ok && base.depot && (
-            <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} />
+            <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} pageDemandee={pageDemandee?.base === base.id ? pageDemandee : null} />
           )}
         </main>
       </div>
+      {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
     </ContexteEspace.Provider>
   )
 }

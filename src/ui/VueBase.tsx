@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ChargementBase } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatBase } from '../core/depot-espace'
@@ -10,10 +10,17 @@ import { Page } from './Page'
 import { useErreurDepot } from './useDepot'
 import { usePageOuverte } from './usePageOuverte'
 
-type Props = { espace: DepotEspace; etat: EtatBase; depot: DepotBase; chargement: Extract<ChargementBase, { ok: true }> }
+type Props = {
+  espace: DepotEspace
+  etat: EtatBase
+  depot: DepotBase
+  chargement: Extract<ChargementBase, { ok: true }>
+  /** Page à ouvrir, demandée de l'extérieur (recherche globale) ; `jeton` change à chaque demande. */
+  pageDemandee?: { id: string; jeton: number } | null
+}
 
 /** Une base ouverte : sa vue courante, filtrée et triée. */
-export function VueBase({ espace, etat, depot, chargement }: Props) {
+export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props) {
   const erreur = useErreurDepot(depot)
   const lancer = useLancer()
   const [idVue, setIdVue] = useState(etat.vues[0]!.id)
@@ -23,6 +30,9 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
 
   // La page peut appartenir à une autre base quand on la suit depuis un onglet relation.
   const { page, ouvrir, pleinEcran, basculerPleinEcran, fermer } = usePageOuverte({ base: etat.id, lignesVue })
+  useEffect(() => {
+    if (pageDemandee) ouvrir(etat.id, pageDemandee.id)
+  }, [pageDemandee?.jeton]) // le jeton seul : une demande n'ouvre qu'une fois
 
   const reglages = useMemo(
     () => ({ modifier: (m: ModificationVue) => void lancer(espace.modifierVue(etat.id, vue.id, m)) }),

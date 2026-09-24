@@ -16,6 +16,7 @@ import {
   type OperationDashboard,
 } from './dashboard'
 import { boucle } from './graphe'
+import { IndexRecherche, type Resultat } from './recherche'
 import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
@@ -83,6 +84,7 @@ export class DepotEspace {
   private config: ConfigEspace = lireEspace(null)
   private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map() }
   private readonly abonnes = new Set<() => void>()
+  private readonly recherche = new IndexRecherche()
   /** Sérialise les modifications de configuration. */
   private file: Promise<unknown> = Promise.resolve()
 
@@ -438,6 +440,11 @@ export class DepotEspace {
   }
 
   /** Recalcule les colonnes calculées : au changement de jour, pour `aujourdhui()` (spec §6). */
+  /** Recherche globale (spec §11) : titres, champs texte et corps de toutes les bases. */
+  chercher(requete: string, limite?: number): Resultat[] {
+    return this.recherche.chercher(requete, limite)
+  }
+
   recalculer(): void {
     this.publier()
   }
@@ -772,6 +779,7 @@ export class DepotEspace {
       })))
     }
     const aujourdhui = this.options.aujourdhui()
+    this.recherche.synchroniser(aCalculer.values())
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
     this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres }

@@ -49,6 +49,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Éditeur de formules : on écrit avec les noms des colonnes (le fichier garde les clés), autocomplétion des colonnes et des fonctions, aide de la fonction en cours, erreur en français avec la partie fautive surlignée, aperçu du résultat sur une ligne de la base (‹ › pour changer de ligne), ⌘ Entrée pour enregistrer.
 - Recalcul des colonnes calculées au changement de jour (formules avec `aujourdhui()`).
 - Démo : formules Jours restants et Budget par heure (projets), Durée et En retard (tâches).
+- Jalon 11 (dashboards) : section Dashboards en haut de la barre latérale (créer, renommer, supprimer), fichiers `_dashboards/<id>.yaml`. Un dashboard empile des rangées d'un ou deux blocs ; chaque bloc montre une vue d'une base, soit une vue existante de la base (partagée), soit une vue propre écrite dans le dashboard. Filtres rapides, options et ouverture des pages depuis chaque bloc, rangées déplaçables.
+- Jalon 11 (recherche globale) : Ctrl+K ou ⌘K (ou « Rechercher » dans la barre latérale) cherche dans les titres, les champs texte et le corps des pages de toutes les bases, sans tenir compte des accents ni de la casse, avec les débuts de mots et les petites fautes. Résultats groupés par base avec un extrait surligné ; Entrée ou un clic ouvre la page dans sa base. Index en mémoire tenu à jour à chaque modification.
+- Démo : dashboard « Pilotage ».
 
 ### Changed
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).

@@ -12,10 +12,12 @@ type Props = {
   choisir: (id: string) => void
   choisirDashboard: (id: string) => void
   changerDossier: () => void
+  /** Ouvre la recherche globale. */
+  chercher: () => void
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -60,6 +62,11 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
   return (
     <nav className="barre-laterale">
       <div className="nom-espace">{nomEspace}</div>
+      <button className="discret bouton-recherche" onClick={chercher}>
+        <span className="icone">⌕</span>
+        Rechercher
+        <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘K' : 'Ctrl+K'}</kbd>
+      </button>
 
       <section className="groupe dashboards">
         <div className="titre-groupe">
