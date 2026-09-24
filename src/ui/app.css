@@ -79,14 +79,23 @@ button:hover { background: var(--survol); }
 .icone { display: inline-block; width: 1.3em; opacity: 0.7; font-size: 0.85em; }
 .poignee { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; }
 .poignee:hover, .poignee.active { background: #2383e2; }
-.rangee {
+.rangee, .rangee-groupe, .rangee-ajout, .rangee-pied {
   display: flex;
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  border-bottom: 1px solid var(--bordure);
+  box-sizing: border-box;
 }
+.rangee { border-bottom: 1px solid var(--bordure); }
+.tableau:not(.retour-ligne) .rangee { height: 34px; }
+.retour-ligne .rangee { min-height: 34px; }
+.retour-ligne .cellule { white-space: normal; height: auto; min-height: 100%; align-items: flex-start; padding-top: 7px; padding-bottom: 7px; overflow-wrap: anywhere; }
+.rangee-groupe { align-items: center; gap: 8px; height: 40px; padding: 0 0.25rem; margin-top: 0; cursor: pointer; font-weight: 500; border-bottom: 1px solid var(--bordure); }
+.rangee-groupe:hover { background: #fafaf9; }
+.triangle { width: 1em; color: var(--discret); }
+.compte-groupe { font-size: 0.85em; font-weight: 400; }
+.rangee-ajout .nouvelle-ligne { border-bottom: none; }
 .rangee:hover { background: #fafaf9; }
 .case { flex-shrink: 0; box-sizing: border-box; border-right: 1px solid var(--bordure); overflow: hidden; }
 .cellule {
@@ -338,3 +347,12 @@ button:hover { background: var(--survol); }
 .champ-page { flex-wrap: nowrap; }
 .champ-page .nom-champ { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deplacer button { padding: 0 4px; }
+.pied { display: flex; min-height: 32px; }
+.pied:not(.pied-groupe) { position: sticky; bottom: 0; z-index: 2; background: #fff; border-top: 1px solid var(--bordure); }
+.pied-groupe { border-bottom: 1px solid var(--bordure); }
+.case-calcul { flex-shrink: 0; box-sizing: border-box; padding: 0 0.5rem; display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 0.85em; color: #37352f; white-space: nowrap; overflow: hidden; }
+.case-calcul.modifiable { cursor: pointer; }
+.case-calcul.modifiable:hover { background: #f7f7f5; }
+.libelle-calcul, .invite-calcul { color: var(--discret); font-size: 0.9em; }
+.invite-calcul { visibility: hidden; }
+.pied:hover .invite-calcul { visibility: visible; }

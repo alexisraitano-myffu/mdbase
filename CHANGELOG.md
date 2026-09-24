@@ -36,7 +36,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Mises en page (`_pages/*.yaml`) : affichage de chaque champ (visible, masqué si vide, masqué), ordre, relations en onglet, corps dans son onglet ; plusieurs mises en page par base, une par défaut, une retenue par vue.
 - Panneau de page étirable par son bord gauche, largeur retenue par le navigateur ; sans onglet dédié, le contenu reste sous les onglets quel que soit l'onglet actif.
 - Onglets relation : tableau des lignes liées, dont le « + » crée une ligne déjà liée ; on peut ouvrir une ligne liée depuis l'onglet.
+- Jalon 8a (tableau complet) : colonnes affichées et ordre propres à chaque vue (glisser un en-tête, « Masquer dans cette vue », panneau Options), largeurs enregistrées dans la vue, retour à la ligne dans les cellules.
+- Calculs en pied de colonne (somme, moyenne, comptes, % cochées, dates…) et par groupe.
+- Groupement du tableau (select, case, multiselect, relation, texte) : groupes repliables, « + » par groupe qui reprend la valeur du groupe.
 ### Changed
+- Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
 ### Fixed
 - Les menus flottants restent dans la fenêtre (les panneaux Filtrer / Trier débordaient à droite).
 - Les menus flottants (select, en-têtes) sont rendus hors du tableau : ils pouvaient apparaître décalés ou coupés dans les lignes.

@@ -1,10 +1,12 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { DepotEspace } from '../core/depot-espace'
 import type { Schema } from '../core/schema'
-import type { Tri, Vue } from '../core/vue'
+import { colonnesDeLaVue, groupables } from '../core/groupes'
+import type { ModificationVue, Tri, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
 import { Flottant } from './flottant'
+import { ICONES } from './EnteteColonne'
 import { Pastilles } from './Pastilles'
 
 type Props = {
@@ -51,6 +53,9 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
           </Panneau>
           <Panneau libelle={`Trier${vue.tris.length ? ` (${vue.tris.length})` : ''}`} actif={vue.tris.length > 0}>
             <EditeurTris schema={schema} tris={vue.tris} changer={(tris) => modifier({ tris })} />
+          </Panneau>
+          <Panneau libelle="Options" actif={false}>
+            <OptionsVue schema={schema} vue={vue} modifier={modifier} />
           </Panneau>
         </div>
       </div>
@@ -167,6 +172,49 @@ function EditeurTris({ schema, tris, changer }: { schema: Schema; tris: Tri[]; c
           + Ajouter un tri
         </button>
       )}
+    </div>
+  )
+}
+
+/** Réglages d'affichage du tableau : groupement, retour à la ligne, colonnes affichées (spec §7). */
+function OptionsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
+  const { visibles, masquees } = colonnesDeLaVue(schema, vue)
+  const toutes = [...visibles, ...masquees]
+  const cachees = new Set(masquees.map((c) => c.cle))
+  return (
+    <div className="editeur-filtres">
+      <label className="case-reglage">
+        Grouper par
+        <select value={vue.groupe ?? ''} onChange={(e) => modifier({ groupe: e.target.value || undefined })}>
+          <option value="">aucun groupement</option>
+          {groupables(schema).map((c) => (
+            <option key={c.cle} value={c.cle}>
+              {c.nom}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="case-reglage">
+        <input type="checkbox" checked={vue.retourLigne === true} onChange={(e) => modifier({ retourLigne: e.target.checked })} />
+        Retour à la ligne dans les cellules
+      </label>
+      <div className="titre-section">Colonnes affichées</div>
+      {toutes.map((c) => (
+        <label key={c.cle} className="case-reglage">
+          <input
+            type="checkbox"
+            checked={!cachees.has(c.cle)}
+            disabled={c.cle === schema.champTitre}
+            onChange={(e) =>
+              modifier({
+                masquees: e.target.checked ? masquees.map((x) => x.cle).filter((x) => x !== c.cle) : [...masquees.map((x) => x.cle), c.cle],
+              })
+            }
+          />
+          <span className="icone">{ICONES[c.type]}</span>
+          {c.nom}
+        </label>
+      ))}
     </div>
   )
 }

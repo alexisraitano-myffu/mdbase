@@ -33,7 +33,15 @@ const NOMS_TYPES: Record<TypeCreable, string> = {
 type Props = { espace: DepotEspace; base: string; depot: DepotBase; colonne: Colonne }
 
 /** Menu d'une colonne : renommer, utiliser comme titre, supprimer (spec §5). */
-export function MenuColonne({ espace, base, depot, colonne, fermer, ancre }: Props & { fermer: () => void; ancre: HTMLElement | null }) {
+export function MenuColonne({
+  espace,
+  base,
+  depot,
+  colonne,
+  fermer,
+  ancre,
+  masquer,
+}: Props & { fermer: () => void; ancre: HTMLElement | null; /** Masque la colonne dans la vue courante. */ masquer?: (() => void) | undefined }) {
   const lancer = useLancer()
   const [nom, setNom] = useState(colonne.nom)
   const [confirmer, setConfirmer] = useState(false)
@@ -92,6 +100,17 @@ export function MenuColonne({ espace, base, depot, colonne, fermer, ancre }: Pro
         onKeyDown={(e) => e.key === 'Enter' && renommer()}
       />
       {colonne.type === 'rollup' && <ReglagesRollup espace={espace} base={base} colonne={colonne} />}
+      {masquer && !estTitre && (
+        <button
+          className="option"
+          onClick={() => {
+            masquer()
+            fermer()
+          }}
+        >
+          Masquer dans cette vue
+        </button>
+      )}
       {colonne.type === 'text' && !estTitre && (
         <button
           className="option"
@@ -181,7 +200,7 @@ function ReglagesRollup({ espace, base, colonne }: { espace: DepotEspace; base: 
   )
 }
 
-const LIBELLES_CALCULS: Record<Calcul, string> = {
+export const LIBELLES_CALCULS: Record<Calcul, string> = {
   afficher: 'Afficher les valeurs',
   compter: 'Compter les lignes',
   compter_valeurs: 'Compter les valeurs',

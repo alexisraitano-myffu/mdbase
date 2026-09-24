@@ -3,7 +3,8 @@ import type { ChargementBase } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatBase } from '../core/depot-espace'
 import { appliquerVue, filtreDePastille, valeursHeritees } from '../core/filtres'
-import type { Filtre } from '../core/vue'
+import type { Filtre, ModificationVue } from '../core/vue'
+import { useLancer } from './actions'
 import { BarreVue } from './BarreVue'
 import { Page } from './Page'
 import { Tableau } from './Tableau'
@@ -29,6 +30,7 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
     [lignesStockees, calculs],
   )
   const aujourdhui = useAujourdhui()
+  const lancer = useLancer()
   const [idVue, setIdVue] = useState(etat.vues[0]!.id)
   const vue = etat.vues.find((v) => v.id === idVue) ?? etat.vues[0]!
 
@@ -85,6 +87,11 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
     return () => document.removeEventListener('keydown', clavier)
   }, [page, lignesVue, etat.id])
 
+  const reglages = useMemo(
+    () => ({ vue, modifier: (m: ModificationVue) => void lancer(espace.modifierVue(etat.id, vue.id, m)) }),
+    [vue, espace, etat.id, lancer],
+  )
+
   const { nonReconnus, avertissements } = chargement.base
   const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`)]
 
@@ -107,6 +114,8 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
         )}
         <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} />
         <Tableau
+          key={vue.id}
+          reglages={reglages}
           espace={espace}
           base={etat.id}
           depot={depot}

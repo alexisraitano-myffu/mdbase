@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790279797.5929081,
-    "ast_hash": "f902fa5517fa8bb91d38b382418604cd",
+    "mtime": 1790280317.6780612,
+    "ast_hash": "935441e4458848b2892ac8b641222783",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790279527.997408,
-    "ast_hash": "d8939097f238db3af8117efb2365f88c",
+    "mtime": 1790280374.7857158,
+    "ast_hash": "4f78db46068fd660cf8d50b80de0e984",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -255,8 +255,8 @@
     "semantic_hash": ""
   },
   "src/ui/EnteteColonne.tsx": {
-    "mtime": 1790278973.064966,
-    "ast_hash": "bd2df731e13c50d79d00c776fb8ecba9",
+    "mtime": 1790280407.3098946,
+    "ast_hash": "8dd00352725c90f3c4e45f6ac72c9053",
     "semantic_hash": ""
   },
   "src/ui/actions.tsx": {
@@ -280,13 +280,13 @@
     "semantic_hash": ""
   },
   "src/core/vue.test.ts": {
-    "mtime": 1790277905.4683027,
-    "ast_hash": "a953ac113d47edf7647bf2d7129310cb",
+    "mtime": 1790280374.7854757,
+    "ast_hash": "c66427ca812a2b4a873b66eaedb14426",
     "semantic_hash": ""
   },
   "src/core/vue.ts": {
-    "mtime": 1790279527.9968843,
-    "ast_hash": "96afb7b5c0f181015f6a21a4ad7baa16",
+    "mtime": 1790280358.5803518,
+    "ast_hash": "d811fc6bf7d1f527c92bedf56b18a381",
     "semantic_hash": ""
   },
   "src/ui/BarreVue.tsx": {
@@ -325,8 +325,8 @@
     "semantic_hash": ""
   },
   "src/core/calcul.ts": {
-    "mtime": 1790278333.051718,
-    "ast_hash": "d174a7e7b5133f577ba7ad6397f071d1",
+    "mtime": 1790280407.310241,
+    "ast_hash": "98a0ae3cd9571afd36cd6270f8c020b3",
     "semantic_hash": ""
   },
   "src/core/depot-espace-relations.test.ts": {
@@ -482,6 +482,16 @@
   "src/ui/useLargeurPanneau.ts": {
     "mtime": 1790280187.242362,
     "ast_hash": "fa4f66fc898deabe6467db0b067a229f",
+    "semantic_hash": ""
+  },
+  "src/core/groupes.test.ts": {
+    "mtime": 1790280425.4726927,
+    "ast_hash": "9dc48322e491cb4f7ea76699511ec31c",
+    "semantic_hash": ""
+  },
+  "src/core/groupes.ts": {
+    "mtime": 1790280407.3151338,
+    "ast_hash": "53dfbbd34609ce374bd9b51644ced1bf",
     "semantic_hash": ""
   }
 }
