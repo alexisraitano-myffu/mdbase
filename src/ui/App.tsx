@@ -7,13 +7,10 @@ import {
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
 import { aleatoire, planifier } from '../adapters/navigateur'
-import type { ChargementBase } from '../core/base'
-import type { DepotBase } from '../core/depot-base'
 import { DepotEspace } from '../core/depot-espace'
 import { FournisseurActions } from './actions'
 import { BarreLaterale } from './BarreLaterale'
-import { Tableau } from './Tableau'
-import { useErreurDepot } from './useDepot'
+import { VueBase } from './VueBase'
 
 type Etat =
   | { type: 'incompatible' }
@@ -129,40 +126,9 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           </p>
         )}
         {base?.chargement.ok && base.depot && (
-          <VueBase key={base.id} espace={espace} id={base.id} depot={base.depot} chargement={base.chargement} />
+          <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} />
         )}
       </main>
     </div>
-  )
-}
-
-function VueBase(p: {
-  espace: DepotEspace
-  id: string
-  depot: DepotBase
-  chargement: Extract<ChargementBase, { ok: true }>
-}) {
-  const { espace, id, depot, chargement } = p
-  const erreur = useErreurDepot(depot)
-  const { nonReconnus, avertissements } = chargement.base
-  const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`)]
-  return (
-    <>
-      <h1>{depot.schema.nom}</h1>
-      {erreur && <p className="erreur">Écriture impossible : {erreur}</p>}
-      {signalements.length > 0 && (
-        <details className="avertissements">
-          <summary>
-            ⚠ {signalements.length} signalement{signalements.length > 1 ? 's' : ''}
-          </summary>
-          <ul>
-            {signalements.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </details>
-      )}
-      <Tableau espace={espace} base={id} depot={depot} />
-    </>
   )
 }

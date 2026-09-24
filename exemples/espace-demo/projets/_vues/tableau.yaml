@@ -1,0 +1,12 @@
+id: tableau
+nom: Tableau
+type: tableau
+tris:
+  - { colonne: echeance, sens: asc }
+filtres_rapides:
+  - nom: En cours
+    filtres:
+      - { colonne: statut, operateur: egal, valeur: En cours }
+  - nom: En retard
+    filtres:
+      - { colonne: echeance, operateur: avant, valeur: aujourdhui }

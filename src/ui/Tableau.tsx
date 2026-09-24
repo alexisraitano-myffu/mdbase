@@ -10,19 +10,35 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace } from '../core/depot-espace'
+import type { LigneVue } from '../core/filtres'
+import type { Modifications } from '../core/ligne'
+import type { Tri } from '../core/vue'
 import { colonne as colonneDuSchema } from '../core/schema'
 import { useLancer } from './actions'
 import { Cellule } from './cellules'
 import { AjoutColonne, ICONES, MenuColonne } from './EnteteColonne'
-import { useLignes } from './useDepot'
 
 const HAUTEUR_LIGNE = 34
 
 const fonctionnalites = tableFeatures({ columnSizingFeature, columnResizingFeature })
 
 /** Vue tableau d'une base (spec §7) : lignes virtualisées, édition dans les cellules. */
-export function Tableau({ espace, base, depot }: { espace: DepotEspace; base: string; depot: DepotBase }) {
-  const lignes = useLignes(depot)
+type Props = {
+  espace: DepotEspace
+  base: string
+  depot: DepotBase
+  /** Lignes déjà filtrées et triées par la vue. */
+  lignesVue: LigneVue[]
+  tris: Tri[]
+  /** Valeurs héritées des filtres actifs pour une nouvelle ligne (spec §8). */
+  valeursCreation: () => Modifications
+  /** Garde une ligne visible après création ou modification, même hors filtres. */
+  retenir: (id: string) => void
+}
+
+export function Tableau({ espace, base, depot, lignesVue, tris, valeursCreation, retenir }: Props) {
+  const lignes = useMemo(() => lignesVue.map((l) => l.ligne), [lignesVue])
+  const sortira = useMemo(() => new Set(lignesVue.filter((l) => l.sortira).map((l) => l.ligne.id)), [lignesVue])
   const lancer = useLancer()
   const [aEditer, setAEditer] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ cle: string; ancre: HTMLElement } | null>(null)
@@ -43,7 +59,7 @@ export function Tableau({ espace, base, depot }: { espace: DepotEspace; base: st
 
   const table = useTable({
     features: fonctionnalites,
-    data: lignes as LigneChargee[],
+    data: lignes,
     columns: colonnes,
     getRowId: (l) => l.chemin,
     columnResizeMode: 'onChange',
@@ -63,8 +79,10 @@ export function Tableau({ espace, base, depot }: { espace: DepotEspace; base: st
   }, [aEditer, rangees.length, virtuel])
 
   async function nouvelleLigne() {
-    const ligne = await lancer(depot.creer())
-    if (ligne) setAEditer(ligne.chemin)
+    const ligne = await lancer(depot.creer(valeursCreation()))
+    if (!ligne) return
+    retenir(ligne.id)
+    setAEditer(ligne.chemin)
   }
 
   const deposer = (cle: string, cible: string) => {
@@ -103,6 +121,9 @@ export function Tableau({ espace, base, depot }: { espace: DepotEspace; base: st
                 >
                   <span className="icone">{ICONES[c.type]}</span>
                   {c.nom}
+                  {tris.find((t) => t.colonne === c.cle) && (
+                    <span className="indicateur-tri">{tris.find((t) => t.colonne === c.cle)!.sens === 'asc' ? ' ↑' : ' ↓'}</span>
+                  )}
                 </span>
                 <div
                   className={`poignee ${h.column.getIsResizing() ? 'active' : ''}`}
@@ -132,7 +153,8 @@ export function Tableau({ espace, base, depot }: { espace: DepotEspace; base: st
             return (
               <div
                 key={rangee.id}
-                className="rangee"
+                className={`rangee ${sortira.has(rangee.original.id) ? 'sortira' : ''}`}
+                title={sortira.has(rangee.original.id) ? 'Sortira de la vue au prochain rafraîchissement' : undefined}
                 style={{ transform: `translateY(${v.start}px)`, height: HAUTEUR_LIGNE }}
               >
                 {rangee.getAllCells().map((cell) => (
@@ -143,6 +165,7 @@ export function Tableau({ espace, base, depot }: { espace: DepotEspace; base: st
                       colonne={colonneDe(cell.column.id)}
                       editionInitiale={rangee.id === aEditer && cell.column.id === depot.schema.champTitre}
                       creerOption={creerOption}
+                      surModification={() => retenir(rangee.original.id)}
                     />
                   </div>
                 ))}

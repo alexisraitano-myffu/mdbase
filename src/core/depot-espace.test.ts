@@ -206,3 +206,21 @@ describe('DepotEspace : vues', () => {
     ])
   })
 })
+
+describe('DepotEspace : vues, modifications rapides', () => {
+  it('deux modifications lancées sans attendre aboutissent toutes les deux', async () => {
+    const { a, espace } = await ouvrir()
+    const filtre = { colonne: 'statut', operateur: 'vide' as const }
+    const p1 = espace.modifierVue('projets', 'tableau', { filtres: [filtre] })
+    // L'état est déjà à jour : la seconde modification part de la bonne base.
+    expect(espace.etat().bases.get('projets')!.vues[0]!.filtres).toEqual([filtre])
+    const p2 = espace.modifierVue('projets', 'tableau', { tris: [{ colonne: 'budget', sens: 'asc' }] })
+    await Promise.all([p1, p2])
+    const texte = await a.lire('projets/_vues/tableau.yaml')
+    expect(texte).toContain('{ colonne: statut, operateur: vide }')
+    expect(texte).toContain('{ colonne: budget, sens: asc }')
+    const vue = espace.etat().bases.get('projets')!.vues[0]!
+    expect(vue.filtres).toEqual([filtre])
+    expect(vue.tris).toEqual([{ colonne: 'budget', sens: 'asc' }])
+  })
+})

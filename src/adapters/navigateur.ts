@@ -9,3 +9,10 @@ export const planifier: Planifier = (action, ms) => {
   const t = setTimeout(action, ms)
   return () => clearTimeout(t)
 }
+
+/** Date locale du jour, `AAAA-MM-JJ` (les dates sont en heure locale, spec §3). */
+export function aujourdhui(): string {
+  const d = new Date()
+  const deux = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}`
+}

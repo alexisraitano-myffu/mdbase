@@ -14,13 +14,17 @@ type Props = {
   editionInitiale?: boolean
   /** Crée une option de select à la volée et renvoie son libellé. */
   creerOption: (cle: string, label: string) => Promise<string>
+  surModification: () => void
 }
 
 /** Une cellule du tableau : affichage, et édition au clic selon le type. */
-export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerOption }: Props) {
+export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerOption, surModification }: Props) {
   const [edition, setEdition] = useState(editionInitiale)
   const cellule = ligne.cellules[colonne.cle]
-  const modifier = (v: Valeur | undefined) => depot.modifier(ligne.chemin, colonne.cle, v)
+  const modifier = (v: Valeur | undefined) => {
+    surModification()
+    depot.modifier(ligne.chemin, colonne.cle, v)
+  }
   const estTitre = colonne.cle === depot.schema.champTitre
 
   if (!estSaisie(colonne)) {

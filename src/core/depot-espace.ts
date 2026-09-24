@@ -189,15 +189,21 @@ export class DepotEspace {
 
   // ── Vues ─────────────────────────────────────────────────────────
 
-  /** Modifie une vue ; la vue implicite d'une base obtient alors son fichier. */
+  /**
+   * Modifie une vue : l'état en mémoire change tout de suite (deux modifications
+   * rapides partent ainsi de la bonne base), le fichier suit. La vue implicite
+   * d'une base obtient alors son fichier.
+   */
   modifierVue(base: string, idVue: string, modifs: ModificationVue): Promise<void> {
+    this.vue(base, idVue)
+    this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? { ...v, ...modifs } : v)))
     return this.enFile(async () => {
       const vue = this.vue(base, idVue)
       const chemin = cheminVue(base, idVue)
       const texte = modifierVue(vue.implicite ? null : await this.lireOuNull(chemin), vue, modifs)
       await this.adaptateur.ecrire(chemin, texte)
       const relue = lireVue(texte, idVue).vue
-      if (relue) this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? relue : v)))
+      if (relue) this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? { ...relue, ...enAttente(v, relue) } : v)))
     })
   }
 
@@ -328,6 +334,12 @@ export class DepotEspace {
     this.instantane = { groupes, horsGroupe, bases: new Map(this.bases) }
     for (const fn of this.abonnes) fn()
   }
+}
+
+/** Champs modifiés en mémoire mais pas encore écrits : on ne les écrase pas à la relecture. */
+function enAttente(memoire: Vue, relue: Vue): Partial<Vue> {
+  const cles = ['nom', 'filtres', 'tris', 'filtresRapides'] as const
+  return Object.fromEntries(cles.filter((k) => JSON.stringify(memoire[k]) !== JSON.stringify(relue[k])).map((k) => [k, memoire[k]]))
 }
 
 function cheminVue(base: string, idVue: string): string {

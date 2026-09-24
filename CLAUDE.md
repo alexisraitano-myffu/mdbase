@@ -34,6 +34,8 @@ src/
                            (orchestre schéma + lignes, ex. suppression de colonne)
     schema-ecriture.ts     réécriture de `_schema.yaml` (API Document)
     espace-config.ts       lecture/réécriture de `_espace.yaml`, barre latérale effective
+    vue.ts                 lecture/réécriture des `_vues/*.yaml`
+    filtres.ts             évaluation des filtres, tris, héritage à la création, application d'une vue
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
@@ -46,7 +48,8 @@ src/
   - `tsconfig.core.json` compile `src/core` sans lib DOM ni types : `window`, `document`, `process` n'y existent pas ;
   - `src/core/architecture.test.ts` refuse tout import hors du cœur, sauf la liste fermée `LIBRAIRIES_AUTORISEES` (à étendre explicitement quand une librairie sans DOM est ajoutée, ex. `yaml`, `minisearch`).
 - **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
-- Le cœur n'a ni minuteur ni `crypto` : `Planifier` et `Aleatoire` lui sont injectés.
+- Le cœur n'a ni minuteur, ni `crypto`, ni horloge : `Planifier`, `Aleatoire` et la date du jour (`Contexte.aujourdhui`) lui sont injectés.
+- Écart assumé à la spec §8 : une ligne **modifiée** dans la vue reste visible (« sortira de la vue ») comme une ligne créée, sinon elle disparaîtrait en pleine édition.
 - TanStack Table est en **v9** (`useTable`, fonctionnalités déclarées via `tableFeatures`) : les exemples v8 (`useReactTable`, `getCoreRowModel`) ne marchent pas. Guides à jour dans `node_modules/@tanstack/*/skills/`.
 - Fichiers de configuration (`_schema.yaml`, `_espace.yaml`…) : toujours relus sur le disque juste avant d'être modifiés, jamais réécrits depuis un état en mémoire.
 - Chemins : relatifs à la racine de l'espace, séparés par `/`, racine = `""`.
@@ -71,7 +74,8 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 2. Lecture/écriture
 - [x] 3. Tableau minimal (validé dans Chrome ; finitions du ressenti à reprendre plus tard)
 - [x] 4. Gestion du schéma (validé dans Chrome)
-- [ ] 5. Filtres, tris, filtres rapides
+- [x] 5. Filtres, tris, filtres rapides (à valider dans Chrome)
+- [ ] 6. Relations et rollups
 
 ## graphify
 
