@@ -57,6 +57,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Copies de conflit OneDrive des fichiers de réglages (`tableau-DESKTOP-AB12.yaml`) : jamais chargées, signalées dans la barre latérale, les deux textes côte à côte pour garder l'original ou la copie.
 - Supprimer une ligne (menu ⋯ de la page), avec la proposition de retirer aussi les liens qui pointaient vers elle ; sinon ils restent, affichés comme liens cassés.
 - « Retirer les liens cassés » dans le menu d'une colonne relation.
+- Tests de bout en bout (Playwright, `npm run test:e2e`) : l'app dans Chrome sans fenêtre sur une copie neuve de la démo ; premiers tests sur la robustesse synchro (relecture, ids en double, copies de conflit, suppression et liens cassés).
 
 ### Changed
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).

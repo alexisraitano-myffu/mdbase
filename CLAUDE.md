@@ -10,6 +10,7 @@ Bases de données relationnelles avec l'ergonomie des bases Notion, dont le seul
 npm run dev         # serveur Vite (ouvrir dans Chrome ou Edge)
 npm test            # Vitest, une passe (tests du cœur, dans Node)
 npm run test:watch
+npm run test:e2e    # Playwright : l'interface dans Chrome sans fenêtre (e2e/), réutilise le `npm run dev` lancé
 npm run typecheck   # tsc -b sur les trois projets (core, app, test)
 npm run build       # typecheck + build statique dans dist/
 ```
@@ -80,7 +81,8 @@ Trois projets TypeScript (`tsconfig.core.json`, `tsconfig.app.json`, `tsconfig.t
 - Les tests du cœur tournent sur `AdaptateurMemoire` (horloge injectable pour les dates) : ni navigateur, ni disque.
 - **Règle stricte : aucune fonctionnalité sans test.** Unitaire par défaut ; les 9 invariants de la spec (§13) deviennent des tests dès qu'ils sont atteignables, et ne se retirent jamais.
 - Chemins critiques (perte de données : écriture, réécriture préservant les champs inconnus, suppressions, renommages) : `npm test` avant tout commit qui les touche.
-- L'adaptateur FSA et l'UI se valident à la main dans Chrome pour l'instant ; Playwright si ça devient fragile.
+- Bout en bout : Playwright dans `e2e/` (`*.spec.ts`, hors Vitest). La fixture `e2e/espace.ts` ouvre une copie neuve de la démo par test : `showDirectoryPicker` y est remplacé par un dossier OPFS (même API de fichiers, sans sélecteur à cliquer), et `espace.ecrire/lire/supprimer` simulent les changements faits ailleurs. Toute erreur de console fait échouer le test. `@playwright/test` est figé sur la version dont le navigateur est déjà en cache (pas de téléchargement) ; le monter implique `npx playwright install chromium-headless-shell`.
+- Une fonctionnalité d'interface livrée reçoit son test de bout en bout ; la validation d'Alexis dans Chrome reste le dernier mot sur le ressenti.
 
 ## Jalons
 
