@@ -16,6 +16,7 @@ import {
   type OperationDashboard,
 } from './dashboard'
 import { boucle } from './graphe'
+import { copieDeConflit, doublons } from './conflits'
 import { IndexRecherche, type Resultat } from './recherche'
 import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
@@ -67,7 +68,14 @@ export type EtatEspace = {
   calculs: Calculs
   /** Titre de chaque ligne, par base puis par id : pastilles de relation, liens cassés. */
   titres: ReadonlyMap<string, ReadonlyMap<string, string>>
+  /** Ids portés par plusieurs fichiers, par base (seulement les bases concernées). */
+  doublons: ReadonlyMap<string, ReadonlyMap<string, LigneChargee[]>>
+  /** Copies de conflit de fichiers de configuration, jamais chargées (spec §4). */
+  copiesConflit: CopieConflit[]
 }
+
+/** `chemin` est une copie de conflit de synchro de `original` (même dossier). */
+export type CopieConflit = { chemin: string; original: string }
 
 export type OptionsEspace = OptionsDepot & {
   /** Date du jour `AAAA-MM-JJ`, pour les filtres relatifs des rollups et les formules. */
@@ -82,13 +90,14 @@ export class DepotEspace {
   private readonly bases = new Map<string, EtatBase>()
   private readonly dashboards = new Map<string, EtatDashboard>()
   private config: ConfigEspace = lireEspace(null)
-  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map() }
+  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [] }
   private readonly abonnes = new Set<() => void>()
   private readonly recherche = new IndexRecherche()
   /** Sérialise les modifications de configuration. */
   private file: Promise<unknown> = Promise.resolve()
   /** Modifications de configuration appliquées en mémoire mais pas encore écrites. */
   private configEnVol = 0
+  private copies: CopieConflit[] = []
 
   private constructor(adaptateur: AdaptateurFichiers, options: OptionsEspace) {
     this.adaptateur = adaptateur
@@ -100,6 +109,7 @@ export class DepotEspace {
     d.config = lireEspace(await d.lireOuNull(FICHIER_ESPACE))
     for (const id of await listerBases(adaptateur)) await d.chargerBase(id)
     await d.chargerDashboards()
+    d.copies = await d.chercherCopies()
     d.publier()
     return d
   }
@@ -124,39 +134,89 @@ export class DepotEspace {
    * Renvoie vrai si quelque chose a changé.
    */
   rafraichir(): Promise<boolean> {
+    return this.enFile(() => this.relire())
+  }
+
+  private async relire(): Promise<boolean> {
+    let change = false
+    const config = lireEspace(await this.lireOuNull(FICHIER_ESPACE))
+    if (!memes(config, this.config)) {
+      this.config = config
+      change = true
+    }
+    const ids = await listerBases(this.adaptateur)
+    for (const id of [...this.bases.keys()]) {
+      if (ids.includes(id)) continue
+      this.bases.delete(id)
+      change = true
+    }
+    for (const id of ids) {
+      const b = this.bases.get(id)
+      if (b?.depot) {
+        change = (await this.rafraichirBase(b, b.depot)) || change
+        continue
+      }
+      // Nouveau dossier, ou dossier qui n'était pas une base : on le recharge en entier.
+      await this.chargerBase(id)
+      if (!b || !memes(b.chargement, this.bases.get(id)!.chargement)) change = true
+    }
+    if (this.configEnVol === 0) {
+      const avant = new Map(this.dashboards)
+      this.dashboards.clear()
+      await this.chargerDashboards()
+      if (!memes([...avant], [...this.dashboards])) change = true
+      else for (const [id, d] of avant) this.dashboards.set(id, d) // mêmes objets : rien ne se redessine
+    }
+    const copies = await this.chercherCopies()
+    if (!memes(copies, this.copies)) {
+      this.copies = copies
+      change = true
+    }
+    if (change) this.publier()
+    return change
+  }
+
+  /** Les deux textes d'une copie de conflit, pour choisir. */
+  async lireCopieConflit(chemin: string): Promise<{ original: string | null; copie: string }> {
+    const c = this.copies.find((x) => x.chemin === chemin)
+    if (!c) throw new ErreurSchema(`Copie de conflit inconnue : ${chemin}`)
+    return { original: await this.lireOuNull(c.original), copie: await this.adaptateur.lire(chemin) }
+  }
+
+  /**
+   * Tranche une copie de conflit : garder l'original (la copie est supprimée)
+   * ou garder la copie (elle remplace l'original). Puis relit l'espace.
+   */
+  resoudreCopieConflit(chemin: string, garder: 'original' | 'copie'): Promise<void> {
     return this.enFile(async () => {
-      let change = false
-      const config = lireEspace(await this.lireOuNull(FICHIER_ESPACE))
-      if (!memes(config, this.config)) {
-        this.config = config
-        change = true
-      }
-      const ids = await listerBases(this.adaptateur)
-      for (const id of [...this.bases.keys()]) {
-        if (ids.includes(id)) continue
-        this.bases.delete(id)
-        change = true
-      }
-      for (const id of ids) {
-        const b = this.bases.get(id)
-        if (b?.depot) {
-          change = (await this.rafraichirBase(b, b.depot)) || change
-          continue
-        }
-        // Nouveau dossier, ou dossier qui n'était pas une base : on le recharge en entier.
-        await this.chargerBase(id)
-        if (!b || !memes(b.chargement, this.bases.get(id)!.chargement)) change = true
-      }
-      if (this.configEnVol === 0) {
-        const avant = new Map(this.dashboards)
-        this.dashboards.clear()
-        await this.chargerDashboards()
-        if (!memes([...avant], [...this.dashboards])) change = true
-        else for (const [id, d] of avant) this.dashboards.set(id, d) // mêmes objets : rien ne se redessine
-      }
-      if (change) this.publier()
-      return change
+      const c = this.copies.find((x) => x.chemin === chemin)
+      if (!c) throw new ErreurSchema(`Copie de conflit inconnue : ${chemin}`)
+      if (garder === 'copie') await this.adaptateur.ecrire(c.original, await this.adaptateur.lire(chemin))
+      await this.adaptateur.supprimer(chemin)
+      await this.relire()
     })
+  }
+
+  /** Copies de conflit parmi les fichiers de configuration : racine, dashboards, et chaque base avec ses vues et mises en page. */
+  private async chercherCopies(): Promise<CopieConflit[]> {
+    const dossiers = ['', DOSSIER_DASHBOARDS, ...[...this.bases.keys()].flatMap((b) => [b, joindre(b, DOSSIER_VUES), joindre(b, DOSSIER_PAGES)])]
+    const copies: CopieConflit[] = []
+    for (const dossier of dossiers) {
+      let entrees
+      try {
+        entrees = await this.adaptateur.lister(dossier)
+      } catch (e) {
+        if (e instanceof FichierIntrouvable) continue
+        throw e
+      }
+      const noms = new Set(entrees.filter((e) => e.type === 'fichier').map((e) => e.nom))
+      for (const nom of noms) {
+        if (!nom.endsWith('.yaml')) continue
+        const original = copieDeConflit(nom, noms)
+        if (original) copies.push({ chemin: joindre(dossier, nom), original: joindre(dossier, original) })
+      }
+    }
+    return copies
   }
 
   private async rafraichirBase(b: EtatBase, depot: DepotBase): Promise<boolean> {
@@ -280,8 +340,9 @@ export class DepotEspace {
       if (e instanceof FichierIntrouvable) return
       throw e
     }
+    const noms = new Set(entrees.map((e) => e.nom))
     for (const e of entrees) {
-      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml')) continue
+      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml') || copieDeConflit(e.nom, noms)) continue
       const id = e.nom.slice(0, -'.yaml'.length)
       this.dashboards.set(id, { id, ...lireDashboard(await this.adaptateur.lire(joindre(DOSSIER_DASHBOARDS, e.nom)), id) })
     }
@@ -755,8 +816,9 @@ export class DepotEspace {
     }
     const pages: MiseEnPage[] = []
     const avertissements: string[] = []
+    const noms = new Set(entrees.map((e) => e.nom))
     for (const e of entrees) {
-      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml')) continue
+      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml') || copieDeConflit(e.nom, noms)) continue
       const lue = lireMiseEnPage(await this.adaptateur.lire(joindre(dossier, e.nom)), e.nom.slice(0, -'.yaml'.length))
       avertissements.push(...lue.avertissements)
       if (lue.miseEnPage) pages.push(lue.miseEnPage)
@@ -775,8 +837,9 @@ export class DepotEspace {
     }
     const vues: Vue[] = []
     const avertissements: string[] = []
+    const noms = new Set(entrees.map((e) => e.nom))
     for (const e of entrees) {
-      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml')) continue
+      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml') || copieDeConflit(e.nom, noms)) continue
       const lue = lireVue(await this.adaptateur.lire(joindre(dossier, e.nom)), e.nom.slice(0, -'.yaml'.length))
       avertissements.push(...lue.avertissements)
       if (lue.vue) vues.push(lue.vue)
@@ -859,9 +922,12 @@ export class DepotEspace {
     const { groupes, horsGroupe } = barreLaterale(this.config, [...this.bases.keys()])
     const aCalculer = new Map<string, BaseACalculer>()
     const titres = new Map<string, Map<string, string>>()
+    const enDouble = new Map<string, Map<string, LigneChargee[]>>()
     for (const b of this.bases.values()) {
       if (!b.depot) continue
       const lignes = b.depot.lignes()
+      const d = doublons(lignes)
+      if (d.size > 0) enDouble.set(b.id, d)
       aCalculer.set(b.id, { schema: b.depot.schema, lignes })
       const champ = b.depot.schema.champTitre
       titres.set(b.id, new Map(lignes.map((l) => {
@@ -873,7 +939,7 @@ export class DepotEspace {
     this.recherche.synchroniser(aCalculer.values())
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
-    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres }
+    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies }
     for (const fn of this.abonnes) fn()
   }
 }

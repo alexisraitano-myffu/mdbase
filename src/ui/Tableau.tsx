@@ -63,6 +63,7 @@ type Element =
 export function Tableau(p: Props) {
   const { espace, base, depot, lignesVue, tris, retenir, ouvrir, reglages } = p
   const { etat } = useEspace()
+  const enDouble = etat.doublons.get(depot.schema.id)
   const lancer = useLancer()
   const [aEditer, setAEditer] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ cle: string; ancre: HTMLElement } | null>(null)
@@ -263,8 +264,14 @@ export function Tableau(p: Props) {
               <div
                 key={`${e.groupe ?? ''}/${ligne.chemin}`}
                 {...commun}
-                className={`rangee ${e.lv.sortira ? 'sortira' : ''}`}
-                title={e.lv.sortira ? 'Sortira de la vue au prochain rafraîchissement' : undefined}
+                className={`rangee ${e.lv.sortira ? 'sortira' : ''} ${enDouble?.has(ligne.id) ? 'conflit' : ''}`}
+                title={
+                  enDouble?.has(ligne.id)
+                    ? 'Identifiant porté par plusieurs fichiers : voir le bandeau au-dessus'
+                    : e.lv.sortira
+                      ? 'Sortira de la vue au prochain rafraîchissement'
+                      : undefined
+                }
               >
                 {tailles.map(({ colonne, largeur }) => (
                   <div key={colonne.cle} className="case" style={{ width: largeur }}>

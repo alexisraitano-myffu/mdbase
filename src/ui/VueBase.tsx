@@ -4,6 +4,8 @@ import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatBase } from '../core/depot-espace'
 import type { ModificationVue } from '../core/vue'
 import { useLancer } from './actions'
+import { BandeauDoublons } from './Conflits'
+import { useEspace } from './contexte-espace'
 import { BarreVue } from './BarreVue'
 import { ContenuVue, useVueAppliquee } from './ContenuVue'
 import { Page } from './Page'
@@ -39,6 +41,7 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
     [vue.id, espace, etat.id, lancer],
   )
 
+  const doublons = useEspace().etat.doublons.get(etat.id)
   const { nonReconnus, avertissements } = chargement.base
   const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`)]
 
@@ -59,6 +62,7 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
             </ul>
           </details>
         )}
+        {doublons && <BandeauDoublons depot={depot} doublons={doublons} />}
         <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} />
         <ContenuVue
           espace={espace}

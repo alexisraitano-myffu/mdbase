@@ -687,3 +687,52 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .barre-laterale .relire + .changer { margin-top: 0; }
 .tourne { animation: tourner 0.8s linear infinite; }
 @keyframes tourner { to { transform: rotate(360deg); } }
+
+/* Conflits de synchro */
+.bandeau-conflit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  background: #fdf1e4;
+  color: #8a4a00;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9em;
+}
+.rangee.conflit .case:first-child { box-shadow: inset 3px 0 0 #e8a33d; }
+.alerte-copies { text-align: left; color: #b35c00; padding: 0.3rem 0.5rem; }
+.voile-fenetre {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(15, 15, 15, 0.25);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8vh 16px 0;
+}
+.fenetre {
+  width: min(60rem, 100%);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(15, 15, 15, 0.2);
+}
+.entete-fenetre { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--bordure); }
+.entete-fenetre h2 { font-size: 1.1rem; margin: 0; }
+.corps-fenetre { overflow-y: auto; padding: 0.5rem 1rem 1rem; }
+.defilement-horizontal { overflow-x: auto; }
+.groupe-doublon { border-top: 1px solid var(--bordure); padding: 0.75rem 0; }
+.groupe-doublon table { border-collapse: collapse; width: 100%; font-size: 0.9em; }
+.groupe-doublon th { text-align: left; color: var(--discret); font-weight: 500; padding: 0.25rem 0.5rem; white-space: nowrap; }
+.groupe-doublon td { vertical-align: top; padding: 0.4rem 0.5rem; border-top: 1px solid var(--bordure); }
+.extrait-corps { max-width: 18rem; white-space: pre-wrap; }
+.actions-doublon { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 14rem; }
+.copie-conflit { border-top: 1px solid var(--bordure); padding: 0.75rem 0; }
+.versions-copie { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.versions-copie pre { background: #f7f7f5; border-radius: 6px; padding: 0.5rem; font-size: 0.85em; max-height: 16rem; overflow: auto; white-space: pre-wrap; }
+.nom-version { font-size: 0.85em; color: var(--discret); }

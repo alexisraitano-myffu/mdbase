@@ -2,7 +2,7 @@ import { enregistrerLigne, type FichierNonReconnu, type LigneChargee } from './b
 import { estConfiguration } from './espace'
 import { FichierIntrouvable, joindre, parent, type AdaptateurFichiers } from './fichiers'
 import { genererId, nomFichierLigne, type Aleatoire } from './identifiants'
-import { creerLigne, ErreurEcriture, lireLigne, type Modifications } from './ligne'
+import { changerIdentifiant, creerLigne, ErreurEcriture, lireLigne, type Modifications } from './ligne'
 import { colonne, estSaisie, type Schema } from './schema'
 import { encoder, type Cellule, type Valeur } from './valeurs'
 
@@ -129,6 +129,57 @@ export class DepotBase {
       entree.persistee = { ...persistee, chemin: nouveau, date }
       entree.affichee = { ...entree.affichee, chemin: nouveau }
     })
+  }
+
+  /**
+   * Supprime le fichier d'une ligne. Les modifications en attente sont
+   * abandonnées ; les liens qui pointaient vers elle deviennent des liens cassés.
+   */
+  supprimer(chemin: string): Promise<void> {
+    const e = this.trouver(chemin)
+    e.annuler?.()
+    e.annuler = undefined
+    e.enAttente = {}
+    e.corpsEnAttente = undefined
+    return this.enchainer(e, async () => {
+      try {
+        await this.adaptateur.supprimer(e.persistee.chemin)
+      } catch (x) {
+        if (!(x instanceof FichierIntrouvable)) throw x // déjà parti : c'est ce qu'on voulait
+      }
+      const i = this.entrees.indexOf(e)
+      if (i >= 0) this.entrees.splice(i, 1)
+    })
+  }
+
+  /** Id en double : garde cette version, supprime les autres fichiers qui portent le même id. */
+  async garderVersion(chemin: string): Promise<void> {
+    const gardee = this.trouver(chemin)
+    const autres = this.entrees.filter((e) => e !== gardee && e.persistee.id === gardee.persistee.id)
+    await Promise.all(autres.map((e) => this.supprimer(e.affichee.chemin)))
+  }
+
+  /**
+   * Id en double : fait de cette version une ligne à part, avec un nouvel id
+   * (et le nom de fichier qui va avec). Les liens existants restent sur l'autre.
+   */
+  async separer(chemin: string): Promise<string> {
+    const e = this.trouver(chemin)
+    this.lancerEcriture(e)
+    const id = genererId(this.options.aleatoire, new Set(this.entrees.map((x) => x.persistee.id)))
+    await this.enchainer(e, async () => {
+      const texte = changerIdentifiant(await this.adaptateur.lire(e.persistee.chemin), id)
+      const lue = lireLigne(e.persistee.chemin, texte, this.schema)
+      if (!lue.ok) throw new Error(`Ligne illisible : ${lue.raison}`)
+      const titre = lue.ligne.cellules[this.schema.champTitre]
+      const nouveau = joindre(parent(e.persistee.chemin), nomFichierLigne(titre?.etat === 'ok' && typeof titre.valeur === 'string' ? titre.valeur : '', id))
+      // Écrire la nouvelle avant d'effacer l'ancienne : une coupure laisse au pire un fichier de trop.
+      await this.adaptateur.ecrire(nouveau, texte)
+      if (nouveau !== e.persistee.chemin) await this.adaptateur.supprimer(e.persistee.chemin)
+      e.persistee = { ...lue.ligne, chemin: nouveau, date: await this.adaptateur.dateModification(nouveau) }
+      e.affichee = afficher(e, this.schema)
+    })
+    return id
   }
 
   /**

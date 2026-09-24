@@ -88,6 +88,21 @@ export function reecrireLigne(source: string, schema: Schema, modifs: Modificati
   return assembler(doc, corps ?? d.corps, d.crlf)
 }
 
+/**
+ * Donne un nouvel identifiant à une ligne (copie d'un fichier qu'on garde comme
+ * ligne distincte) : seule la valeur de `id` change, le reste est préservé.
+ */
+export function changerIdentifiant(source: string, id: string): string {
+  const d = decouper(source)
+  if (!d) throw new ErreurEcriture('Fichier sans frontmatter : réécriture refusée')
+  const doc = parseDocument(d.frontmatter)
+  if (doc.errors.length > 0 || !isMap(doc.contents)) {
+    throw new ErreurEcriture('Frontmatter illisible : réécriture refusée pour ne rien perdre')
+  }
+  doc.set(CLE_ID, id)
+  return assembler(doc, d.corps, d.crlf)
+}
+
 /** Texte d'une nouvelle ligne, clés dans l'ordre du schéma (spec §3). */
 export function creerLigne(schema: Schema, id: string, valeurs: Modifications = {}, corps = ''): string {
   const doc = new Document({ [CLE_ID]: id })

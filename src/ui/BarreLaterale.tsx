@@ -1,6 +1,7 @@
 import { useRef, useState, type DragEvent } from 'react'
 import type { DepotEspace, EtatEspace } from '../core/depot-espace'
 import { useLancer } from './actions'
+import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
 
@@ -140,6 +141,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         </>
       )}
 
+      <AlerteCopies espace={espace} copies={etat.copiesConflit} />
       <button
         className="discret relire"
         onClick={relire}
