@@ -6,6 +6,8 @@ import { appliquerVue, filtreDePastille, valeursHeritees } from '../core/filtres
 import type { Filtre, ModificationVue } from '../core/vue'
 import { useLancer } from './actions'
 import { BarreVue } from './BarreVue'
+import { Collection } from './Collection'
+import { Kanban } from './Kanban'
 import { Page } from './Page'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
@@ -113,18 +115,40 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
           </details>
         )}
         <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} />
-        <Tableau
-          key={vue.id}
-          reglages={reglages}
-          espace={espace}
-          base={etat.id}
-          depot={depot}
-          lignesVue={lignesVue}
-          tris={vue.tris}
-          valeursCreation={() => valeursHeritees(depot.schema, filtres)}
-          retenir={retenir}
-          ouvrir={(l) => setPage({ base: etat.id, id: l.id })}
-        />
+        {vue.type === 'tableau' && (
+          <Tableau
+            key={vue.id}
+            reglages={reglages}
+            espace={espace}
+            base={etat.id}
+            depot={depot}
+            lignesVue={lignesVue}
+            tris={vue.tris}
+            valeursCreation={() => valeursHeritees(depot.schema, filtres)}
+            retenir={retenir}
+            ouvrir={(l) => setPage({ base: etat.id, id: l.id })}
+          />
+        )}
+        {(vue.type === 'kanban' || vue.type === 'collection') &&
+          (() => {
+            const Composant = vue.type === 'kanban' ? Kanban : Collection
+            return (
+              <Composant
+                key={vue.id}
+                espace={espace}
+                base={etat.id}
+                depot={depot}
+                vue={vue}
+                lignesVue={lignesVue}
+                valeursCreation={() => valeursHeritees(depot.schema, filtres)}
+                retenir={retenir}
+                ouvrir={(l) => setPage({ base: etat.id, id: l.id })}
+              />
+            )
+          })()}
+        {(vue.type === 'calendrier' || vue.type === 'timeline') && (
+          <p className="discret">Les vues calendrier et timeline arrivent au jalon 9.</p>
+        )}
       </div>
       {page && (
         <Page

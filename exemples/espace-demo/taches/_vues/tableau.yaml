@@ -1,6 +1,8 @@
 id: tableau
 nom: Tableau
 type: tableau
+groupe: projet
+calculs: { heures: somme, fait: pourcent_coches }
 tris:
   - { colonne: echeance, sens: asc }
 filtres_rapides:

@@ -1,0 +1,7 @@
+id: vue-statut
+nom: Par statut
+type: kanban
+groupe: statut
+champs_carte: [ client, echeance, avancement ]
+tris:
+  - { colonne: echeance, sens: asc }

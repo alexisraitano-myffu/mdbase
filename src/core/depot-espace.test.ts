@@ -224,3 +224,15 @@ describe('DepotEspace : vues, modifications rapides', () => {
     expect(vue.tris).toEqual([{ colonne: 'budget', sens: 'asc' }])
   })
 })
+
+describe('DepotEspace : création de vues typées', () => {
+  it('crée un kanban avec ses réglages en une seule écriture', async () => {
+    const { a, espace } = await ouvrir()
+    const id = await espace.creerVue('projets', 'Par statut', 'kanban', { groupe: 'statut', champsCarte: ['budget'] })
+    expect(a.ecritures).toEqual([`projets/_vues/${id}.yaml`])
+    expect(await a.lire(`projets/_vues/${id}.yaml`)).toBe(
+      'id: par-statut\nnom: Par statut\ntype: kanban\ngroupe: statut\nchamps_carte: [ budget ]\n',
+    )
+    expect(espace.etat().bases.get('projets')!.vues.find((v) => v.id === id)).toMatchObject({ type: 'kanban', groupe: 'statut' })
+  })
+})

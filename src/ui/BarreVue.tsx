@@ -2,11 +2,12 @@ import { useRef, useState, type ReactNode } from 'react'
 import type { DepotEspace } from '../core/depot-espace'
 import type { Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
-import type { ModificationVue, Tri, Vue } from '../core/vue'
+import type { ModificationVue, Tri, TypeVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
 import { Flottant } from './flottant'
 import { ICONES } from './EnteteColonne'
+import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
 
 type Props = {
@@ -36,16 +37,7 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
             supprimer={vues.length > 1 ? () => void lancer(espace.supprimerVue(base, v.id)) : undefined}
           />
         ))}
-        <button
-          className="discret onglet-ajout"
-          title="Nouvelle vue tableau"
-          onClick={async () => {
-            const id = await lancer(espace.creerVue(base, `Tableau ${vues.length + 1}`))
-            if (id) choisirVue(id)
-          }}
-        >
-          +
-        </button>
+        <AjoutVue espace={espace} base={base} schema={schema} vues={vues} choisirVue={choisirVue} />
 
         <div className="outils-vue">
           <Panneau libelle={`Filtrer${vue.filtres.length ? ` (${vue.filtres.length})` : ''}`} actif={vue.filtres.length > 0}>
@@ -55,13 +47,58 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
             <EditeurTris schema={schema} tris={vue.tris} changer={(tris) => modifier({ tris })} />
           </Panneau>
           <Panneau libelle="Options" actif={false}>
-            <OptionsVue schema={schema} vue={vue} modifier={modifier} />
+            {vue.type === 'kanban' || vue.type === 'collection' ? (
+              <OptionsCartes schema={schema} vue={vue} modifier={modifier} />
+            ) : (
+              <OptionsVue schema={schema} vue={vue} modifier={modifier} />
+            )}
           </Panneau>
         </div>
       </div>
 
       <Pastilles schema={schema} pastilles={vue.filtresRapides} changer={(filtresRapides) => modifier({ filtresRapides })} />
     </div>
+  )
+}
+
+const TYPES_CREABLES: { type: TypeVue; nom: string; icone: string }[] = [
+  { type: 'tableau', nom: 'Tableau', icone: '▦' },
+  { type: 'kanban', nom: 'Kanban', icone: '▥' },
+  { type: 'collection', nom: 'Collection', icone: '▣' },
+]
+
+export const ICONES_VUES: Record<TypeVue, string> = { tableau: '▦', kanban: '▥', collection: '▣', calendrier: '▤', timeline: '▬' }
+
+/** « + » des onglets : nouvelle vue d'un type donné ; un kanban est groupé d'emblée par la première colonne qui s'y prête. */
+function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: Vue[]; choisirVue: (id: string) => void }) {
+  const lancer = useLancer()
+  const ancre = useRef<HTMLButtonElement>(null)
+  const [ouvert, setOuvert] = useState(false)
+  const creer = async (type: TypeVue, nom: string) => {
+    setOuvert(false)
+    const groupe =
+      type === 'kanban'
+        ? (['select', 'checkbox', 'relation', 'multiselect'] as const).flatMap((t) => p.schema.colonnes.filter((c) => c.type === t))[0]?.cle
+        : undefined
+    const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, groupe ? { groupe } : {}))
+    if (id) p.choisirVue(id)
+  }
+  return (
+    <>
+      <button ref={ancre} className="discret onglet-ajout" title="Nouvelle vue" onClick={() => setOuvert(true)}>
+        +
+      </button>
+      {ouvert && (
+        <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
+          {TYPES_CREABLES.map((t) => (
+            <button key={t.type} className="option" onClick={() => void creer(t.type, t.nom)}>
+              <span className="icone">{t.icone}</span>
+              {t.nom}
+            </button>
+          ))}
+        </Flottant>
+      )}
+    </>
   )
 }
 
@@ -99,6 +136,7 @@ function Onglet(p: { vue: Vue; active: boolean; choisir: () => void; renommer: (
       }}
       title="Double-clic pour renommer, clic droit pour plus"
     >
+      <span className="icone">{ICONES_VUES[p.vue.type]}</span>
       {p.vue.nom}
       {menu && (
         <Flottant ancre={ancre.current} fermer={() => setMenu(false)}>
@@ -215,6 +253,72 @@ function OptionsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modif
           {c.nom}
         </label>
       ))}
+    </div>
+  )
+}
+
+/** Réglages du kanban et de la collection : colonnes, couloirs, champs de la carte, aperçu du corps. */
+function OptionsCartes({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
+  const candidats = schema.colonnes.filter((c) => TYPES_GROUPE_KANBAN.includes(c.type))
+  const champs = new Set(vue.champsCarte ?? [])
+  return (
+    <div className="editeur-filtres">
+      {vue.type === 'kanban' && (
+        <>
+          <label className="case-reglage">
+            Colonnes selon
+            <select value={vue.groupe ?? ''} onChange={(e) => modifier({ groupe: e.target.value || undefined })}>
+              <option value="" disabled>
+                choisir…
+              </option>
+              {candidats.map((c) => (
+                <option key={c.cle} value={c.cle}>
+                  {c.nom}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="case-reglage">
+            Couloirs selon
+            <select value={vue.sousGroupe ?? ''} onChange={(e) => modifier({ sousGroupe: e.target.value || undefined })}>
+              <option value="">pas de couloirs</option>
+              {candidats
+                .filter((c) => c.cle !== vue.groupe)
+                .map((c) => (
+                  <option key={c.cle} value={c.cle}>
+                    {c.nom}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </>
+      )}
+      {vue.type === 'collection' && (
+        <label className="case-reglage">
+          <input type="checkbox" checked={vue.apercuCorps === true} onChange={(e) => modifier({ apercuCorps: e.target.checked })} />
+          Afficher le début du contenu
+        </label>
+      )}
+      <div className="titre-section">Champs sur la carte</div>
+      {schema.colonnes
+        .filter((c) => c.cle !== schema.champTitre)
+        .map((c) => (
+          <label key={c.cle} className="case-reglage">
+            <input
+              type="checkbox"
+              checked={champs.has(c.cle)}
+              onChange={(e) => {
+                const suivants = new Set(champs)
+                if (e.target.checked) suivants.add(c.cle)
+                else suivants.delete(c.cle)
+                // Dans l'ordre du schéma.
+                modifier({ champsCarte: schema.colonnes.map((x) => x.cle).filter((x) => suivants.has(x)) })
+              }}
+            />
+            <span className="icone">{ICONES[c.type]}</span>
+            {c.nom}
+          </label>
+        ))}
     </div>
   )
 }

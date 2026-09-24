@@ -373,13 +373,13 @@ export class DepotEspace {
     })
   }
 
-  creerVue(base: string, nom: string, type: TypeVue = 'tableau'): Promise<string> {
+  creerVue(base: string, nom: string, type: TypeVue = 'tableau', reglages: ModificationVue = {}): Promise<string> {
     return this.enFile(async () => {
       const vues = this.etatBase(base).vues
       const id = idBase(nom, vues.map((v) => v.id))
-      const vue: Vue = { ...vueParDefaut(), id, nom: nom.trim() || id, type }
+      const vue: Vue = { ...vueParDefaut(), ...reglages, id, nom: nom.trim() || id, type }
       delete vue.implicite
-      await this.adaptateur.ecrire(cheminVue(base, id), modifierVue(null, vue, {}))
+      await this.adaptateur.ecrire(cheminVue(base, id), modifierVue(null, vue, reglages))
       // La vue implicite n'a pas de fichier : la garder ferait croire qu'elle existe encore.
       this.remplacerVues(base, (vs) => [...vs.filter((v) => !v.implicite), vue])
       return id

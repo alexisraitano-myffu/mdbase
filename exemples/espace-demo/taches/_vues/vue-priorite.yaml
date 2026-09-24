@@ -1,0 +1,6 @@
+id: vue-priorite
+nom: Par priorité
+type: kanban
+groupe: priorite
+sous_groupe: projet
+champs_carte: [ echeance, heures, fait ]

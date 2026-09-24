@@ -356,3 +356,59 @@ button:hover { background: var(--survol); }
 .libelle-calcul, .invite-calcul { color: var(--discret); font-size: 0.9em; }
 .invite-calcul { visibility: hidden; }
 .pied:hover .invite-calcul { visibility: visible; }
+
+/* Cartes */
+.carte {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 8px 10px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(15, 15, 15, 0.08), 0 1px 2px rgba(15, 15, 15, 0.08);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.carte:hover { background: #fafaf9; }
+.carte.sortira { background: #fbf3db; }
+.titre-carte { font-weight: 500; overflow-wrap: anywhere; }
+.champ-carte { display: flex; flex-wrap: wrap; gap: 4px; font-size: 0.85em; color: #55534e; min-height: 0; }
+.champ-carte:empty { display: none; }
+.champ-carte .cellule { height: auto; padding: 0; }
+.apercu-corps { font-size: 0.8em; color: var(--discret); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.carte-deplacee .carte { box-shadow: 0 6px 20px rgba(15, 15, 15, 0.2); transform: rotate(2deg); cursor: grabbing; }
+.carte-fantome { opacity: 0.3; }
+
+/* Kanban */
+.kanban { flex: 1; overflow: auto; padding-bottom: 1rem; }
+.kanban-entetes, .kanban-colonnes { display: flex; gap: 12px; }
+.kanban-entetes { position: sticky; top: 0; z-index: 2; background: #fff; padding: 6px 0; }
+.kanban-entete, .kanban-colonne { width: 260px; flex-shrink: 0; }
+.kanban-entete { display: flex; align-items: center; gap: 8px; padding: 0 6px; }
+.kanban-colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  min-height: 60px;
+  border-radius: 8px;
+  background: #f7f7f5;
+}
+.kanban-colonne.cible { background: #e7f0fb; }
+.ajout-carte { text-align: left; padding: 4px 6px; font-size: 0.9em; }
+.couloir { margin-bottom: 12px; }
+.titre-couloir { font-weight: 500; padding: 8px 4px 6px; position: sticky; left: 0; }
+
+/* Collection */
+.collection {
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  align-content: start;
+  padding: 4px 2px 1rem;
+}
+.carte-ajout { justify-content: center; align-items: center; min-height: 60px; box-shadow: none; border: 1px dashed #d5d5d3; }

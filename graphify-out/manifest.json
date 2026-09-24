@@ -90,8 +90,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790280198.1750505,
-    "ast_hash": "fcbd89699e0963c974bb28b49471a384",
+    "mtime": 1790280575.272488,
+    "ast_hash": "77026bdba3d26c713c84120c258aaf3e",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "src/ui/Tableau.tsx": {
-    "mtime": 1790279658.728788,
-    "ast_hash": "ca42299f9b56775d31b599160e5451a1",
+    "mtime": 1790280530.1090386,
+    "ast_hash": "a984526608b80bb2e54357ae1e370bb7",
     "semantic_hash": ""
   },
   "src/ui/cellules.tsx": {
@@ -255,8 +255,8 @@
     "semantic_hash": ""
   },
   "src/ui/EnteteColonne.tsx": {
-    "mtime": 1790280407.3098946,
-    "ast_hash": "8dd00352725c90f3c4e45f6ac72c9053",
+    "mtime": 1790280490.3859823,
+    "ast_hash": "6892aaa7c9a86300898a6b2ee47971f1",
     "semantic_hash": ""
   },
   "src/ui/actions.tsx": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "src/ui/BarreVue.tsx": {
-    "mtime": 1790277942.7186291,
-    "ast_hash": "b4dfd53e2c687084d970a013f04b1634",
+    "mtime": 1790280561.2666962,
+    "ast_hash": "1473ca72da11258f41e9ba8099d4f87b",
     "semantic_hash": ""
   },
   "src/ui/EditeurFiltres.tsx": {
@@ -300,8 +300,8 @@
     "semantic_hash": ""
   },
   "src/ui/VueBase.tsx": {
-    "mtime": 1790279729.3761635,
-    "ast_hash": "f862e2d26d69b4447e748526a5bef44b",
+    "mtime": 1790280561.2670126,
+    "ast_hash": "daef9ae658a6cd43626ad15d83ee5392",
     "semantic_hash": ""
   },
   "src/ui/useAujourdhui.ts": {
@@ -492,6 +492,11 @@
   "src/core/groupes.ts": {
     "mtime": 1790280407.3151338,
     "ast_hash": "53dfbbd34609ce374bd9b51644ced1bf",
+    "semantic_hash": ""
+  },
+  "src/ui/PiedTableau.tsx": {
+    "mtime": 1790280480.443376,
+    "ast_hash": "d84316c0acd4c819d80ff1c28b80462c",
     "semantic_hash": ""
   }
 }

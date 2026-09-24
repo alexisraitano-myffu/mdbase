@@ -1,0 +1,4 @@
+id: cartes
+nom: Cartes
+type: collection
+champs_carte: [ secteur, nb_projets, heures, avancement ]

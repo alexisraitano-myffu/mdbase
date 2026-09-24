@@ -371,3 +371,45 @@ function champRemonte(etat: ReturnType<typeof useEspace>['etat'], base: string, 
 }
 
 const normaliser = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** Valeur en lecture seule, compacte, pour les cartes du kanban et de la collection. */
+export function ValeurCompacte({ base, ligne, colonne }: { base: string; ligne: LigneChargee; colonne: Colonne }) {
+  const { etat } = useEspace()
+  const c = ligne.cellules[colonne.cle]
+  if (colonne.type === 'rollup' || colonne.type === 'formula') {
+    return c ? <CelluleCalculee base={base} cellule={c} colonne={colonne} /> : null
+  }
+  if (!c) return null
+  if (c.etat === 'invalide') return <Avertissement cellule={c} />
+  const v = c.valeur
+  switch (colonne.type) {
+    case 'select':
+      return <Pastille label={String(v)} couleur={colonne.options.find((o) => o.label === v)?.couleur} />
+    case 'multiselect':
+      return (
+        <>
+          {(Array.isArray(v) ? v : []).map((x) => (
+            <Pastille key={x} label={x} couleur={colonne.options.find((o) => o.label === x)?.couleur} />
+          ))}
+        </>
+      )
+    case 'relation':
+      return (
+        <>
+          {(Array.isArray(v) ? v : []).map((id) => (
+            <span key={id} className="pastille-relation">
+              {titreDe(etat, colonne.cible, id) ?? `⚠ ${id}`}
+            </span>
+          ))}
+        </>
+      )
+    case 'checkbox':
+      return v === true ? <span>☑ {colonne.nom}</span> : null
+    case 'date':
+      return <span>{formaterDate(String(v))}</span>
+    case 'number':
+      return <span>{Number(v).toLocaleString('fr-FR')}</span>
+    default:
+      return <span>{String(v)}</span>
+  }
+}
