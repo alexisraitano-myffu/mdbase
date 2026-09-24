@@ -1,16 +1,16 @@
 # Graph Report - mdbase  (2026-09-24)
 
 ## Corpus Check
-- 100 files · ~54,886 words
+- 100 files · ~55,566 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 701 nodes · 1752 edges · 42 communities (35 shown, 7 thin omitted)
+- 703 nodes · 1765 edges · 46 communities (42 shown, 4 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 12 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `83a06ae8`
+- Built from commit: `166020a2`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -40,6 +40,10 @@
 - [[_COMMUNITY_Community 39|Community 39]]
 - [[_COMMUNITY_Community 40|Community 40]]
 - [[_COMMUNITY_Community 41|Community 41]]
+- [[_COMMUNITY_Community 42|Community 42]]
+- [[_COMMUNITY_Community 43|Community 43]]
+- [[_COMMUNITY_Community 44|Community 44]]
+- [[_COMMUNITY_Community 45|Community 45]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `DepotEspace` - 67 edges
@@ -54,21 +58,21 @@
 10. `lireLigne()` - 17 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `AjoutColonne()` --calls--> `schemaDe()`  [INFERRED]
+  src/ui/EnteteColonne.tsx → src/core/depot-espace.test.ts
 - `agreger()` --calls--> `ok()`  [INFERRED]
   src/core/calcul.ts → src/core/filtres.test.ts
 - `decoder()` --calls--> `ok()`  [INFERRED]
   src/core/valeurs.ts → src/core/filtres.test.ts
-- `AjoutColonne()` --calls--> `schemaDe()`  [INFERRED]
-  src/ui/EnteteColonne.tsx → src/core/depot-espace.test.ts
 - `cles()` --calls--> `lireSchema()`  [EXTRACTED]
   src/core/schema-ecriture.test.ts → src/core/schema.ts
-- `lireFiltre()` --calls--> `estObjet()`  [EXTRACTED]
-  src/core/vue.ts → src/core/schema.ts
+- `ChoixLigne()` --calls--> `useEspace()`  [EXTRACTED]
+  src/ui/EditeurFiltres.tsx → src/ui/contexte-espace.tsx
 
 ## Import Cycles
 - None detected.
 
-## Communities (42 total, 7 thin omitted)
+## Communities (46 total, 4 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.04
@@ -79,8 +83,12 @@ Cohesion: 0.07
 Nodes (29): dependencies, @dnd-kit/core, @milkdown/crepe, react, react-dom, @tanstack/react-table, @tanstack/react-virtual, yaml (+21 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.10
-Nodes (21): AdaptateurMemoire, BaseChargee, ChargementBase, chargerBase(), enregistrerLigne(), FichierNonReconnu, charger(), espace() (+13 more)
+Cohesion: 0.13
+Nodes (13): AdaptateurMemoire, cheminVue(), estConfiguration(), listerBases(), AdaptateurFichiers, Entree, FichierIntrouvable, joindre() (+5 more)
+
+### Community 3 - "Community 3"
+Cohesion: 0.11
+Nodes (17): LigneVue, groupables(), Groupe, groupeOption(), grouper(), schema, valeurApresDeplacement(), Modifications (+9 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.14
@@ -98,6 +106,10 @@ Nodes (8): compilerOptions, jsx, lib, tsBuildInfoFile, types, exclude, extends, 
 Cohesion: 0.25
 Nodes (7): compilerOptions, lib, tsBuildInfoFile, types, exclude, extends, include
 
+### Community 9 - "Community 9"
+Cohesion: 0.08
+Nodes (10): OptionsDepot, cheminPage(), DepotEspace, relationVers(), lv(), MiseEnPage, ModificationMiseEnPage, Calcul (+2 more)
+
 ### Community 10 - "Community 10"
 Cohesion: 0.29
 Nodes (6): compilerOptions, lib, tsBuildInfoFile, types, extends, include
@@ -107,32 +119,32 @@ Cohesion: 0.33
 Nodes (5): Added, Changed, Changelog, Fixed, [Unreleased]
 
 ### Community 15 - "Community 15"
-Cohesion: 0.15
-Nodes (13): OptionsDepot, assurerListe(), assurerMap(), barreLaterale(), chaines(), ConfigEspace, ErreurEspace, introuvable() (+5 more)
+Cohesion: 0.17
+Nodes (12): ColonneChoix, Cellule(), CelluleCalculee(), CelluleRelation(), champRemonte(), formaterDate(), normaliser(), Pastille() (+4 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.12
-Nodes (15): Planifier, ouvrir(), ouvrir(), colonnes(), ErreurSchema, indexColonne(), modifierSchema(), nouveauSchema() (+7 more)
+Nodes (16): Planifier, ouvrir(), ouvrir(), schemaDe(), colonnes(), ErreurSchema, indexColonne(), modifierSchema() (+8 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.05
-Nodes (57): appliquerVue(), collateur, comparer(), comparerDate(), comparerNombre(), comparerTexte(), Contexte, correspond() (+49 more)
+Cohesion: 0.10
+Nodes (38): appliquerVue(), collateur, comparer(), comparerDate(), comparerNombre(), comparerTexte(), Contexte, correspond() (+30 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.07
-Nodes (33): LigneChargee, afficher(), contientCle(), DepotBase, Entree, superposer(), LigneVue, colonnesDeLaVue() (+25 more)
+Cohesion: 0.14
+Nodes (14): LigneChargee, afficher(), contientCle(), DepotBase, Entree, superposer(), Aleatoire, cleColonne() (+6 more)
 
 ### Community 24 - "Community 24"
-Cohesion: 0.05
-Nodes (50): aleatoire(), aujourdhui(), planifier(), calculsPour(), EtatBase, EtatEspace, schemaDe(), TypeCreable (+42 more)
+Cohesion: 0.19
+Nodes (11): aleatoire(), aujourdhui(), planifier(), choisirDossier(), demanderPermission(), DossierMemorise, navigateurCompatible(), retrouverDossier() (+3 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.12
-Nodes (19): cheminPage(), COULEURS, OptionsEspace, Groupe, estObjet(), chaines(), CHAMPS_MODIFIABLES, EchelleVue (+11 more)
+Cohesion: 0.09
+Nodes (30): COULEURS, EtatBase, OptionsEspace, assurerListe(), assurerMap(), barreLaterale(), chaines(), ConfigEspace (+22 more)
 
 ### Community 38 - "Community 38"
 Cohesion: 0.06
-Nodes (57): agreger(), BaseACalculer, calculer(), calculerInverse(), Calculs, erreur(), preparerRollup(), RollupPret (+49 more)
+Nodes (65): BaseChargee, ChargementBase, chargerBase(), enregistrerLigne(), FichierNonReconnu, charger(), agreger(), BaseACalculer (+57 more)
 
 ### Community 39 - "Community 39"
 Cohesion: 0.11
@@ -140,27 +152,47 @@ Nodes (22): Affichage, AFFICHAGES, ChampPage, champsOrdonnes(), choisirMiseEnPag
 
 ### Community 40 - "Community 40"
 Cohesion: 0.09
-Nodes (43): ajouterMois(), apresGeste(), debutMois(), decaler(), decalerValeur(), ecartJours(), Echelle, enUTC() (+35 more)
+Nodes (47): ajouterMois(), apresGeste(), debutMois(), decaler(), decalerValeur(), ecartJours(), Echelle, enUTC() (+39 more)
+
+### Community 41 - "Community 41"
+Cohesion: 0.17
+Nodes (14): calculsPour(), EtatEspace, TypeCreable, TYPES_CREABLES, CALCULS, ColonneRollup, ContexteEspace, useEspace() (+6 more)
+
+### Community 42 - "Community 42"
+Cohesion: 0.23
+Nodes (12): colonnesDeLaVue(), ModificationVue, Tri, Element, fonctionnalites, Props, Tableau(), useAujourdhui() (+4 more)
+
+### Community 43 - "Community 43"
+Cohesion: 0.16
+Nodes (6): colonnesDates(), ICONES_VUES, OptionsTemps(), Props, TYPES_CREABLES, Flottant()
+
+### Community 44 - "Community 44"
+Cohesion: 0.18
+Nodes (8): Contexte, FournisseurActions(), Lancer, useLancer(), BarreLaterale(), Props, BarreVue(), MenuColonne()
+
+### Community 45 - "Community 45"
+Cohesion: 0.40
+Nodes (5): LIBELLES_CALCULS, CaseCalcul(), formater(), PiedTableau(), Props
 
 ## Knowledge Gaps
-- **169 isolated node(s):** `Added`, `Changed`, `Fixed`, `Principes directeurs`, `Inclus` (+164 more)
+- **171 isolated node(s):** `Added`, `Changed`, `Fixed`, `Principes directeurs`, `Inclus` (+166 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `DepotEspace` connect `Community 9` to `Community 2`, `Community 3`, `Community 39`, `Community 40`, `Community 41`, `Community 15`, `Community 17`, `Community 19`, `Community 20`, `Community 24`, `Community 26`?**
+- **Why does `DepotEspace` connect `Community 9` to `Community 2`, `Community 3`, `Community 38`, `Community 39`, `Community 40`, `Community 41`, `Community 42`, `Community 43`, `Community 44`, `Community 17`, `Community 20`, `Community 24`, `Community 26`?**
   _High betweenness centrality (0.095) - this node is a cross-community bridge._
-- **Why does `colonne` connect `Community 38` to `Community 3`, `Community 39`, `Community 40`, `Community 17`, `Community 19`, `Community 20`, `Community 24`, `Community 26`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `DepotBase` connect `Community 20` to `Community 2`, `Community 3`, `Community 39`, `Community 40`, `Community 17`, `Community 19`, `Community 24`, `Community 26`?**
+- **Why does `colonne` connect `Community 38` to `Community 3`, `Community 39`, `Community 40`, `Community 9`, `Community 41`, `Community 42`, `Community 45`, `Community 15`, `Community 17`, `Community 19`, `Community 20`, `Community 26`?**
+  _High betweenness centrality (0.040) - this node is a cross-community bridge._
+- **Why does `DepotBase` connect `Community 20` to `Community 2`, `Community 3`, `Community 39`, `Community 40`, `Community 9`, `Community 41`, `Community 42`, `Community 15`, `Community 17`, `Community 24`, `Community 26`?**
   _High betweenness centrality (0.040) - this node is a cross-community bridge._
 - **What connects `Added`, `Changed`, `Fixed` to the rest of the system?**
-  _169 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _171 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.043478260869565216 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.06666666666666667 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.09724238026124818 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.13170731707317074 - nodes in this community are weakly interconnected._

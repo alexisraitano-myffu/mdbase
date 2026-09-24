@@ -5,6 +5,7 @@ import { barreLaterale, lireEspace, modifierEspace, type ConfigEspace, type Grou
 import { listerBases } from './espace'
 import { FichierIntrouvable, joindre, type AdaptateurFichiers } from './fichiers'
 import { cleColonne, idBase } from './identifiants'
+import { compiler, ErreurFormule } from './formules/formule'
 import { boucle } from './graphe'
 import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
@@ -53,8 +54,10 @@ export type EtatEspace = {
 }
 
 export type OptionsEspace = OptionsDepot & {
-  /** Date du jour `AAAA-MM-JJ`, pour les filtres relatifs des rollups. */
+  /** Date du jour `AAAA-MM-JJ`, pour les filtres relatifs des rollups et les formules. */
   aujourdhui: () => string
+  /** Date et heure `AAAA-MM-JJTHH:mm`, pour `maintenant()` ; minuit du jour par défaut. */
+  maintenant?: () => string
 }
 
 export class DepotEspace {
@@ -303,6 +306,53 @@ export class DepotEspace {
       }
       await this.modifierSchema(base, { type: 'modifier_colonne', cle, proprietes })
     })
+  }
+
+  /**
+   * Crée une formule (spec §6) à partir de son expression stockée (clés). Refusée
+   * si elle ne se compile pas ou créerait une boucle (invariant 7).
+   */
+  ajouterFormule(base: string, nom: string, expression: string): Promise<string> {
+    return this.enFile(async () => {
+      const schema = this.schema(base)
+      const cle = cleColonne(nom, schema.colonnes.map((c) => c.cle))
+      const nouvelle: Colonne = { cle, nom: nom.trim() || cle, type: 'formula', expression }
+      this.verifierFormule(base, nouvelle)
+      await this.modifierSchema(base, { type: 'ajouter_colonne', colonne: nouvelle })
+      return cle
+    })
+  }
+
+  modifierFormule(base: string, cle: string, expression: string): Promise<void> {
+    return this.enFile(async () => {
+      const actuelle = colonne(this.schema(base), cle)
+      if (actuelle?.type !== 'formula') throw new ErreurSchema(`Pas une formule : ${cle}`)
+      if (actuelle.expression === expression) return
+      this.verifierFormule(base, { ...actuelle, expression })
+      await this.modifierSchema(base, { type: 'modifier_colonne', cle, proprietes: { expression } })
+    })
+  }
+
+  private verifierFormule(base: string, formule: Extract<Colonne, { type: 'formula' }>) {
+    const schema = this.schema(base)
+    const colonnes = schema.colonnes.some((c) => c.cle === formule.cle)
+      ? schema.colonnes.map((c) => (c.cle === formule.cle ? formule : c))
+      : [...schema.colonnes, formule]
+    const schemas = new Map(this.schemas())
+    schemas.set(base, { ...schema, colonnes })
+    const b = boucle(schemas)
+    if (b) throw new ErreurSchema(`Formule refusée. ${b}`)
+    try {
+      compiler(formule.expression, (cle) => colonnes.find((c) => c.cle === cle))
+    } catch (e) {
+      if (e instanceof ErreurFormule) throw new ErreurSchema(`Formule refusée : ${e.message}`)
+      throw e
+    }
+  }
+
+  /** Recalcule les colonnes calculées : au changement de jour, pour `aujourdhui()` (spec §6). */
+  recalculer(): void {
+    this.publier()
   }
 
   // ── Lignes et liens ──────────────────────────────────────────────
@@ -634,7 +684,8 @@ export class DepotEspace {
         return [l.id, t?.etat === 'ok' && typeof t.valeur === 'string' ? t.valeur : ''] as const
       })))
     }
-    const calculs = calculer(aCalculer, { aujourdhui: this.options.aujourdhui() })
+    const aujourdhui = this.options.aujourdhui()
+    const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     this.instantane = { groupes, horsGroupe, bases: new Map(this.bases), calculs, titres }
     for (const fn of this.abonnes) fn()
   }

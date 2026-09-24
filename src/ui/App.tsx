@@ -6,7 +6,8 @@ import {
   navigateurCompatible,
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
-import { aleatoire, aujourdhui, planifier } from '../adapters/navigateur'
+import { useAujourdhui } from './useAujourdhui'
+import { aleatoire, aujourdhui, maintenant, planifier } from '../adapters/navigateur'
 import { DepotEspace } from '../core/depot-espace'
 import { FournisseurActions } from './actions'
 import { BarreLaterale } from './BarreLaterale'
@@ -27,7 +28,7 @@ export function App() {
   const [erreur, setErreur] = useState<string | null>(null)
 
   async function ouvrir(handle: FileSystemDirectoryHandle) {
-    const espace = await DepotEspace.ouvrir(new AdaptateurFsa(handle), { aleatoire, planifier, aujourdhui })
+    const espace = await DepotEspace.ouvrir(new AdaptateurFsa(handle), { aleatoire, planifier, aujourdhui, maintenant })
     setEtat({ type: 'ouvert', handle, espace })
   }
 
@@ -61,6 +62,12 @@ export function App() {
     document.addEventListener('visibilitychange', vider)
     return () => document.removeEventListener('visibilitychange', vider)
   }, [etat])
+
+  // Les formules avec aujourdhui() changent de valeur avec le jour (spec §6).
+  const jour = useAujourdhui()
+  useEffect(() => {
+    if (etat.type === 'ouvert') etat.espace.recalculer()
+  }, [jour, etat])
 
   const choisir = () => tenter(async () => ouvrir(await choisirDossier()))
 

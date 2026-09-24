@@ -87,7 +87,7 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 6. Relations et rollups (validé dans Chrome)
 - [x] 7. Pages (validé dans Chrome)
 - [x] 8. Vues : groupement, kanban, collection (validé dans Chrome)
-- [x] 9. Vues temporelles : calendrier, timeline (à valider dans Chrome)
+- [x] 9. Vues temporelles : calendrier, timeline (validé dans Chrome ; retours d’usage à venir)
 - [ ] 10. Formules
 
 ## graphify

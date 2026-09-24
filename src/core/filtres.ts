@@ -9,7 +9,7 @@ import type { Filtre, FiltreRapide, Operateur, Tri } from './vue'
 // Tout s'évalue sur les valeurs de l'index, sans accès aux fichiers.
 
 /** « Aujourd'hui » est injecté : le cœur ne lit pas l'horloge lui-même. */
-export type Contexte = { aujourdhui: string }
+export type Contexte = { aujourdhui: string; /** `AAAA-MM-JJTHH:mm`, pour `maintenant()` dans les formules. */ maintenant?: string }
 
 /** Opérateurs proposés pour une colonne, selon la nature de sa valeur (spec §7). */
 export function operateursPour(c: Colonne): Operateur[] {

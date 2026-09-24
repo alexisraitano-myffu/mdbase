@@ -16,3 +16,10 @@ export function aujourdhui(): string {
   const deux = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}`
 }
+
+/** Date et heure locales, `AAAA-MM-JJTHH:mm` (fonction `maintenant()` des formules). */
+export function maintenant(): string {
+  const d = new Date()
+  const deux = (n: number) => String(n).padStart(2, '0')
+  return `${aujourdhui()}T${deux(d.getHours())}:${deux(d.getMinutes())}`
+}

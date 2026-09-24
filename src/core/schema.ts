@@ -1,4 +1,6 @@
 import { parse } from 'yaml'
+import type { TypeFormule } from './formules/fonctions'
+import { typerFormules } from './formules/formule'
 
 // Lecture de `_schema.yaml` (spec §3). Lecture tolérante : une colonne mal
 // formée est écartée avec un avertissement, le reste de la base reste utilisable.
@@ -23,7 +25,12 @@ export type ColonneRollup = Commun & {
   calcul: string
   filtre?: unknown
 }
-export type ColonneFormule = Commun & { type: 'formula'; expression: string }
+export type ColonneFormule = Commun & {
+  type: 'formula'
+  expression: string
+  /** Type du résultat, déduit à la lecture du schéma (jamais écrit) ; absent si la formule est en erreur. */
+  resultat?: TypeFormule
+}
 
 export type Colonne = ColonneSimple | ColonneChoix | ColonneRelation | ColonneRollup | ColonneFormule
 export type TypeColonne = Colonne['type']
@@ -87,7 +94,7 @@ export function natureDe(c: Colonne): Nature {
       if (c.calcul === 'date_plus_tot' || c.calcul === 'date_plus_tard') return 'date'
       return 'nombre'
     case 'formula':
-      return 'texte' // précisé au jalon 10, selon le type du résultat
+      return c.resultat ?? 'texte'
   }
 }
 
@@ -137,13 +144,19 @@ export function lireSchema(texte: string, idBase: string): LectureSchema {
     champTitre = repli.cle
   }
 
+  const types = typerFormules(colonnes)
+  const typees = colonnes.map((c): Colonne => {
+    const t = types.get(c.cle)
+    return c.type === 'formula' && (t === 'nombre' || t === 'texte' || t === 'date' || t === 'case') ? { ...c, resultat: t } : c
+  })
+
   return {
     schema: {
       version: typeof brut.version === 'number' ? brut.version : 1,
       id: idBase,
       nom: typeof brut.nom === 'string' ? brut.nom : idBase,
       champTitre,
-      colonnes,
+      colonnes: typees,
       ordreVues: Array.isArray(brut.vues) ? brut.vues.filter((v): v is string => typeof v === 'string') : [],
     },
     avertissements,

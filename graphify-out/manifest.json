@@ -90,8 +90,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790285412.067234,
-    "ast_hash": "7fd86bb010a7cf07a3cdcf898176194b",
+    "mtime": 1790285704.994859,
+    "ast_hash": "960fa2a4d0fd578a24248a9bd9f6bb5f",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
-    "mtime": 1790285402.843109,
-    "ast_hash": "1efc9a9c4e3470df0632be30d8318c6c",
+    "mtime": 1790285704.9942234,
+    "ast_hash": "412842c514de41463c428261ed78b9db",
     "semantic_hash": ""
   },
   "exemples/espace-demo/_espace.yaml": {
@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/_schema.yaml": {
-    "mtime": 1790284872.0734465,
-    "ast_hash": "f30f690620f1e7de6bc5b045b05f70ab",
+    "mtime": 1790285696.0968761,
+    "ast_hash": "233b5ac90812c2b18fe4a6ef27d531e9",
     "semantic_hash": ""
   },
   "index.html": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "src/ui/BarreVue.tsx": {
-    "mtime": 1790285392.5811255,
-    "ast_hash": "23822f5350d740801a4552cf364a734a",
+    "mtime": 1790285669.3824344,
+    "ast_hash": "bd03e54e815e2479fb301998a6a25a6c",
     "semantic_hash": ""
   },
   "src/ui/EditeurFiltres.tsx": {
@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "src/exemples.test.ts": {
-    "mtime": 1790284880.926249,
-    "ast_hash": "882674b7f12eb0187acf9297e42c74be",
+    "mtime": 1790285704.8628275,
+    "ast_hash": "93888ca9864a3c4a914cdc74e8e30e76",
     "semantic_hash": ""
   },
   "exemples/espace-demo/clients/_schema.yaml": {
@@ -405,48 +405,48 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/cadrage--tcadr004.md": {
-    "mtime": 1790279012.0909033,
-    "ast_hash": "5940a68949067abfa17be6da862a5af9",
+    "mtime": 1790285696.095648,
+    "ast_hash": "9cf259217a23d16ab2770a6ef2471930",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/catalogue--tcata005.md": {
-    "mtime": 1790279012.091204,
-    "ast_hash": "3807ed7f98e86d541f63d059c2b4f8c9",
+    "mtime": 1790285696.0957766,
+    "ast_hash": "b8ba29d0f1a6eccd4064cd64ff31acc9",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/entretiens--tentr008.md": {
-    "mtime": 1790279012.0920382,
-    "ast_hash": "9fbcd9261fa858f6cb792d0f82548e1a",
+    "mtime": 1790285696.095885,
+    "ast_hash": "44e074ecb888ecd8c4a0f2636ee8868d",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/integration--tinte002.md": {
-    "mtime": 1790279012.090389,
-    "ast_hash": "04ea9dc0d7ff122d6ac732234631c394",
+    "mtime": 1790285696.0959885,
+    "ast_hash": "e7f94b65eaaad65db9be090a06512d94",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/maquettes--tmaqu001.md": {
-    "mtime": 1790279012.0901203,
-    "ast_hash": "6ee24f50260dce45d9d04daeaeb6d2ac",
+    "mtime": 1790285696.0962086,
+    "ast_hash": "9d279d8a72ee6ee317706ccd5e91781f",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/mise-en-ligne--tmise003.md": {
-    "mtime": 1790279012.0906525,
-    "ast_hash": "0501150359dcfb9f523e32cb450c677c",
+    "mtime": 1790285696.0963054,
+    "ast_hash": "a1ea14ad300a9f598cd74aca38399228",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/paiement--tpaie006.md": {
-    "mtime": 1790279012.0914783,
-    "ast_hash": "c535520b0b9ec994cc819551fd850742",
+    "mtime": 1790285696.096402,
+    "ast_hash": "128e18ca0a80bf06d67cdeb4c259d096",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/rapport--trapp009.md": {
-    "mtime": 1790279012.0923195,
-    "ast_hash": "cc1cce483f008598f46f4f69d10994ca",
+    "mtime": 1790285696.096498,
+    "ast_hash": "29e754463feb42149708a6f704e46249",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/recette--trece007.md": {
-    "mtime": 1790279012.0917342,
-    "ast_hash": "e7a82f12a30cd4487da0bd5bcf8ca44a",
+    "mtime": 1790285696.0965924,
+    "ast_hash": "7a8c8f27c9610bed398127226a6bd603",
     "semantic_hash": ""
   },
   "src/core/depot-espace-pages.test.ts": {
@@ -535,23 +535,23 @@
     "semantic_hash": ""
   },
   "src/core/temps.test.ts": {
-    "mtime": 1790284705.4045289,
-    "ast_hash": "29e4530f0b6ae853a27d30b7cad00aad",
+    "mtime": 1790285630.4998033,
+    "ast_hash": "379a1bfad924a18fb53a6eb9f917faeb",
     "semantic_hash": ""
   },
   "src/core/temps.ts": {
-    "mtime": 1790284705.404273,
-    "ast_hash": "b6bacaa590820126fd1ac03c4dfda7f7",
+    "mtime": 1790285676.0375273,
+    "ast_hash": "2932562686621e6fec39b8ab19e80cbc",
     "semantic_hash": ""
   },
   "src/ui/Calendrier.tsx": {
-    "mtime": 1790285356.6658485,
-    "ast_hash": "8157d85ab070d9fd6309134449a541cc",
+    "mtime": 1790285669.3819003,
+    "ast_hash": "77f062ce3a2fc940a4ab7ded55cac1b3",
     "semantic_hash": ""
   },
   "src/ui/Timeline.tsx": {
-    "mtime": 1790285380.7094772,
-    "ast_hash": "de7f95873066612f4ca8324f4aee3606",
+    "mtime": 1790285669.3813472,
+    "ast_hash": "b3e1ca296f5cc308d535d2dc430db078",
     "semantic_hash": ""
   },
   "src/ui/glisser.ts": {
@@ -567,6 +567,11 @@
   "exemples/espace-demo/taches/_vues/calendrier.yaml": {
     "mtime": 1790285402.8438528,
     "ast_hash": "a53089791919bfe16af6f7750fe91608",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/_vues/planning.yaml": {
+    "mtime": 1790285696.0970955,
+    "ast_hash": "c4071805f19b2b752c0b0f2c407af988",
     "semantic_hash": ""
   }
 }

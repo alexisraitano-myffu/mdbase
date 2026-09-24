@@ -1,5 +1,6 @@
 import type { LigneChargee } from './base'
 import { correspond, type Contexte } from './filtres'
+import { compiler, ErreurCalcul, ErreurFormule, evaluer, type Compilee, type ValeurFormule } from './formules/formule'
 import { noeud, ordonner, type Schemas } from './graphe'
 import { CALCULS, colonne as colonneDe, type Calcul, estObjet, natureDe, type Colonne, type ColonneRelation, type ColonneRollup, type Schema } from './schema'
 import { OPERATEURS, type Operateur } from './vue'
@@ -41,6 +42,7 @@ export function calculer(bases: ReadonlyMap<string, BaseACalculer>, ctx: Context
     return calcule ? { ...l, cellules: { ...l.cellules, ...calcule } } : l
   }
 
+  const env = { aujourdhui: ctx.aujourdhui, maintenant: ctx.maintenant ?? `${ctx.aujourdhui}T00:00` }
   const { ordre, enBoucle } = ordonner(schemas)
   for (const [n, message] of enBoucle) {
     const i = n.indexOf('.')
@@ -67,10 +69,37 @@ export function calculer(bases: ReadonlyMap<string, BaseACalculer>, ctx: Context
           .filter((x) => !r.filtre || correspond(enrichie(r.cible, x), r.schemaCible, r.filtre, ctx))
         poser(base, l.id, colonne.cle, agreger(colonne.calcul, r.champ, liees.map((x) => cellule(r.cible, x, r.champ.cle))))
       }
+    } else if (colonne.type === 'formula') {
+      const schema = schemas.get(base)!
+      let f: Compilee
+      try {
+        f = compiler(colonne.expression, (cle) => colonneDe(schema, cle))
+      } catch (e) {
+        if (!(e instanceof ErreurFormule)) throw e
+        for (const l of lignes) poser(base, l.id, colonne.cle, erreur(e.message))
+        continue
+      }
+      for (const l of lignes) {
+        try {
+          const v = evaluer(f, (c) => lireValeur(c, cellule(base, l, c.cle)), env)
+          if (v !== undefined) poser(base, l.id, colonne.cle, { etat: 'ok', valeur: v })
+        } catch (e) {
+          if (!(e instanceof ErreurCalcul)) throw e
+          poser(base, l.id, colonne.cle, erreur(e.message))
+        }
+      }
     }
-    // Formules : jalon 10.
   }
   return resultats
+}
+
+/** Valeur d'une colonne lue par une formule : case vide = faux, texte vide = vide, erreur propagée. */
+function lireValeur(c: Colonne, cellule: Cellule | undefined): ValeurFormule {
+  if (!cellule) return c.type === 'checkbox' ? false : undefined
+  if (cellule.etat === 'invalide') throw new ErreurCalcul(`« ${c.nom} » : ${cellule.raison}`)
+  const v = cellule.valeur
+  if (typeof v === 'number' || typeof v === 'boolean') return v
+  return typeof v === 'string' && v !== '' ? v : undefined
 }
 
 /** Côté non propriétaire d'une relation : les lignes de la cible qui pointent vers chaque ligne. */
