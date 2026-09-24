@@ -90,18 +90,18 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790285704.994859,
-    "ast_hash": "960fa2a4d0fd578a24248a9bd9f6bb5f",
+    "mtime": 1790286609.077604,
+    "ast_hash": "1eb7063a4f7d02b2d144f51a53d157c6",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790285923.6928165,
-    "ast_hash": "3d9a64d955dcf6c635529632ba547723",
+    "mtime": 1790286609.0773351,
+    "ast_hash": "45e2edf522aacc76b22f0b791eb124f8",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
-    "mtime": 1790285704.9942234,
-    "ast_hash": "412842c514de41463c428261ed78b9db",
+    "mtime": 1790286609.076924,
+    "ast_hash": "2e956304613c46587e630cf8f1943cab",
     "semantic_hash": ""
   },
   "exemples/espace-demo/_espace.yaml": {
@@ -110,13 +110,13 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_schema.yaml": {
-    "mtime": 1790284872.0731182,
-    "ast_hash": "e772ae9b2706740d9bac66fd52cfbf78",
+    "mtime": 1790286573.3686352,
+    "ast_hash": "5a9dc87bc4e88f86feda97a6fa06025c",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/_schema.yaml": {
-    "mtime": 1790285696.0968761,
-    "ast_hash": "233b5ac90812c2b18fe4a6ef27d531e9",
+    "mtime": 1790286573.3681376,
+    "ast_hash": "a1e33c85a1fe47f5757bcc1da5d2354f",
     "semantic_hash": ""
   },
   "index.html": {
@@ -200,8 +200,8 @@
     "semantic_hash": ""
   },
   "src/ui/cellules.tsx": {
-    "mtime": 1790280630.5544634,
-    "ast_hash": "88200b32de615823e9ad1757540e3ffd",
+    "mtime": 1790286554.507886,
+    "ast_hash": "bc060785dfd6dce72a37f63c27b2b2dd",
     "semantic_hash": ""
   },
   "src/ui/couleurs.ts": {
@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790286235.5190005,
-    "ast_hash": "83d8b49c58202d5e903353d38f4ed3df",
+    "mtime": 1790286484.1239195,
+    "ast_hash": "ac923d7ffb4a280c891b8eee4e99d22e",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -255,8 +255,8 @@
     "semantic_hash": ""
   },
   "src/ui/EnteteColonne.tsx": {
-    "mtime": 1790280490.3859823,
-    "ast_hash": "6892aaa7c9a86300898a6b2ee47971f1",
+    "mtime": 1790286554.5084136,
+    "ast_hash": "d72ff071f1b020023e961117ac28ab70",
     "semantic_hash": ""
   },
   "src/ui/actions.tsx": {
@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "src/ui/flottant.tsx": {
-    "mtime": 1790277486.0791574,
-    "ast_hash": "bb2a3e09412a59b8d121a1bf4d5586a7",
+    "mtime": 1790286554.5074759,
+    "ast_hash": "671435b66243f22ba2cf2574ac4ab92f",
     "semantic_hash": ""
   },
   "src/core/filtres.test.ts": {
@@ -295,8 +295,8 @@
     "semantic_hash": ""
   },
   "src/ui/EditeurFiltres.tsx": {
-    "mtime": 1790278586.404948,
-    "ast_hash": "70cf185a5f6e8e4491693dc17d161eb7",
+    "mtime": 1790286573.3675196,
+    "ast_hash": "c1b8d15be840f5e0f6aa478e5d0dfca2",
     "semantic_hash": ""
   },
   "src/ui/VueBase.tsx": {
@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "src/exemples.test.ts": {
-    "mtime": 1790285704.8628275,
-    "ast_hash": "93888ca9864a3c4a914cdc74e8e30e76",
+    "mtime": 1790286588.1190243,
+    "ast_hash": "22119fe820ba3975e3324b4712f571b4",
     "semantic_hash": ""
   },
   "exemples/espace-demo/clients/_schema.yaml": {
@@ -410,8 +410,8 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/catalogue--tcata005.md": {
-    "mtime": 1790285696.0957766,
-    "ast_hash": "b8ba29d0f1a6eccd4064cd64ff31acc9",
+    "mtime": 1790286587.9806905,
+    "ast_hash": "e5f4882c8bfac1a2f6ae80e7841a946b",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/entretiens--tentr008.md": {
@@ -597,6 +597,11 @@
   "src/core/formules/syntaxe.ts": {
     "mtime": 1790286203.2891264,
     "ast_hash": "f939d16efa366d0f8ba3f09734df43eb",
+    "semantic_hash": ""
+  },
+  "src/ui/EditeurFormule.tsx": {
+    "mtime": 1790286531.8167279,
+    "ast_hash": "a299531c836f165a820b9b0655ef8fb4",
     "semantic_hash": ""
   }
 }

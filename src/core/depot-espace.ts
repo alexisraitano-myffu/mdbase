@@ -1,11 +1,20 @@
 import { chargerBase, type ChargementBase, type LigneChargee } from './base'
 import { calculer, type BaseACalculer, type Calculs } from './calcul'
 import { DepotBase, type OptionsDepot } from './depot-base'
-import { barreLaterale, lireEspace, modifierEspace, type ConfigEspace, type Groupe, type OperationEspace } from './espace-config'
+import { barreLaterale, lireEspace, modifierEspace, ordreDashboards, type ConfigEspace, type Groupe, type OperationEspace } from './espace-config'
 import { listerBases } from './espace'
 import { FichierIntrouvable, joindre, type AdaptateurFichiers } from './fichiers'
 import { cleColonne, idBase } from './identifiants'
 import { compiler, ErreurFormule } from './formules/formule'
+import {
+  appliquerEnMemoire,
+  ErreurDashboard,
+  lireDashboard,
+  modifierDashboard,
+  nouveauDashboard,
+  type Dashboard,
+  type OperationDashboard,
+} from './dashboard'
 import { boucle } from './graphe'
 import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
@@ -26,6 +35,7 @@ export const FICHIER_ESPACE = '_espace.yaml'
 const FICHIER_SCHEMA = '_schema.yaml'
 const DOSSIER_VUES = '_vues'
 const DOSSIER_PAGES = '_pages'
+const DOSSIER_DASHBOARDS = '_dashboards'
 
 /** Types proposés à la création d'une colonne (relations, rollups, formules : jalons suivants). */
 export const TYPES_CREABLES = ['text', 'number', 'date', 'checkbox', 'select', 'multiselect', 'url'] as const
@@ -43,7 +53,12 @@ export type EtatBase = {
   pages: MiseEnPage[]
 }
 
+/** Un dashboard (spec §10) ; `dashboard` null si son fichier est illisible. */
+export type EtatDashboard = { id: string; dashboard: Dashboard | null; avertissements: string[] }
+
 export type EtatEspace = {
+  /** Dans l'ordre de la barre latérale. */
+  dashboards: EtatDashboard[]
   groupes: Groupe[]
   horsGroupe: string[]
   bases: ReadonlyMap<string, EtatBase>
@@ -64,8 +79,9 @@ export class DepotEspace {
   private readonly adaptateur: AdaptateurFichiers
   private readonly options: OptionsEspace
   private readonly bases = new Map<string, EtatBase>()
+  private readonly dashboards = new Map<string, EtatDashboard>()
   private config: ConfigEspace = lireEspace(null)
-  private instantane: EtatEspace = { groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map() }
+  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map() }
   private readonly abonnes = new Set<() => void>()
   /** Sérialise les modifications de configuration. */
   private file: Promise<unknown> = Promise.resolve()
@@ -79,6 +95,7 @@ export class DepotEspace {
     const d = new DepotEspace(adaptateur, options)
     d.config = lireEspace(await d.lireOuNull(FICHIER_ESPACE))
     for (const id of await listerBases(adaptateur)) await d.chargerBase(id)
+    await d.chargerDashboards()
     d.publier()
     return d
   }
@@ -126,6 +143,61 @@ export class DepotEspace {
 
   supprimerGroupe(nom: string): Promise<void> {
     return this.enFile(() => this.modifierEspace({ type: 'supprimer_groupe', nom }))
+  }
+
+  // ── Dashboards ───────────────────────────────────────────────────
+
+  creerDashboard(nom: string): Promise<string> {
+    return this.enFile(async () => {
+      const id = idBase(nom, [...this.dashboards.keys()])
+      const texte = nouveauDashboard(id, nom.trim() || id)
+      await this.adaptateur.ecrire(cheminDashboard(id), texte)
+      this.dashboards.set(id, { id, ...lireDashboard(texte, id) })
+      await this.modifierEspace({ type: 'ajouter_dashboard', id })
+      return id
+    })
+  }
+
+  supprimerDashboard(id: string): Promise<void> {
+    return this.enFile(async () => {
+      await this.adaptateur.supprimer(cheminDashboard(id))
+      this.dashboards.delete(id)
+      await this.modifierEspace({ type: 'retirer_dashboard', id })
+    })
+  }
+
+  /**
+   * Modifie un dashboard : l'affichage change tout de suite, le fichier suit,
+   * relu sur le disque et réécrit seulement là où l'opération le touche.
+   */
+  modifierDashboard(id: string, op: OperationDashboard): Promise<void> {
+    const d = this.dashboards.get(id)?.dashboard
+    if (!d) return Promise.reject(new ErreurDashboard(`Dashboard introuvable ou illisible : ${id}`))
+    if (op.type === 'ajouter_bloc') {
+      if (!this.bases.get(op.bloc.base)?.chargement.ok) return Promise.reject(new ErreurDashboard(`Base introuvable : ${op.bloc.base}`))
+      if (op.rangee !== null && (d.rangees[op.rangee]?.blocs.length ?? 2) >= 2) return Promise.reject(new ErreurDashboard('Une rangée tient 2 blocs au plus'))
+    }
+    this.dashboards.set(id, { ...this.dashboards.get(id)!, dashboard: appliquerEnMemoire(d, op) })
+    this.publier()
+    return this.enFile(async () => {
+      const chemin = cheminDashboard(id)
+      await this.adaptateur.ecrire(chemin, modifierDashboard(await this.adaptateur.lire(chemin), op))
+    })
+  }
+
+  private async chargerDashboards() {
+    let entrees
+    try {
+      entrees = await this.adaptateur.lister(DOSSIER_DASHBOARDS)
+    } catch (e) {
+      if (e instanceof FichierIntrouvable) return
+      throw e
+    }
+    for (const e of entrees) {
+      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml')) continue
+      const id = e.nom.slice(0, -'.yaml'.length)
+      this.dashboards.set(id, { id, ...lireDashboard(await this.adaptateur.lire(joindre(DOSSIER_DASHBOARDS, e.nom)), id) })
+    }
   }
 
   // ── Colonnes ─────────────────────────────────────────────────────
@@ -701,7 +773,8 @@ export class DepotEspace {
     }
     const aujourdhui = this.options.aujourdhui()
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
-    this.instantane = { groupes, horsGroupe, bases: new Map(this.bases), calculs, titres }
+    const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
+    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres }
     for (const fn of this.abonnes) fn()
   }
 }
@@ -715,6 +788,10 @@ function enAttente(memoire: Vue, relue: Vue): Partial<Vue> {
 
 function cheminPage(base: string, id: string): string {
   return joindre(base, DOSSIER_PAGES, `${id}.yaml`)
+}
+
+function cheminDashboard(id: string): string {
+  return joindre(DOSSIER_DASHBOARDS, `${id}.yaml`)
 }
 
 function cheminVue(base: string, idVue: string): string {

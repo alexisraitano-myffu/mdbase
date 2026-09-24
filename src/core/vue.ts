@@ -1,4 +1,4 @@
-import { Document, isMap, parse, parseDocument, type YAMLSeq } from 'yaml'
+import { Document, isMap, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
 
@@ -152,13 +152,18 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
 }
 
 export function lireVue(texte: string, id: string): { vue: Vue | null; avertissements: string[] } {
-  const avertissements: string[] = []
   let brut: unknown
   try {
     brut = parse(texte)
   } catch (e) {
     return { vue: null, avertissements: [`Vue ${id} illisible : ${(e as Error).message}`] }
   }
+  return lireVueDepuis(brut, id)
+}
+
+/** Vue déjà analysée : un fichier `_vues/*.yaml`, ou une vue propre écrite dans un dashboard (spec §10). */
+export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; avertissements: string[] } {
+  const avertissements: string[] = []
   if (!estObjet(brut)) return { vue: null, avertissements: [`Vue ${id} vide ou mal formée`] }
 
   const type = TYPES.includes(String(brut.type)) ? (brut.type as TypeVue) : 'tableau'
@@ -211,16 +216,21 @@ function lireFiltre(f: unknown): Filtre | string {
 export function modifierVue(texte: string | null, vue: Vue, modifs: ModificationVue): string {
   const doc = texte === null ? new Document({ id: vue.id, nom: vue.nom, type: vue.type }) : parseDocument(texte)
   if (doc.errors.length > 0 || !isMap(doc.contents)) throw new Error(`Vue ${vue.id} illisible : modification refusée`)
+  appliquerModificationsVue(doc, doc.contents, modifs)
+  return doc.toString(OPTIONS_SORTIE_CONFIG)
+}
 
+/** Réécrit les clés modifiées d'une vue dans `cible`, la racine d'un fichier de vue ou la vue propre d'un dashboard. */
+export function appliquerModificationsVue(doc: Document, cible: YAMLMap, modifs: ModificationVue): void {
   for (const [prop, cle] of Object.entries(REGLAGES) as [keyof typeof REGLAGES, string][]) {
     if (!(prop in modifs)) continue
     const v = modifs[prop]
     const vide = v === undefined || v === false || v === '' || (Array.isArray(v) && v.length === 0) || (estObjet(v) && Object.keys(v).length === 0)
     if (vide) {
-      if (prop !== 'nom') doc.delete(cle)
+      if (prop !== 'nom') cible.delete(cle)
       continue
     }
-    doc.set(cle, doc.createNode(v, { flow: true }))
+    cible.set(cle, doc.createNode(v, { flow: true }))
   }
   const listes: [keyof ModificationVue, string, unknown[] | undefined][] = [
     ['filtres', 'filtres', modifs.filtres?.map(ecrireFiltre)],
@@ -238,15 +248,14 @@ export function modifierVue(texte: string | null, vue: Vue, modifs: Modification
   for (const [, cle, valeur] of listes) {
     if (valeur === undefined) continue
     if (valeur.length === 0) {
-      doc.delete(cle)
+      cible.delete(cle)
       continue
     }
     const noeud = doc.createNode(valeur) as YAMLSeq
     // Chaque filtre, tri ou pastille sur une ligne, comme dans l'exemple de la spec.
     for (const item of noeud.items) if (isMap(item)) item.flow = true
-    doc.set(cle, noeud)
+    cible.set(cle, noeud)
   }
-  return doc.toString(OPTIONS_SORTIE_CONFIG)
 }
 
 function ecrireFiltre(f: Filtre) {

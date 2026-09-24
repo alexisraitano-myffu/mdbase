@@ -15,6 +15,8 @@ export type OperationEspace =
   | { type: 'renommer_groupe'; nom: string; nouveau: string }
   /** Les bases du groupe passent hors groupe. */
   | { type: 'supprimer_groupe'; nom: string }
+  | { type: 'ajouter_dashboard'; id: string }
+  | { type: 'retirer_dashboard'; id: string }
 
 export class ErreurEspace extends Error {
   constructor(message: string) {
@@ -59,18 +61,31 @@ export function barreLaterale(config: ConfigEspace, basesSurDisque: readonly str
   return { groupes, horsGroupe }
 }
 
+/** Ordre des dashboards : celui de `_espace.yaml`, puis ceux qu'il ne cite pas, par identifiant. */
+export function ordreDashboards(config: ConfigEspace, surDisque: readonly string[]): string[] {
+  const presents = new Set(surDisque)
+  const cites = [...new Set(config.dashboards)].filter((d) => presents.has(d))
+  return [...cites, ...[...surDisque].filter((d) => !cites.includes(d)).sort()]
+}
+
 export function modifierEspace(texte: string | null, op: OperationEspace): string {
   const doc = texte === null ? new Document({ version: 1 }) : parseDocument(texte)
   if (doc.errors.length > 0 || !isMap(doc.contents)) throw new ErreurEspace('_espace.yaml illisible : modification refusée')
 
   const barre = assurerMap(doc, doc.contents, 'barre_laterale')
-  assurerListe(doc, barre, 'dashboards')
+  const dashboards = assurerListe(doc, barre, 'dashboards')
   const groupes = assurerListe(doc, barre, 'groupes', false)
   const horsGroupe = assurerListe(doc, barre, 'hors_groupe')
   const groupeNomme = (nom: string) => groupes.items.find((g): g is YAMLMap => isMap(g) && g.get('nom') === nom)
   const noms = () => groupes.items.flatMap((g) => (isMap(g) ? [String(g.get('nom'))] : []))
 
   switch (op.type) {
+    case 'ajouter_dashboard':
+      if (!dashboards.items.some((n) => valeur(n) === op.id)) dashboards.items.push(doc.createNode(op.id))
+      break
+    case 'retirer_dashboard':
+      dashboards.items = dashboards.items.filter((n) => valeur(n) !== op.id)
+      break
     case 'ajouter_groupe': {
       if (noms().includes(op.nom)) throw new ErreurEspace(`Le groupe « ${op.nom} » existe déjà`)
       const g = doc.createNode({ nom: op.nom, bases: [] }) as YAMLMap
