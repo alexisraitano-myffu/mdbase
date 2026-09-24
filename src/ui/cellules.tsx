@@ -319,7 +319,6 @@ function CelluleRelation(p: { base: string; ligne: LigneChargee; colonne: Colonn
 function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; colonne: Colonne }) {
   const { etat } = useEspace()
   const { cellule, colonne } = p
-  if (colonne.type === 'formula') return <div className="cellule calculee">—</div>
   if (!cellule) return <div className="cellule calculee" />
   if (cellule.etat === 'invalide') {
     return (
@@ -338,6 +337,9 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
     }
     case 'date':
       contenu = formaterDate(String(v))
+      break
+    case 'case':
+      contenu = v === true ? '☑' : '☐'
       break
     case 'liste': {
       // Rollup « afficher » : on montre les valeurs comme dans leur colonne d'origine.

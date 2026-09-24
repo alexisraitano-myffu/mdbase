@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/ui/App.tsx": {
-    "mtime": 1790278500.6995614,
-    "ast_hash": "70d0803b0312093c2fa2390f8050fa2c",
+    "mtime": 1790286243.267026,
+    "ast_hash": "a8a46d18575f64109ba2bb6d61910cdf",
     "semantic_hash": ""
   },
   "tsconfig.app.json": {
@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790284916.4452941,
-    "ast_hash": "ef72f118949affba67f5c1e792cf1dfe",
+    "mtime": 1790285923.6928165,
+    "ast_hash": "3d9a64d955dcf6c635529632ba547723",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "src/core/schema.ts": {
-    "mtime": 1790284297.8370302,
-    "ast_hash": "edf98aa6b5d210867231edb9c9c7783f",
+    "mtime": 1790286146.7072659,
+    "ast_hash": "7a1aa5182e2e83bcb8b2d0a5dc020ca5",
     "semantic_hash": ""
   },
   "src/core/valeurs.test.ts": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "src/adapters/navigateur.ts": {
-    "mtime": 1790277209.6860795,
-    "ast_hash": "8630feade9138debeea2ab0f92cecf16",
+    "mtime": 1790286235.5196822,
+    "ast_hash": "8fa98724b4c2726ff1f56fc788cdf119",
     "semantic_hash": ""
   },
   "src/core/depot-base.test.ts": {
@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790284305.4715145,
-    "ast_hash": "646229edbe8645af759caa0ab31c57f9",
+    "mtime": 1790286235.5190005,
+    "ast_hash": "83d8b49c58202d5e903353d38f4ed3df",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "src/core/filtres.ts": {
-    "mtime": 1790284611.2509713,
-    "ast_hash": "63a278c382d265551eb7704d072ffebe",
+    "mtime": 1790286146.7082999,
+    "ast_hash": "377ab188ceb22162ac225ec194244052",
     "semantic_hash": ""
   },
   "src/core/vue.test.ts": {
@@ -325,8 +325,8 @@
     "semantic_hash": ""
   },
   "src/core/calcul.ts": {
-    "mtime": 1790280407.310241,
-    "ast_hash": "98a0ae3cd9571afd36cd6270f8c020b3",
+    "mtime": 1790286153.4073822,
+    "ast_hash": "692caec82a03d54122e2a6e25bb6e7c4",
     "semantic_hash": ""
   },
   "src/core/depot-espace-relations.test.ts": {
@@ -572,6 +572,31 @@
   "exemples/espace-demo/taches/_vues/planning.yaml": {
     "mtime": 1790285696.0970955,
     "ast_hash": "c4071805f19b2b752c0b0f2c407af988",
+    "semantic_hash": ""
+  },
+  "src/core/depot-espace-formules.test.ts": {
+    "mtime": 1790286433.161967,
+    "ast_hash": "1f24ae06d4091bc474ca0cc73ced79f2",
+    "semantic_hash": ""
+  },
+  "src/core/formules/fonctions.ts": {
+    "mtime": 1790286079.4256122,
+    "ast_hash": "05bdb546c0764cb9d425752ce4ef8865",
+    "semantic_hash": ""
+  },
+  "src/core/formules/formule.test.ts": {
+    "mtime": 1790286442.0998063,
+    "ast_hash": "0e3912971f899f62bae9a31a06c49302",
+    "semantic_hash": ""
+  },
+  "src/core/formules/formule.ts": {
+    "mtime": 1790286214.3522913,
+    "ast_hash": "9970ce329cbff1b2bb3b3f03f97495c8",
+    "semantic_hash": ""
+  },
+  "src/core/formules/syntaxe.ts": {
+    "mtime": 1790286203.2891264,
+    "ast_hash": "f939d16efa366d0f8ba3f09734df43eb",
     "semantic_hash": ""
   }
 }

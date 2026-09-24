@@ -10,13 +10,19 @@ const MARGE = 8
  * Toujours gardé dans la fenêtre : aligné à droite de l'ancre s'il déborde à
  * droite, ouvert au-dessus s'il déborde en bas, repositionné quand il grandit.
  */
-export function Flottant(p: { ancre: HTMLElement | null; fermer: () => void; children: ReactNode }) {
+export function Flottant(p: {
+  ancre: HTMLElement | null
+  fermer: () => void
+  children: ReactNode
+  /** Un clic extérieur ne ferme pas (saisie longue, ex. formule) ; Échap ferme toujours. */
+  garderOuvert?: boolean
+}) {
   const panneau = useRef<HTMLDivElement>(null)
-  const { fermer, ancre } = p
+  const { fermer, ancre, garderOuvert } = p
 
   useEffect(() => {
     const clic = (e: MouseEvent) => {
-      if (!panneau.current?.contains(e.target as Node)) fermer()
+      if (!garderOuvert && !panneau.current?.contains(e.target as Node)) fermer()
     }
     const touche = (e: KeyboardEvent) => e.key === 'Escape' && fermer()
     document.addEventListener('mousedown', clic)
@@ -25,7 +31,7 @@ export function Flottant(p: { ancre: HTMLElement | null; fermer: () => void; chi
       document.removeEventListener('mousedown', clic)
       document.removeEventListener('keydown', touche)
     }
-  }, [fermer])
+  }, [fermer, garderOuvert])
 
   useLayoutEffect(() => {
     const el = panneau.current

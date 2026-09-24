@@ -26,4 +26,6 @@ colonnes:
     champ: fait
     calcul: compter
     filtre: { operateur: egal, valeur: false }
+  - { cle: jours_restants, nom: Jours restants, type: formula, expression: 'si(prop("statut") == "Terminé", 0, ecart_jours(aujourdhui(), prop("echeance")))' }
+  - { cle: taux, nom: Budget par heure, type: formula, expression: 'arrondi(prop("budget") / prop("heures"), 0)' }
 vues: [ tableau, par-statut, planning ]

@@ -29,8 +29,9 @@ export const LIBELLES_OPERATEURS: Record<Operateur, string> = {
 }
 
 /** Toutes les colonnes se filtrent et se trient, calculées comprises ; les formules au jalon 10. */
+/** Colonnes filtrables et triables ; une formule en erreur n'a pas de type, donc pas d'opérateurs. */
 export function colonnesFiltrables(schema: Schema): Colonne[] {
-  return schema.colonnes.filter((c) => c.type !== 'formula')
+  return schema.colonnes.filter((c) => c.type !== 'formula' || c.resultat !== undefined)
 }
 
 /** Liste de filtres combinés en ET, éditable. Chaque changement est remonté aussitôt. */

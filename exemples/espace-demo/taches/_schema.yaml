@@ -16,4 +16,6 @@ colonnes:
   - { cle: echeance, nom: Échéance, type: date }
   - { cle: heures, nom: Heures, type: number }
   - { cle: fait, nom: Fait, type: checkbox }
+  - { cle: duree, nom: Durée (jours), type: formula, expression: 'ecart_jours(prop("debut"), prop("echeance")) + 1' }
+  - { cle: en_retard, nom: En retard, type: formula, expression: 'non prop("fait") et prop("echeance") < aujourdhui()' }
 vues: [ tableau, par-priorite, calendrier, planning ]

@@ -5,6 +5,7 @@ import { calculsPour } from '../core/calcul'
 import { CALCULS, type Calcul, type Colonne, type ColonneRelation, type ColonneRollup } from '../core/schema'
 import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
+import { EditeurFormule } from './EditeurFormule'
 import { Flottant } from './flottant'
 
 export const ICONES: Record<Colonne['type'], string> = {
@@ -45,11 +46,30 @@ export function MenuColonne({
   const lancer = useLancer()
   const [nom, setNom] = useState(colonne.nom)
   const [confirmer, setConfirmer] = useState(false)
+  const [formule, setFormule] = useState(false)
   const estTitre = colonne.cle === depot.schema.champTitre
 
   const renommer = () => {
     if (nom.trim() !== '' && nom !== colonne.nom) void lancer(espace.renommerColonne(base, colonne.cle, nom.trim()))
     fermer()
+  }
+
+  if (formule && colonne.type === 'formula') {
+    return (
+      <Flottant ancre={ancre} fermer={fermer} garderOuvert>
+        <div className="titre-panneau">Formule « {colonne.nom} »</div>
+        <EditeurFormule
+          espace={espace}
+          base={base}
+          formule={colonne}
+          annuler={fermer}
+          enregistrer={(expression) => {
+            void lancer(espace.modifierFormule(base, colonne.cle, expression))
+            fermer()
+          }}
+        />
+      </Flottant>
+    )
   }
 
   if (confirmer) {
@@ -100,6 +120,12 @@ export function MenuColonne({
         onKeyDown={(e) => e.key === 'Enter' && renommer()}
       />
       {colonne.type === 'rollup' && <ReglagesRollup espace={espace} base={base} colonne={colonne} />}
+      {colonne.type === 'formula' && (
+        <button className="option" onClick={() => setFormule(true)}>
+          <span className="icone">{ICONES.formula}</span>
+          Modifier la formule…
+        </button>
+      )}
       {masquer && !estTitre && (
         <button
           className="option"
@@ -225,6 +251,7 @@ type Etape =
   | { type: 'rollup-relation' }
   | { type: 'rollup-champ'; relation: ColonneRelation }
   | { type: 'rollup-calcul'; relation: ColonneRelation; champ: Colonne }
+  | { type: 'formule' }
 
 /** Bouton « + » en bout d'en-tête : nom puis type de la nouvelle colonne (relation et rollup en plusieurs étapes). */
 export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: string }) {
@@ -254,7 +281,21 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
     <div ref={ancre} className="cellule-entete ajout" onClick={() => setOuvert(true)} title="Ajouter une colonne">
       +
       {ouvert && (
-        <Flottant ancre={ancre.current} fermer={fermer}>
+        <Flottant ancre={ancre.current} fermer={fermer} garderOuvert={etape.type === 'formule'}>
+          {etape.type === 'formule' && (
+            <>
+              <div className="titre-panneau">Formule « {nom.trim() || 'Formule'} »</div>
+              <EditeurFormule
+                espace={espace}
+                base={base}
+                annuler={fermer}
+                enregistrer={(expression) => {
+                  void lancer(espace.ajouterFormule(base, nom.trim() || 'Formule', expression))
+                  fermer()
+                }}
+              />
+            </>
+          )}
           {etape.type === 'choix' && (
             <>
               <input
@@ -278,6 +319,10 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
               <button className="option" onClick={() => setEtape({ type: 'rollup-relation' })} disabled={relations.length === 0}>
                 <span className="icone">{ICONES.rollup}</span>
                 Rollup…
+              </button>
+              <button className="option" onClick={() => setEtape({ type: 'formule' })}>
+                <span className="icone">{ICONES.formula}</span>
+                Formule…
               </button>
             </>
           )}

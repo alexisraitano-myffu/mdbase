@@ -583,3 +583,34 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
 .ajout-groupe { visibility: hidden; margin-left: auto; padding: 0 6px; line-height: 22px; }
 .tl-groupe .tl-titre:hover .ajout-groupe { visibility: visible; }
 .tl-enveloppe { position: absolute; top: 14px; height: 8px; border-radius: 4px; background: #c7c7c5; }
+
+/* Éditeur de formules */
+.titre-panneau { font-weight: 600; padding: 4px 6px 6px; }
+.editeur-formule { width: 480px; max-width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 0 6px 6px; }
+.zone-formule {
+  font: 13px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  padding: 6px 8px;
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  resize: vertical;
+  outline: none;
+}
+.zone-formule:focus { border-color: #2383e2; box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.15); }
+.suggestions-formule { display: flex; flex-direction: column; border: 1px solid var(--bordure); border-radius: 6px; padding: 2px; max-height: 240px; overflow: auto; }
+.suggestions-formule .option { display: flex; align-items: baseline; gap: 8px; text-align: left; }
+.suggestions-formule .option.active { background: var(--survol); }
+.libelle-suggestion { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9em; white-space: nowrap; }
+.detail-suggestion { font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aide-formule { font-size: 0.85em; color: var(--discret); }
+.aide-formule code { color: #37352f; }
+.erreur-formule { font-size: 0.9em; color: #b35c00; display: flex; flex-direction: column; gap: 4px; }
+.extrait-formule { color: #37352f; background: #f7f7f5; padding: 2px 6px; border-radius: 4px; white-space: pre-wrap; }
+.extrait-formule mark { background: #ffe2dd; color: #b3261e; border-radius: 2px; }
+.apercu-formule { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 0.9em; }
+.navigation-apercu { margin-left: auto; display: flex; }
+.navigation-apercu button { padding: 0 6px; }
+.editeur-formule .boutons { align-items: center; }
+.raccourci { margin-right: auto; font-size: 0.8em; }
+button.principal { background: #2383e2; border-color: #2383e2; color: #fff; }
+button.principal:hover { background: #1b6fc2; }
+button.principal:disabled { opacity: 0.45; cursor: default; }

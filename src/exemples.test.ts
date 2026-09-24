@@ -44,4 +44,7 @@ it('la démo se charge sans avertissement et calcule ses rollups', async () => {
   expect([v('clients', 'cacme001', 'nb_projets'), v('clients', 'cacme001', 'heures')]).toEqual([2, 24])
   expect(v('clients', 'cacme001', 'avancement')).toBeCloseTo(16.665)
   expect(v('clients', 'cinit003', 'avancement')).toBe(100)
+  // Formules, au 24/09/2026.
+  expect([v('projets', 'psite001', 'jours_restants'), v('projets', 'psite001', 'taux'), v('projets', 'paudi004', 'jours_restants')]).toEqual([21, 400, 0])
+  expect([v('taches', 'tmaqu001', 'duree'), v('taches', 'tmaqu001', 'en_retard'), v('taches', 'tcata005', 'en_retard')]).toEqual([14, false, true])
 })

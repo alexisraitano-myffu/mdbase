@@ -45,6 +45,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Calendrier et timeline : champs affichés au choix (« Options »). Glisser fluide : la ligne suit le pointeur et s'accroche au jour le plus proche au relâcher (jours d'arrivée éclairés au calendrier, cadre pointillé dans la timeline).
 - Timeline groupée (« Grouper par » dans Options) : groupes repliables, barre d'en-tête calculée sur les lignes du groupe, « + » pour créer dans un groupe. Date exacte affichée pendant un glisser (calendrier et timeline).
 - Démo : colonnes Début et Revue client sur les projets, vue Planning (timeline) des projets ; colonne Début, vue Calendrier et vue Planning groupée par projet sur les tâches.
+- Jalon 10 (formules) : colonne Formule (« + » des en-têtes, puis « Modifier la formule… » dans son menu), interpréteur maison sans exécution de code, fonctions des niveaux 1 et 2 de la spec, type du résultat déduit (nombre, texte, date, case) qui décide des filtres, tris, calculs de pied et rollups. Formule d'une formule, rollup d'une formule, boucles refusées à l'enregistrement.
+- Éditeur de formules : on écrit avec les noms des colonnes (le fichier garde les clés), autocomplétion des colonnes et des fonctions, aide de la fonction en cours, erreur en français avec la partie fautive surlignée, aperçu du résultat sur une ligne de la base (‹ › pour changer de ligne), ⌘ Entrée pour enregistrer.
+- Recalcul des colonnes calculées au changement de jour (formules avec `aujourdhui()`).
+- Démo : formules Jours restants et Budget par heure (projets), Durée et En retard (tâches).
+
 ### Changed
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
 ### Fixed

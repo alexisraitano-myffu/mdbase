@@ -40,6 +40,9 @@ src/
     calcul.ts              valeurs des colonnes calculées (relations non propriétaires, rollups)
     mise-en-page.ts        lecture/réécriture des `_pages/*.yaml`, règles d'affichage d'une page
     groupes.ts             colonnes d'une vue, groupement, nouvelle valeur d'une carte déplacée
+    formules/              syntaxe.ts (jetons, arbre), fonctions.ts (liste fermée typée),
+                           formule.ts (typage, évaluation, noms ↔ clés pour l'éditeur) ;
+                           jamais d'eval (invariant 8, testé sur les sources)
     temps.ts               jours ISO en UTC pur, grille du calendrier, placement des plages,
                            gestes (déplacer, étirer), étendue et graduations de la timeline
     fixtures/              données de test partagées
@@ -88,7 +91,8 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 7. Pages (validé dans Chrome)
 - [x] 8. Vues : groupement, kanban, collection (validé dans Chrome)
 - [x] 9. Vues temporelles : calendrier, timeline (validé dans Chrome ; retours d’usage à venir)
-- [ ] 10. Formules
+- [x] 10. Formules (à valider dans Chrome)
+- [ ] 11. Dashboards et recherche globale
 
 ## graphify
 

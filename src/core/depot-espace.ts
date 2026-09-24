@@ -334,6 +334,20 @@ export class DepotEspace {
   }
 
   private verifierFormule(base: string, formule: Extract<Colonne, { type: 'formula' }>) {
+    const probleme = this.problemeFormule(base, formule)
+    if (probleme) throw new ErreurSchema(`Formule refusée : ${probleme}`)
+  }
+
+  /**
+   * Ce qui empêcherait d'enregistrer cette expression (stockée, avec les clés) :
+   * erreur de syntaxe ou de type, ou boucle. `null` si elle est acceptable.
+   * `cle` : la formule modifiée, absente pour une nouvelle.
+   */
+  essayerFormule(base: string, cle: string | null, expression: string): string | null {
+    return this.problemeFormule(base, { cle: cle ?? '\u0000nouvelle', nom: 'Nouvelle formule', type: 'formula', expression })
+  }
+
+  private problemeFormule(base: string, formule: Extract<Colonne, { type: 'formula' }>): string | null {
     const schema = this.schema(base)
     const colonnes = schema.colonnes.some((c) => c.cle === formule.cle)
       ? schema.colonnes.map((c) => (c.cle === formule.cle ? formule : c))
@@ -341,13 +355,14 @@ export class DepotEspace {
     const schemas = new Map(this.schemas())
     schemas.set(base, { ...schema, colonnes })
     const b = boucle(schemas)
-    if (b) throw new ErreurSchema(`Formule refusée. ${b}`)
+    if (b) return b
     try {
       compiler(formule.expression, (cle) => colonnes.find((c) => c.cle === cle))
     } catch (e) {
-      if (e instanceof ErreurFormule) throw new ErreurSchema(`Formule refusée : ${e.message}`)
+      if (e instanceof ErreurFormule) return e.message
       throw e
     }
+    return null
   }
 
   /** Recalcule les colonnes calculées : au changement de jour, pour `aujourdhui()` (spec §6). */

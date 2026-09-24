@@ -269,6 +269,16 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 - L'éditeur de formules est un point d'UX important : autocomplétion des noms de colonnes et des fonctions, erreurs compréhensibles en français, aperçu du résultat sur la ligne courante.
 - Les formules dépendant de `aujourdhui()` sont recalculées au chargement et au changement de jour.
 
+### Précisions d'implémentation (jalon 10)
+- Littéraux : nombres (`3.5`), textes entre guillemets, `vrai` / `faux`. Un texte au format date (`"2026-10-01"`) vaut une date là où une date est attendue.
+- `non` porte sur toute la comparaison qui suit : `non prop("a") == 2` se lit `non (prop("a") == 2)`.
+- Le vide : une case non cochée vaut `faux` ; un texte vide est vide. `==` / `!=` comparent aussi le vide ; une condition vide compte comme fausse ; `concat` ignore les vides ; `min` / `max` les écartent.
+- `+` ne fait que l'addition de nombres : le texte s'assemble avec `concat`, qui écrit nombres, dates et cases à la française (`1234,5`, `24/09/2026`, `oui`).
+- `si` n'évalue que la branche choisie. Division par zéro : la cellule passe en erreur.
+- `min` / `max` acceptent aussi des dates ; `arrondi(x)` arrondit à l'entier ; `format_date` comprend `AAAA`, `AA`, `MM`, `JJ`, `HH`, `mm`.
+- `maintenant()` : l'heure du dernier recalcul (toute modification de ligne, ouverture, changement de jour), pas une horloge qui tourne.
+- Le type du résultat est déduit à la lecture du schéma (jamais écrit) : il décide des filtres, tris, calculs et de l'affichage, comme pour un rollup. Une formule en erreur s'affiche en erreur et n'est pas filtrable.
+
 ---
 
 ## 7. Vues
