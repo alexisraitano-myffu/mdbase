@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1790275271.4388256,
-    "ast_hash": "de8425e94746fc4110b97e5f3d7ea67a",
+    "mtime": 1790275805.1040845,
+    "ast_hash": "260e7c40c54638160e7fba28218c1034",
     "semantic_hash": ""
   },
   "src/adapters/fsa/adaptateur-fsa.ts": {
@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/ui/App.tsx": {
-    "mtime": 1790275456.6834476,
-    "ast_hash": "1d412db626039c2f35e6f76ccf4ed148",
+    "mtime": 1790275948.0808337,
+    "ast_hash": "795e97f131a0350e226d276b89f593ce",
     "semantic_hash": ""
   },
   "tsconfig.app.json": {
@@ -85,18 +85,18 @@
     "semantic_hash": ""
   },
   "vite.config.ts": {
-    "mtime": 1790274797.920733,
-    "ast_hash": "cdd6902407200b2f4f6bed898a0a08c2",
+    "mtime": 1790276030.9474814,
+    "ast_hash": "0f64ef345f34cc45690e53c6a22893fc",
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790275469.3222702,
-    "ast_hash": "e9d16ff0b7343192da819a7e1cd5086c",
+    "mtime": 1790276020.8193069,
+    "ast_hash": "df91eb7e8b66e52526161387aaa4c23c",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790275469.3219905,
-    "ast_hash": "973bd5fe998a87cbe75e3ad74f7fa95d",
+    "mtime": 1790276020.8190308,
+    "ast_hash": "0942bf7f5781cc8e39f9161c369f4caa",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -110,8 +110,8 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_schema.yaml": {
-    "mtime": 1790274908.959694,
-    "ast_hash": "43f3d33a2f2d7317f43b10cd98635996",
+    "mtime": 1790276020.6899834,
+    "ast_hash": "5e25efe9f8e1bcff7eea94ff4507599f",
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/navi--k2x9m4pq.md": {
@@ -175,13 +175,13 @@
     "semantic_hash": ""
   },
   "src/core/valeurs.test.ts": {
-    "mtime": 1790275386.4784882,
-    "ast_hash": "61b0b50ad53c7520e300bd7d961c3273",
+    "mtime": 1790275851.4026213,
+    "ast_hash": "c3cc2352f0389cf9d42bb484aab25db2",
     "semantic_hash": ""
   },
   "src/core/valeurs.ts": {
-    "mtime": 1790275305.0083654,
-    "ast_hash": "6a405c17a5d9d6033d61c20f0319b9ee",
+    "mtime": 1790275851.3953047,
+    "ast_hash": "d1a46998a371ec4e84b2644a61603f27",
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/brouillon.md": {
@@ -192,6 +192,41 @@
   "exemples/espace-demo/projets/synapse--s7pd2mhq.md": {
     "mtime": 1790275456.685969,
     "ast_hash": "3369dd479b24bf636f5193e1bdcdd2ef",
+    "semantic_hash": ""
+  },
+  "src/adapters/navigateur.ts": {
+    "mtime": 1790275890.7435737,
+    "ast_hash": "b4fc15a2bbdc64b662c91cbf6b8f8c2f",
+    "semantic_hash": ""
+  },
+  "src/core/depot-base.test.ts": {
+    "mtime": 1790275861.8098228,
+    "ast_hash": "9f19934480969650a3d61edb384348b9",
+    "semantic_hash": ""
+  },
+  "src/core/depot-base.ts": {
+    "mtime": 1790275823.927547,
+    "ast_hash": "b6d5d6a29aa4bfc65b2a4d3b66b5290b",
+    "semantic_hash": ""
+  },
+  "src/ui/Tableau.tsx": {
+    "mtime": 1790276000.6150908,
+    "ast_hash": "8fd1535572b31b6e3048724aa674438b",
+    "semantic_hash": ""
+  },
+  "src/ui/cellules.tsx": {
+    "mtime": 1790275913.7483068,
+    "ast_hash": "d10cc1f102430459066823923bd9f71c",
+    "semantic_hash": ""
+  },
+  "src/ui/couleurs.ts": {
+    "mtime": 1790275890.7465482,
+    "ast_hash": "b84f57e3c2a1c081b9432c9f10c3a7e6",
+    "semantic_hash": ""
+  },
+  "src/ui/useDepot.ts": {
+    "mtime": 1790275890.7494597,
+    "ast_hash": "ec16b9b0047f6147cb507f412034afb0",
     "semantic_hash": ""
   }
 }
