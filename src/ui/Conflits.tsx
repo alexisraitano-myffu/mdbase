@@ -42,6 +42,7 @@ const dateFichier = (ms: number) =>
 
 /** Bandeau d'une base dont des ids sont portés par plusieurs fichiers. */
 export function BandeauDoublons({ depot, doublons }: { depot: DepotBase; doublons: ReadonlyMap<string, LigneChargee[]> }) {
+  // Le bandeau (et sa fenêtre) disparaît avec le dernier conflit réglé.
   const [ouvert, setOuvert] = useState(false)
   const n = doublons.size
   return (
@@ -59,7 +60,6 @@ export function BandeauDoublons({ depot, doublons }: { depot: DepotBase; doublon
           {[...doublons].map(([id, versions]) => (
             <GroupeDoublon key={id} depot={depot} versions={versions} />
           ))}
-          {n === 0 && <p>Plus aucun conflit.</p>}
         </Fenetre>
       )}
     </>
@@ -153,7 +153,6 @@ export function AlerteCopies({ espace, copies }: { espace: DepotEspace; copies: 
           {copies.map((c) => (
             <CopieAResoudre key={c.chemin} espace={espace} copie={c} />
           ))}
-          {copies.length === 0 && <p>Plus aucune copie.</p>}
         </Fenetre>
       )}
     </>
