@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790276766.4955132,
-    "ast_hash": "6a6bdbde8cdf469f2124bc636b503e87",
+    "mtime": 1790276950.3646507,
+    "ast_hash": "19e448b9a1c5e4cda7a51d9488b55057",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -105,8 +105,8 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/_espace.yaml": {
-    "mtime": 1790274908.9567716,
-    "ast_hash": "08d890c2f28aafe0c63ee2ab9c9bc36d",
+    "mtime": 1790276831.472396,
+    "ast_hash": "f2fd4e6cb17a2926444d999fec08564b",
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_schema.yaml": {
@@ -287,6 +287,16 @@
   "src/ui/flottant.tsx": {
     "mtime": 1790276749.0159845,
     "ast_hash": "995ab7f533c7bd7c48281119e77f3a80",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/test-alex/_schema.yaml": {
+    "mtime": 1790276938.4112465,
+    "ast_hash": "a93f87800f2e1fdc1c85e0c31d500a9f",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/test-alex/mie69drp.md": {
+    "mtime": 1790276940.0229516,
+    "ast_hash": "6c76d53173e6a834ad6d319f0f061811",
     "semantic_hash": ""
   }
 }

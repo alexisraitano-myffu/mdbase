@@ -1,0 +1,28 @@
+version: 1
+id: test-alex
+nom: test alex
+champ_titre: texte
+colonnes:
+  - cle: titre
+    nom: hello
+    type: text
+  - cle: texte
+    nom: Texte
+    type: text
+  - cle: nombre
+    nom: Nombre
+    type: number
+  - cle: date
+    nom: Date
+    type: date
+  - cle: selection
+    nom: Sélection
+    type: select
+    options: []
+  - cle: selection_multiple
+    nom: Sélection multiple
+    type: multiselect
+    options: [ { label: stat, couleur: gris }, { label: tet, couleur: bleu } ]
+  - cle: lien
+    nom: Lien
+    type: url

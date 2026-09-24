@@ -6,12 +6,14 @@ import { FichierIntrouvable, joindre, type AdaptateurFichiers } from './fichiers
 import { cleColonne, idBase } from './identifiants'
 import { colonne, lireSchema, type Colonne, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
+import { lireVue, modifierVue, vueParDefaut, type ModificationVue, type Vue } from './vue'
 
 // Orchestration d'un espace ouvert : bases, barre latérale, et modifications de
 // schéma qui touchent à la fois la configuration et les lignes (spec §3, §5).
 
 export const FICHIER_ESPACE = '_espace.yaml'
 const FICHIER_SCHEMA = '_schema.yaml'
+const DOSSIER_VUES = '_vues'
 
 /** Types proposés à la création d'une colonne (relations, rollups, formules : jalons suivants). */
 export const TYPES_CREABLES = ['text', 'number', 'date', 'checkbox', 'select', 'multiselect', 'url'] as const
@@ -19,7 +21,13 @@ export type TypeCreable = (typeof TYPES_CREABLES)[number]
 
 const COULEURS = ['gris', 'bleu', 'vert', 'orange', 'violet', 'rose', 'jaune', 'rouge', 'marron']
 
-export type EtatBase = { id: string; chargement: ChargementBase; depot: DepotBase | null }
+export type EtatBase = {
+  id: string
+  chargement: ChargementBase
+  depot: DepotBase | null
+  /** Jamais vide : une base sans `_vues/` a une vue tableau implicite. */
+  vues: Vue[]
+}
 
 export type EtatEspace = {
   groupes: Groupe[]
@@ -179,7 +187,82 @@ export class DepotEspace {
     })
   }
 
+  // ── Vues ─────────────────────────────────────────────────────────
+
+  /** Modifie une vue ; la vue implicite d'une base obtient alors son fichier. */
+  modifierVue(base: string, idVue: string, modifs: ModificationVue): Promise<void> {
+    return this.enFile(async () => {
+      const vue = this.vue(base, idVue)
+      const chemin = cheminVue(base, idVue)
+      const texte = modifierVue(vue.implicite ? null : await this.lireOuNull(chemin), vue, modifs)
+      await this.adaptateur.ecrire(chemin, texte)
+      const relue = lireVue(texte, idVue).vue
+      if (relue) this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? relue : v)))
+    })
+  }
+
+  creerVue(base: string, nom: string): Promise<string> {
+    return this.enFile(async () => {
+      const vues = this.etatBase(base).vues
+      const id = idBase(nom, vues.map((v) => v.id))
+      const vue: Vue = { ...vueParDefaut(), id, nom: nom.trim() || id }
+      delete vue.implicite
+      await this.adaptateur.ecrire(cheminVue(base, id), modifierVue(null, vue, {}))
+      // La vue implicite n'a pas de fichier : la garder ferait croire qu'elle existe encore.
+      this.remplacerVues(base, (vs) => [...vs.filter((v) => !v.implicite), vue])
+      return id
+    })
+  }
+
+  supprimerVue(base: string, idVue: string): Promise<void> {
+    return this.enFile(async () => {
+      const vues = this.etatBase(base).vues
+      if (vues.length <= 1) throw new ErreurSchema('Une base garde toujours au moins une vue')
+      if (!this.vue(base, idVue).implicite) await this.adaptateur.supprimer(cheminVue(base, idVue))
+      this.remplacerVues(base, (vs) => vs.filter((v) => v.id !== idVue))
+    })
+  }
+
   // ── Interne ──────────────────────────────────────────────────────
+
+  private etatBase(base: string): EtatBase {
+    const b = this.bases.get(base)
+    if (!b) throw new ErreurSchema(`Base introuvable : ${base}`)
+    return b
+  }
+
+  private vue(base: string, idVue: string): Vue {
+    const v = this.etatBase(base).vues.find((x) => x.id === idVue)
+    if (!v) throw new ErreurSchema(`Vue introuvable : ${idVue}`)
+    return v
+  }
+
+  private remplacerVues(base: string, f: (vues: Vue[]) => Vue[]) {
+    const b = this.etatBase(base)
+    this.bases.set(base, { ...b, vues: f(b.vues) })
+    this.publier()
+  }
+
+  private async chargerVues(base: string): Promise<{ vues: Vue[]; avertissements: string[] }> {
+    const dossier = joindre(base, DOSSIER_VUES)
+    let entrees
+    try {
+      entrees = await this.adaptateur.lister(dossier)
+    } catch (e) {
+      if (e instanceof FichierIntrouvable) return { vues: [vueParDefaut()], avertissements: [] }
+      throw e
+    }
+    const vues: Vue[] = []
+    const avertissements: string[] = []
+    for (const e of entrees) {
+      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml')) continue
+      const lue = lireVue(await this.adaptateur.lire(joindre(dossier, e.nom)), e.nom.slice(0, -'.yaml'.length))
+      avertissements.push(...lue.avertissements)
+      if (lue.vue) vues.push(lue.vue)
+    }
+    return { vues: vues.length > 0 ? vues : [vueParDefaut()], avertissements }
+  }
+
 
   private enFile<T>(operation: () => Promise<T>): Promise<T> {
     const resultat = this.file.then(operation)
@@ -221,10 +304,14 @@ export class DepotEspace {
 
   private async chargerBase(id: string) {
     const chargement = await chargerBase(this.adaptateur, id)
-    const depot = chargement.ok
-      ? new DepotBase(this.adaptateur, chargement.base.schema, chargement.base.lignes, this.options)
-      : null
-    this.bases.set(id, { id, chargement, depot })
+    if (!chargement.ok) {
+      this.bases.set(id, { id, chargement, depot: null, vues: [] })
+      return
+    }
+    const { vues, avertissements } = await this.chargerVues(id)
+    chargement.base.avertissements.push(...avertissements)
+    const depot = new DepotBase(this.adaptateur, chargement.base.schema, chargement.base.lignes, this.options)
+    this.bases.set(id, { id, chargement, depot, vues })
   }
 
   private async lireOuNull(chemin: string): Promise<string | null> {
@@ -241,6 +328,10 @@ export class DepotEspace {
     this.instantane = { groupes, horsGroupe, bases: new Map(this.bases) }
     for (const fn of this.abonnes) fn()
   }
+}
+
+function cheminVue(base: string, idVue: string): string {
+  return joindre(base, DOSSIER_VUES, `${idVue}.yaml`)
 }
 
 function relationVers(schema: Schema, cle: string): string | undefined {

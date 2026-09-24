@@ -162,3 +162,47 @@ describe('DepotEspace : colonnes', () => {
     expect(schemaDe(espace, 'projets').colonnes[1]!.nom).toBe('Référence')
   })
 })
+
+describe('DepotEspace : vues', () => {
+  it('donne une vue tableau implicite, sans fichier, à une base sans _vues', async () => {
+    const { a, espace } = await ouvrir()
+    expect(espace.etat().bases.get('projets')!.vues).toEqual([expect.objectContaining({ id: 'tableau', implicite: true })])
+    expect(a.ecritures).toEqual([])
+  })
+
+  it('écrit le fichier de la vue implicite à sa première modification', async () => {
+    const { a, espace } = await ouvrir()
+    await espace.modifierVue('projets', 'tableau', { filtres: [{ colonne: 'statut', operateur: 'egal', valeur: 'En cours' }] })
+    expect(a.ecritures).toEqual(['projets/_vues/tableau.yaml'])
+    const vue = espace.etat().bases.get('projets')!.vues[0]!
+    expect(vue.implicite).toBeUndefined()
+    expect(vue.filtres).toHaveLength(1)
+  })
+
+  it('crée, relit et supprime des vues ; refuse de supprimer la dernière', async () => {
+    const { a, espace } = await ouvrir()
+    const id = await espace.creerVue('projets', 'En retard')
+    expect(id).toBe('en-retard')
+    expect(espace.etat().bases.get('projets')!.vues.map((v) => v.id)).toEqual(['en-retard'])
+    await espace.modifierVue('projets', id, { tris: [{ colonne: 'budget', sens: 'desc' }] })
+    expect(await a.lire('projets/_vues/en-retard.yaml')).toContain('- { colonne: budget, sens: desc }')
+    await expect(espace.supprimerVue('projets', id)).rejects.toThrow(ErreurSchema)
+    await espace.creerVue('projets', 'Tout')
+    await espace.supprimerVue('projets', id)
+    await expect(a.lire('projets/_vues/en-retard.yaml')).rejects.toThrow()
+  })
+
+  it('lit les vues existantes au chargement', async () => {
+    const a = new AdaptateurCompteur({
+      'projets/_schema.yaml': SCHEMA_PROJETS,
+      'projets/_vues/a.yaml': 'nom: A\n',
+      'projets/_vues/b.yaml': 'nom: B\ntris:\n  - { colonne: budget, sens: desc }\n',
+      'projets/_vues/notes.txt': 'ignoré',
+    })
+    const espace = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier })
+    expect(espace.etat().bases.get('projets')!.vues.map((v) => [v.id, v.nom])).toEqual([
+      ['a', 'A'],
+      ['b', 'B'],
+    ])
+  })
+})
