@@ -38,6 +38,7 @@ src/
     filtres.ts             évaluation des filtres, tris, héritage à la création, application d'une vue
     graphe.ts              graphe de dépendances des colonnes calculées, ordre topologique, boucles
     calcul.ts              valeurs des colonnes calculées (relations non propriétaires, rollups)
+    mise-en-page.ts        lecture/réécriture des `_pages/*.yaml`, règles d'affichage d'une page
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
@@ -51,6 +52,7 @@ src/
   - `src/core/architecture.test.ts` refuse tout import hors du cœur, sauf la liste fermée `LIBRAIRIES_AUTORISEES` (à étendre explicitement quand une librairie sans DOM est ajoutée, ex. `yaml`, `minisearch`).
 - **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
 - Le cœur n'a ni minuteur, ni `crypto`, ni horloge : `Planifier`, `Aleatoire` et la date du jour (`Contexte.aujourdhui`) lui sont injectés.
+- Corps des pages : éditeur Milkdown (Crepe, sans IA, images ni LaTeX), chargé à la demande. Il normalise le Markdown qu'il réécrit : il ne remonte un changement qu'après une action de l'utilisateur, donc ouvrir une page ne réécrit jamais le fichier.
 - Colonnes calculées : jamais stockées, recalculées dans `DepotEspace` à chaque modification de lignes, sur tout l'espace (écart assumé au « recalcul incrémental » du §12 : simple et assez rapide pour quelques milliers de lignes ; à revoir si ça rame). L'UI lit des lignes « enrichies » (cellules stockées + calculées).
 - Filtres, tris et affichage s'appuient sur la **nature** d'une colonne (`natureDe` : texte, nombre, date, case, choix, liste), pas sur son type : un rollup se comporte comme son résultat.
 - Écart assumé à la spec §8 : une ligne **modifiée** dans la vue reste visible (« sortira de la vue ») comme une ligne créée, sinon elle disparaîtrait en pleine édition.
@@ -80,7 +82,8 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 4. Gestion du schéma (validé dans Chrome)
 - [x] 5. Filtres, tris, filtres rapides (validé dans Chrome)
 - [x] 6. Relations et rollups (validé dans Chrome)
-- [ ] 7. Pages
+- [x] 7. Pages (à valider dans Chrome)
+- [ ] 8. Vues : groupement, kanban, collection
 
 ## graphify
 

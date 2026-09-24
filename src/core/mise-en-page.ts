@@ -140,3 +140,16 @@ export function proprietesVisibles(schema: Schema, mep: MiseEnPage, ligne: Ligne
 export function corpsEnOnglet(mep: MiseEnPage): boolean {
   return mep.onglets.some((o) => o.type === 'corps')
 }
+
+/**
+ * Onglets d'une mise en page à partir des réglages : dès qu'une relation ou le
+ * corps a son onglet, les propriétés deviennent le premier onglet.
+ */
+export function ongletsDe(relations: readonly { relation: string; colonnes: string[] }[], corpsDansUnOnglet: boolean): OngletPage[] {
+  if (relations.length === 0 && !corpsDansUnOnglet) return []
+  return [
+    { type: 'proprietes' },
+    ...relations.map((r) => ({ type: 'relation' as const, relation: r.relation, colonnes: r.colonnes })),
+    ...(corpsDansUnOnglet ? [{ type: 'corps' as const }] : []),
+  ]
+}

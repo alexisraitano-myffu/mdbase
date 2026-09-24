@@ -34,9 +34,13 @@ type Props = {
   valeursCreation: () => Modifications
   /** Garde une ligne visible après création ou modification, même hors filtres. */
   retenir: (id: string) => void
+  /** Colonnes à afficher (onglet relation) ; toutes par défaut. */
+  colonnesVisibles?: readonly string[]
+  /** Ouvre la page d'une ligne (bouton « Ouvrir » sur le titre). */
+  ouvrir?: (ligne: LigneChargee) => void
 }
 
-export function Tableau({ espace, base, depot, lignesVue, tris, valeursCreation, retenir }: Props) {
+export function Tableau({ espace, base, depot, lignesVue, tris, valeursCreation, retenir, colonnesVisibles, ouvrir }: Props) {
   const lignes = useMemo(() => lignesVue.map((l) => l.ligne), [lignesVue])
   const sortira = useMemo(() => new Set(lignesVue.filter((l) => l.sortira).map((l) => l.ligne.id)), [lignesVue])
   const lancer = useLancer()
@@ -48,12 +52,12 @@ export function Tableau({ espace, base, depot, lignesVue, tris, valeursCreation,
 
   const colonnes = useMemo<ColumnDef<typeof fonctionnalites, LigneChargee>[]>(
     () =>
-      depot.schema.colonnes.map((c) => ({
+      depot.schema.colonnes.filter((c) => !colonnesVisibles || colonnesVisibles.includes(c.cle)).map((c) => ({
         id: c.cle,
         header: c.nom,
         size: c.cle === depot.schema.champTitre ? 260 : 180,
       })),
-    [depot.schema],
+    [depot.schema, colonnesVisibles],
   )
   const colonneDe = (id: string) => colonneDuSchema(depot.schema, id)!
 
@@ -159,6 +163,11 @@ export function Tableau({ espace, base, depot, lignesVue, tris, valeursCreation,
               >
                 {rangee.getAllCells().map((cell) => (
                   <div key={cell.id} className="case" style={{ width: cell.column.getSize() }}>
+                    {ouvrir && cell.column.id === depot.schema.champTitre && (
+                      <button className="bouton-ouvrir" onClick={() => ouvrir(rangee.original)}>
+                        Ouvrir
+                      </button>
+                    )}
                     <Cellule
                       depot={depot}
                       ligne={rangee.original}

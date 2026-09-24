@@ -9,6 +9,7 @@ import {
   lireMiseEnPage,
   miseEnPageParDefaut,
   modifierMiseEnPage,
+  ongletsDe,
   proprietesVisibles,
   type MiseEnPage,
 } from './mise-en-page'
@@ -114,5 +115,18 @@ describe('règles d’affichage', () => {
   it('le corps a son onglet seulement si la mise en page le dit', () => {
     expect(corpsEnOnglet(miseEnPageParDefaut())).toBe(false)
     expect(corpsEnOnglet(lireMiseEnPage(SUIVI, 's').miseEnPage!)).toBe(true)
+  })
+})
+
+describe('ongletsDe', () => {
+  it('sans onglet relation ni corps : pas d’onglets', () => {
+    expect(ongletsDe([], false)).toEqual([])
+  })
+  it('propriétés en premier, puis relations, puis corps', () => {
+    expect(ongletsDe([{ relation: 'taches', colonnes: [] }], true)).toEqual([
+      { type: 'proprietes' },
+      { type: 'relation', relation: 'taches', colonnes: [] },
+      { type: 'corps' },
+    ])
   })
 })

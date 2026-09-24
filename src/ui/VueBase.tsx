@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ChargementBase } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatBase } from '../core/depot-espace'
 import { appliquerVue, filtreDePastille, valeursHeritees } from '../core/filtres'
 import type { Filtre } from '../core/vue'
 import { BarreVue } from './BarreVue'
+import { Page } from './Page'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
 import { useErreurDepot, useLignes } from './useDepot'
@@ -55,42 +56,83 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
     [lignes, depot.schema, filtres, vue.tris, aujourdhui, ids],
   )
 
+  // Page ouverte (spec §9) : panneau à droite ou plein écran. Elle peut appartenir
+  // à une autre base quand on la suit depuis un onglet relation.
+  const [page, setPage] = useState<{ base: string; id: string } | null>(null)
+  const [pleinEcran, setPleinEcran] = useState(false)
+
+  useEffect(() => {
+    if (!page) return
+    const clavier = (e: KeyboardEvent) => {
+      const cible = e.target as HTMLElement
+      const enSaisie = cible.closest('input, textarea, select, [contenteditable="true"]')
+      if (e.key === 'Escape') {
+        if (document.querySelector('.flottant')) return // le menu ouvert se ferme d'abord
+        if (enSaisie) return (cible as HTMLElement).blur()
+        setPage(null)
+        setPleinEcran(false)
+      }
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !enSaisie && page.base === etat.id) {
+        const i = lignesVue.findIndex((l) => l.ligne.id === page.id)
+        const suivante = lignesVue[i + (e.key === 'ArrowDown' ? 1 : -1)]
+        if (i >= 0 && suivante) {
+          e.preventDefault()
+          setPage({ base: etat.id, id: suivante.ligne.id })
+        }
+      }
+    }
+    document.addEventListener('keydown', clavier)
+    return () => document.removeEventListener('keydown', clavier)
+  }, [page, lignesVue, etat.id])
+
   const { nonReconnus, avertissements } = chargement.base
   const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`)]
 
   return (
-    <>
-      <h1>{depot.schema.nom}</h1>
-      {erreur && <p className="erreur">Écriture impossible : {erreur}</p>}
-      {signalements.length > 0 && (
-        <details className="avertissements">
-          <summary>
-            ⚠ {signalements.length} signalement{signalements.length > 1 ? 's' : ''}
-          </summary>
-          <ul>
-            {signalements.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </details>
+    <div className={`zone-vue ${page ? 'avec-page' : ''} ${pleinEcran ? 'page-plein-ecran' : ''}`}>
+      <div className="zone-tableau">
+        <h1>{depot.schema.nom}</h1>
+        {erreur && <p className="erreur">Écriture impossible : {erreur}</p>}
+        {signalements.length > 0 && (
+          <details className="avertissements">
+            <summary>
+              ⚠ {signalements.length} signalement{signalements.length > 1 ? 's' : ''}
+            </summary>
+            <ul>
+              {signalements.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+        <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} />
+        <Tableau
+          espace={espace}
+          base={etat.id}
+          depot={depot}
+          lignesVue={lignesVue}
+          tris={vue.tris}
+          valeursCreation={() => valeursHeritees(depot.schema, filtres)}
+          retenir={retenir}
+          ouvrir={(l) => setPage({ base: etat.id, id: l.id })}
+        />
+      </div>
+      {page && (
+        <Page
+          key={`${page.base}/${page.id}`}
+          base={page.base}
+          id={page.id}
+          miseEnPageDeLaVue={page.base === etat.id ? vue.miseEnPage : undefined}
+          vue={{ base: etat.id, id: vue.id, nom: vue.nom }}
+          pleinEcran={pleinEcran}
+          basculerPleinEcran={() => setPleinEcran(!pleinEcran)}
+          fermer={() => {
+            setPage(null)
+            setPleinEcran(false)
+          }}
+          ouvrir={(base, id) => setPage({ base, id })}
+        />
       )}
-      <BarreVue
-        espace={espace}
-        base={etat.id}
-        schema={depot.schema}
-        vues={etat.vues}
-        vue={vue}
-        choisirVue={setIdVue}
-      />
-      <Tableau
-        espace={espace}
-        base={etat.id}
-        depot={depot}
-        lignesVue={lignesVue}
-        tris={vue.tris}
-        valeursCreation={() => valeursHeritees(depot.schema, filtres)}
-        retenir={retenir}
-      />
-    </>
+    </div>
   )
 }

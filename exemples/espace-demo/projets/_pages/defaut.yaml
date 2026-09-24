@@ -1,0 +1,17 @@
+id: defaut
+nom: Par défaut
+defaut: true
+champs:
+  - { cle: statut, affichage: visible }
+  - { cle: client, affichage: visible }
+  - { cle: echeance, affichage: visible }
+  - { cle: budget, affichage: masque_si_vide }
+  - { cle: heures, affichage: visible }
+  - { cle: avancement, affichage: visible }
+  - { cle: restantes, affichage: masque_si_vide }
+onglets:
+  - type: proprietes
+  - type: relation
+    relation: taches
+    colonnes: [ titre, priorite, echeance, heures, fait ]
+  - type: corps

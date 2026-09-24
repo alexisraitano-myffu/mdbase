@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1790275805.1040845,
-    "ast_hash": "260e7c40c54638160e7fba28218c1034",
+    "mtime": 1790279426.783629,
+    "ast_hash": "a1060dcd0499a40e419b0e48b3e8bc31",
     "semantic_hash": ""
   },
   "src/adapters/fsa/adaptateur-fsa.ts": {
@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790279039.7239356,
-    "ast_hash": "497e670f7fc9b92b56ca3c01c7f05886",
+    "mtime": 1790279414.2934256,
+    "ast_hash": "7f468952f5673f0faec5e7703137b0bb",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -185,13 +185,13 @@
     "semantic_hash": ""
   },
   "src/core/depot-base.test.ts": {
-    "mtime": 1790276550.8771386,
-    "ast_hash": "336aae5adb2c634ab00750469e7b7cd7",
+    "mtime": 1790279497.5061467,
+    "ast_hash": "c500412748bead27f284271b2e7c4175",
     "semantic_hash": ""
   },
   "src/core/depot-base.ts": {
-    "mtime": 1790276492.6683197,
-    "ast_hash": "33c06e784f8c3c1f909925cd6a0439b9",
+    "mtime": 1790279497.4938776,
+    "ast_hash": "351386b9358ebe3f51f6d36ffa7f82fb",
     "semantic_hash": ""
   },
   "src/ui/Tableau.tsx": {
@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790278954.4586291,
-    "ast_hash": "3955984570a3498058771ff46501a3c8",
+    "mtime": 1790279527.997408,
+    "ast_hash": "d8939097f238db3af8117efb2365f88c",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "src/core/vue.ts": {
-    "mtime": 1790277905.3509572,
-    "ast_hash": "52dd81078454615790c743181be99469",
+    "mtime": 1790279527.9968843,
+    "ast_hash": "96afb7b5c0f181015f6a21a4ad7baa16",
     "semantic_hash": ""
   },
   "src/ui/BarreVue.tsx": {
@@ -447,6 +447,21 @@
   "exemples/espace-demo/taches/recette--trece007.md": {
     "mtime": 1790279012.0917342,
     "ast_hash": "e7a82f12a30cd4487da0bd5bcf8ca44a",
+    "semantic_hash": ""
+  },
+  "src/core/depot-espace-pages.test.ts": {
+    "mtime": 1790279545.718055,
+    "ast_hash": "089dbb3f16e8e45455bed3ed34d8a8ea",
+    "semantic_hash": ""
+  },
+  "src/core/mise-en-page.test.ts": {
+    "mtime": 1790279459.5270662,
+    "ast_hash": "9d5f8c03d6d4521aeaba651c7e03983d",
+    "semantic_hash": ""
+  },
+  "src/core/mise-en-page.ts": {
+    "mtime": 1790279475.653766,
+    "ast_hash": "68d83ae9abb6a1f4775a93c0630f2184",
     "semantic_hash": ""
   }
 }
