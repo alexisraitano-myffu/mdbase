@@ -46,24 +46,10 @@ button:hover { background: var(--survol); }
   overflow-y: auto;
   box-sizing: border-box;
 }
-.nom-espace {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  font-weight: 600;
-  text-align: left;
-  border: none;
-  background: none;
-  padding: 0.35rem 0.5rem;
-  margin-bottom: 0.5rem;
-}
-.nom-espace:hover { background: #ebebea; }
-.nom-espace .texte-espace { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nom-espace .chevron { color: var(--discret); font-size: 0.8em; }
-.icone-espace { color: var(--discret); }
+.nom-espace { font-weight: 600; padding: 0.25rem 0.5rem 0.75rem; }
 .entree-base { border: none; background: none; text-align: left; padding: 0.3rem 0.5rem; }
 .entree-base.active { background: #ebebea; font-weight: 500; }
+.barre-laterale .changer { margin-top: auto; text-align: left; }
 .contenu { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 1.5rem 2rem 0; }
 .contenu h1 { font-size: 1.9rem; margin: 0 0 0.75rem; }
 .avertissements { color: #b35c00; font-size: 0.85em; margin-bottom: 0.5rem; }

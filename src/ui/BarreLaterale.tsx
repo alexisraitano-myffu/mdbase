@@ -56,7 +56,7 @@ export function BarreLaterale({ espace, etat, nomEspace, choisie, choisir, chang
 
   return (
     <nav className="barre-laterale">
-      <MenuEspace nom={nomEspace} changerDossier={changerDossier} />
+      <div className="nom-espace">{nomEspace}</div>
 
       {etat.groupes.map((g) => (
         <section key={g.nom} className={`groupe ${cible === `groupe:${g.nom}` ? 'cible' : ''}`} {...deposable(`groupe:${g.nom}`, g.nom)}>
@@ -96,6 +96,10 @@ export function BarreLaterale({ espace, etat, nomEspace, choisie, choisir, chang
           </button>
         </>
       )}
+
+      <button className="discret changer" onClick={changerDossier}>
+        Changer de dossier
+      </button>
     </nav>
   )
 }
@@ -204,34 +208,5 @@ function ChampEnLigne(p: {
         if (e.key === 'Escape') terminer(false)
       }}
     />
-  )
-}
-
-/** Nom de l'espace en tête de barre, qui ouvre le choix du dossier. */
-function MenuEspace({ nom, changerDossier }: { nom: string; changerDossier: () => void }) {
-  const [ouvert, setOuvert] = useState(false)
-  const ancre = useRef<HTMLButtonElement>(null)
-  return (
-    <>
-      <button ref={ancre} className="nom-espace" onClick={() => setOuvert(true)} title="Changer de dossier">
-        <span className="icone-espace">▣</span>
-        <span className="texte-espace">{nom}</span>
-        <span className="chevron">▾</span>
-      </button>
-      {ouvert && (
-        <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
-          <div className="option discret">Dossier ouvert : {nom}</div>
-          <button
-            className="option"
-            onClick={() => {
-              setOuvert(false)
-              changerDossier()
-            }}
-          >
-            Ouvrir un autre dossier…
-          </button>
-        </Flottant>
-      )}
-    </>
   )
 }
