@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import type { ChargementBase } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatBase } from '../core/depot-espace'
-import { appliquerVue, valeursHeritees } from '../core/filtres'
+import { appliquerVue, filtreDePastille, valeursHeritees } from '../core/filtres'
+import type { Filtre } from '../core/vue'
 import { BarreVue } from './BarreVue'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
@@ -17,10 +18,9 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
   const aujourdhui = useAujourdhui()
   const [idVue, setIdVue] = useState(etat.vues[0]!.id)
   const vue = etat.vues.find((v) => v.id === idVue) ?? etat.vues[0]!
-  const [actifs, setActifs] = useState<ReadonlySet<string>>(new Set())
 
   // Lignes créées ou modifiées ici : visibles jusqu'au prochain changement de vue ou de filtres (spec §8).
-  const cleVue = JSON.stringify([vue.id, vue.filtres, vue.tris, [...actifs]])
+  const cleVue = JSON.stringify([vue.id, vue.filtres, vue.tris, vue.filtresRapides])
   const [persistantes, setPersistantes] = useState<{ cle: string; ids: ReadonlySet<string> }>({ cle: cleVue, ids: new Set() })
   const ids = useMemo(
     () => (persistantes.cle === cleVue ? persistantes.ids : new Set<string>()),
@@ -30,9 +30,13 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
     if (!ids.has(id)) setPersistantes({ cle: cleVue, ids: new Set([...ids, id]) })
   }
 
+  // Filtres de la vue + pastilles réglées, combinés en ET.
   const filtres = useMemo(
-    () => [...vue.filtres, ...vue.filtresRapides.filter((r) => actifs.has(r.nom)).flatMap((r) => r.filtres)],
-    [vue, actifs],
+    () => [
+      ...vue.filtres,
+      ...vue.filtresRapides.map((p) => filtreDePastille(depot.schema, p)).filter((f): f is Filtre => f !== null),
+    ],
+    [vue, depot.schema],
   )
   const lignesVue = useMemo(
     () => appliquerVue(lignes, depot.schema, filtres, vue.tris, { aujourdhui }, ids),
@@ -64,16 +68,7 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
         schema={depot.schema}
         vues={etat.vues}
         vue={vue}
-        choisirVue={(id) => {
-          setIdVue(id)
-          setActifs(new Set())
-        }}
-        actifs={actifs}
-        basculer={(nom) => {
-          const suivants = new Set(actifs)
-          if (!suivants.delete(nom)) suivants.add(nom)
-          setActifs(suivants)
-        }}
+        choisirVue={setIdVue}
       />
       <Tableau
         espace={espace}

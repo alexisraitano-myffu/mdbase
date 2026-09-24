@@ -22,8 +22,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Options de select créées à la volée depuis le menu de la cellule (« Chercher ou créer une option »).
 - Jalon 5 (filtres, tris, filtres rapides) : vues enregistrées dans `_vues/*.yaml` (onglets : créer, renommer, supprimer), vue tableau implicite écrite à sa première modification.
 - Filtres combinés en ET avec tous les opérateurs de la spec (texte insensible à la casse et aux accents, dates relatives, « aujourd'hui » comme valeur d'avant/après), tris multiples (vides en bas, select dans l'ordre de ses options), indicateur de tri dans l'en-tête.
-- Filtres rapides : pilules activables en un clic, combinées en ET, définies depuis la vue.
-- Création de ligne : valeurs héritées des filtres actifs (spec §8) ; une ligne créée ou modifiée reste visible sur fond jaune jusqu'au prochain changement de vue ou de filtres.
+- Filtres rapides en pastilles : une colonne épinglée au-dessus du tableau (« + Filtre rapide »), réglée directement depuis sa pastille (opérateur + valeur), enregistrée dans la vue ; une pastille non réglée ne filtre rien.
+- Création de ligne : valeurs héritées des filtres de la vue et des pastilles réglées (spec §8) ; une ligne créée ou modifiée reste visible sur fond jaune jusqu'au prochain changement de vue ou de filtres.
 ### Changed
 ### Fixed
+- Les menus flottants restent dans la fenêtre (les panneaux Filtrer / Trier débordaient à droite).
 - Les menus flottants (select, en-têtes) sont rendus hors du tableau : ils pouvaient apparaître décalés ou coupés dans les lignes.

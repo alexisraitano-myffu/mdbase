@@ -12,9 +12,8 @@ filtres:
 tris:
   - { colonne: echeance, sens: asc }
 filtres_rapides:
-  - nom: En retard
-    filtres:
-      - { colonne: jours_restants, operateur: inferieur, valeur: 0 }
+  - { colonne: client }
+  - { colonne: echeance, operateur: avant, valeur: aujourdhui }
 mise_en_page: suivi
 `
 
@@ -28,7 +27,7 @@ describe('lireVue', () => {
       type: 'kanban',
       filtres: [{ colonne: 'statut', operateur: 'different_de', valeur: 'Terminé' }],
       tris: [{ colonne: 'echeance', sens: 'asc' }],
-      filtresRapides: [{ nom: 'En retard', filtres: [{ colonne: 'jours_restants', operateur: 'inferieur', valeur: 0 }] }],
+      filtresRapides: [{ colonne: 'client' }, { colonne: 'echeance', operateur: 'avant', valeur: 'aujourdhui' }],
       miseEnPage: 'suivi',
     })
   })
@@ -60,13 +59,19 @@ describe('modifierVue', () => {
     expect(lireVue(apres, 'kanban-statut').vue!.filtres[0]!.valeur).toEqual(['À faire', 'En cours'])
   })
 
-  it('écrit les filtres rapides avec un filtre par ligne', () => {
+  it('écrit une pastille par ligne, réglée ou non', () => {
     const apres = modifierVue(null, vueParDefaut(), {
-      filtresRapides: [{ nom: 'Urgent', filtres: [{ colonne: 'urgent', operateur: 'egal', valeur: true }] }],
+      filtresRapides: [{ colonne: 'statut', operateur: 'parmi', valeur: ['En cours'] }, { colonne: 'client' }],
     })
     expect(apres).toBe(
-      'id: tableau\nnom: Tableau\ntype: tableau\nfiltres_rapides:\n  - nom: Urgent\n    filtres:\n      - { colonne: urgent, operateur: egal, valeur: true }\n',
+      'id: tableau\nnom: Tableau\ntype: tableau\nfiltres_rapides:\n  - { colonne: statut, operateur: parmi, valeur: [ En cours ] }\n  - { colonne: client }\n',
     )
+  })
+
+  it('ignore une pastille sans colonne (ancien format à nom) avec un avertissement', () => {
+    const { vue, avertissements } = lireVue('filtres_rapides:\n  - nom: Urgent\n    filtres: []\n  - { colonne: a }\n', 'v')
+    expect(vue?.filtresRapides).toEqual([{ colonne: 'a' }])
+    expect(avertissements).toHaveLength(1)
   })
 
   it('retire une liste vidée, renomme', () => {

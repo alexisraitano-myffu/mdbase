@@ -1,10 +1,11 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { DepotEspace } from '../core/depot-espace'
 import type { Schema } from '../core/schema'
-import type { FiltreRapide, Tri, Vue } from '../core/vue'
+import type { Tri, Vue } from '../core/vue'
 import { useLancer } from './actions'
-import { ChampTexte, colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
+import { colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
 import { Flottant } from './flottant'
+import { Pastilles } from './Pastilles'
 
 type Props = {
   espace: DepotEspace
@@ -13,12 +14,10 @@ type Props = {
   vues: Vue[]
   vue: Vue
   choisirVue: (id: string) => void
-  actifs: ReadonlySet<string>
-  basculer: (nom: string) => void
 }
 
-/** Onglets de vues, filtres rapides, et panneaux Filtrer / Trier (spec §7). */
-export function BarreVue({ espace, base, schema, vues, vue, choisirVue, actifs, basculer }: Props) {
+/** Onglets de vues, panneaux Filtrer / Trier, et pastilles de filtres rapides (spec §7). */
+export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props) {
   const lancer = useLancer()
   const modifier = (m: Parameters<DepotEspace['modifierVue']>[2]) => void lancer(espace.modifierVue(base, vue.id, m))
 
@@ -53,25 +52,10 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue, actifs, 
           <Panneau libelle={`Trier${vue.tris.length ? ` (${vue.tris.length})` : ''}`} actif={vue.tris.length > 0}>
             <EditeurTris schema={schema} tris={vue.tris} changer={(tris) => modifier({ tris })} />
           </Panneau>
-          <Panneau libelle="Filtres rapides" actif={false}>
-            <EditeurFiltresRapides
-              schema={schema}
-              rapides={vue.filtresRapides}
-              changer={(filtresRapides) => modifier({ filtresRapides })}
-            />
-          </Panneau>
         </div>
       </div>
 
-      {vue.filtresRapides.length > 0 && (
-        <div className="filtres-rapides">
-          {vue.filtresRapides.map((r) => (
-            <button key={r.nom} className={`pilule ${actifs.has(r.nom) ? 'active' : ''}`} onClick={() => basculer(r.nom)}>
-              {r.nom}
-            </button>
-          ))}
-        </div>
-      )}
+      <Pastilles schema={schema} pastilles={vue.filtresRapides} changer={(filtresRapides) => modifier({ filtresRapides })} />
     </div>
   )
 }
@@ -183,42 +167,6 @@ function EditeurTris({ schema, tris, changer }: { schema: Schema; tris: Tri[]; c
           + Ajouter un tri
         </button>
       )}
-    </div>
-  )
-}
-
-function EditeurFiltresRapides(p: { schema: Schema; rapides: FiltreRapide[]; changer: (r: FiltreRapide[]) => void }) {
-  const remplacer = (i: number, r: FiltreRapide) => p.changer(p.rapides.map((x, j) => (j === i ? r : x)))
-  return (
-    <div className="editeur-filtres">
-      {p.rapides.map((r, i) => (
-        <fieldset key={i} className="filtre-rapide">
-          <legend>
-            <ChampTexte
-              valeur={r.nom}
-              placeholder="nom"
-              changer={(v) => {
-                const nom = v.trim()
-                if (nom && nom !== r.nom && !p.rapides.some((x) => x.nom === nom)) remplacer(i, { ...r, nom })
-              }}
-            />
-            <button className="discret" onClick={() => p.changer(p.rapides.filter((_, j) => j !== i))} aria-label="Supprimer le filtre rapide">
-              ×
-            </button>
-          </legend>
-          <EditeurFiltres schema={p.schema} filtres={r.filtres} changer={(filtres) => remplacer(i, { ...r, filtres })} />
-        </fieldset>
-      ))}
-      <button
-        className="discret ajout-filtre"
-        onClick={() => {
-          let n = p.rapides.length + 1
-          while (p.rapides.some((r) => r.nom === `Filtre ${n}`)) n++
-          p.changer([...p.rapides, { nom: `Filtre ${n}`, filtres: [] }])
-        }}
-      >
-        + Nouveau filtre rapide
-      </button>
     </div>
   )
 }

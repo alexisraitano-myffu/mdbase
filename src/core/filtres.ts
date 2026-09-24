@@ -2,7 +2,7 @@ import type { LigneChargee } from './base'
 import type { Modifications } from './ligne'
 import { colonne as colonneDe, type Colonne, type Schema } from './schema'
 import type { Valeur } from './valeurs'
-import type { Filtre, Operateur, Tri } from './vue'
+import type { Filtre, FiltreRapide, Operateur, Tri } from './vue'
 
 // Filtres, tris et héritage des filtres à la création (spec §7, §8).
 // Tout s'évalue sur les valeurs de l'index, sans accès aux fichiers.
@@ -31,6 +31,37 @@ export function operateursPour(c: Colonne): Operateur[] {
     default:
       return communs
   }
+}
+
+/** Opérateurs qui ne demandent aucune valeur. */
+export const SANS_VALEUR: readonly Operateur[] = ['vide', 'non_vide', 'aujourdhui', 'cette_semaine', 'ce_mois']
+
+/** Opérateur d'une pastille nouvellement épinglée : le plus utile pour le type. */
+export function operateurParDefaut(c: Colonne): Operateur {
+  switch (c.type) {
+    case 'select':
+      return 'parmi'
+    case 'multiselect':
+    case 'relation':
+    case 'text':
+    case 'url':
+      return 'contient'
+    default:
+      return 'egal'
+  }
+}
+
+/** Filtre appliqué par une pastille, ou `null` si elle n'est pas encore réglée (elle ne filtre alors rien). */
+export function filtreDePastille(schema: Schema, p: FiltreRapide): Filtre | null {
+  const c = colonneDe(schema, p.colonne)
+  if (!c) return null
+  const operateur = p.operateur ?? operateurParDefaut(c)
+  if (SANS_VALEUR.includes(operateur)) return { colonne: c.cle, operateur }
+  const v = p.valeur
+  const renseignee = Array.isArray(v)
+    ? v.length > 0 && (operateur !== 'entre' || v.every((x) => x !== '' && x !== undefined))
+    : v !== undefined && v !== '' && !(typeof v === 'number' && Number.isNaN(v))
+  return renseignee ? { colonne: c.cle, operateur, valeur: v } : null
 }
 
 /** Valeur d'une cellule pour les filtres et tris ; une valeur invalide compte comme non vide mais ne correspond à rien. */

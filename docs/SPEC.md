@@ -34,7 +34,7 @@ Une application de bases de données relationnelles avec l'ergonomie de Notion, 
 - Rollups sur n'importe quel champ de la base liée, rollups de rollups.
 - Formules niveaux 1 et 2 (voir §6).
 - Filtres, tris, groupements et calculs sur **toutes** les colonnes, calculées comprises, sans exception.
-- Filtres rapides en haut de vue, activables en un clic.
+- Filtres rapides en haut de vue : des colonnes épinglées en pastilles, réglées en un clic.
 - Création de ligne par un bouton `+`, avec héritage des filtres simples.
 - Vues : tableau, kanban, collection, calendrier, timeline avec jalons.
 - Dashboards : blocs de vues empilés verticalement, possibilité de deux blocs côte à côte.
@@ -275,7 +275,7 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 ### Socle commun à toutes les vues
 - Filtres (ET en V1 ; groupes OU facultatifs, voir héritage), tris multiples.
 - Colonnes visibles et leur ordre.
-- **Filtres rapides** : barre en haut de la vue, chaque filtre rapide est un bouton activable (ex. « Mes tâches en cours », « En retard »). Plusieurs peuvent être actifs, combinés en ET avec les filtres de la vue.
+- **Filtres rapides [DÉCIDÉ]** : barre de pastilles en haut de la vue. Chaque pastille est une **colonne épinglée** (ex. « Statut ») que l'on règle directement depuis la pastille (opérateur + valeur, ex. Statut parmi En cours, À faire). Une pastille non réglée ne filtre rien. Les pastilles réglées se combinent en ET avec les filtres de la vue, qui restent le cadre fixe (panneau « Filtrer »). La valeur réglée est **enregistrée dans la vue**, comme toute configuration.
 - Mise en page utilisée pour ouvrir les lignes (§9).
 - **Sauvegarde instantanée** de toute modification de configuration.
 
@@ -300,9 +300,8 @@ filtres:
 tris:
   - { colonne: echeance, sens: asc }
 filtres_rapides:
-  - nom: En retard
-    filtres:
-      - { colonne: jours_restants, operateur: inferieur, valeur: 0 }
+  - { colonne: client }                                          # épinglée, non réglée
+  - { colonne: jours_restants, operateur: inferieur, valeur: 0 } # réglée
 mise_en_page: suivi
 ```
 
@@ -322,7 +321,7 @@ mise_en_page: suivi
 
 - Bouton `+` en bas de tableau, en haut de chaque colonne kanban, dans chaque groupe, dans chaque onglet relation.
 - La ligne est créée **immédiatement** (fichier écrit), titre en édition.
-- **Héritage des filtres actifs** (filtres de vue + filtres rapides actifs + groupe/colonne kanban où l'on a cliqué) :
+- **Héritage des filtres actifs** (filtres de vue + pastilles de filtres rapides réglées + groupe/colonne kanban où l'on a cliqué) :
   - `egal` sur `select`, `checkbox`, `text`, `number`, `date` → la valeur est remplie ;
   - `contient` sur `relation` → l'id est ajouté (c'est ce qui fait fonctionner les onglets relation) ;
   - `parmi` sur `select` avec une seule valeur → remplie ;

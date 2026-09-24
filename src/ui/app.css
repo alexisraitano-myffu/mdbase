@@ -222,3 +222,8 @@ button:hover { background: var(--survol); }
 .indicateur-tri { color: #2383e2; }
 .rangee.sortira { background: #fbf3db; }
 .rangee.sortira:hover { background: #f7ecc9; }
+.pilule { background: #fff; }
+.pilule .resume { font-weight: 500; }
+.pilule .chevron { opacity: 0.6; font-size: 0.8em; }
+.ajout-pastille { padding: 0.2rem 0.5rem; font-size: 0.9em; }
+.panneau-pastille { padding: 6px; display: flex; flex-direction: column; gap: 8px; min-width: 260px; }

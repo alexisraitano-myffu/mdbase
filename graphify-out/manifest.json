@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "src/ui/flottant.tsx": {
-    "mtime": 1790276749.0159845,
-    "ast_hash": "995ab7f533c7bd7c48281119e77f3a80",
+    "mtime": 1790277486.0791574,
+    "ast_hash": "bb2a3e09412a59b8d121a1bf4d5586a7",
     "semantic_hash": ""
   },
   "exemples/espace-demo/test-alex/_schema.yaml": {
@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_vues/tableau.yaml": {
-    "mtime": 1790277331.793719,
-    "ast_hash": "8f90df3a4feb9438cde13a74750e63ac",
+    "mtime": 1790277431.149907,
+    "ast_hash": "8efd0aae9b612e8dd717ca46c67fb1e5",
     "semantic_hash": ""
   }
 }

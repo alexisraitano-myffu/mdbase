@@ -88,7 +88,7 @@ export function EditeurFiltres({ schema, filtres, changer }: { schema: Schema; f
   )
 }
 
-function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; filtre: Filtre; changer: (v: unknown) => void }) {
+export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; filtre: Filtre; changer: (v: unknown) => void }) {
   const op = filtre.operateur
   if (['vide', 'non_vide', 'aujourdhui', 'cette_semaine', 'ce_mois'].includes(op)) return null
 

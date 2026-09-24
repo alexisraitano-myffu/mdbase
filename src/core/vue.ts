@@ -1,4 +1,4 @@
-import { Document, isMap, isSeq, parse, parseDocument, type YAMLSeq } from 'yaml'
+import { Document, isMap, parse, parseDocument, type YAMLSeq } from 'yaml'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
 
@@ -33,7 +33,12 @@ export type Operateur = (typeof OPERATEURS)[number]
 
 export type Filtre = { colonne: string; operateur: Operateur; valeur?: unknown }
 export type Tri = { colonne: string; sens: 'asc' | 'desc' }
-export type FiltreRapide = { nom: string; filtres: Filtre[] }
+/**
+ * Pastille de filtre rapide (spec §7) : une colonne épinglée au-dessus de la
+ * vue, réglée en un clic. Sans valeur, elle ne filtre rien. `operateur` absent :
+ * celui par défaut du type de la colonne.
+ */
+export type FiltreRapide = { colonne: string; operateur?: Operateur; valeur?: unknown }
 export type TypeVue = 'tableau' | 'kanban' | 'collection' | 'calendrier' | 'timeline'
 
 export type Vue = {
@@ -82,9 +87,14 @@ export function lireVue(texte: string, id: string): { vue: Vue | null; avertisse
   const tris = (Array.isArray(brut.tris) ? brut.tris : []).flatMap((t): Tri[] =>
     estObjet(t) && typeof t.colonne === 'string' ? [{ colonne: t.colonne, sens: t.sens === 'desc' ? 'desc' : 'asc' }] : [],
   )
-  const filtresRapides = (Array.isArray(brut.filtres_rapides) ? brut.filtres_rapides : []).flatMap((r): FiltreRapide[] =>
-    estObjet(r) && typeof r.nom === 'string' ? [{ nom: r.nom, filtres: filtres(r.filtres, `filtre rapide « ${r.nom} »`) }] : [],
-  )
+  const filtresRapides = (Array.isArray(brut.filtres_rapides) ? brut.filtres_rapides : []).flatMap((r): FiltreRapide[] => {
+    if (!estObjet(r) || typeof r.colonne !== 'string') {
+      avertissements.push(`Vue ${id} : filtre rapide ignoré (colonne manquante)`)
+      return []
+    }
+    const operateur = (OPERATEURS as readonly string[]).includes(String(r.operateur)) ? (r.operateur as Operateur) : undefined
+    return [{ colonne: r.colonne, ...(operateur && { operateur }), ...(r.valeur !== undefined && { valeur: r.valeur }) }]
+  })
 
   return {
     vue: {
@@ -119,7 +129,11 @@ export function modifierVue(texte: string | null, vue: Vue, modifs: Modification
     [
       'filtresRapides',
       'filtres_rapides',
-      modifs.filtresRapides?.map((r) => ({ nom: r.nom, filtres: r.filtres.map(ecrireFiltre) })),
+      modifs.filtresRapides?.map((r) => ({
+        colonne: r.colonne,
+        ...(r.operateur && { operateur: r.operateur }),
+        ...(r.valeur !== undefined && { valeur: r.valeur }),
+      })),
     ],
   ]
   for (const [, cle, valeur] of listes) {
@@ -129,17 +143,8 @@ export function modifierVue(texte: string | null, vue: Vue, modifs: Modification
       continue
     }
     const noeud = doc.createNode(valeur) as YAMLSeq
-    // Chaque filtre ou tri sur une ligne, comme dans l'exemple de la spec ;
-    // un filtre rapide garde son nom en clair, ses filtres une ligne chacun.
-    for (const item of noeud.items) {
-      if (!isMap(item)) continue
-      const sous = item.get('filtres', true)
-      if (isSeq(sous)) {
-        for (const f of sous.items) if (isMap(f)) f.flow = true
-      } else {
-        item.flow = true
-      }
-    }
+    // Chaque filtre, tri ou pastille sur une ligne, comme dans l'exemple de la spec.
+    for (const item of noeud.items) if (isMap(item)) item.flow = true
     doc.set(cle, noeud)
   }
   return doc.toString(OPTIONS_SORTIE_CONFIG)

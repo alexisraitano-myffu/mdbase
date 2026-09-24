@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { appliquerVue, correspond, decaler, trier, valeursHeritees, type Contexte } from './filtres'
+import { appliquerVue, correspond, decaler, filtreDePastille, trier, valeursHeritees, type Contexte } from './filtres'
 import { schemaProjets } from './fixtures/schema-projets'
 import { creerLigne, lireLigne, type Modifications } from './ligne'
 import type { Filtre } from './vue'
@@ -181,5 +181,22 @@ describe('valeursHeritees', () => {
     ]
     const creee = ligne(valeursHeritees(schema, filtres))
     for (const filtre of filtres) expect(ok(creee, filtre), JSON.stringify(filtre)).toBe(true)
+  })
+})
+
+describe('filtreDePastille', () => {
+  it('ne filtre rien tant que la pastille n’est pas réglée', () => {
+    expect(filtreDePastille(schema, { colonne: 'statut' })).toBeNull()
+    expect(filtreDePastille(schema, { colonne: 'statut', operateur: 'parmi', valeur: [] })).toBeNull()
+    expect(filtreDePastille(schema, { colonne: 'titre', valeur: '' })).toBeNull()
+    expect(filtreDePastille(schema, { colonne: 'echeance', operateur: 'entre', valeur: ['2026-01-01', ''] })).toBeNull()
+    expect(filtreDePastille(schema, { colonne: 'supprimee', valeur: 'x' })).toBeNull()
+  })
+
+  it('prend l’opérateur par défaut du type, ou celui choisi', () => {
+    expect(filtreDePastille(schema, { colonne: 'statut', valeur: ['En cours'] })).toEqual({ colonne: 'statut', operateur: 'parmi', valeur: ['En cours'] })
+    expect(filtreDePastille(schema, { colonne: 'titre', valeur: 'nav' })).toEqual({ colonne: 'titre', operateur: 'contient', valeur: 'nav' })
+    expect(filtreDePastille(schema, { colonne: 'echeance', operateur: 'cette_semaine' })).toEqual({ colonne: 'echeance', operateur: 'cette_semaine' })
+    expect(filtreDePastille(schema, { colonne: 'urgent', valeur: false })).toEqual({ colonne: 'urgent', operateur: 'egal', valeur: false })
   })
 })
