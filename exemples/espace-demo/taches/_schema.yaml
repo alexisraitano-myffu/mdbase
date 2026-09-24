@@ -3,18 +3,15 @@ id: taches
 nom: Tâches
 champ_titre: titre
 colonnes:
-  - cle: titre
-    nom: Titre
-    type: text
-  - cle: projet
-    nom: Projet
-    type: relation
-    cible: projets
-    proprietaire: true
-    inverse: taches
-  - cle: heures
-    nom: Heures
-    type: number
-  - cle: fait
-    nom: Fait
-    type: checkbox
+  - { cle: titre, nom: Titre, type: text }
+  - { cle: projet, nom: Projet, type: relation, cible: projets, proprietaire: true, inverse: taches }
+  - cle: priorite
+    nom: Priorité
+    type: select
+    options:
+      - { label: Haute, couleur: rouge }
+      - { label: Normale, couleur: jaune }
+      - { label: Basse, couleur: gris }
+  - { cle: echeance, nom: Échéance, type: date }
+  - { cle: heures, nom: Heures, type: number }
+  - { cle: fait, nom: Fait, type: checkbox }

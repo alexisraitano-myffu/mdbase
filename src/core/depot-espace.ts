@@ -7,7 +7,7 @@ import { FichierIntrouvable, joindre, type AdaptateurFichiers } from './fichiers
 import { cleColonne, idBase } from './identifiants'
 import { boucle } from './graphe'
 import type { Modifications } from './ligne'
-import { CALCULS, colonne, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
+import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
 import { lireVue, modifierVue, vueParDefaut, type ModificationVue, type Vue } from './vue'
 
@@ -265,6 +265,33 @@ export class DepotEspace {
       const option = { label, couleur: COULEURS[c.options.length % COULEURS.length]! }
       await this.modifierSchema(base, { type: 'ajouter_option', cle, option })
       return option
+    })
+  }
+
+  /** Change la relation, la colonne remontée ou le calcul d'un rollup ; refusé s'il créerait une boucle. */
+  modifierRollup(base: string, cle: string, modifs: { relation?: string; champ?: string; calcul?: Calcul }): Promise<void> {
+    return this.enFile(async () => {
+      const schema = this.schema(base)
+      const actuel = colonne(schema, cle)
+      if (actuel?.type !== 'rollup') throw new ErreurSchema(`Pas un rollup : ${cle}`)
+      const suivant = { ...actuel, ...modifs }
+      const rel = colonne(schema, suivant.relation)
+      if (rel?.type !== 'relation') throw new ErreurSchema(`Pas une relation : ${suivant.relation}`)
+      if (!colonne(this.schema(rel.cible), suivant.champ)) throw new ErreurSchema(`Colonne introuvable : ${suivant.champ}`)
+      if (!(CALCULS as readonly string[]).includes(suivant.calcul)) throw new ErreurSchema(`Calcul inconnu : ${suivant.calcul}`)
+      const schemas = new Map(this.schemas())
+      schemas.set(base, { ...schema, colonnes: schema.colonnes.map((c) => (c.cle === cle ? suivant : c)) })
+      const b = boucle(schemas)
+      if (b) throw new ErreurSchema(`Modification refusée. ${b}`)
+      const proprietes: Record<string, unknown> = { ...modifs }
+      if (modifs.relation !== undefined && modifs.relation !== actuel.relation) {
+        // Le filtre portait sur les lignes de l'ancienne base liée : il n'a plus de sens.
+        proprietes.filtre = undefined
+      } else if (modifs.champ !== undefined && modifs.champ !== actuel.champ && estObjet(actuel.filtre) && actuel.filtre.colonne === undefined) {
+        // Un filtre sans colonne porte sur la colonne remontée : on le fixe sur l'ancienne pour qu'il garde son sens.
+        proprietes.filtre = { colonne: actuel.champ, ...actuel.filtre }
+      }
+      await this.modifierSchema(base, { type: 'modifier_colonne', cle, proprietes })
     })
   }
 

@@ -3,9 +3,5 @@ barre_laterale:
   dashboards: []
   groupes:
     - nom: Travail
-      bases: [ projets, taches ]
-    - nom: groupe 1
-      bases: [ test-alex ]
-    - nom: Groupe 2
-      bases: []
+      bases: [ clients, projets, taches ]
   hors_groupe: []

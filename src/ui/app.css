@@ -238,3 +238,6 @@ button:hover { background: var(--survol); }
   text-underline-offset: 2px;
 }
 .lien-casse { color: #b35c00; font-size: 0.9em; white-space: nowrap; }
+.reglages-rollup { display: flex; flex-direction: column; gap: 4px; padding: 4px 6px 6px; border-bottom: 1px solid var(--bordure); margin-bottom: 4px; }
+.reglages-rollup label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--discret); font-size: 0.9em; }
+.reglages-rollup select { font: inherit; color: #37352f; padding: 2px 4px; border: 1px solid var(--bordure); border-radius: 4px; max-width: 180px; }

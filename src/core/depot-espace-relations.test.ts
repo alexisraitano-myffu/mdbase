@@ -119,3 +119,40 @@ describe('relations : configuration', () => {
     expect(schema(espace, 'clients').colonnes.map((c) => c.cle)).not.toContain('retour')
   })
 })
+
+describe('rollups : modification', () => {
+  it('change le calcul d’un rollup existant', async () => {
+    const { a, espace } = await ouvrir()
+    await espace.modifierRollup('projets', 'heures', { calcul: 'max' })
+    expect(a.ecritures).toEqual(['projets/_schema.yaml'])
+    expect(await a.lire('projets/_schema.yaml')).toContain('{ cle: heures, nom: Heures, type: rollup, relation: taches, champ: heures, calcul: max }')
+    expect(calcul(espace, 'projets', 'p0000001', 'heures')).toEqual({ etat: 'ok', valeur: 5 })
+    // Le rollup de rollup des clients suit.
+    expect(calcul(espace, 'clients', 'c0000001', 'heures')).toEqual({ etat: 'ok', valeur: 7 })
+  })
+
+  it('change la colonne remontée, et retire le filtre quand la relation change', async () => {
+    const { a, espace } = await ouvrir()
+    await espace.modifierRollup('projets', 'ouvertes', { champ: 'heures', calcul: 'somme' })
+    expect(calcul(espace, 'projets', 'p0000001', 'ouvertes')).toEqual({ etat: 'ok', valeur: 3 })
+    await espace.modifierRollup('projets', 'ouvertes', { relation: 'client', champ: 'nom', calcul: 'afficher' })
+    expect(await a.lire('projets/_schema.yaml')).not.toContain('filtre')
+    expect(calcul(espace, 'projets', 'p0000001', 'ouvertes')).toEqual({ etat: 'ok', valeur: ['Acme'] })
+  })
+
+  it('invariant 7 : refuse une modification qui créerait une boucle', async () => {
+    const { espace } = await ouvrir()
+    // Projets › Heures remonterait Tâches › Total, qui remonte Projets › Heures.
+    await espace.ajouterRollup('taches', 'Total', 'projet', 'heures', 'somme')
+    await expect(espace.modifierRollup('projets', 'heures', { champ: 'total' })).rejects.toThrow(/Modification refusée\. Boucle de dépendances/)
+    expect(schema(espace, 'projets').colonnes.find((c) => c.cle === 'heures')).toMatchObject({ champ: 'heures' })
+  })
+
+  it('rollup de rollup créé depuis zéro : clients ← projets ← tâches', async () => {
+    const { espace } = await ouvrir()
+    const nb = await espace.ajouterRollup('projets', 'Tâches faites', 'taches', 'fait', 'pourcent_coches')
+    const moyenne = await espace.ajouterRollup('clients', 'Avancement moyen', 'projets', nb, 'moyenne')
+    // Navi : 1 tâche faite sur 2 = 50 % ; sinam : 0 %. Moyenne Acme : 25 %.
+    expect(calcul(espace, 'clients', 'c0000001', moyenne)).toEqual({ etat: 'ok', valeur: 25 })
+  })
+})

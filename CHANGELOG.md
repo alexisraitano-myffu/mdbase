@@ -29,6 +29,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Rollups affichés selon leur résultat (nombres à la française, pourcentages, dates, pastilles), filtrables et triables comme une colonne saisie.
 - Boucles de dépendances refusées à la configuration avec les noms des colonnes ; colonnes dont la source a été supprimée affichées en erreur.
 - Supprimer une relation (de n'importe quel côté) retire les deux colonnes et tous les liens.
+- Réglages d'un rollup modifiables après création (relation, colonne remontée, calcul) depuis le menu de la colonne, avec refus des boucles.
+- Espace de démonstration reconstruit : Clients → Projets → Tâches, avec rollups de rollups (heures et avancement moyen par client).
 ### Changed
 ### Fixed
 - Les menus flottants restent dans la fenêtre (les panneaux Filtrer / Trier débordaient à droite).

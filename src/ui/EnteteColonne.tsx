@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { DepotBase } from '../core/depot-base'
 import { TYPES_CREABLES, type DepotEspace, type TypeCreable } from '../core/depot-espace'
-import { natureDe, type Calcul, type Colonne, type ColonneRelation } from '../core/schema'
+import { CALCULS, natureDe, type Calcul, type Colonne, type ColonneRelation, type ColonneRollup } from '../core/schema'
 import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
@@ -90,6 +90,7 @@ export function MenuColonne({ espace, base, depot, colonne, fermer, ancre }: Pro
         onChange={(e) => setNom(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && renommer()}
       />
+      {colonne.type === 'rollup' && <ReglagesRollup espace={espace} base={base} colonne={colonne} />}
       {colonne.type === 'text' && !estTitre && (
         <button
           className="option"
@@ -109,6 +110,73 @@ export function MenuColonne({ espace, base, depot, colonne, fermer, ancre }: Pro
         </button>
       )}
     </Flottant>
+  )
+}
+
+/** Relation, colonne remontée et calcul d'un rollup existant, modifiables (spec §5). */
+function ReglagesRollup({ espace, base, colonne }: { espace: DepotEspace; base: string; colonne: ColonneRollup }) {
+  const lancer = useLancer()
+  const { etat } = useEspace()
+  const schema = etat.bases.get(base)?.depot?.schema
+  const relations = (schema?.colonnes ?? []).filter((c): c is ColonneRelation => c.type === 'relation')
+  const relation = relations.find((r) => r.cle === colonne.relation)
+  const cible = relation && etat.bases.get(relation.cible)?.depot?.schema
+  const champ = cible?.colonnes.find((c) => c.cle === colonne.champ)
+  const modifier = (m: Parameters<DepotEspace['modifierRollup']>[2]) => void lancer(espace.modifierRollup(base, colonne.cle, m))
+
+  return (
+    <div className="reglages-rollup">
+      <label>
+        Relation
+        <select
+          value={colonne.relation}
+          onChange={(e) => {
+            const r = relations.find((x) => x.cle === e.target.value)!
+            const s = etat.bases.get(r.cible)?.depot?.schema
+            const c = s && (s.colonnes.find((x) => x.cle === colonne.champ) ?? s.colonnes.find((x) => x.cle === s.champTitre))
+            if (!c) return
+            const calcul = calculsPour(c).includes(colonne.calcul as Calcul) ? (colonne.calcul as Calcul) : 'afficher'
+            modifier({ relation: r.cle, champ: c.cle, calcul })
+          }}
+        >
+          {!relation && <option value={colonne.relation}>⚠ {colonne.relation}</option>}
+          {relations.map((r) => (
+            <option key={r.cle} value={r.cle}>
+              {r.nom}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Colonne
+        <select
+          value={colonne.champ}
+          onChange={(e) => {
+            const c = cible?.colonnes.find((x) => x.cle === e.target.value)
+            if (!c) return
+            const calcul = calculsPour(c).includes(colonne.calcul as Calcul) ? (colonne.calcul as Calcul) : 'afficher'
+            modifier({ champ: c.cle, calcul })
+          }}
+        >
+          {!champ && <option value={colonne.champ}>⚠ {colonne.champ}</option>}
+          {(cible?.colonnes ?? []).map((c) => (
+            <option key={c.cle} value={c.cle}>
+              {c.nom}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Calcul
+        <select value={colonne.calcul} onChange={(e) => modifier({ calcul: e.target.value as Calcul })}>
+          {(champ ? calculsPour(champ) : CALCULS).map((c) => (
+            <option key={c} value={c}>
+              {LIBELLES_CALCULS[c]}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   )
 }
 

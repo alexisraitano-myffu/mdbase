@@ -14,7 +14,7 @@ npm run typecheck   # tsc -b sur les trois projets (core, app, test)
 npm run build       # typecheck + build statique dans dist/
 ```
 
-Pour tester à la main : `npm run dev`, puis ouvrir `exemples/espace-demo/`.
+Pour tester à la main : `npm run dev`, puis ouvrir **une copie** de la démo (`cp -r exemples/espace-demo ~/mdbase-essai`). `exemples/espace-demo/` est une référence (Clients → Projets → Tâches, rollups de rollups) vérifiée par `src/exemples.test.ts` : ne pas y laisser de données d'essai.
 
 ## Architecture et conventions (refacti)
 

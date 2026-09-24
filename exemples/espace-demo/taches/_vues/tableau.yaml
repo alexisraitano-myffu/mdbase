@@ -4,5 +4,5 @@ type: tableau
 tris:
   - { colonne: echeance, sens: asc }
 filtres_rapides:
-  - { colonne: statut, operateur: parmi }
-  - { colonne: client, operateur: contient }
+  - { colonne: projet, operateur: contient }
+  - { colonne: fait, operateur: egal, valeur: false }

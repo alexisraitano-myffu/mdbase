@@ -12,6 +12,8 @@ export type OperationSchema =
   | { type: 'champ_titre'; cle: string }
   | { type: 'ajouter_option'; cle: string; option: Option }
   | { type: 'renommer_base'; nom: string }
+  /** Remplace des propriétés d'une colonne (config d'un rollup…) ; `undefined` retire la propriété. */
+  | { type: 'modifier_colonne'; cle: string; proprietes: Record<string, unknown> }
 
 export class ErreurSchema extends Error {
   constructor(message: string) {
@@ -57,6 +59,15 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
     case 'renommer_colonne':
       trouverColonne(doc, op.cle).set('nom', op.nom)
       break
+    case 'modifier_colonne': {
+      const c = trouverColonne(doc, op.cle)
+      for (const [k, v] of Object.entries(op.proprietes)) {
+        if (k === 'cle' || k === 'type') throw new ErreurSchema(`La propriété « ${k} » d'une colonne ne change pas`)
+        if (v === undefined) c.delete(k)
+        else c.set(k, doc.createNode(v, { flow: true }))
+      }
+      break
+    }
     case 'supprimer_colonne': {
       const seq = colonnes(doc)
       seq.items.splice(indexColonne(seq, op.cle), 1)

@@ -3,9 +3,7 @@ id: projets
 nom: Projets
 champ_titre: titre
 colonnes:
-  - cle: titre
-    nom: Titre
-    type: text
+  - { cle: titre, nom: Titre, type: text }
   - cle: statut
     nom: Statut
     type: select
@@ -13,40 +11,16 @@ colonnes:
       - { label: À faire, couleur: gris }
       - { label: En cours, couleur: bleu }
       - { label: Terminé, couleur: vert }
-  - cle: echeance
-    nom: Échéance
-    type: date
-  - cle: budget
-    nom: Budget
-    type: number
-  - cle: urgent
-    nom: Urgent
-    type: checkbox
-  - cle: tags
-    nom: Tags
-    type: multiselect
-    options:
-      - { label: perso, couleur: violet }
-      - { label: pro, couleur: orange }
-      - { label: client, couleur: rose }
-  - cle: site
-    nom: Site
-    type: url
-  - cle: taches
-    nom: Tâches
-    type: relation
-    cible: taches
-    proprietaire: false
-    inverse: projet
-  - cle: heures
-    nom: Heures
-    type: rollup
-    relation: taches
-    champ: heures
-    calcul: somme
-  - cle: avancement
-    nom: Avancement
+  - { cle: client, nom: Client, type: relation, cible: clients, proprietaire: true, inverse: projets }
+  - { cle: echeance, nom: Échéance, type: date }
+  - { cle: budget, nom: Budget, type: number }
+  - { cle: taches, nom: Tâches, type: relation, cible: taches, proprietaire: false, inverse: projet }
+  - { cle: heures, nom: Heures, type: rollup, relation: taches, champ: heures, calcul: somme }
+  - { cle: avancement, nom: Avancement, type: rollup, relation: taches, champ: fait, calcul: pourcent_coches }
+  - cle: restantes
+    nom: Tâches restantes
     type: rollup
     relation: taches
     champ: fait
-    calcul: pourcent_coches
+    calcul: compter
+    filtre: { operateur: egal, valeur: false }
