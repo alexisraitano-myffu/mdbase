@@ -681,3 +681,9 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .extrait-resultat { font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .extrait-resultat mark, .titre-resultat mark { background: #fbecc0; color: inherit; border-radius: 2px; }
 .pied-recherche { display: flex; gap: 1rem; font-size: 0.8em; padding: 0.5rem 1rem; border-top: 1px solid var(--bordure); }
+
+/* Relecture du dossier */
+.barre-laterale .relire { margin-top: auto; text-align: left; font-size: 0.9em; }
+.barre-laterale .relire + .changer { margin-top: 0; }
+.tourne { animation: tourner 0.8s linear infinite; }
+@keyframes tourner { to { transform: rotate(360deg); } }

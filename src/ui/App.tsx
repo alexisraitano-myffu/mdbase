@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { AdaptateurFsa } from '../adapters/fsa/adaptateur-fsa'
 import {
   choisirDossier,
@@ -9,7 +9,7 @@ import {
 import { useAujourdhui } from './useAujourdhui'
 import { aleatoire, aujourdhui, maintenant, planifier } from '../adapters/navigateur'
 import { DepotEspace } from '../core/depot-espace'
-import { FournisseurActions } from './actions'
+import { FournisseurActions, useLancer } from './actions'
 import { BarreLaterale } from './BarreLaterale'
 import { ContexteEspace } from './contexte-espace'
 import { VueBase } from './VueBase'
@@ -128,6 +128,32 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
     setPageDemandee(null) // une demande de page ne survit pas à un changement de base
   }
   const [recherche, setRecherche] = useState(false)
+
+  // Changements faits ailleurs (synchro, autre machine) : le navigateur ne voit
+  // pas le dossier changer, on le relit au retour sur l'onglet (spec §12).
+  const lancer = useLancer()
+  const enCours = useRef(false)
+  const [relu, setRelu] = useState<{ enCours: boolean; a: Date | null }>({ enCours: false, a: null })
+  const rafraichir = useCallback(() => {
+    if (enCours.current) return
+    enCours.current = true
+    setRelu((r) => ({ ...r, enCours: true }))
+    void lancer(espace.rafraichir()).finally(() => {
+      enCours.current = false
+      setRelu({ enCours: false, a: new Date() })
+    })
+  }, [espace, lancer])
+  useEffect(() => {
+    const retour = () => {
+      if (document.visibilityState === 'visible') rafraichir()
+    }
+    document.addEventListener('visibilitychange', retour)
+    window.addEventListener('focus', retour)
+    return () => {
+      document.removeEventListener('visibilitychange', retour)
+      window.removeEventListener('focus', retour)
+    }
+  }, [rafraichir])
   const [pageDemandee, setPageDemandee] = useState<{ base: string; id: string; jeton: number } | null>(null)
 
   // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11).
@@ -158,6 +184,8 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
           changerDossier={changer}
           chercher={() => setRecherche(true)}
+          relire={rafraichir}
+          relu={relu}
         />
         <main className="contenu">
           {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}

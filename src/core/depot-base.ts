@@ -1,4 +1,5 @@
-import { enregistrerLigne, type LigneChargee } from './base'
+import { enregistrerLigne, type FichierNonReconnu, type LigneChargee } from './base'
+import { estConfiguration } from './espace'
 import { FichierIntrouvable, joindre, parent, type AdaptateurFichiers } from './fichiers'
 import { genererId, nomFichierLigne, type Aleatoire } from './identifiants'
 import { creerLigne, ErreurEcriture, lireLigne, type Modifications } from './ligne'
@@ -41,6 +42,8 @@ export class DepotBase {
   private readonly abonnes = new Set<() => void>()
   private instantane: readonly LigneChargee[] = []
   private erreurCourante: string | null = null
+  /** Change à chaque opération sur un fichier : un rafraîchissement lu pendant l'une d'elles est jeté. */
+  private generation = 0
 
   constructor(adaptateur: AdaptateurFichiers, schema: Schema, lignes: LigneChargee[], options: OptionsDepot) {
     this.adaptateur = adaptateur
@@ -93,6 +96,7 @@ export class DepotBase {
 
   /** Crée une ligne et l'écrit immédiatement (spec §8). Elle s'ajoute en fin de liste. */
   async creer(valeurs: Modifications = {}): Promise<LigneChargee> {
+    this.generation++
     const id = genererId(this.options.aleatoire, new Set(this.entrees.map((e) => e.persistee.id)))
     const titre = valeurs[this.schema.champTitre]
     const chemin = joindre(this.schema.id, nomFichierLigne(typeof titre === 'string' ? titre : '', id))
@@ -102,6 +106,7 @@ export class DepotBase {
     if (!lecture.ok) throw new Error(`Ligne créée illisible : ${lecture.raison}`)
     const ligne = { ...lecture.ligne, date: await this.adaptateur.dateModification(chemin) }
     this.entrees.push({ persistee: ligne, affichee: ligne, enAttente: {}, corpsEnAttente: undefined, annuler: undefined, file: Promise.resolve() })
+    this.generation++
     this.publier()
     return ligne
   }
@@ -173,6 +178,66 @@ export class DepotBase {
     await Promise.all(this.entrees.map((e) => this.renommerSelonTitre(e.affichee.chemin)))
   }
 
+  /**
+   * Relit le dossier de la base (spec §12, changements externes) : fichiers
+   * modifiés, ajoutés ou supprimés depuis la dernière lecture. Les
+   * modifications pas encore écrites restent affichées par-dessus la nouvelle
+   * version, et l'écriture sûre les réappliquera sur celle-ci.
+   *
+   * Renvoie les fichiers non reconnus du dossier, ou `null` si une opération
+   * de l'app a eu lieu pendant la lecture (rien n'est appliqué : au prochain coup).
+   */
+  async rafraichir(): Promise<{ change: boolean; nonReconnus: FichierNonReconnu[] } | null> {
+    await Promise.all(this.entrees.map((e) => e.file))
+    const depart = this.generation
+    const connues = new Map(this.entrees.map((e) => [e.persistee.chemin, e]))
+    const lues = new Map<string, LigneChargee>()
+    const nonReconnus: FichierNonReconnu[] = []
+    const vus = new Set<string>()
+    for (const entree of await this.adaptateur.lister(this.schema.id)) {
+      if (entree.type !== 'fichier' || estConfiguration(entree.nom) || !entree.nom.endsWith('.md')) continue
+      const chemin = joindre(this.schema.id, entree.nom)
+      vus.add(chemin)
+      let date: number
+      try {
+        date = await this.adaptateur.dateModification(chemin)
+      } catch (e) {
+        if (e instanceof FichierIntrouvable) continue // supprimé pendant la lecture
+        throw e
+      }
+      const connue = connues.get(chemin)
+      if (connue && connue.persistee.date === date) continue
+      const lecture = lireLigne(chemin, await this.adaptateur.lire(chemin), this.schema)
+      if (lecture.ok) lues.set(chemin, { ...lecture.ligne, date })
+      else nonReconnus.push({ chemin, raison: lecture.raison })
+    }
+    if (this.generation !== depart) return null
+
+    let change = false
+    for (let i = this.entrees.length - 1; i >= 0; i--) {
+      const e = this.entrees[i]!
+      const chemin = e.persistee.chemin
+      const relue = lues.get(chemin)
+      if (relue) {
+        e.persistee = relue
+        e.affichee = afficher(e, this.schema)
+        lues.delete(chemin)
+        change = true
+      } else if (!vus.has(chemin) || nonReconnus.some((n) => n.chemin === chemin)) {
+        // Disparu du disque, ou devenu illisible : la ligne n'existe plus pour l'app.
+        e.annuler?.()
+        this.entrees.splice(i, 1)
+        change = true
+      }
+    }
+    for (const l of lues.values()) {
+      this.entrees.push({ persistee: l, affichee: l, enAttente: {}, corpsEnAttente: undefined, annuler: undefined, file: Promise.resolve() })
+      change = true
+    }
+    if (change) this.publier()
+    return { change, nonReconnus }
+  }
+
   /** Écrit immédiatement tout ce qui est en attente (fermeture de l'onglet, tests). */
   async vider(): Promise<void> {
     for (const e of this.entrees) this.lancerEcriture(e)
@@ -199,12 +264,15 @@ export class DepotBase {
   }
 
   private enchainer(entree: Entree, operation: () => Promise<void>): Promise<void> {
+    this.generation++
     entree.file = entree.file.then(async () => {
+      this.generation++
       try {
         await operation()
       } catch (e) {
         this.erreurCourante = `${entree.persistee.chemin} : ${e instanceof Error ? e.message : String(e)}`
       }
+      this.generation++
       this.publier()
     })
     return entree.file

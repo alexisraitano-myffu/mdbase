@@ -87,6 +87,8 @@ export class DepotEspace {
   private readonly recherche = new IndexRecherche()
   /** Sérialise les modifications de configuration. */
   private file: Promise<unknown> = Promise.resolve()
+  /** Modifications de configuration appliquées en mémoire mais pas encore écrites. */
+  private configEnVol = 0
 
   private constructor(adaptateur: AdaptateurFichiers, options: OptionsEspace) {
     this.adaptateur = adaptateur
@@ -111,6 +113,89 @@ export class DepotEspace {
 
   async vider(): Promise<void> {
     await Promise.all([...this.bases.values()].map((b) => b.depot?.vider()))
+  }
+
+  // ── Changements externes ─────────────────────────────────────────
+
+  /**
+   * Relit l'espace sur le disque (spec §12) : au retour sur l'onglet ou à la
+   * demande. Bases ajoutées ou retirées, schémas, lignes, vues, mises en page,
+   * dashboards et barre latérale. Ce qui n'a pas changé garde son état en mémoire.
+   * Renvoie vrai si quelque chose a changé.
+   */
+  rafraichir(): Promise<boolean> {
+    return this.enFile(async () => {
+      let change = false
+      const config = lireEspace(await this.lireOuNull(FICHIER_ESPACE))
+      if (!memes(config, this.config)) {
+        this.config = config
+        change = true
+      }
+      const ids = await listerBases(this.adaptateur)
+      for (const id of [...this.bases.keys()]) {
+        if (ids.includes(id)) continue
+        this.bases.delete(id)
+        change = true
+      }
+      for (const id of ids) {
+        const b = this.bases.get(id)
+        if (b?.depot) {
+          change = (await this.rafraichirBase(b, b.depot)) || change
+          continue
+        }
+        // Nouveau dossier, ou dossier qui n'était pas une base : on le recharge en entier.
+        await this.chargerBase(id)
+        if (!b || !memes(b.chargement, this.bases.get(id)!.chargement)) change = true
+      }
+      if (this.configEnVol === 0) {
+        const avant = new Map(this.dashboards)
+        this.dashboards.clear()
+        await this.chargerDashboards()
+        if (!memes([...avant], [...this.dashboards])) change = true
+        else for (const [id, d] of avant) this.dashboards.set(id, d) // mêmes objets : rien ne se redessine
+      }
+      if (change) this.publier()
+      return change
+    })
+  }
+
+  private async rafraichirBase(b: EtatBase, depot: DepotBase): Promise<boolean> {
+    if (!b.chargement.ok) return false
+    let change = false
+    let base = b.chargement.base
+    const texte = await this.lireOuNull(joindre(b.id, FICHIER_SCHEMA))
+    if (texte === null) {
+      this.bases.set(b.id, { id: b.id, chargement: { ok: false, raison: 'pas de _schema.yaml' }, depot: null, vues: [], pages: [] })
+      return true
+    }
+    const lu = lireSchema(texte, b.id)
+    const avertissementsSchema = lu.schema ? lu.avertissements : [`_schema.yaml illisible sur le disque, dernière version lisible gardée : ${lu.avertissements.join(' ; ')}`]
+    if (lu.schema && !memes(lu.schema, depot.schema)) {
+      depot.remplacerSchema(lu.schema)
+      change = true
+    }
+    const lignes = await depot.rafraichir()
+    if (lignes) {
+      change ||= lignes.change
+      if (!memes(lignes.nonReconnus, base.nonReconnus)) {
+        base = { ...base, nonReconnus: lignes.nonReconnus }
+        change = true
+      }
+    }
+    let { vues, pages } = b
+    if (this.configEnVol === 0) {
+      const v = await this.chargerVues(b.id, depot.schema.ordreVues)
+      const p = await this.chargerPages(b.id)
+      if (!memes(v.vues, vues)) vues = v.vues
+      if (!memes(p.pages, pages)) pages = p.pages
+      const avertissements = [...avertissementsSchema, ...v.avertissements, ...p.avertissements]
+      if (!memes(avertissements, base.avertissements)) base = { ...base, avertissements }
+    }
+    if (vues !== b.vues || pages !== b.pages || base !== b.chargement.base || depot.schema !== b.chargement.base.schema) {
+      this.bases.set(b.id, { ...b, vues, pages, chargement: { ok: true, base: { ...base, schema: depot.schema } } })
+      change = true
+    }
+    return change
   }
 
   // ── Bases et groupes ─────────────────────────────────────────────
@@ -181,7 +266,7 @@ export class DepotEspace {
     }
     this.dashboards.set(id, { ...this.dashboards.get(id)!, dashboard: appliquerEnMemoire(d, op) })
     this.publier()
-    return this.enFile(async () => {
+    return this.apresMemoire(async () => {
       const chemin = cheminDashboard(id)
       await this.adaptateur.ecrire(chemin, modifierDashboard(await this.adaptateur.lire(chemin), op))
     })
@@ -507,7 +592,7 @@ export class DepotEspace {
   modifierVue(base: string, idVue: string, modifs: ModificationVue): Promise<void> {
     this.vue(base, idVue)
     this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? { ...v, ...modifs } : v)))
-    return this.enFile(async () => {
+    return this.apresMemoire(async () => {
       const vue = this.vue(base, idVue)
       const chemin = cheminVue(base, idVue)
       const texte = modifierVue(vue.implicite ? null : await this.lireOuNull(chemin), vue, modifs)
@@ -550,7 +635,7 @@ export class DepotEspace {
     const parId = new Map(vues.map((v) => [v.id, v]))
     const ordonnees = [...ids.flatMap((id) => parId.get(id) ?? []), ...vues.filter((v) => !ids.includes(v.id))]
     this.remplacerVues(base, () => ordonnees)
-    return this.enFile(() =>
+    return this.apresMemoire(() =>
       this.modifierSchema(base, { type: 'ordre_vues', ids: ordonnees.filter((v) => !v.implicite).map((v) => v.id) }),
     )
   }
@@ -567,7 +652,7 @@ export class DepotEspace {
     this.remplacerPages(base, (pages) =>
       pages.map((p) => (p.id === id ? { ...p, ...modifs } : modifs.defaut ? { ...p, defaut: false } : p)),
     )
-    return this.enFile(async () => {
+    return this.apresMemoire(async () => {
       await this.ecrireMiseEnPage(base, id, modifs)
       for (const p of anciennesParDefaut) if (!p.implicite) await this.ecrireMiseEnPage(base, p.id, { defaut: false })
     })
@@ -702,6 +787,12 @@ export class DepotEspace {
   }
 
 
+  /** Écriture d'une modification déjà appliquée en mémoire : un rafraîchissement ne doit pas l'effacer entre-temps. */
+  private apresMemoire<T>(operation: () => Promise<T>): Promise<T> {
+    this.configEnVol++
+    return this.enFile(operation).finally(() => this.configEnVol--)
+  }
+
   private enFile<T>(operation: () => Promise<T>): Promise<T> {
     const resultat = this.file.then(operation)
     this.file = resultat.catch(() => undefined)
@@ -785,6 +876,11 @@ export class DepotEspace {
     this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres }
     for (const fn of this.abonnes) fn()
   }
+}
+
+/** Égalité de contenu, pour ne remplacer que ce qui a vraiment changé. */
+function memes(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 /** Champs modifiés en mémoire mais pas encore écrits : on ne les écrase pas à la relecture. */

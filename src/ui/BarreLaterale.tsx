@@ -14,10 +14,13 @@ type Props = {
   changerDossier: () => void
   /** Ouvre la recherche globale. */
   chercher: () => void
+  /** Relit le dossier (changements faits ailleurs), et l'état de la dernière relecture. */
+  relire: () => void
+  relu: { enCours: boolean; a: Date | null }
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, relire, relu }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -137,6 +140,15 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         </>
       )}
 
+      <button
+        className="discret relire"
+        onClick={relire}
+        disabled={relu.enCours}
+        title="Relit le dossier pour voir les changements faits ailleurs (synchro, autre machine). Automatique au retour sur l'onglet."
+      >
+        <span className={`icone ${relu.enCours ? 'tourne' : ''}`}>↻</span>
+        {relu.enCours ? 'Relecture…' : relu.a ? `Relu à ${relu.a.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Relire le dossier'}
+      </button>
       <button className="discret changer" onClick={changerDossier}>
         Changer de dossier
       </button>
