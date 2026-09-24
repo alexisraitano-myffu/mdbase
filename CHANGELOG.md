@@ -14,5 +14,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Écriture sûre : si le fichier a changé sur le disque depuis la lecture, seule la modification demandée est réappliquée sur la version du disque.
 - Génération d'identifiants et noms de fichiers `<slug>--<id>.md`.
 - Résumé de chaque base à l'ouverture d'un dossier (lignes, fichiers non reconnus, valeurs invalides).
+- Jalon 3 (tableau minimal) : barre latérale des bases, vue tableau virtualisée avec colonnes redimensionnables, édition dans les cellules pour text, number (saisie à la française), date, checkbox, select, multiselect et url, valeurs invalides affichées avec ⚠.
+- Bouton « + Nouvelle ligne » : fichier écrit immédiatement, titre en édition ; le fichier est renommé selon le titre à la sortie du champ.
+- Sauvegarde instantanée : affichage immédiat, écritures regroupées par fichier (300 ms) et sérialisées, tout est écrit quand l'onglet passe en arrière-plan.
 ### Changed
 ### Fixed

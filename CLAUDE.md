@@ -28,9 +28,12 @@ src/
     schema.ts / valeurs.ts lecture tolérante de `_schema.yaml`, décodage/encodage par type
     ligne.ts               lecture d'une ligne, réécriture par l'API Document de `yaml`
     base.ts                chargement d'une base, écriture sûre (date de modification)
+    depot-base.ts          état vivant d'une base ouverte : affichage immédiat,
+                           écritures regroupées (300 ms) et sérialisées par fichier
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
+    navigateur.ts  services injectés dans le cœur (aléatoire, minuteur)
   ui/            React
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
 ```
@@ -39,6 +42,8 @@ src/
   - `tsconfig.core.json` compile `src/core` sans lib DOM ni types : `window`, `document`, `process` n'y existent pas ;
   - `src/core/architecture.test.ts` refuse tout import hors du cœur, sauf la liste fermée `LIBRAIRIES_AUTORISEES` (à étendre explicitement quand une librairie sans DOM est ajoutée, ex. `yaml`, `minisearch`).
 - **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
+- Le cœur n'a ni minuteur ni `crypto` : `Planifier` et `Aleatoire` lui sont injectés.
+- TanStack Table est en **v9** (`useTable`, fonctionnalités déclarées via `tableFeatures`) : les exemples v8 (`useReactTable`, `getCoreRowModel`) ne marchent pas. Guides à jour dans `node_modules/@tanstack/*/skills/`.
 - Chemins : relatifs à la racine de l'espace, séparés par `/`, racine = `""`.
 - Nommage en français, comme la spec et le format de fichiers (`lister`, `colonnes`, `champ_titre`).
 - Découper quand un module grandit vraiment, jamais par avance ; les sous-dossiers de `core/` apparaîtront avec les jalons (relations, formules…).
@@ -59,7 +64,8 @@ Trois projets TypeScript (`tsconfig.core.json`, `tsconfig.app.json`, `tsconfig.t
 Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. État :
 - [x] 1. Socle
 - [x] 2. Lecture/écriture
-- [ ] 3. Tableau minimal
+- [x] 3. Tableau minimal (validation manuelle dans Chrome en cours)
+- [ ] 4. Gestion du schéma
 
 ## graphify
 

@@ -13,3 +13,22 @@ colonnes:
       - { label: À faire, couleur: gris }
       - { label: En cours, couleur: bleu }
       - { label: Terminé, couleur: vert }
+  - cle: echeance
+    nom: Échéance
+    type: date
+  - cle: budget
+    nom: Budget
+    type: number
+  - cle: urgent
+    nom: Urgent
+    type: checkbox
+  - cle: tags
+    nom: Tags
+    type: multiselect
+    options:
+      - { label: perso, couleur: violet }
+      - { label: pro, couleur: orange }
+      - { label: client, couleur: rose }
+  - cle: site
+    nom: Site
+    type: url

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { schemaProjets } from './fixtures/schema-projets'
-import { decoder, encoder, estDateValide } from './valeurs'
+import { decoder, encoder, estDateValide, lireNombre } from './valeurs'
 
 const col = (cle: string) => schemaProjets().colonnes.find((c) => c.cle === cle)!
 
@@ -65,4 +65,17 @@ it('estDateValide refuse les heures impossibles', () => {
   expect(estDateValide('2026-10-15T24:00')).toBe(false)
   expect(estDateValide('2024-02-29')).toBe(true)
   expect(estDateValide('2025-02-29')).toBe(false)
+})
+
+describe('lireNombre', () => {
+  it('accepte la virgule, les espaces de milliers et le signe', () => {
+    expect(lireNombre('1 234,5')).toBe(1234.5)
+    expect(lireNombre('-3')).toBe(-3)
+    expect(lireNombre(' 0.25 ')).toBe(0.25)
+  })
+  it('distingue vide et invalide', () => {
+    expect(lireNombre('  ')).toBeUndefined()
+    expect(lireNombre('12a')).toBeNull()
+    expect(lireNombre('1,2,3')).toBeNull()
+  })
 })

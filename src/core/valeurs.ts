@@ -96,3 +96,11 @@ export function encoder(colonne: Colonne, valeur: Valeur | undefined): unknown {
       return typeof valeur === 'string' && valeur !== '' ? valeur : undefined
   }
 }
+
+/** Lit un nombre saisi à la française (« 1 234,5 ») ; `null` si ce n'en est pas un, `undefined` si vide. */
+export function lireNombre(saisie: string): number | null | undefined {
+  const s = saisie.replace(/[\s  ]/g, '').replace(',', '.')
+  if (s === '') return undefined
+  if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s)) return null
+  return Number(s)
+}

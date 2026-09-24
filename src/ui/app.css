@@ -1,9 +1,27 @@
 :root {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  color: #1f1f1f;
-  background: #fbfbfa;
+  font-size: 14px;
+  color: #37352f;
+  background: #fff;
+  --bordure: #e9e9e7;
+  --survol: #f1f1ef;
+  --discret: #787774;
 }
 body { margin: 0; }
+button {
+  font: inherit;
+  color: inherit;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #d5d5d3;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+button:hover { background: var(--survol); }
+.discret { color: var(--discret); border-color: transparent; background: none; }
+.erreur { color: #c4332b; }
+
+/* Accueil */
 .accueil {
   max-width: 32rem;
   margin: 15vh auto;
@@ -13,15 +31,110 @@ body { margin: 0; }
   align-items: flex-start;
   gap: 0.75rem;
 }
-button {
-  font: inherit;
-  padding: 0.5rem 1rem;
-  border: 1px solid #d5d5d3;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
+
+/* Espace */
+.espace { display: flex; height: 100vh; }
+.barre-laterale {
+  width: 240px;
+  flex-shrink: 0;
+  background: #f7f7f5;
+  border-right: 1px solid var(--bordure);
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-button:hover { background: #f1f1ef; }
-.discret { color: #787774; border-color: transparent; background: none; }
-.erreur { color: #c4332b; }
-.avertissements { color: #b35c00; font-size: 0.85em; margin: 0.25rem 0; }
+.nom-espace { font-weight: 600; padding: 0.25rem 0.5rem 0.75rem; }
+.entree-base { border: none; background: none; text-align: left; padding: 0.3rem 0.5rem; }
+.entree-base.active { background: #ebebea; font-weight: 500; }
+.barre-laterale .changer { margin-top: auto; text-align: left; }
+.contenu { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 1.5rem 2rem 0; }
+.contenu h1 { font-size: 1.9rem; margin: 0 0 0.75rem; }
+.avertissements { color: #b35c00; font-size: 0.85em; margin-bottom: 0.5rem; }
+.avertissements summary { cursor: pointer; }
+
+/* Tableau */
+.tableau { flex: 1; overflow: auto; border-top: 1px solid var(--bordure); }
+.entete {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  border-bottom: 1px solid var(--bordure);
+}
+.cellule-entete {
+  position: relative;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0.45rem 0.5rem;
+  color: var(--discret);
+  border-right: 1px solid var(--bordure);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.icone { display: inline-block; width: 1.3em; opacity: 0.7; font-size: 0.85em; }
+.poignee { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; }
+.poignee:hover, .poignee.active { background: #2383e2; }
+.rangee {
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--bordure);
+}
+.rangee:hover { background: #fafaf9; }
+.case { flex-shrink: 0; box-sizing: border-box; border-right: 1px solid var(--bordure); overflow: hidden; }
+.cellule {
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.cellule.titre { font-weight: 500; }
+.cellule.calculee { color: var(--discret); }
+.cellule a { color: inherit; text-decoration: underline; text-decoration-color: #c7c7c5; }
+.editeur {
+  font: inherit;
+  color: inherit;
+  border: none;
+  outline: 2px solid #2383e2;
+  outline-offset: -2px;
+  background: #fff;
+}
+.editeur.refuse { outline-color: #c4332b; }
+.invalide { color: #b35c00; }
+.pastille { padding: 1px 6px; border-radius: 4px; font-size: 0.9em; white-space: nowrap; }
+.nouvelle-ligne {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--bordure);
+  border-radius: 0;
+  color: var(--discret);
+  padding: 0.45rem 0.5rem;
+}
+
+/* Panneau flottant */
+.flottant {
+  position: fixed;
+  z-index: 10;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 12px rgba(15, 15, 15, 0.15);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.option { display: flex; align-items: center; gap: 6px; border: none; background: none; text-align: left; padding: 4px 6px; }
+.coche { width: 1em; color: #2383e2; }

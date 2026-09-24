@@ -6,15 +6,21 @@ import {
   navigateurCompatible,
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
+import { aleatoire, planifier } from '../adapters/navigateur'
 import { chargerBase, type ChargementBase } from '../core/base'
+import { DepotBase } from '../core/depot-base'
 import { listerBases } from '../core/espace'
+import { Tableau } from './Tableau'
+import { useErreurDepot } from './useDepot'
+
+type BaseOuverte = { id: string; chargement: ChargementBase; depot: DepotBase | null }
 
 type Etat =
   | { type: 'incompatible' }
   | { type: 'chargement' }
   | { type: 'aucun' }
   | { type: 'permission'; handle: FileSystemDirectoryHandle }
-  | { type: 'ouvert'; handle: FileSystemDirectoryHandle; bases: { id: string; chargement: ChargementBase }[] }
+  | { type: 'ouvert'; handle: FileSystemDirectoryHandle; bases: BaseOuverte[] }
 
 export function App() {
   const [etat, setEtat] = useState<Etat>(() =>
@@ -25,7 +31,13 @@ export function App() {
   async function ouvrir(handle: FileSystemDirectoryHandle) {
     const adaptateur = new AdaptateurFsa(handle)
     const bases = await Promise.all(
-      (await listerBases(adaptateur)).map(async (id) => ({ id, chargement: await chargerBase(adaptateur, id) })),
+      (await listerBases(adaptateur)).map(async (id): Promise<BaseOuverte> => {
+        const chargement = await chargerBase(adaptateur, id)
+        const depot = chargement.ok
+          ? new DepotBase(adaptateur, chargement.base.schema, chargement.base.lignes, { aleatoire, planifier })
+          : null
+        return { id, chargement, depot }
+      }),
     )
     setEtat({ type: 'ouvert', handle, bases })
   }
@@ -51,7 +63,19 @@ export function App() {
     })
   }, [etat.type])
 
+  // Écrire ce qui est en attente dès que l'onglet passe en arrière-plan ou se ferme.
+  useEffect(() => {
+    if (etat.type !== 'ouvert') return
+    const vider = () => {
+      if (document.visibilityState === 'hidden') for (const b of etat.bases) void b.depot?.vider()
+    }
+    document.addEventListener('visibilitychange', vider)
+    return () => document.removeEventListener('visibilitychange', vider)
+  }, [etat])
+
   const choisir = () => tenter(async () => ouvrir(await choisirDossier()))
+
+  if (etat.type === 'ouvert') return <Espace nom={etat.handle.name} bases={etat.bases} changer={choisir} />
 
   return (
     <main className="accueil">
@@ -78,56 +102,68 @@ export function App() {
           </button>
         </>
       )}
-      {etat.type === 'ouvert' && (
-        <>
-          <h1>{etat.handle.name}</h1>
-          {etat.bases.length === 0 ? (
-            <p className="discret">Aucune base dans ce dossier.</p>
-          ) : (
-            <ul>
-              {etat.bases.map((b) => (
-                <ResumeBase key={b.id} id={b.id} chargement={b.chargement} />
-              ))}
-            </ul>
-          )}
-          <button className="discret" onClick={choisir}>
-            Changer de dossier
-          </button>
-        </>
-      )}
       {erreur && <p className="erreur">{erreur}</p>}
     </main>
   )
 }
 
-function ResumeBase({ id, chargement }: { id: string; chargement: ChargementBase }) {
-  if (!chargement.ok) {
-    return (
-      <li>
-        {id} <span className="erreur">non reconnue : {chargement.raison}</span>
-      </li>
-    )
-  }
-  const { schema, lignes, nonReconnus, avertissements } = chargement.base
-  const invalides = lignes.flatMap((l) =>
-    Object.entries(l.cellules).flatMap(([cle, c]) =>
-      c.etat === 'invalide' ? [`${l.chemin} · ${cle} : ${c.raison}`] : [],
-    ),
-  )
-  const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`), ...invalides]
+function Espace({ nom, bases, changer }: { nom: string; bases: BaseOuverte[]; changer: () => void }) {
+  const [choisie, setChoisie] = useState(bases[0]?.id ?? null)
+  const base = bases.find((b) => b.id === choisie)
+
   return (
-    <li>
-      <strong>{schema.nom}</strong>{' '}
-      <span className="discret">
-        {lignes.length} ligne{lignes.length > 1 ? 's' : ''}, {schema.colonnes.length} colonnes
-      </span>
+    <div className="espace">
+      <nav className="barre-laterale">
+        <div className="nom-espace">{nom}</div>
+        {bases.map((b) => (
+          <button
+            key={b.id}
+            className={`entree-base ${b.id === choisie ? 'active' : ''}`}
+            onClick={() => setChoisie(b.id)}
+          >
+            {b.chargement.ok ? b.chargement.base.schema.nom : b.id}
+          </button>
+        ))}
+        <button className="discret changer" onClick={changer}>
+          Changer de dossier
+        </button>
+      </nav>
+      <main className="contenu">
+        {!base && <p className="discret">Aucune base dans ce dossier.</p>}
+        {base && !base.chargement.ok && (
+          <p className="erreur">
+            « {base.id} » n'est pas une base : {base.chargement.raison}
+          </p>
+        )}
+        {base?.chargement.ok && base.depot && (
+          <VueBase key={base.id} depot={base.depot} chargement={base.chargement} />
+        )}
+      </main>
+    </div>
+  )
+}
+
+function VueBase({ depot, chargement }: { depot: DepotBase; chargement: Extract<ChargementBase, { ok: true }> }) {
+  const erreur = useErreurDepot(depot)
+  const { nonReconnus, avertissements } = chargement.base
+  const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`)]
+  return (
+    <>
+      <h1>{depot.schema.nom}</h1>
+      {erreur && <p className="erreur">Écriture impossible : {erreur}</p>}
       {signalements.length > 0 && (
-        <ul className="avertissements">
-          {signalements.map((s) => (
-            <li key={s}>⚠ {s}</li>
-          ))}
-        </ul>
+        <details className="avertissements">
+          <summary>
+            ⚠ {signalements.length} signalement{signalements.length > 1 ? 's' : ''}
+          </summary>
+          <ul>
+            {signalements.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </details>
       )}
-    </li>
+      <Tableau depot={depot} />
+    </>
   )
 }
