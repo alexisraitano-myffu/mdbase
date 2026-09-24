@@ -96,6 +96,9 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 9. Vues temporelles : calendrier, timeline (validé dans Chrome ; retours d’usage à venir)
 - [x] 10. Formules (validé dans Chrome)
 - [x] 11. Dashboards et recherche globale (validé dans Chrome)
+- [x] 12. Robustesse synchro (validé de bout en bout : Chrome piloté, dossier de test en OPFS)
+
+V1 complète (spec §14).
 
 ## graphify
 
