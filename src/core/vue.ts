@@ -49,17 +49,87 @@ export type Vue = {
   tris: Tri[]
   filtresRapides: FiltreRapide[]
   miseEnPage?: string
+  /** Ordre des colonnes dans la vue ; celles qu'il ne cite pas suivent, dans l'ordre du schéma. */
+  ordre?: string[]
+  /** Colonnes masquées dans cette vue. */
+  masquees?: string[]
+  /** Largeur des colonnes du tableau, en pixels. */
+  largeurs?: Record<string, number>
+  /** Tableau : le texte des cellules passe à la ligne au lieu d'être coupé. */
+  retourLigne?: boolean
+  /** Tableau : calcul affiché en pied de chaque colonne (mêmes calculs que les rollups). */
+  calculs?: Record<string, string>
+  /** Tableau et kanban : colonne de groupement. */
+  groupe?: string
+  /** Kanban : couloirs horizontaux. */
+  sousGroupe?: string
+  /** Kanban et collection : champs affichés sur la carte. */
+  champsCarte?: string[]
+  /** Collection : premières lignes du corps sur la carte. */
+  apercuCorps?: boolean
   /** Vue par défaut d'une base sans `_vues/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
 
-export type ModificationVue = Partial<Pick<Vue, 'nom' | 'filtres' | 'tris' | 'filtresRapides' | 'miseEnPage'>>
+export type ModificationVue = Partial<Omit<Vue, 'id' | 'type' | 'implicite'>>
+
+/**
+ * Réglages simples de la vue et leur clé dans le fichier. Une valeur absente,
+ * vide ou fausse retire la clé du fichier.
+ */
+const REGLAGES = {
+  nom: 'nom',
+  miseEnPage: 'mise_en_page',
+  ordre: 'colonnes',
+  masquees: 'colonnes_masquees',
+  largeurs: 'largeurs',
+  retourLigne: 'retour_ligne',
+  calculs: 'calculs',
+  groupe: 'groupe',
+  sousGroupe: 'sous_groupe',
+  champsCarte: 'champs_carte',
+  apercuCorps: 'apercu_corps',
+} as const satisfies Partial<Record<keyof ModificationVue, string>>
+
+/** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
+export const CHAMPS_MODIFIABLES = [...Object.keys(REGLAGES), 'filtres', 'tris', 'filtresRapides'] as (keyof ModificationVue)[]
 
 export function vueParDefaut(): Vue {
   return { id: 'tableau', nom: 'Tableau', type: 'tableau', filtres: [], tris: [], filtresRapides: [], implicite: true }
 }
 
 const TYPES: readonly string[] = ['tableau', 'kanban', 'collection', 'calendrier', 'timeline']
+
+const chaines = (x: unknown): string[] | undefined => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : undefined)
+const table = <T>(x: unknown, garder: (v: unknown) => v is T): Record<string, T> | undefined =>
+  estObjet(x) ? Object.fromEntries(Object.entries(x).filter((e): e is [string, T] => garder(e[1]))) : undefined
+const estNombre = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const estChaine = (v: unknown): v is string => typeof v === 'string'
+
+/** Réglages optionnels lus avec tolérance : une valeur mal formée est ignorée. */
+function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
+  const r: Partial<Vue> = {}
+  const texte = (x: unknown) => (typeof x === 'string' ? x : undefined)
+  const miseEnPage = texte(brut.mise_en_page)
+  if (miseEnPage) r.miseEnPage = miseEnPage
+  const ordre = chaines(brut.colonnes)
+  if (ordre) r.ordre = ordre
+  const masquees = chaines(brut.colonnes_masquees)
+  if (masquees) r.masquees = masquees
+  const largeurs = table(brut.largeurs, estNombre)
+  if (largeurs) r.largeurs = largeurs
+  if (brut.retour_ligne === true) r.retourLigne = true
+  const calculs = table(brut.calculs, estChaine)
+  if (calculs) r.calculs = calculs
+  const groupe = texte(brut.groupe)
+  if (groupe) r.groupe = groupe
+  const sousGroupe = texte(brut.sous_groupe)
+  if (sousGroupe) r.sousGroupe = sousGroupe
+  const champsCarte = chaines(brut.champs_carte)
+  if (champsCarte) r.champsCarte = champsCarte
+  if (brut.apercu_corps === true) r.apercuCorps = true
+  return r
+}
 
 export function lireVue(texte: string, id: string): { vue: Vue | null; avertissements: string[] } {
   const avertissements: string[] = []
@@ -104,7 +174,7 @@ export function lireVue(texte: string, id: string): { vue: Vue | null; avertisse
       filtres: filtres(brut.filtres, 'filtres'),
       tris,
       filtresRapides,
-      ...(typeof brut.mise_en_page === 'string' && { miseEnPage: brut.mise_en_page }),
+      ...lireReglages(brut),
     },
     avertissements,
   }
@@ -122,10 +192,15 @@ export function modifierVue(texte: string | null, vue: Vue, modifs: Modification
   const doc = texte === null ? new Document({ id: vue.id, nom: vue.nom, type: vue.type }) : parseDocument(texte)
   if (doc.errors.length > 0 || !isMap(doc.contents)) throw new Error(`Vue ${vue.id} illisible : modification refusée`)
 
-  if (modifs.nom !== undefined) doc.set('nom', modifs.nom)
-  if ('miseEnPage' in modifs) {
-    if (modifs.miseEnPage === undefined) doc.delete('mise_en_page')
-    else doc.set('mise_en_page', modifs.miseEnPage)
+  for (const [prop, cle] of Object.entries(REGLAGES) as [keyof typeof REGLAGES, string][]) {
+    if (!(prop in modifs)) continue
+    const v = modifs[prop]
+    const vide = v === undefined || v === false || v === '' || (Array.isArray(v) && v.length === 0) || (estObjet(v) && Object.keys(v).length === 0)
+    if (vide) {
+      if (prop !== 'nom') doc.delete(cle)
+      continue
+    }
+    doc.set(cle, doc.createNode(v, { flow: true }))
   }
   const listes: [keyof ModificationVue, string, unknown[] | undefined][] = [
     ['filtres', 'filtres', modifs.filtres?.map(ecrireFiltre)],

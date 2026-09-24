@@ -82,7 +82,7 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 4. Gestion du schéma (validé dans Chrome)
 - [x] 5. Filtres, tris, filtres rapides (validé dans Chrome)
 - [x] 6. Relations et rollups (validé dans Chrome)
-- [x] 7. Pages (à valider dans Chrome)
+- [x] 7. Pages (validé dans Chrome)
 - [ ] 8. Vues : groupement, kanban, collection
 
 ## graphify

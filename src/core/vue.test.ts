@@ -29,6 +29,9 @@ describe('lireVue', () => {
       tris: [{ colonne: 'echeance', sens: 'asc' }],
       filtresRapides: [{ colonne: 'client' }, { colonne: 'echeance', operateur: 'avant', valeur: 'aujourdhui' }],
       miseEnPage: 'suivi',
+      groupe: 'statut',
+      sousGroupe: 'client',
+      champsCarte: ['echeance', 'nb_taches_ouvertes'],
     })
   })
 
@@ -79,5 +82,43 @@ describe('modifierVue', () => {
     const apres = modifierVue(KANBAN, vue, { tris: [], nom: 'Statuts' })
     expect(apres).not.toContain('tris')
     expect(lireVue(apres, 'k').vue!.nom).toBe('Statuts')
+  })
+})
+
+describe('réglages de la vue', () => {
+  it('écrit et relit ordre, colonnes masquées, largeurs, retour à la ligne, calculs, groupe', () => {
+    const vue = vueParDefaut()
+    const texte = modifierVue(null, vue, {
+      ordre: ['titre', 'statut'],
+      masquees: ['budget'],
+      largeurs: { titre: 300, statut: 120 },
+      retourLigne: true,
+      calculs: { budget: 'somme', titre: 'compter' },
+      groupe: 'statut',
+    })
+    expect(texte).toBe(
+      'id: tableau\nnom: Tableau\ntype: tableau\ncolonnes: [ titre, statut ]\ncolonnes_masquees: [ budget ]\nlargeurs: { titre: 300, statut: 120 }\nretour_ligne: true\ncalculs: { budget: somme, titre: compter }\ngroupe: statut\n',
+    )
+    expect(lireVue(texte, 'tableau').vue).toMatchObject({
+      ordre: ['titre', 'statut'],
+      masquees: ['budget'],
+      largeurs: { titre: 300, statut: 120 },
+      retourLigne: true,
+      calculs: { budget: 'somme', titre: 'compter' },
+      groupe: 'statut',
+    })
+  })
+
+  it('retire une clé vidée ou désactivée', () => {
+    const avec = modifierVue(null, vueParDefaut(), { retourLigne: true, groupe: 'statut', masquees: ['a'] })
+    const sans = modifierVue(avec, vueParDefaut(), { retourLigne: false, groupe: undefined, masquees: [] })
+    expect(sans).toBe('id: tableau\nnom: Tableau\ntype: tableau\n')
+  })
+
+  it('ignore un réglage mal formé', () => {
+    const { vue } = lireVue('largeurs: { titre: large, statut: 90 }\ncolonnes: oui\nretour_ligne: peut-être\n', 'v')
+    expect(vue?.largeurs).toEqual({ statut: 90 })
+    expect(vue?.ordre).toBeUndefined()
+    expect(vue?.retourLigne).toBeUndefined()
   })
 })

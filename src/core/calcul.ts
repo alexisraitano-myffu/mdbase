@@ -1,7 +1,7 @@
 import type { LigneChargee } from './base'
 import { correspond, type Contexte } from './filtres'
 import { noeud, ordonner, type Schemas } from './graphe'
-import { CALCULS, colonne as colonneDe, estObjet, natureDe, type Colonne, type ColonneRelation, type ColonneRollup, type Schema } from './schema'
+import { CALCULS, colonne as colonneDe, type Calcul, estObjet, natureDe, type Colonne, type ColonneRelation, type ColonneRollup, type Schema } from './schema'
 import { OPERATEURS, type Operateur } from './vue'
 import type { Cellule, Valeur } from './valeurs'
 
@@ -178,5 +178,23 @@ export function agreger(calcul: string, champ: Colonne, cellules: (Cellule | und
       return dates.length === 0 ? undefined : ok(dates.at(-1)!)
     default:
       return erreur(`Calcul « ${calcul} » inconnu`)
+  }
+}
+
+/**
+ * Calculs qui ont un sens pour une colonne, selon sa nature : pour un rollup
+ * (colonne remontée) comme pour le pied d'une colonne de tableau.
+ */
+export function calculsPour(c: Colonne): Calcul[] {
+  const comptes: Calcul[] = ['afficher', 'compter', 'compter_valeurs', 'compter_uniques', 'compter_vides', 'compter_non_vides']
+  switch (natureDe(c)) {
+    case 'nombre':
+      return [...comptes, 'somme', 'moyenne', 'mediane', 'min', 'max', 'amplitude']
+    case 'case':
+      return [...comptes, 'pourcent_coches', 'pourcent_non_coches']
+    case 'date':
+      return [...comptes, 'date_plus_tot', 'date_plus_tard']
+    default:
+      return comptes
   }
 }

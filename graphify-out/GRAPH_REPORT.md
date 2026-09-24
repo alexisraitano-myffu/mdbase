@@ -1,16 +1,16 @@
 # Graph Report - mdbase  (2026-09-24)
 
 ## Corpus Check
-- 88 files · ~42,530 words
+- 89 files · ~42,824 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 593 nodes · 1423 edges · 38 communities (34 shown, 4 thin omitted)
+- 598 nodes · 1430 edges · 40 communities (36 shown, 4 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 11 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `4bd1f66a`
+- Built from commit: `8433e4de`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -33,8 +33,10 @@
 - [[_COMMUNITY_Community 17|Community 17]]
 - [[_COMMUNITY_Community 19|Community 19]]
 - [[_COMMUNITY_Community 20|Community 20]]
+- [[_COMMUNITY_Community 24|Community 24]]
 - [[_COMMUNITY_Community 26|Community 26]]
 - [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 38|Community 38]]
 - [[_COMMUNITY_Community 39|Community 39]]
 
 ## God Nodes (most connected - your core abstractions)
@@ -52,19 +54,19 @@
 ## Surprising Connections (you probably didn't know these)
 - `cheminVue()` --calls--> `joindre()`  [EXTRACTED]
   src/core/depot-espace.ts → src/core/fichiers.ts
-- `lireFiltre()` --calls--> `estObjet()`  [EXTRACTED]
-  src/core/vue.ts → src/core/schema.ts
 - `agreger()` --calls--> `ok()`  [INFERRED]
   src/core/calcul.ts → src/core/filtres.test.ts
 - `AjoutColonne()` --calls--> `schemaDe()`  [INFERRED]
   src/ui/EnteteColonne.tsx → src/core/depot-espace.test.ts
 - `decoder()` --calls--> `ok()`  [INFERRED]
   src/core/valeurs.ts → src/core/filtres.test.ts
+- `cles()` --calls--> `lireSchema()`  [EXTRACTED]
+  src/core/schema-ecriture.test.ts → src/core/schema.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (38 total, 4 thin omitted)
+## Communities (40 total, 4 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.04
@@ -75,12 +77,12 @@ Cohesion: 0.07
 Nodes (28): dependencies, @milkdown/crepe, react, react-dom, @tanstack/react-table, @tanstack/react-virtual, yaml, devDependencies (+20 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.07
-Nodes (27): AdaptateurMemoire, BaseChargee, chargerBase(), enregistrerLigne(), FichierNonReconnu, charger(), Entree, Planifier (+19 more)
+Cohesion: 0.11
+Nodes (18): AdaptateurMemoire, BaseChargee, chargerBase(), FichierNonReconnu, charger(), Entree, estConfiguration(), listerBases() (+10 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.07
-Nodes (36): aleatoire(), aujourdhui(), planifier(), ChargementBase, EtatEspace, LigneVue, Aleatoire, cleColonne() (+28 more)
+Cohesion: 0.12
+Nodes (20): aleatoire(), aujourdhui(), planifier(), ChargementBase, Aleatoire, cleColonne(), dedoublonner(), genererId() (+12 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.14
@@ -99,8 +101,8 @@ Cohesion: 0.25
 Nodes (7): compilerOptions, lib, tsBuildInfoFile, types, exclude, extends, include
 
 ### Community 9 - "Community 9"
-Cohesion: 0.06
-Nodes (30): espace(), OptionsDepot, cheminPage(), cheminVue(), COULEURS, DepotEspace, OptionsEspace, assurerListe() (+22 more)
+Cohesion: 0.08
+Nodes (9): OptionsDepot, cheminPage(), DepotEspace, relationVers(), MiseEnPage, ModificationMiseEnPage, Calcul, ColonneRelation (+1 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.29
@@ -111,42 +113,50 @@ Cohesion: 0.33
 Nodes (5): Added, Changed, Changelog, Fixed, [Unreleased]
 
 ### Community 15 - "Community 15"
-Cohesion: 0.33
-Nodes (8): colonnes(), ErreurSchema, indexColonne(), modifierSchema(), nouveauSchema(), cles(), trouverColonne(), Option
+Cohesion: 0.10
+Nodes (30): cheminVue(), COULEURS, EtatBase, OptionsEspace, assurerListe(), assurerMap(), barreLaterale(), chaines() (+22 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.08
-Nodes (34): ligne(), appliquer(), assembler(), creerLigne(), Decoupage, decouper(), LectureLigne, Ligne (+26 more)
+Cohesion: 0.12
+Nodes (25): enregistrerLigne(), ligne(), appliquer(), assembler(), creerLigne(), Decoupage, decouper(), ErreurEcriture (+17 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.07
-Nodes (51): EtatBase, appliquerVue(), collateur, comparer(), comparerDate(), comparerNombre(), comparerTexte(), Contexte (+43 more)
+Nodes (53): appliquerVue(), collateur, comparer(), comparerDate(), comparerNombre(), comparerTexte(), Contexte, correspond() (+45 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.14
-Nodes (7): LigneChargee, afficher(), contientCle(), DepotBase, superposer(), Modifications, Schema
+Cohesion: 0.21
+Nodes (5): LigneChargee, afficher(), contientCle(), DepotBase, superposer()
+
+### Community 24 - "Community 24"
+Cohesion: 0.07
+Nodes (35): EtatEspace, schemaDe(), TypeCreable, TYPES_CREABLES, LigneVue, CALCULS, estSaisie(), Contexte (+27 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.07
-Nodes (46): agreger(), BaseACalculer, calculer(), calculerInverse(), Calculs, erreur(), preparerRollup(), RollupPret (+38 more)
+Cohesion: 0.09
+Nodes (36): agreger(), BaseACalculer, calculer(), calculerInverse(), Calculs, erreur(), preparerRollup(), RollupPret (+28 more)
+
+### Community 38 - "Community 38"
+Cohesion: 0.15
+Nodes (10): Planifier, ouvrir(), ouvrir(), ouvrir(), ErreurSchema, FICHIERS_RELATIONS, AdaptateurCompteur, aleatoire() (+2 more)
 
 ### Community 39 - "Community 39"
-Cohesion: 0.13
-Nodes (22): Affichage, AFFICHAGES, ChampPage, champsOrdonnes(), choisirMiseEnPage(), corpsEnOnglet(), lireMiseEnPage(), MiseEnPage (+14 more)
+Cohesion: 0.11
+Nodes (22): Affichage, AFFICHAGES, ChampPage, champsOrdonnes(), choisirMiseEnPage(), corpsEnOnglet(), lireMiseEnPage(), miseEnPageParDefaut() (+14 more)
 
 ## Knowledge Gaps
-- **149 isolated node(s):** `Added`, `Changed`, `Fixed`, `Commandes`, `Architecture et conventions (refacti)` (+144 more)
+- **149 isolated node(s):** `Added`, `Changed`, `Fixed`, `Props`, `EditeurCorps` (+144 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `DepotEspace` connect `Community 9` to `Community 2`, `Community 3`, `Community 39`, `Community 19`, `Community 20`, `Community 26`?**
-  _High betweenness centrality (0.092) - this node is a cross-community bridge._
-- **Why does `DepotBase` connect `Community 20` to `Community 2`, `Community 3`, `Community 39`, `Community 9`, `Community 17`, `Community 19`, `Community 26`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
-- **Why does `joindre()` connect `Community 2` to `Community 9`, `Community 20`?**
+- **Why does `DepotEspace` connect `Community 9` to `Community 2`, `Community 3`, `Community 38`, `Community 39`, `Community 15`, `Community 19`, `Community 24`, `Community 26`?**
+  _High betweenness centrality (0.091) - this node is a cross-community bridge._
+- **Why does `DepotBase` connect `Community 20` to `Community 2`, `Community 3`, `Community 38`, `Community 39`, `Community 9`, `Community 15`, `Community 19`, `Community 24`, `Community 26`?**
+  _High betweenness centrality (0.038) - this node is a cross-community bridge._
+- **Why does `colonne` connect `Community 26` to `Community 2`, `Community 39`, `Community 9`, `Community 15`, `Community 17`, `Community 19`, `Community 20`, `Community 24`?**
   _High betweenness centrality (0.020) - this node is a cross-community bridge._
 - **What connects `Added`, `Changed`, `Fixed` to the rest of the system?**
   _149 weakly-connected nodes found - possible documentation gaps or missing edges._
@@ -155,4 +165,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.06896551724137931 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.07115677321156773 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11020408163265306 - nodes in this community are weakly interconnected._

@@ -90,8 +90,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790279797.5932486,
-    "ast_hash": "3b67a9d7697f1510f061a74593ee88fc",
+    "mtime": 1790280198.1750505,
+    "ast_hash": "fcbd89699e0963c974bb28b49471a384",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -470,13 +470,18 @@
     "semantic_hash": ""
   },
   "src/ui/Page.tsx": {
-    "mtime": 1790279763.6826735,
-    "ast_hash": "0cb6d27dd27810294857a4e8db9bd482",
+    "mtime": 1790280187.3932114,
+    "ast_hash": "39819e620a3dfb613a4946af594ca276",
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_pages/defaut.yaml": {
-    "mtime": 1790279796.124524,
-    "ast_hash": "cbf1f6528bb1ca03902d53ef5c911c6c",
+    "mtime": 1790280187.547975,
+    "ast_hash": "b7e1635e7dd4f0c42744cdf644497275",
+    "semantic_hash": ""
+  },
+  "src/ui/useLargeurPanneau.ts": {
+    "mtime": 1790280187.242362,
+    "ast_hash": "fa4f66fc898deabe6467db0b067a229f",
     "semantic_hash": ""
   }
 }

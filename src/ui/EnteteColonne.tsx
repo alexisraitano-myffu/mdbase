@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import type { DepotBase } from '../core/depot-base'
 import { TYPES_CREABLES, type DepotEspace, type TypeCreable } from '../core/depot-espace'
-import { CALCULS, natureDe, type Calcul, type Colonne, type ColonneRelation, type ColonneRollup } from '../core/schema'
+import { calculsPour } from '../core/calcul'
+import { CALCULS, type Calcul, type Colonne, type ColonneRelation, type ColonneRollup } from '../core/schema'
 import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
@@ -197,21 +198,6 @@ const LIBELLES_CALCULS: Record<Calcul, string> = {
   amplitude: 'Amplitude (max − min)',
   date_plus_tot: 'Date la plus tôt',
   date_plus_tard: 'Date la plus tard',
-}
-
-/** Calculs qui ont un sens pour la nature du champ remonté. */
-function calculsPour(champ: Colonne): Calcul[] {
-  const comptes: Calcul[] = ['afficher', 'compter', 'compter_valeurs', 'compter_uniques', 'compter_vides', 'compter_non_vides']
-  switch (natureDe(champ)) {
-    case 'nombre':
-      return [...comptes, 'somme', 'moyenne', 'mediane', 'min', 'max', 'amplitude']
-    case 'case':
-      return [...comptes, 'pourcent_coches', 'pourcent_non_coches']
-    case 'date':
-      return [...comptes, 'date_plus_tot', 'date_plus_tard']
-    default:
-      return comptes
-  }
 }
 
 type Etape =

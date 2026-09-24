@@ -9,7 +9,7 @@ import { boucle } from './graphe'
 import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
-import { lireVue, modifierVue, vueParDefaut, type ModificationVue, type Vue } from './vue'
+import { CHAMPS_MODIFIABLES, lireVue, modifierVue, vueParDefaut, type ModificationVue, type TypeVue, type Vue } from './vue'
 import {
   lireMiseEnPage,
   miseEnPageParDefaut,
@@ -373,11 +373,11 @@ export class DepotEspace {
     })
   }
 
-  creerVue(base: string, nom: string): Promise<string> {
+  creerVue(base: string, nom: string, type: TypeVue = 'tableau'): Promise<string> {
     return this.enFile(async () => {
       const vues = this.etatBase(base).vues
       const id = idBase(nom, vues.map((v) => v.id))
-      const vue: Vue = { ...vueParDefaut(), id, nom: nom.trim() || id }
+      const vue: Vue = { ...vueParDefaut(), id, nom: nom.trim() || id, type }
       delete vue.implicite
       await this.adaptateur.ecrire(cheminVue(base, id), modifierVue(null, vue, {}))
       // La vue implicite n'a pas de fichier : la garder ferait croire qu'elle existe encore.
@@ -624,8 +624,9 @@ export class DepotEspace {
 
 /** Champs modifiés en mémoire mais pas encore écrits : on ne les écrase pas à la relecture. */
 function enAttente(memoire: Vue, relue: Vue): Partial<Vue> {
-  const cles = ['nom', 'filtres', 'tris', 'filtresRapides', 'miseEnPage'] as const
-  return Object.fromEntries(cles.filter((k) => JSON.stringify(memoire[k]) !== JSON.stringify(relue[k])).map((k) => [k, memoire[k]]))
+  return Object.fromEntries(
+    CHAMPS_MODIFIABLES.filter((k) => JSON.stringify(memoire[k]) !== JSON.stringify(relue[k])).map((k) => [k, memoire[k]]),
+  )
 }
 
 function cheminPage(base: string, id: string): string {
