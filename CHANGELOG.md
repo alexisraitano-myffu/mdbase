@@ -34,6 +34,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Jalon 7 (pages) : bouton « Ouvrir » au survol du titre d'une ligne, page en panneau à droite ou en plein écran, Échap pour fermer, ↑ ↓ pour passer à la ligne précédente ou suivante de la vue.
 - Page : titre éditable (fichier renommé à la sortie), propriétés éditables comme dans le tableau, propriétés masquées dépliables, corps en Markdown avec un éditeur visuel (menu « / », poignées de blocs).
 - Mises en page (`_pages/*.yaml`) : affichage de chaque champ (visible, masqué si vide, masqué), ordre, relations en onglet, corps dans son onglet ; plusieurs mises en page par base, une par défaut, une retenue par vue.
+- Panneau de page étirable par son bord gauche, largeur retenue par le navigateur ; sans onglet dédié, le contenu reste sous les onglets quel que soit l'onglet actif.
 - Onglets relation : tableau des lignes liées, dont le « + » crée une ligne déjà liée ; on peut ouvrir une ligne liée depuis l'onglet.
 ### Changed
 ### Fixed

@@ -90,13 +90,13 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790279039.7242153,
-    "ast_hash": "725ab61f456cf878d8e3d875f6502f32",
+    "mtime": 1790279797.5932486,
+    "ast_hash": "3b67a9d7697f1510f061a74593ee88fc",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790279414.2934256,
-    "ast_hash": "7f468952f5673f0faec5e7703137b0bb",
+    "mtime": 1790279797.5929081,
+    "ast_hash": "f902fa5517fa8bb91d38b382418604cd",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "src/ui/Tableau.tsx": {
-    "mtime": 1790278492.523382,
-    "ast_hash": "27b6a0efc624d29c02e4c2476a37d2f2",
+    "mtime": 1790279658.728788,
+    "ast_hash": "ca42299f9b56775d31b599160e5451a1",
     "semantic_hash": ""
   },
   "src/ui/cellules.tsx": {
@@ -300,8 +300,8 @@
     "semantic_hash": ""
   },
   "src/ui/VueBase.tsx": {
-    "mtime": 1790278492.5231385,
-    "ast_hash": "153fdf7e6499478e6de0056efeedbb5a",
+    "mtime": 1790279729.3761635,
+    "ast_hash": "f862e2d26d69b4447e748526a5bef44b",
     "semantic_hash": ""
   },
   "src/ui/useAujourdhui.ts": {
@@ -395,8 +395,8 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/site-vitrine--psite001.md": {
-    "mtime": 1790279012.0888627,
-    "ast_hash": "a31d82255439ae1c816c477de80aee03",
+    "mtime": 1790279796.1278648,
+    "ast_hash": "d38ef8fcacd383cbde651d3da59e8a70",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/_vues/tableau.yaml": {
@@ -455,13 +455,28 @@
     "semantic_hash": ""
   },
   "src/core/mise-en-page.test.ts": {
-    "mtime": 1790279459.5270662,
-    "ast_hash": "9d5f8c03d6d4521aeaba651c7e03983d",
+    "mtime": 1790279649.5568848,
+    "ast_hash": "4e3113b2fe1052b91ee93d4d564e600d",
     "semantic_hash": ""
   },
   "src/core/mise-en-page.ts": {
-    "mtime": 1790279475.653766,
-    "ast_hash": "68d83ae9abb6a1f4775a93c0630f2184",
+    "mtime": 1790279649.3827283,
+    "ast_hash": "fbc40588621f9a582f95dc5011c92c57",
+    "semantic_hash": ""
+  },
+  "src/ui/EditeurCorps.tsx": {
+    "mtime": 1790279649.379548,
+    "ast_hash": "9d83dcb93fdba3e97458eaa6a9f54dd9",
+    "semantic_hash": ""
+  },
+  "src/ui/Page.tsx": {
+    "mtime": 1790279763.6826735,
+    "ast_hash": "0cb6d27dd27810294857a4e8db9bd482",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/_pages/defaut.yaml": {
+    "mtime": 1790279796.124524,
+    "ast_hash": "cbf1f6528bb1ca03902d53ef5c911c6c",
     "semantic_hash": ""
   }
 }

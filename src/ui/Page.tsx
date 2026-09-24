@@ -22,6 +22,7 @@ import { ICONES } from './EnteteColonne'
 import { Flottant } from './flottant'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
+import { useLargeurPanneau } from './useLargeurPanneau'
 
 type Props = {
   base: string
@@ -60,10 +61,10 @@ export function Page(p: Props) {
 
   if (!eb || !depot || !ligne) {
     return (
-      <aside className={`page ${p.pleinEcran ? 'plein-ecran' : ''}`}>
+      <Cadre pleinEcran={p.pleinEcran}>
         <EntetePage {...p} />
         <p className="discret">Cette ligne n'existe plus.</p>
-      </aside>
+      </Cadre>
     )
   }
 
@@ -72,7 +73,7 @@ export function Page(p: Props) {
   const corpsSeul = corpsEnOnglet(mep)
 
   return (
-    <aside className={`page ${p.pleinEcran ? 'plein-ecran' : ''}`}>
+    <Cadre pleinEcran={p.pleinEcran}>
       <EntetePage {...p}>
         <ReglagesPage base={p.base} schema={depot.schema} mep={mep} choisir={setIdPage} vue={p.vue} />
       </EntetePage>
@@ -89,18 +90,26 @@ export function Page(p: Props) {
           </div>
         )}
 
-        {actif.type === 'proprietes' && (
-          <>
-            <Proprietes depot={depot} ligne={ligne} mep={mep} />
-            {!corpsSeul && <Corps depot={depot} ligne={ligne} />}
-          </>
-        )}
+        {actif.type === 'proprietes' && <Proprietes depot={depot} ligne={ligne} mep={mep} />}
         {actif.type === 'corps' && <Corps depot={depot} ligne={ligne} />}
         {actif.type === 'relation' && (
           <OngletRelation key={actif.relation} base={p.base} schema={depot.schema} ligne={ligne} onglet={actif} ouvrir={p.ouvrir} />
         )}
+        {/* Sans onglet dédié, le corps reste sous les onglets, quel que soit l'onglet actif. */}
+        {!corpsSeul && <Corps depot={depot} ligne={ligne} />}
       </div>
-    </aside>
+    </Cadre>
+  )
+}
+
+/** Panneau à droite, étirable par son bord gauche ; plein écran, il prend toute la place. */
+function Cadre({ pleinEcran, children }: { pleinEcran: boolean; children: ReactNode }) {
+  const [largeur, saisir] = useLargeurPanneau()
+  return (
+    <div className={`cadre-page ${pleinEcran ? 'plein-ecran' : ''}`} style={pleinEcran ? undefined : { width: largeur }}>
+      {!pleinEcran && <div className="poignee-page" onPointerDown={saisir} title="Tirer pour élargir" />}
+      <aside className={`page ${pleinEcran ? 'plein-ecran' : ''}`}>{children}</aside>
+    </div>
   )
 }
 

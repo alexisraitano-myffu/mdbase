@@ -247,16 +247,20 @@ button:hover { background: var(--survol); }
 /* Vue + page */
 .zone-vue { flex: 1; min-height: 0; display: flex; gap: 0; }
 .zone-tableau { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.page {
-  width: min(520px, 45%);
+.cadre-page {
+  position: relative;
   flex-shrink: 0;
-  border-left: 1px solid var(--bordure);
+  max-width: 75%;
   margin-left: 1rem;
-  overflow-y: auto;
-  background: #fff;
+  border-left: 1px solid var(--bordure);
+  display: flex;
 }
+.cadre-page.plein-ecran { flex: 1; max-width: none; margin-left: 0; border-left: none; }
+.page { flex: 1; min-width: 0; overflow-y: auto; background: #fff; }
+.poignee-page { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 4; }
+.poignee-page:hover, .redimensionnement .poignee-page { background: linear-gradient(to right, transparent 3px, #2383e2 3px, #2383e2 5px, transparent 5px); }
+.redimensionnement { cursor: col-resize; user-select: none; }
 .zone-vue.page-plein-ecran .zone-tableau { display: none; }
-.zone-vue.page-plein-ecran .page { flex: 1; width: auto; border-left: none; margin-left: 0; }
 .page.plein-ecran .contenu-page { max-width: 780px; margin: 0 auto; }
 .entete-page {
   position: sticky;

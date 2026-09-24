@@ -14,4 +14,3 @@ onglets:
   - type: relation
     relation: taches
     colonnes: [ titre, priorite, echeance, heures, fait ]
-  - type: corps
