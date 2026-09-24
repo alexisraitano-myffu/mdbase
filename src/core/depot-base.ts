@@ -21,6 +21,8 @@ type Entree = {
   /** Ce que voit l'utilisateur : persistee + modifications en attente. */
   affichee: LigneChargee
   enAttente: Modifications
+  /** Nouveau corps pas encore écrit. */
+  corpsEnAttente: string | undefined
   annuler: (() => void) | undefined
   /** Chaîne qui sérialise les opérations sur ce fichier. */
   file: Promise<void>
@@ -48,6 +50,7 @@ export class DepotBase {
       persistee: l,
       affichee: l,
       enAttente: {},
+      corpsEnAttente: undefined,
       annuler: undefined,
       file: Promise.resolve(),
     }))
@@ -70,7 +73,19 @@ export class DepotBase {
     if (!c || !estSaisie(c)) throw new ErreurEcriture(`Colonne non modifiable : ${cle}`)
     const entree = this.trouver(chemin)
     entree.enAttente = { ...entree.enAttente, [cle]: valeur }
-    entree.affichee = superposer(entree.persistee, entree.enAttente, this.schema)
+    entree.affichee = afficher(entree, this.schema)
+    this.planifierEcriture(entree)
+  }
+
+  /** Modifie le corps Markdown : même regroupement des écritures que les cellules. */
+  modifierCorps(chemin: string, corps: string): void {
+    const entree = this.trouver(chemin)
+    entree.corpsEnAttente = corps
+    entree.affichee = afficher(entree, this.schema)
+    this.planifierEcriture(entree)
+  }
+
+  private planifierEcriture(entree: Entree) {
     entree.annuler?.()
     entree.annuler = this.options.planifier(() => void this.ecrire(entree), this.options.delai)
     this.publier()
@@ -86,7 +101,7 @@ export class DepotBase {
     const lecture = lireLigne(chemin, texte, this.schema)
     if (!lecture.ok) throw new Error(`Ligne créée illisible : ${lecture.raison}`)
     const ligne = { ...lecture.ligne, date: await this.adaptateur.dateModification(chemin) }
-    this.entrees.push({ persistee: ligne, affichee: ligne, enAttente: {}, annuler: undefined, file: Promise.resolve() })
+    this.entrees.push({ persistee: ligne, affichee: ligne, enAttente: {}, corpsEnAttente: undefined, annuler: undefined, file: Promise.resolve() })
     this.publier()
     return ligne
   }
@@ -128,7 +143,7 @@ export class DepotBase {
           return c !== undefined && estSaisie(c)
         }),
       )
-      e.affichee = superposer(e.persistee, e.enAttente, schema)
+      e.affichee = afficher(e, schema)
     }
     this.publier()
   }
@@ -146,7 +161,7 @@ export class DepotBase {
       n++
       void this.enchainer(e, async () => {
         e.persistee = await enregistrerLigne(this.adaptateur, this.schema, e.persistee, { [cle]: undefined })
-        e.affichee = superposer(e.persistee, e.enAttente, this.schema)
+        e.affichee = afficher(e, this.schema)
       })
     }
     await Promise.all(this.entrees.map((e) => e.file))
@@ -172,12 +187,14 @@ export class DepotBase {
 
   private ecrire(entree: Entree): Promise<void> {
     const modifs = entree.enAttente
+    const corps = entree.corpsEnAttente
     entree.enAttente = {}
+    entree.corpsEnAttente = undefined
     entree.annuler = undefined
     return this.enchainer(entree, async () => {
-      entree.persistee = await enregistrerLigne(this.adaptateur, this.schema, entree.persistee, modifs)
+      entree.persistee = await enregistrerLigne(this.adaptateur, this.schema, entree.persistee, modifs, corps)
       // D'autres modifications ont pu arriver pendant l'écriture : elles restent affichées.
-      entree.affichee = superposer(entree.persistee, entree.enAttente, this.schema)
+      entree.affichee = afficher(entree, this.schema)
     })
   }
 
@@ -219,6 +236,11 @@ export class DepotBase {
 function contientCle(source: string, cle: string): boolean {
   const echappee = cle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`^${echappee}\\s*:`, 'm').test(source.split(/^---\s*$/m, 3)[1] ?? '')
+}
+
+function afficher(e: Entree, schema: Schema): LigneChargee {
+  const l = superposer(e.persistee, e.enAttente, schema)
+  return e.corpsEnAttente === undefined ? l : { ...l, corps: e.corpsEnAttente }
 }
 
 function superposer(ligne: LigneChargee, modifs: Modifications, schema: Schema): LigneChargee {

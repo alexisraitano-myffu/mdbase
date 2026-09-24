@@ -10,6 +10,13 @@ import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
 import { lireVue, modifierVue, vueParDefaut, type ModificationVue, type Vue } from './vue'
+import {
+  lireMiseEnPage,
+  miseEnPageParDefaut,
+  modifierMiseEnPage,
+  type MiseEnPage,
+  type ModificationMiseEnPage,
+} from './mise-en-page'
 
 // Orchestration d'un espace ouvert : bases, barre latérale, et modifications de
 // schéma qui touchent à la fois la configuration et les lignes (spec §3, §5).
@@ -17,6 +24,7 @@ import { lireVue, modifierVue, vueParDefaut, type ModificationVue, type Vue } fr
 export const FICHIER_ESPACE = '_espace.yaml'
 const FICHIER_SCHEMA = '_schema.yaml'
 const DOSSIER_VUES = '_vues'
+const DOSSIER_PAGES = '_pages'
 
 /** Types proposés à la création d'une colonne (relations, rollups, formules : jalons suivants). */
 export const TYPES_CREABLES = ['text', 'number', 'date', 'checkbox', 'select', 'multiselect', 'url'] as const
@@ -30,6 +38,8 @@ export type EtatBase = {
   depot: DepotBase | null
   /** Jamais vide : une base sans `_vues/` a une vue tableau implicite. */
   vues: Vue[]
+  /** Jamais vide : une base sans `_pages/` a une mise en page implicite. */
+  pages: MiseEnPage[]
 }
 
 export type EtatEspace = {
@@ -385,7 +395,74 @@ export class DepotEspace {
     })
   }
 
+  // ── Mises en page ────────────────────────────────────────────────
+
+  /**
+   * Modifie une mise en page (en mémoire tout de suite, puis le fichier).
+   * La marquer par défaut retire ce statut aux autres.
+   */
+  modifierMiseEnPage(base: string, id: string, modifs: ModificationMiseEnPage): Promise<void> {
+    this.page(base, id)
+    const anciennesParDefaut = modifs.defaut ? this.etatBase(base).pages.filter((p) => p.id !== id && p.defaut) : []
+    this.remplacerPages(base, (pages) =>
+      pages.map((p) => (p.id === id ? { ...p, ...modifs } : modifs.defaut ? { ...p, defaut: false } : p)),
+    )
+    return this.enFile(async () => {
+      await this.ecrireMiseEnPage(base, id, modifs)
+      for (const p of anciennesParDefaut) if (!p.implicite) await this.ecrireMiseEnPage(base, p.id, { defaut: false })
+    })
+  }
+
+  /** Crée une mise en page, en partant des réglages d'une existante. */
+  creerMiseEnPage(base: string, nom: string, depuis?: string): Promise<string> {
+    return this.enFile(async () => {
+      const pages = this.etatBase(base).pages
+      const modele = pages.find((p) => p.id === depuis)
+      const id = idBase(nom, pages.map((p) => p.id))
+      const nouvelle: MiseEnPage = { id, nom: nom.trim() || id, defaut: false, champs: modele?.champs ?? [], onglets: modele?.onglets ?? [] }
+      await this.adaptateur.ecrire(cheminPage(base, id), modifierMiseEnPage(null, nouvelle, { champs: nouvelle.champs, onglets: nouvelle.onglets }))
+      // La mise en page implicite n'a pas de fichier : on l'écrit pour ne pas la perdre.
+      const implicite = pages.find((p) => p.implicite)
+      if (implicite) {
+        await this.adaptateur.ecrire(cheminPage(base, implicite.id), modifierMiseEnPage(null, implicite, {}))
+        delete implicite.implicite
+      }
+      this.remplacerPages(base, (ps) => [...ps.map((p) => ({ ...p })), nouvelle])
+      return id
+    })
+  }
+
+  supprimerMiseEnPage(base: string, id: string): Promise<void> {
+    return this.enFile(async () => {
+      const pages = this.etatBase(base).pages
+      if (pages.length <= 1) throw new ErreurSchema('Une base garde toujours au moins une mise en page')
+      const p = this.page(base, id)
+      if (!p.implicite) await this.adaptateur.supprimer(cheminPage(base, id))
+      this.remplacerPages(base, (ps) => ps.filter((x) => x.id !== id))
+    })
+  }
+
   // ── Interne ──────────────────────────────────────────────────────
+
+  private page(base: string, id: string): MiseEnPage {
+    const p = this.etatBase(base).pages.find((x) => x.id === id)
+    if (!p) throw new ErreurSchema(`Mise en page introuvable : ${id}`)
+    return p
+  }
+
+  private remplacerPages(base: string, f: (pages: MiseEnPage[]) => MiseEnPage[]) {
+    const b = this.etatBase(base)
+    this.bases.set(base, { ...b, pages: f(b.pages) })
+    this.publier()
+  }
+
+  private async ecrireMiseEnPage(base: string, id: string, modifs: ModificationMiseEnPage) {
+    const p = this.page(base, id)
+    const chemin = cheminPage(base, id)
+    const texte = modifierMiseEnPage(p.implicite ? null : await this.lireOuNull(chemin), p, modifs)
+    await this.adaptateur.ecrire(chemin, texte)
+    if (p.implicite) this.remplacerPages(base, (ps) => ps.map((x) => (x.id === id ? { ...x, implicite: undefined } : x)))
+  }
 
   private schemas(): Map<string, Schema> {
     const m = new Map<string, Schema>()
@@ -420,6 +497,26 @@ export class DepotEspace {
     const b = this.etatBase(base)
     this.bases.set(base, { ...b, vues: f(b.vues) })
     this.publier()
+  }
+
+  private async chargerPages(base: string): Promise<{ pages: MiseEnPage[]; avertissements: string[] }> {
+    const dossier = joindre(base, DOSSIER_PAGES)
+    let entrees
+    try {
+      entrees = await this.adaptateur.lister(dossier)
+    } catch (e) {
+      if (e instanceof FichierIntrouvable) return { pages: [miseEnPageParDefaut()], avertissements: [] }
+      throw e
+    }
+    const pages: MiseEnPage[] = []
+    const avertissements: string[] = []
+    for (const e of entrees) {
+      if (e.type !== 'fichier' || !e.nom.endsWith('.yaml')) continue
+      const lue = lireMiseEnPage(await this.adaptateur.lire(joindre(dossier, e.nom)), e.nom.slice(0, -'.yaml'.length))
+      avertissements.push(...lue.avertissements)
+      if (lue.miseEnPage) pages.push(lue.miseEnPage)
+    }
+    return { pages: pages.length > 0 ? pages : [miseEnPageParDefaut()], avertissements }
   }
 
   private async chargerVues(base: string): Promise<{ vues: Vue[]; avertissements: string[] }> {
@@ -484,15 +581,16 @@ export class DepotEspace {
   private async chargerBase(id: string) {
     const chargement = await chargerBase(this.adaptateur, id)
     if (!chargement.ok) {
-      this.bases.set(id, { id, chargement, depot: null, vues: [] })
+      this.bases.set(id, { id, chargement, depot: null, vues: [], pages: [] })
       return
     }
     const { vues, avertissements } = await this.chargerVues(id)
-    chargement.base.avertissements.push(...avertissements)
+    const { pages, avertissements: avertissementsPages } = await this.chargerPages(id)
+    chargement.base.avertissements.push(...avertissements, ...avertissementsPages)
     const depot = new DepotBase(this.adaptateur, chargement.base.schema, chargement.base.lignes, this.options)
     // Toute modification de lignes peut changer les colonnes calculées de n'importe quelle base.
     depot.abonner(() => this.publier())
-    this.bases.set(id, { id, chargement, depot, vues })
+    this.bases.set(id, { id, chargement, depot, vues, pages })
   }
 
   private async lireOuNull(chemin: string): Promise<string | null> {
@@ -526,8 +624,12 @@ export class DepotEspace {
 
 /** Champs modifiés en mémoire mais pas encore écrits : on ne les écrase pas à la relecture. */
 function enAttente(memoire: Vue, relue: Vue): Partial<Vue> {
-  const cles = ['nom', 'filtres', 'tris', 'filtresRapides'] as const
+  const cles = ['nom', 'filtres', 'tris', 'filtresRapides', 'miseEnPage'] as const
   return Object.fromEntries(cles.filter((k) => JSON.stringify(memoire[k]) !== JSON.stringify(relue[k])).map((k) => [k, memoire[k]]))
+}
+
+function cheminPage(base: string, id: string): string {
+  return joindre(base, DOSSIER_PAGES, `${id}.yaml`)
 }
 
 function cheminVue(base: string, idVue: string): string {

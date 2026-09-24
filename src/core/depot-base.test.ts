@@ -115,3 +115,21 @@ describe('DepotBase', () => {
     expect(await a.lire(NAVI)).toBe('plus de frontmatter')
   })
 })
+
+describe('DepotBase : corps', () => {
+  it('affiche le nouveau corps tout de suite et l’écrit avec les propriétés en attente, en une fois', async () => {
+    const { a, depot } = await ouvrir()
+    depot.modifier(NAVI, 'statut', 'Terminé')
+    depot.modifierCorps(NAVI, '# Notes\n\n- point 1\n')
+    expect(depot.lignes()[0]!.corps).toBe('# Notes\n\n- point 1\n')
+    await depot.vider()
+    expect(a.ecritures).toEqual([NAVI])
+    expect(await a.lire(NAVI)).toBe('---\nid: k2x9m4pq\ntitre: Navi\nstatut: Terminé\n---\n# Notes\n\n- point 1\n')
+  })
+
+  it('ne réécrit pas le fichier tant que le corps n’est pas modifié', async () => {
+    const { a, depot } = await ouvrir()
+    await depot.vider()
+    expect(a.ecritures).toEqual([])
+  })
+})

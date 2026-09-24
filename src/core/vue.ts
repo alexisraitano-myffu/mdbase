@@ -53,7 +53,7 @@ export type Vue = {
   implicite?: boolean
 }
 
-export type ModificationVue = Partial<Pick<Vue, 'nom' | 'filtres' | 'tris' | 'filtresRapides'>>
+export type ModificationVue = Partial<Pick<Vue, 'nom' | 'filtres' | 'tris' | 'filtresRapides' | 'miseEnPage'>>
 
 export function vueParDefaut(): Vue {
   return { id: 'tableau', nom: 'Tableau', type: 'tableau', filtres: [], tris: [], filtresRapides: [], implicite: true }
@@ -123,6 +123,10 @@ export function modifierVue(texte: string | null, vue: Vue, modifs: Modification
   if (doc.errors.length > 0 || !isMap(doc.contents)) throw new Error(`Vue ${vue.id} illisible : modification refusée`)
 
   if (modifs.nom !== undefined) doc.set('nom', modifs.nom)
+  if ('miseEnPage' in modifs) {
+    if (modifs.miseEnPage === undefined) doc.delete('mise_en_page')
+    else doc.set('mise_en_page', modifs.miseEnPage)
+  }
   const listes: [keyof ModificationVue, string, unknown[] | undefined][] = [
     ['filtres', 'filtres', modifs.filtres?.map(ecrireFiltre)],
     ['tris', 'tris', modifs.tris?.map((t) => ({ colonne: t.colonne, sens: t.sens }))],
