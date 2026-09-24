@@ -43,7 +43,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Onglets de vues réordonnables par glisser-déposer ; l'ordre est gardé dans `_schema.yaml` (clé `vues`), une nouvelle vue prend le dernier onglet.
 - Jalon 9 : vue Calendrier (mois ou semaine, plages du champ de date au champ de fin, glisser une ligne change sa date, étirer son bord droit change sa fin, « + » sur un jour crée une ligne à cette date) et vue Timeline (barres du début à la fin, jalons en losanges, zoom semaine / mois / trimestre, barres déplaçables et étirables à la souris, ligne sans date placée d'un clic sur sa rangée, repère d'aujourd'hui). Réglages dans « Options » et dans les fichiers de vue (`champ_debut`, `champ_fin`, `champs_jalons`, `echelle`).
 - Calendrier et timeline : champs affichés au choix (« Options »). Glisser fluide : la ligne suit le pointeur et s'accroche au jour le plus proche au relâcher (jours d'arrivée éclairés au calendrier, cadre pointillé dans la timeline).
-- Démo : colonnes Début et Revue client sur les projets, vue Planning (timeline) et vue Calendrier des tâches.
+- Timeline groupée (« Grouper par » dans Options) : groupes repliables, barre d'en-tête calculée sur les lignes du groupe, « + » pour créer dans un groupe. Date exacte affichée pendant un glisser (calendrier et timeline).
+- Démo : colonnes Début et Revue client sur les projets, vue Planning (timeline) des projets ; colonne Début, vue Calendrier et vue Planning groupée par projet sur les tâches.
 ### Changed
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
 ### Fixed

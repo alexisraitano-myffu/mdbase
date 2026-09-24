@@ -90,8 +90,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790284926.1777108,
-    "ast_hash": "1948c7c96f783371a9661f1702109c59",
+    "mtime": 1790285412.067234,
+    "ast_hash": "7fd86bb010a7cf07a3cdcf898176194b",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
-    "mtime": 1790284916.444925,
-    "ast_hash": "d687237b0409d311c74c84da1d071067",
+    "mtime": 1790285402.843109,
+    "ast_hash": "1efc9a9c4e3470df0632be30d8318c6c",
     "semantic_hash": ""
   },
   "exemples/espace-demo/_espace.yaml": {
@@ -285,13 +285,13 @@
     "semantic_hash": ""
   },
   "src/core/vue.ts": {
-    "mtime": 1790284652.7334902,
-    "ast_hash": "d0cbd057501207faa86ab01f6426973d",
+    "mtime": 1790285402.6556466,
+    "ast_hash": "bf2be0e99d12a7a464346c32279832b8",
     "semantic_hash": ""
   },
   "src/ui/BarreVue.tsx": {
-    "mtime": 1790284855.5154114,
-    "ast_hash": "6eff5e8b99fd5b0ac23941a94720f689",
+    "mtime": 1790285392.5811255,
+    "ast_hash": "23822f5350d740801a4552cf364a734a",
     "semantic_hash": ""
   },
   "src/ui/EditeurFiltres.tsx": {
@@ -545,13 +545,13 @@
     "semantic_hash": ""
   },
   "src/ui/Calendrier.tsx": {
-    "mtime": 1790284756.62145,
-    "ast_hash": "3c09bf6c4d5c0f6332d3aefe94635374",
+    "mtime": 1790285356.6658485,
+    "ast_hash": "8157d85ab070d9fd6309134449a541cc",
     "semantic_hash": ""
   },
   "src/ui/Timeline.tsx": {
-    "mtime": 1790284809.455987,
-    "ast_hash": "3cee047456318dbcd39c25feb648b939",
+    "mtime": 1790285380.7094772,
+    "ast_hash": "de7f95873066612f4ca8324f4aee3606",
     "semantic_hash": ""
   },
   "src/ui/glisser.ts": {
@@ -560,13 +560,13 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_vues/planning.yaml": {
-    "mtime": 1790284875.5735059,
-    "ast_hash": "7efc9f0e417ac547a721cd6448ed21e9",
+    "mtime": 1790285402.843632,
+    "ast_hash": "7e00e8e89cd9896a2bcc3c77aec8446a",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/_vues/calendrier.yaml": {
-    "mtime": 1790284872.0735352,
-    "ast_hash": "720394aac6d8847c1d3374c8621f4cba",
+    "mtime": 1790285402.8438528,
+    "ast_hash": "a53089791919bfe16af6f7750fe91608",
     "semantic_hash": ""
   }
 }

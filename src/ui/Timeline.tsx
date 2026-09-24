@@ -6,10 +6,12 @@ import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
 import type { Modifications } from '../core/ligne'
 import { colonne as colonneDe, estSaisie, type Colonne } from '../core/schema'
+import { CLE_VIDE, groupables, grouper, type Groupe } from '../core/groupes'
 import {
   apresGeste,
   decaler,
   ecartJours,
+  enveloppe,
   etendue,
   graduations,
   jourDe,
@@ -23,6 +25,7 @@ import type { ModificationVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { ValeurCompacte } from './cellules'
 import { dateCourte, Echelles, plageEnTexte, titreLigne } from './Calendrier'
+import { titreDe, useEspace } from './contexte-espace'
 import { glisser } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
 
@@ -46,6 +49,13 @@ const LARGEUR_TITRES = 240
 /** Geste en cours : la barre suit le pointeur au pixel (`dx`), le cadre d'arrivée montre le jour où elle s'accrochera. */
 type EnCours = { chemin: string; geste: Geste; jours: number; dx: number }
 
+type Rangee = { lv: LigneVue; plage: Plage | null; jalons: { colonne: Colonne; jour: string }[] }
+/** Rangées affichées : en-têtes de groupe (repliables), lignes, et la rangée « + Nouvelle ». */
+type Element =
+  | { type: 'groupe'; groupe: Groupe; plage: Plage | null; replie: boolean }
+  | { type: 'ligne'; rangee: Rangee; groupe?: string }
+  | { type: 'ajout' }
+
 /**
  * Timeline (spec §7) : une ligne par rangée, une barre du champ de début au
  * champ de fin, les jalons en losanges. Glisser la barre la déplace, ses bords
@@ -55,6 +65,9 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   const lancer = useLancer()
   const aujourdhui = useAujourdhui()
   const [enCours, setEnCours] = useState<EnCours | null>(null)
+  // Groupes repliés : le temps de la session, comme au tableau.
+  const [replies, setReplies] = useState<ReadonlySet<string>>(new Set())
+  const { etat } = useEspace()
   const defilement = useRef<HTMLDivElement>(null)
   const schema = depot.schema
   const echelle: Echelle = vue.echelle ?? 'mois'
@@ -65,9 +78,11 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   const champs = (vue.champsCarte ?? []).flatMap((c) => colonneDe(schema, c) ?? [])
   const jalons = useMemo(() => (clesJalons ? clesJalons.split('|') : []).flatMap((c) => colonneDe(schema, c) ?? []), [schema, clesJalons])
 
+  const colGroupe = vue.groupe ? groupables(schema).find((c) => c.cle === vue.groupe) : undefined
+
   const rangees = useMemo(
     () =>
-      lignesVue.map((lv) => ({
+      lignesVue.map((lv): Rangee => ({
         lv,
         plage: colDebut ? plageDe(lv.ligne, colDebut, colFin) : null,
         jalons: jalons.flatMap((c) => {
@@ -87,11 +102,27 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     [rangees, aujourdhui],
   )
   const { haut, bas } = useMemo(() => graduations(e, echelle), [e, echelle])
+
+  // Groupée, chaque groupe a une barre d'en-tête qui couvre les plages de ses lignes (calculée, non déplaçable).
+  const elements = useMemo((): Element[] => {
+    if (!colGroupe) return [...rangees.map((rangee): Element => ({ type: 'ligne', rangee })), { type: 'ajout' }]
+    const parChemin = new Map(rangees.map((r) => [r.lv.ligne.chemin, r]))
+    const cible = colGroupe.type === 'relation' ? colGroupe.cible : null
+    return [
+      ...grouper(lignesVue, colGroupe, (id) => (cible ? titreDe(etat, cible, id) : null)).flatMap((g): Element[] => {
+        const siennes = g.lignes.map((l) => parChemin.get(l.ligne.chemin)!)
+        const replie = replies.has(g.cle)
+        const entete: Element = { type: 'groupe', groupe: g, plage: enveloppe(siennes.map((r) => r.plage)), replie }
+        return replie ? [entete] : [entete, ...siennes.map((rangee): Element => ({ type: 'ligne', rangee, groupe: g.cle }))]
+      }),
+      { type: 'ajout' },
+    ]
+  }, [rangees, lignesVue, colGroupe, replies, etat])
   const largeur = (ecartJours(e.debut, e.fin) + 1) * px
   const x = (jour: string) => ecartJours(e.debut, jour) * px
 
   const virtuel = useVirtualizer({
-    count: rangees.length + 1,
+    count: elements.length,
     getScrollElement: () => defilement.current,
     estimateSize: () => HAUTEUR_LIGNE,
     overscan: 10,
@@ -143,8 +174,17 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     depot.modifier(ligne.chemin, colDebut.cle, jour)
   }
 
-  const creer = async () => {
-    const ligne = await lancer(espace.creerLigne(base, valeursCreation()))
+  const basculer = (cle: string) => {
+    const s = new Set(replies)
+    if (s.has(cle)) s.delete(cle)
+    else s.add(cle)
+    setReplies(s)
+  }
+
+  const creer = async (groupe?: Groupe) => {
+    const valeurs = { ...valeursCreation() }
+    if (colGroupe && groupe?.valeur !== undefined) valeurs[colGroupe.cle] = groupe.valeur
+    const ligne = await lancer(espace.creerLigne(base, valeurs))
     if (!ligne) return
     retenir(ligne.id)
     ouvrir(ligne)
@@ -178,8 +218,41 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
               )}
             </div>
             {virtuel.getVirtualItems().map((v) => {
-              const r = rangees[v.index]
-              if (!r) {
+              const el = elements[v.index]!
+              if (el.type === 'groupe') {
+                const g = el.groupe
+                return (
+                  <div key={`groupe/${g.cle}`} className="tl-ligne tl-groupe" style={{ transform: `translateY(${v.start}px)` }}>
+                    <div className="tl-titre" onClick={() => basculer(g.cle)}>
+                      <span className="triangle">{el.replie ? '▸' : '▾'}</span>
+                      <span className="libelle-groupe">{g.libelle}</span>
+                      <span className="discret compte-groupe">{g.lignes.length}</span>
+                      {g.cle !== CLE_VIDE && (
+                        <button
+                          className="discret ajout-groupe"
+                          title="Nouvelle ligne dans ce groupe"
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            void creer(g)
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                    <div className="tl-piste" style={{ width: largeur }}>
+                      {el.plage && (
+                        <div
+                          className="tl-enveloppe"
+                          style={{ left: x(el.plage.debut), width: (ecartJours(el.plage.debut, el.plage.fin) + 1) * px }}
+                          title={`${g.libelle} · ${plageEnTexte(el.plage)} (calculé depuis ses lignes)`}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+              if (el.type === 'ajout') {
                 return (
                   <div key="ajout" className="tl-ligne" style={{ transform: `translateY(${v.start}px)` }}>
                     <button className="discret tl-titre ajout-ligne" onClick={() => void creer()}>
@@ -188,13 +261,14 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                   </div>
                 )
               }
+              const r = el.rangee
               const { ligne, sortira } = r.lv
               const geste = enCours?.chemin === ligne.chemin ? enCours : undefined
               const plage = r.plage
               return (
-                <div key={ligne.chemin} className="tl-ligne" style={{ transform: `translateY(${v.start}px)` }}>
+                <div key={`${el.groupe ?? ''}/${ligne.chemin}`} className="tl-ligne" style={{ transform: `translateY(${v.start}px)` }}>
                   <div
-                    className={`tl-titre ${sortira ? 'sortira' : ''}`}
+                    className={`tl-titre ${sortira ? 'sortira' : ''} ${el.groupe !== undefined ? 'dans-groupe' : ''}`}
                     onClick={() => ouvrir(ligne)}
                     title={sortira ? 'Sortira de la vue au prochain rafraîchissement' : undefined}
                   >
@@ -253,7 +327,11 @@ function Rangee(p: { graduations: ReturnType<typeof graduations>['haut']; x: (j:
 
 /** Emplacement où la barre glissée s'accrochera au relâcher. */
 function Cadre({ plage, x, px }: { plage: Plage; x: (j: string) => number; px: number }) {
-  return <div className="tl-cadre" style={{ left: x(plage.debut), width: (ecartJours(plage.debut, plage.fin) + 1) * px }} />
+  return (
+    <div className="tl-cadre" style={{ left: x(plage.debut), width: (ecartJours(plage.debut, plage.fin) + 1) * px }}>
+      <span className="bulle-date">{plageEnTexte(plage)}</span>
+    </div>
+  )
 }
 
 function Barre(p: {

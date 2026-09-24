@@ -379,6 +379,19 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
         </select>
       </label>
       {timeline && (
+        <label className="case-reglage">
+          Grouper par
+          <select value={vue.groupe ?? ''} onChange={(e) => modifier({ groupe: e.target.value || undefined })}>
+            <option value="">aucun groupement</option>
+            {groupables(schema).map((c) => (
+              <option key={c.cle} value={c.cle}>
+                {c.nom}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {timeline && (
         <>
           <div className="titre-section">Jalons (points sur la barre)</div>
           {candidats.length === 0 && <div className="discret">Aucune autre colonne date à poser en jalon.</div>}

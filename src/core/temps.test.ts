@@ -6,6 +6,7 @@ import {
   ajouterMois,
   apresGeste,
   ecartJours,
+  enveloppe,
   etendue,
   graduations,
   grilleMois,
@@ -133,6 +134,14 @@ describe('placerSemaine', () => {
 })
 
 describe('timeline', () => {
+  it('l’enveloppe d’un groupe couvre ses plages, ignore les lignes sans date', () => {
+    expect(enveloppe([{ debut: '2026-09-10', fin: '2026-09-12' }, null, { debut: '2026-09-03', fin: '2026-09-05' }])).toEqual({
+      debut: '2026-09-03',
+      fin: '2026-09-12',
+    })
+    expect(enveloppe([null])).toBeNull()
+  })
+
   it('l’étendue couvre les plages et aujourd’hui, avec un mois de marge avant', () => {
     expect(etendue([{ debut: '2026-09-03', fin: '2026-12-01' }], '2026-09-24')).toEqual({ debut: '2026-08-01', fin: '2027-02-28' })
     expect(etendue([], '2026-09-24')).toEqual({ debut: '2026-08-01', fin: '2026-11-30' })

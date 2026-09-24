@@ -183,6 +183,7 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
             style={{ left: enCours.fantome.x - enCours.fantome.decalX, top: enCours.fantome.y - enCours.fantome.decalY, width: enCours.fantome.largeur }}
           >
             <ContenuEvt base={base} ligne={glissee.element.ligne} titre={titreLigne(glissee.element.ligne, schema.champTitre)} champs={champs} />
+            {cible && <span className="bulle-date">{plageEnTexte(cible)}</span>}
           </div>,
           document.body,
         )}
@@ -265,6 +266,7 @@ function Semaine(p: {
             onClick={p.modifiable ? undefined : () => p.ouvrir(ligne)}
           >
             {p.contenu(ligne)}
+            {p.enCours === ligne.chemin && !p.cible && !s.coupeApres && <span className="bulle-date">{plageEnTexte(s.plage)}</span>}
             {p.finModifiable && !s.coupeApres && <span className="poignee poignee-fin" onPointerDown={(e) => p.commencer(e, ligne, 'fin')} />}
           </div>
         )

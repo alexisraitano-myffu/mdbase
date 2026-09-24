@@ -558,3 +558,28 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
   z-index: 2;
   cursor: pointer;
 }
+
+/* Date exacte pendant un glisser */
+.bulle-date {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px);
+  padding: 2px 6px;
+  font-size: 0.8em;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #fff;
+  background: #2f3437;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+.cal-fantome .bulle-date { bottom: auto; top: calc(100% + 4px); }
+
+/* Timeline groupée */
+.tl-groupe .tl-titre { display: flex; align-items: center; gap: 6px; font-weight: 500; background: #fafaf9; }
+.tl-groupe .tl-piste { background: #fafaf9; }
+.tl-titre.dans-groupe { padding-left: 26px; }
+.ajout-groupe { visibility: hidden; margin-left: auto; padding: 0 6px; line-height: 22px; }
+.tl-groupe .tl-titre:hover .ajout-groupe { visibility: visible; }
+.tl-enveloppe { position: absolute; top: 14px; height: 8px; border-radius: 4px; background: #c7c7c5; }

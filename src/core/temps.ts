@@ -188,6 +188,16 @@ export function etendue(plages: readonly Plage[], aujourdhui: string): Plage {
   return { debut: ajouterMois(debutMois(debut), -1), fin: decaler(ajouterMois(debutMois(fin), 3), -1) }
 }
 
+/** Plage qui couvre toutes les autres (en-tête d'un groupe de la timeline) ; null s'il n'y en a aucune. */
+export function enveloppe(plages: readonly (Plage | null)[]): Plage | null {
+  const presentes = plages.filter((p): p is Plage => p !== null)
+  if (presentes.length === 0) return null
+  return {
+    debut: presentes.reduce((m, p) => (p.debut < m ? p.debut : m), presentes[0]!.debut),
+    fin: presentes.reduce((m, p) => (p.fin > m ? p.fin : m), presentes[0]!.fin),
+  }
+}
+
 export type Graduation = { debut: string; jours: number; libelle: string }
 
 /** Graduations de l'en-tête : une rangée haute (mois ou trimestres) et une rangée basse (jours, semaines ou mois). */

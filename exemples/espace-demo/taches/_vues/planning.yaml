@@ -1,0 +1,10 @@
+id: planning
+nom: Planning
+type: timeline
+champ_debut: debut
+champ_fin: echeance
+groupe: projet
+champs_carte: [ heures ]
+echelle: mois
+tris:
+  - { colonne: debut, sens: asc }

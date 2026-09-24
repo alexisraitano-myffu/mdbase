@@ -28,7 +28,7 @@ it('la démo se charge sans avertissement et calcule ses rollups', async () => {
   expect([...etat.bases.values()].map((b) => b.vues.map((v) => v.id))).toEqual([
     ['cartes', 'tableau'],
     ['tableau', 'par-statut', 'planning'],
-    ['tableau', 'par-priorite', 'calendrier'],
+    ['tableau', 'par-priorite', 'calendrier', 'planning'],
   ])
   expect(etat.bases.get('projets')!.vues[2]).toMatchObject({ type: 'timeline', champDebut: 'debut', champFin: 'echeance', champsJalons: ['revue'] })
   for (const b of etat.bases.values()) {
