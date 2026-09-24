@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent as PointerReact } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent as PointerReact, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace } from '../core/depot-espace'
@@ -21,6 +21,7 @@ import {
 } from '../core/temps'
 import type { ModificationVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
+import { ValeurCompacte } from './cellules'
 import { dateCourte, Echelles, plageEnTexte, titreLigne } from './Calendrier'
 import { glisser } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
@@ -42,7 +43,8 @@ const PIXELS_PAR_JOUR: Record<Echelle, number> = { semaine: 36, mois: 12, trimes
 const HAUTEUR_LIGNE = 36
 const LARGEUR_TITRES = 240
 
-type EnCours = { chemin: string; geste: Geste; jours: number }
+/** Geste en cours : la barre suit le pointeur au pixel (`dx`), le cadre d'arrivée montre le jour où elle s'accrochera. */
+type EnCours = { chemin: string; geste: Geste; jours: number; dx: number }
 
 /**
  * Timeline (spec §7) : une ligne par rangée, une barre du champ de début au
@@ -60,6 +62,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   const colDebut = vue.champDebut ? colonneDe(schema, vue.champDebut) : undefined
   const colFin = vue.champFin ? colonneDe(schema, vue.champFin) : undefined
   const clesJalons = (vue.champsJalons ?? []).join('|')
+  const champs = (vue.champsCarte ?? []).flatMap((c) => colonneDe(schema, c) ?? [])
   const jalons = useMemo(() => (clesJalons ? clesJalons.split('|') : []).flatMap((c) => colonneDe(schema, c) ?? []), [schema, clesJalons])
 
   const rangees = useMemo(
@@ -118,7 +121,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     glisser(ev, {
       bouger: (dx) => {
         jours = Math.round(dx / px)
-        setEnCours({ chemin: ligne.chemin, geste, jours })
+        setEnCours({ chemin: ligne.chemin, geste, jours, dx })
       },
       finir: () => {
         setEnCours(null)
@@ -186,8 +189,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                 )
               }
               const { ligne, sortira } = r.lv
-              const glisse = enCours?.chemin === ligne.chemin
-              const plage = r.plage && glisse ? plageApresGeste(r.plage, enCours.geste, enCours.jours) : r.plage
+              const geste = enCours?.chemin === ligne.chemin ? enCours : undefined
+              const plage = r.plage
               return (
                 <div key={ligne.chemin} className="tl-ligne" style={{ transform: `translateY(${v.start}px)` }}>
                   <div
@@ -203,13 +206,19 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                     title={!plage && modifiable ? `Cliquer pour placer à cette date (${colDebut.nom})` : undefined}
                     onClick={!plage && modifiable ? (ev) => placer(ev, ligne) : undefined}
                   >
+                    {plage && geste && <Cadre plage={plageApresGeste(plage, geste.geste, geste.jours)} x={x} px={px} />}
                     {plage && (
                       <Barre
                         plage={plage}
                         titre={titreLigne(ligne, schema.champTitre)}
+                        champs={champs.map((c) => (
+                          <span key={c.cle} className="champ-carte">
+                            <ValeurCompacte base={base} ligne={ligne} colonne={c} />
+                          </span>
+                        ))}
                         x={x}
                         px={px}
-                        glisse={glisse}
+                        geste={geste}
                         sortira={sortira}
                         commencer={modifiable ? (ev, geste) => commencer(ev, ligne, geste) : undefined}
                         finModifiable={finModifiable}
@@ -242,36 +251,59 @@ function Rangee(p: { graduations: ReturnType<typeof graduations>['haut']; x: (j:
   )
 }
 
+/** Emplacement où la barre glissée s'accrochera au relâcher. */
+function Cadre({ plage, x, px }: { plage: Plage; x: (j: string) => number; px: number }) {
+  return <div className="tl-cadre" style={{ left: x(plage.debut), width: (ecartJours(plage.debut, plage.fin) + 1) * px }} />
+}
+
 function Barre(p: {
   plage: Plage
   titre: string
+  champs: ReactNode
   x: (j: string) => number
   px: number
-  glisse: boolean
+  geste: EnCours | undefined
   sortira: boolean
   commencer: ((e: PointerReact, geste: Geste) => void) | undefined
   finModifiable: boolean
   ouvrir: () => void
 }) {
-  const largeur = (ecartJours(p.plage.debut, p.plage.fin) + 1) * p.px
+  // Pendant un geste, la barre suit le pointeur au pixel près, sans passer sous un jour.
+  const dx = p.geste?.dx ?? 0
+  const base = (ecartJours(p.plage.debut, p.plage.fin) + 1) * p.px
+  let left = p.x(p.plage.debut)
+  let largeur = base
+  if (p.geste?.geste === 'deplacer') left += dx
+  if (p.geste?.geste === 'debut') {
+    const d = Math.min(dx, base - p.px)
+    left += d
+    largeur -= d
+  }
+  if (p.geste?.geste === 'fin') largeur = Math.max(p.px, base + dx)
   // Titre dans la barre quand il y tient, à sa droite sinon.
   const dedans = largeur >= 90
   return (
     <>
       <div
-        className={`tl-barre ${p.glisse ? 'glisse' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''}`}
-        style={{ left: p.x(p.plage.debut), width: Math.max(largeur, 6) }}
+        className={`tl-barre ${p.geste ? 'glisse' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''}`}
+        style={{ left, width: Math.max(largeur, 6) }}
         title={`${p.titre} · ${plageEnTexte(p.plage)}`}
         onPointerDown={p.commencer ? (e) => p.commencer!(e, 'deplacer') : undefined}
         onClick={p.commencer ? undefined : p.ouvrir}
       >
         {p.commencer && p.finModifiable && <span className="poignee poignee-debut" onPointerDown={(e) => p.commencer!(e, 'debut')} />}
-        {dedans && <span className="titre-evt">{p.titre}</span>}
+        {dedans && (
+          <span className="titre-evt">
+            {p.titre}
+            {p.champs}
+          </span>
+        )}
         {p.commencer && p.finModifiable && <span className="poignee poignee-fin" onPointerDown={(e) => p.commencer!(e, 'fin')} />}
       </div>
       {!dedans && (
-        <span className="tl-titre-dehors" style={{ left: p.x(p.plage.debut) + Math.max(largeur, 6) + 6 }}>
+        <span className="tl-titre-dehors" style={{ left: left + Math.max(largeur, 6) + 6 }}>
           {p.titre}
+          {p.champs}
         </span>
       )}
     </>

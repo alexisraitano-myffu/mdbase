@@ -1,10 +1,11 @@
-import { useMemo, useState, type PointerEvent as PointerReact } from 'react'
+import { useMemo, useState, type ReactNode, type PointerEvent as PointerReact } from 'react'
+import { createPortal } from 'react-dom'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
 import type { Modifications } from '../core/ligne'
-import { colonne as colonneDe, estSaisie } from '../core/schema'
+import { colonne as colonneDe, estSaisie, type Colonne } from '../core/schema'
 import {
   ajouterMois,
   apresGeste,
@@ -23,6 +24,7 @@ import {
 } from '../core/temps'
 import type { ModificationVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
+import { ValeurCompacte } from './cellules'
 import { glisser } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
 
@@ -38,8 +40,17 @@ type Props = {
   ouvrir: (ligne: LigneChargee) => void
 }
 
-/** Geste en cours : la ligne glissée et son décalage, pour l'aperçu. */
-type EnCours = { chemin: string; geste: Geste; jours: number }
+/**
+ * Geste en cours : la ligne glissée et son décalage en jours. Pour un
+ * déplacement, la carte suit le pointeur librement (`fantome`) et les jours
+ * d'arrivée s'éclairent ; elle s'accroche à ces jours au relâcher.
+ */
+type EnCours = {
+  chemin: string
+  geste: Geste
+  jours: number
+  fantome?: { x: number; y: number; decalX: number; decalY: number; largeur: number }
+}
 
 /**
  * Calendrier (spec §7) : mois ou semaine, une ligne par jour de son champ de
@@ -55,6 +66,7 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
   const colDebut = vue.champDebut ? colonneDe(schema, vue.champDebut) : undefined
   const colFin = vue.champFin ? colonneDe(schema, vue.champFin) : undefined
   const semaine = vue.echelle === 'semaine'
+  const champs = (vue.champsCarte ?? []).flatMap((c) => colonneDe(schema, c) ?? [])
 
   const elements = useMemo(() => {
     if (!colDebut) return []
@@ -69,20 +81,32 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
   const modifiable = estSaisie(colDebut)
   const finModifiable = colFin !== undefined && estSaisie(colFin)
   const semaines = semaine ? [Array.from({ length: 7 }, (_, i) => decaler(lundiDe(curseur), i))] : grilleMois(curseur)
-  const avecApercu = elements.map((e) =>
-    enCours && e.element.ligne.chemin === enCours.chemin ? { ...e, plage: plageApresGeste(e.plage, enCours.geste, enCours.jours) } : e,
-  )
+  // Étirer : la barre suit jour par jour. Déplacer : elle reste en place, les jours d'arrivée s'éclairent.
+  const glissee = enCours ? elements.find((e) => e.element.ligne.chemin === enCours.chemin) : undefined
+  const avecApercu =
+    enCours && enCours.geste !== 'deplacer'
+      ? elements.map((e) => (e === glissee ? { ...e, plage: plageApresGeste(e.plage, enCours.geste, enCours.jours) } : e))
+      : elements
+  const cible = enCours?.geste === 'deplacer' && glissee ? plageApresGeste(glissee.plage, 'deplacer', enCours.jours) : null
 
   const commencer = (ev: PointerReact, ligne: LigneChargee, geste: Geste) => {
     const depart = jourSous(ev.clientX, ev.clientY)
     if (!depart) return
+    const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+    const decalX = ev.clientX - r.left
+    const decalY = ev.clientY - r.top
     let jours = 0
     glisser(ev, {
       bouger: (_dx, e) => {
+        // Hors de la grille, on garde le dernier jour survolé.
         const jour = jourSous(e.clientX, e.clientY)
-        if (!jour) return
-        jours = ecartJours(depart, jour)
-        setEnCours({ chemin: ligne.chemin, geste, jours })
+        if (jour) jours = ecartJours(depart, jour)
+        setEnCours({
+          chemin: ligne.chemin,
+          geste,
+          jours,
+          ...(geste === 'deplacer' && { fantome: { x: e.clientX, y: e.clientY, decalX, decalY, largeur: r.width } }),
+        })
       },
       finir: () => {
         setEnCours(null)
@@ -140,7 +164,8 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
             mois={semaine ? null : curseur.slice(0, 7)}
             aujourdhui={aujourdhui}
             segments={placerSemaine(avecApercu, jours[0]!)}
-            titre={(l) => titreLigne(l, schema.champTitre)}
+            cible={cible}
+            contenu={(l) => <ContenuEvt base={base} ligne={l} titre={titreLigne(l, schema.champTitre)} champs={champs} />}
             enCours={enCours?.chemin}
             modifiable={modifiable}
             finModifiable={finModifiable}
@@ -150,7 +175,32 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
           />
         ))}
       </div>
+      {enCours?.fantome &&
+        glissee &&
+        createPortal(
+          <div
+            className="cal-evt cal-fantome"
+            style={{ left: enCours.fantome.x - enCours.fantome.decalX, top: enCours.fantome.y - enCours.fantome.decalY, width: enCours.fantome.largeur }}
+          >
+            <ContenuEvt base={base} ligne={glissee.element.ligne} titre={titreLigne(glissee.element.ligne, schema.champTitre)} champs={champs} />
+          </div>,
+          document.body,
+        )}
     </div>
+  )
+}
+
+/** Titre et champs choisis d'une ligne, dans une case du calendrier. */
+function ContenuEvt({ base, ligne, titre, champs }: { base: string; ligne: LigneChargee; titre: string; champs: Colonne[] }) {
+  return (
+    <>
+      <span className="titre-evt">{titre}</span>
+      {champs.map((c) => (
+        <div key={c.cle} className="champ-carte">
+          <ValeurCompacte base={base} ligne={ligne} colonne={c} />
+        </div>
+      ))}
+    </>
   )
 }
 
@@ -160,7 +210,9 @@ function Semaine(p: {
   mois: string | null
   aujourdhui: string
   segments: ReturnType<typeof placerSemaine<LigneVue>>
-  titre: (l: LigneChargee) => string
+  /** Jours d'arrivée de la ligne en cours de déplacement. */
+  cible: Plage | null
+  contenu: (l: LigneChargee) => ReactNode
   enCours: string | undefined
   modifiable: boolean
   finModifiable: boolean
@@ -170,11 +222,18 @@ function Semaine(p: {
 }) {
   const rangs = p.segments.reduce((m, s) => Math.max(m, s.rang + 1), 0)
   return (
-    <div className="cal-semaine" data-lundi={p.jours[0]} style={{ gridTemplateRows: `28px repeat(${rangs}, 24px) 1fr` }}>
+    <div className="cal-semaine" data-lundi={p.jours[0]} style={{ gridTemplateRows: `28px repeat(${rangs}, auto) 1fr` }}>
       {p.jours.map((j, i) => (
         <div
           key={j}
-          className={`cal-jour ${p.mois && j.slice(0, 7) !== p.mois ? 'hors-mois' : ''} ${j === p.aujourdhui ? 'aujourdhui' : ''}`}
+          className={[
+            'cal-jour',
+            p.mois && j.slice(0, 7) !== p.mois && 'hors-mois',
+            j === p.aujourdhui && 'aujourdhui',
+            p.cible && j >= p.cible.debut && j <= p.cible.fin && 'cible',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           style={{ gridColumn: i + 1 }}
         >
           <span className="num-jour">{Number(j.slice(8)) === 1 ? `1 ${MOIS_COURTS[Number(j.slice(5, 7)) - 1]}` : Number(j.slice(8))}</span>
@@ -195,7 +254,7 @@ function Semaine(p: {
               s.coupeAvant && 'coupe-avant',
               s.coupeApres && 'coupe-apres',
               sortira && 'sortira',
-              p.enCours === ligne.chemin && 'glisse',
+              p.enCours === ligne.chemin && (p.cible ? 'origine' : 'glisse'),
               p.modifiable && 'deplacable',
             ]
               .filter(Boolean)
@@ -205,7 +264,7 @@ function Semaine(p: {
             onPointerDown={p.modifiable ? (e) => p.commencer(e, ligne, 'deplacer') : undefined}
             onClick={p.modifiable ? undefined : () => p.ouvrir(ligne)}
           >
-            <span className="titre-evt">{p.titre(ligne)}</span>
+            {p.contenu(ligne)}
             {p.finModifiable && !s.coupeApres && <span className="poignee poignee-fin" onPointerDown={(e) => p.commencer(e, ligne, 'fin')} />}
           </div>
         )

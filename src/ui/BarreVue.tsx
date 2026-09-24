@@ -298,7 +298,6 @@ function OptionsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modif
 /** Réglages du kanban et de la collection : colonnes, couloirs, champs de la carte, aperçu du corps. */
 function OptionsCartes({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
   const candidats = schema.colonnes.filter((c) => TYPES_GROUPE_KANBAN.includes(c.type))
-  const champs = new Set(vue.champsCarte ?? [])
   return (
     <div className="editeur-filtres">
       {vue.type === 'kanban' && (
@@ -337,26 +336,7 @@ function OptionsCartes({ schema, vue, modifier }: { schema: Schema; vue: Vue; mo
           Afficher le début du contenu
         </label>
       )}
-      <div className="titre-section">Champs sur la carte</div>
-      {schema.colonnes
-        .filter((c) => c.cle !== schema.champTitre)
-        .map((c) => (
-          <label key={c.cle} className="case-reglage">
-            <input
-              type="checkbox"
-              checked={champs.has(c.cle)}
-              onChange={(e) => {
-                const suivants = new Set(champs)
-                if (e.target.checked) suivants.add(c.cle)
-                else suivants.delete(c.cle)
-                // Dans l'ordre du schéma.
-                modifier({ champsCarte: schema.colonnes.map((x) => x.cle).filter((x) => suivants.has(x)) })
-              }}
-            />
-            <span className="icone">{ICONES[c.type]}</span>
-            {c.nom}
-          </label>
-        ))}
+      <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre="Champs sur la carte" />
     </div>
   )
 }
@@ -420,6 +400,36 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
             ))}
         </>
       )}
+      <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre={timeline ? 'Champs sur la barre' : 'Champs affichés'} />
     </div>
+  )
+}
+
+/** Colonnes affichées sous le titre d'une carte, d'une case du calendrier ou d'une barre (`champs_carte`), dans l'ordre du schéma. */
+function ChampsAffiches({ schema, vue, modifier, titre }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void; titre: string }) {
+  const champs = new Set(vue.champsCarte ?? [])
+  return (
+    <>
+      <div className="titre-section">{titre}</div>
+      {schema.colonnes
+        .filter((c) => c.cle !== schema.champTitre)
+        .map((c) => (
+          <label key={c.cle} className="case-reglage">
+            <input
+              type="checkbox"
+              checked={champs.has(c.cle)}
+              onChange={(e) => {
+                const suivants = new Set(champs)
+                if (e.target.checked) suivants.add(c.cle)
+                else suivants.delete(c.cle)
+                // Dans l'ordre du schéma.
+                modifier({ champsCarte: schema.colonnes.map((x) => x.cle).filter((x) => suivants.has(x)) })
+              }}
+            />
+            <span className="icone">{ICONES[c.type]}</span>
+            {c.nom}
+          </label>
+        ))}
+    </>
   )
 }

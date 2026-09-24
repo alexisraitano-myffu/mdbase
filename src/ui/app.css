@@ -451,9 +451,13 @@ body.en-glisser { cursor: grabbing; user-select: none; }
 .cal-evt {
   position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 22px;
+  box-sizing: border-box;
   margin: 0 4px;
-  padding: 0 8px;
+  padding: 2px 8px;
   font-size: 0.9em;
   background: #fff;
   border: 1px solid #d5d5d3;
@@ -468,6 +472,10 @@ body.en-glisser { cursor: grabbing; user-select: none; }
 .cal-evt.coupe-apres { margin-right: 0; border-right-style: dashed; border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .cal-evt.glisse, .tl-barre.glisse { box-shadow: 0 4px 14px rgba(15, 15, 15, 0.22); border-color: #2383e2; z-index: 3; }
 .cal-evt.sortira, .tl-barre.sortira { opacity: 0.55; }
+.cal-evt.origine { opacity: 0.35; }
+.cal-jour.cible { background: #e7f0fb; }
+.cal-fantome { position: fixed; z-index: 1000; margin: 0; pointer-events: none; cursor: grabbing; border-color: #2383e2; box-shadow: 0 8px 22px rgba(15, 15, 15, 0.22); transform: rotate(1.5deg); }
+.cal-evt .champ-carte { font-size: 0.8em; }
 
 /* Timeline */
 .timeline-vue { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -534,6 +542,9 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
   z-index: 1;
 }
 .tl-barre.deplacable { cursor: grab; }
+.tl-barre .titre-evt, .tl-titre-dehors { display: flex; align-items: center; gap: 8px; }
+.tl-barre .champ-carte, .tl-titre-dehors .champ-carte { flex-wrap: nowrap; flex-shrink: 0; }
+.tl-cadre { position: absolute; top: 5px; height: 26px; box-sizing: border-box; border: 1.5px dashed #2383e2; border-radius: 5px; background: rgba(35, 131, 226, 0.06); pointer-events: none; }
 .tl-titre-dehors { position: absolute; top: 0; line-height: 36px; font-size: 0.9em; color: var(--discret); white-space: nowrap; pointer-events: none; }
 .tl-jalon {
   position: absolute;

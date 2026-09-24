@@ -64,7 +64,7 @@ export type Vue = {
   groupe?: string
   /** Kanban : couloirs horizontaux. */
   sousGroupe?: string
-  /** Kanban et collection : champs affichés sur la carte. */
+  /** Kanban, collection, calendrier et timeline : champs affichés sous le titre. */
   champsCarte?: string[]
   /** Collection : premières lignes du corps sur la carte. */
   apercuCorps?: boolean

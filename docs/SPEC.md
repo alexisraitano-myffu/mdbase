@@ -284,8 +284,8 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 - **Tableau** : groupement optionnel (repliable), largeur des colonnes, retour à la ligne, calculs en pied de colonne (et par groupe).
 - **Kanban** : champ de groupe (`select`, `checkbox`, `relation`), sous-groupe optionnel (couloirs horizontaux), champs affichés sur la carte, glisser-déposer entre colonnes qui modifie la valeur. Sur une relation, le déplacement **remplace** le lien (pas d'ajout). Grouper sur une relation multi-valeurs n'est pas une bonne pratique : ce cas trouvera sa vraie place avec les relations 1-n [PLUS TARD].
 - **Collection** : cartes affichant les champs choisis et, en option, les premières lignes du corps.
-- **Calendrier** : champ date utilisé, champ de fin optionnel pour les plages, vue mois / semaine, glisser-déposer pour changer la date.
-- **Timeline** : champ de début, champ de fin, **champs jalons** (zéro ou plusieurs colonnes date affichées comme des points sur la ligne), zoom semaine / mois / trimestre, redimensionnement et déplacement des barres à la souris.
+- **Calendrier** : champ date utilisé, champ de fin optionnel pour les plages, vue mois / semaine, champs affichés sous le titre, glisser-déposer pour changer la date (la ligne suit le pointeur et s'accroche au jour le plus proche au relâcher).
+- **Timeline** : champ de début, champ de fin, **champs jalons** (zéro ou plusieurs colonnes date affichées comme des points sur la ligne), zoom semaine / mois / trimestre, champs affichés sur la barre, redimensionnement et déplacement des barres à la souris (au pixel, accroché au jour au relâcher).
 - Calendrier et timeline : une ligne sans date n'apparaît pas au calendrier (compteur « sans date ») ; dans la timeline elle garde sa rangée, et un clic sur la rangée la place à cette date. Une fin absente ou antérieure au début donne une plage d'un jour. Déplacer ou étirer garde l'heure d'une date qui en a une. Les colonnes calculées (rollup de date) s'affichent mais ne se glissent pas.
 
 ### Exemple `_vues/planning.yaml`
@@ -297,6 +297,7 @@ type: timeline          # ou calendrier
 champ_debut: debut      # calendrier : le champ date utilisé
 champ_fin: echeance     # optionnel
 champs_jalons: [revue]  # timeline seulement
+champs_carte: [client]  # champs affichés, comme pour le kanban
 echelle: mois           # calendrier : mois | semaine ; timeline : semaine | mois | trimestre
 ```
 
