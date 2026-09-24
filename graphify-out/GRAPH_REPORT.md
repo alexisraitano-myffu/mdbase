@@ -1,16 +1,16 @@
 # Graph Report - mdbase  (2026-09-24)
 
 ## Corpus Check
-- 59 files · ~26,046 words
+- 63 files · ~28,501 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 448 nodes · 855 edges · 26 communities (22 shown, 4 thin omitted)
+- 468 nodes · 917 edges · 24 communities (20 shown, 4 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3446d79e`
+- Built from commit: `51b09de7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -34,19 +34,17 @@
 - [[_COMMUNITY_Community 17|Community 17]]
 - [[_COMMUNITY_Community 19|Community 19]]
 - [[_COMMUNITY_Community 20|Community 20]]
-- [[_COMMUNITY_Community 21|Community 21]]
-- [[_COMMUNITY_Community 24|Community 24]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `DepotEspace` - 39 edges
-2. `DepotBase` - 23 edges
+1. `DepotEspace` - 41 edges
+2. `DepotBase` - 24 edges
 3. `AdaptateurMemoire` - 17 edges
 4. `SPEC — Base de données Markdown + YAML (nom provisoire)` - 16 edges
 5. `joindre()` - 14 edges
 6. `compilerOptions` - 13 edges
 7. `lireLigne()` - 12 edges
-8. `AdaptateurFsa` - 12 edges
-9. `colonne` - 11 edges
+8. `colonne` - 12 edges
+9. `AdaptateurFsa` - 12 edges
 10. `parent()` - 11 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -64,7 +62,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (26 total, 4 thin omitted)
+## Communities (24 total, 4 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.04
@@ -79,16 +77,16 @@ Cohesion: 0.15
 Nodes (12): AdaptateurMemoire, estConfiguration(), listerBases(), AdaptateurFichiers, Entree, FichierIntrouvable, joindre(), nomDe() (+4 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.08
-Nodes (30): aleatoire(), planifier(), ChargementBase, EtatEspace, colonne, choisirDossier(), demanderPermission(), DossierMemorise (+22 more)
+Cohesion: 0.07
+Nodes (34): aleatoire(), aujourdhui(), planifier(), EtatEspace, TypeCreable, TYPES_CREABLES, LigneVue, choisirDossier() (+26 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.14
 Nodes (13): compilerOptions, isolatedModules, module, moduleResolution, noEmit, noFallthroughCasesInSwitch, noUncheckedIndexedAccess, noUnusedLocals (+5 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.08
-Nodes (41): BaseChargee, chargerBase(), enregistrerLigne(), FichierNonReconnu, charger(), appliquer(), assembler(), creerLigne() (+33 more)
+Cohesion: 0.07
+Nodes (50): BaseChargee, chargerBase(), enregistrerLigne(), FichierNonReconnu, charger(), appliquer(), assembler(), creerLigne() (+42 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.22
@@ -103,8 +101,8 @@ Cohesion: 0.25
 Nodes (7): compilerOptions, lib, tsBuildInfoFile, types, exclude, extends, include
 
 ### Community 9 - "Community 9"
-Cohesion: 0.14
-Nodes (4): OptionsDepot, DepotEspace, f(), Vue
+Cohesion: 0.08
+Nodes (12): OptionsDepot, DepotEspace, FiltreRapide, lireVue(), ModificationVue, modifierVue(), OPERATEURS, Tri (+4 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.29
@@ -115,41 +113,33 @@ Cohesion: 0.33
 Nodes (5): Added, Changed, Changelog, Fixed, [Unreleased]
 
 ### Community 15 - "Community 15"
-Cohesion: 0.09
-Nodes (26): COULEURS, EtatBase, relationVers(), TypeCreable, TYPES_CREABLES, assurerListe(), assurerMap(), barreLaterale() (+18 more)
+Cohesion: 0.08
+Nodes (31): ChargementBase, COULEURS, EtatBase, relationVers(), assurerListe(), assurerMap(), barreLaterale(), chaines() (+23 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.08
-Nodes (32): LigneChargee, appliquerVue(), collateur, comparerDate(), comparerNombre(), comparerTexte(), Contexte, correspond() (+24 more)
+Cohesion: 0.11
+Nodes (26): LigneChargee, appliquerVue(), collateur, comparerDate(), comparerNombre(), comparerTexte(), Contexte, correspond() (+18 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.14
-Nodes (11): contientCle(), DepotBase, Entree, superposer(), Aleatoire, cleColonne(), dedoublonner(), genererId() (+3 more)
-
-### Community 21 - "Community 21"
-Cohesion: 0.23
-Nodes (7): Planifier, ouvrir(), ouvrir(), AdaptateurCompteur, aleatoire(), horlogeCroissante(), minuteur()
-
-### Community 24 - "Community 24"
-Cohesion: 0.19
-Nodes (9): Cellule, lireNombre(), Cellule(), EditeurNombre(), formaterDate(), Pastille(), Props, couleurOption() (+1 more)
+Cohesion: 0.09
+Nodes (19): contientCle(), DepotBase, Entree, Planifier, superposer(), ouvrir(), ouvrir(), Aleatoire (+11 more)
 
 ## Knowledge Gaps
-- **139 isolated node(s):** `COULEURS`, `EtatBase`, `schema`, `ctx`, `Lue` (+134 more)
+- **140 isolated node(s):** `Added`, `Changed`, `Fixed`, `Commandes`, `Architecture et conventions (refacti)` (+135 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `DepotEspace` connect `Community 9` to `Community 3`, `Community 15`, `Community 19`, `Community 20`, `Community 21`?**
-  _High betweenness centrality (0.086) - this node is a cross-community bridge._
-- **Why does `DepotBase` connect `Community 20` to `Community 24`, `Community 3`, `Community 21`, `Community 15`?**
-  _High betweenness centrality (0.048) - this node is a cross-community bridge._
-- **Why does `colonne` connect `Community 3` to `Community 5`, `Community 15`, `Community 19`, `Community 20`, `Community 24`?**
-  _High betweenness centrality (0.036) - this node is a cross-community bridge._
-- **What connects `COULEURS`, `EtatBase`, `schema` to the rest of the system?**
-  _139 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `DepotEspace` connect `Community 9` to `Community 3`, `Community 20`, `Community 15`?**
+  _High betweenness centrality (0.084) - this node is a cross-community bridge._
+- **Why does `DepotBase` connect `Community 20` to `Community 3`, `Community 5`, `Community 15`?**
+  _High betweenness centrality (0.045) - this node is a cross-community bridge._
+- **Why does `colonne` connect `Community 5` to `Community 3`, `Community 19`, `Community 20`, `Community 15`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **What connects `Added`, `Changed`, `Fixed` to the rest of the system?**
+  _140 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.044444444444444446 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

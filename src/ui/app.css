@@ -135,6 +135,8 @@ button:hover { background: var(--survol); }
   padding: 4px;
   display: flex;
   flex-direction: column;
+  overflow: auto;
+  box-sizing: border-box;
 }
 .option { display: flex; align-items: center; gap: 6px; border: none; background: none; text-align: left; padding: 4px 6px; }
 .coche { width: 1em; color: #2383e2; }
@@ -202,7 +204,7 @@ button:hover { background: var(--survol); }
 .filtres-rapides { display: flex; gap: 6px; flex-wrap: wrap; }
 .pilule { padding: 0.2rem 0.7rem; border-radius: 999px; font-size: 0.9em; }
 .pilule.active { background: #2383e2; border-color: #2383e2; color: #fff; }
-.panneau { padding: 6px; min-width: 420px; max-height: 70vh; overflow: auto; }
+.panneau { padding: 6px; width: min(420px, calc(100vw - 32px)); }
 .editeur-filtres { display: flex; flex-direction: column; gap: 6px; }
 .ligne-filtre { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ligne-filtre select, .ligne-filtre input, .filtre-rapide legend input {

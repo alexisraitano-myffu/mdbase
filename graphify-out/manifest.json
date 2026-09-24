@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/ui/App.tsx": {
-    "mtime": 1790276723.0780916,
-    "ast_hash": "37ccf7067df832345275b4badd64a8d6",
+    "mtime": 1790277262.1797378,
+    "ast_hash": "0014e4503bee36c65422b4911841d08c",
     "semantic_hash": ""
   },
   "tsconfig.app.json": {
@@ -90,13 +90,13 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790276766.4958277,
-    "ast_hash": "32f0f7f9ffa8299d3397548e0d70a881",
+    "mtime": 1790277331.9279487,
+    "ast_hash": "b70e8fabd1b646fc0a359ff42cc9a240",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790276950.3646507,
-    "ast_hash": "19e448b9a1c5e4cda7a51d9488b55057",
+    "mtime": 1790277331.9275627,
+    "ast_hash": "6f16936cba674923de9a31afa8d8e835",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "src/adapters/navigateur.ts": {
-    "mtime": 1790275890.7435737,
-    "ast_hash": "b4fc15a2bbdc64b662c91cbf6b8f8c2f",
+    "mtime": 1790277209.6860795,
+    "ast_hash": "8630feade9138debeea2ab0f92cecf16",
     "semantic_hash": ""
   },
   "src/core/depot-base.test.ts": {
@@ -205,13 +205,13 @@
     "semantic_hash": ""
   },
   "src/ui/Tableau.tsx": {
-    "mtime": 1790276664.0484178,
-    "ast_hash": "895f37161dce31f9013879ff14dbcc17",
+    "mtime": 1790277262.1783273,
+    "ast_hash": "9c8d4e2ac31cee4e2027bd5760da5571",
     "semantic_hash": ""
   },
   "src/ui/cellules.tsx": {
-    "mtime": 1790276626.1819386,
-    "ast_hash": "60600126c53e0a0c4f4fc26e42b723d5",
+    "mtime": 1790277262.1791253,
+    "ast_hash": "1efca74b6aa485568eec1f7d149c0e8e",
     "semantic_hash": ""
   },
   "src/ui/couleurs.ts": {
@@ -235,13 +235,13 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.test.ts": {
-    "mtime": 1790277147.2019675,
-    "ast_hash": "5d2e7b764571f12a00c549de6042dba7",
+    "mtime": 1790277316.0409522,
+    "ast_hash": "2a4f4e7ec4f43d50363e5cf3c3b9a2bf",
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790277147.1948495,
-    "ast_hash": "1ce8f5595cacd923727b52ef39492236",
+    "mtime": 1790277316.0352998,
+    "ast_hash": "21e1ea31ace7719fcea6c8a10f05ed9b",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -317,6 +317,31 @@
   "src/core/vue.ts": {
     "mtime": 1790277165.022336,
     "ast_hash": "bd616771a331fe8aaf2a589d7c347aeb",
+    "semantic_hash": ""
+  },
+  "src/ui/BarreVue.tsx": {
+    "mtime": 1790277294.0926294,
+    "ast_hash": "890900e457a327c7ebd1bc5e125bfd71",
+    "semantic_hash": ""
+  },
+  "src/ui/EditeurFiltres.tsx": {
+    "mtime": 1790277294.0923915,
+    "ast_hash": "0bcedcb1d6778cb01ef5759031408ffb",
+    "semantic_hash": ""
+  },
+  "src/ui/VueBase.tsx": {
+    "mtime": 1790277262.1772327,
+    "ast_hash": "a1cba2277fc3c21542c3bf9fca3b3873",
+    "semantic_hash": ""
+  },
+  "src/ui/useAujourdhui.ts": {
+    "mtime": 1790277209.6890767,
+    "ast_hash": "c530d7635a24b2786ef96b063cd31b64",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/_vues/tableau.yaml": {
+    "mtime": 1790277331.793719,
+    "ast_hash": "8f90df3a4feb9438cde13a74750e63ac",
     "semantic_hash": ""
   }
 }
