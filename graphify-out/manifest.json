@@ -85,18 +85,18 @@
     "semantic_hash": ""
   },
   "vite.config.ts": {
-    "mtime": 1790276030.9474814,
+    "mtime": 1790279027.2542007,
     "ast_hash": "0f64ef345f34cc45690e53c6a22893fc",
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790278612.7388391,
-    "ast_hash": "d6eae03792881dd5a899214c300c2f27",
+    "mtime": 1790279039.7242153,
+    "ast_hash": "725ab61f456cf878d8e3d875f6502f32",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790278612.738305,
-    "ast_hash": "47fd1aa5ff172f24d866dd82eb3231bc",
+    "mtime": 1790279039.7239356,
+    "ast_hash": "497e670f7fc9b92b56ca3c01c7f05886",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -105,18 +105,18 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/_espace.yaml": {
-    "mtime": 1790276831.472396,
-    "ast_hash": "f2fd4e6cb17a2926444d999fec08564b",
+    "mtime": 1790279012.0769863,
+    "ast_hash": "23fa5589bda5e6d92b9e47eecb2451e4",
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_schema.yaml": {
-    "mtime": 1790278611.5957255,
-    "ast_hash": "a0e34a846ceb4829be96f71dd1d51296",
+    "mtime": 1790279012.081367,
+    "ast_hash": "963f344a36440c8b328cae607aba7eef",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/_schema.yaml": {
-    "mtime": 1790278611.6019158,
-    "ast_hash": "2cb79e859aedd096dccb7ccadb2d94fe",
+    "mtime": 1790279012.0833058,
+    "ast_hash": "76b3002cfbc4d95a97977e975776f580",
     "semantic_hash": ""
   },
   "index.html": {
@@ -179,16 +179,6 @@
     "ast_hash": "d1a46998a371ec4e84b2644a61603f27",
     "semantic_hash": ""
   },
-  "exemples/espace-demo/projets/brouillon.md": {
-    "mtime": 1790275456.6860962,
-    "ast_hash": "e3380067e58bd24a3dd74eb8a204c13a",
-    "semantic_hash": ""
-  },
-  "exemples/espace-demo/projets/synapse--s7pd2mhq.md": {
-    "mtime": 1790275456.685969,
-    "ast_hash": "3369dd479b24bf636f5193e1bdcdd2ef",
-    "semantic_hash": ""
-  },
   "src/adapters/navigateur.ts": {
     "mtime": 1790277209.6860795,
     "ast_hash": "8630feade9138debeea2ab0f92cecf16",
@@ -224,24 +214,14 @@
     "ast_hash": "ec16b9b0047f6147cb507f412034afb0",
     "semantic_hash": ""
   },
-  "exemples/espace-demo/projets/fezfze--n4e7pqvf.md": {
-    "mtime": 1790276214.990747,
-    "ast_hash": "2a15ecfd64078424e8b502ecffdee570",
-    "semantic_hash": ""
-  },
-  "exemples/espace-demo/projets/navi-et-oui--k2x9m4pq.md": {
-    "mtime": 1790276124.933986,
-    "ast_hash": "8ec9075a48c2b8e26105afd24f61fe68",
-    "semantic_hash": ""
-  },
   "src/core/depot-espace.test.ts": {
     "mtime": 1790278402.8248448,
     "ast_hash": "983554b157285c8c054d79b6d096ae5e",
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790278386.4353178,
-    "ast_hash": "d3e2b3fdc69ae02062495569c46999f7",
+    "mtime": 1790278954.4586291,
+    "ast_hash": "3955984570a3498058771ff46501a3c8",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -265,8 +245,8 @@
     "semantic_hash": ""
   },
   "src/core/schema-ecriture.ts": {
-    "mtime": 1790276429.7014577,
-    "ast_hash": "d69ac25968f876d104db04dd8db5a2a9",
+    "mtime": 1790278941.2812924,
+    "ast_hash": "09b985d2d6d33553c98ce6224b27222a",
     "semantic_hash": ""
   },
   "src/ui/BarreLaterale.tsx": {
@@ -275,8 +255,8 @@
     "semantic_hash": ""
   },
   "src/ui/EnteteColonne.tsx": {
-    "mtime": 1790278586.4061074,
-    "ast_hash": "8abfdd3ef8a63488a007375977c307c8",
+    "mtime": 1790278973.064966,
+    "ast_hash": "bd2df731e13c50d79d00c776fb8ecba9",
     "semantic_hash": ""
   },
   "src/ui/actions.tsx": {
@@ -287,16 +267,6 @@
   "src/ui/flottant.tsx": {
     "mtime": 1790277486.0791574,
     "ast_hash": "bb2a3e09412a59b8d121a1bf4d5586a7",
-    "semantic_hash": ""
-  },
-  "exemples/espace-demo/test-alex/_schema.yaml": {
-    "mtime": 1790276938.4112465,
-    "ast_hash": "a93f87800f2e1fdc1c85e0c31d500a9f",
-    "semantic_hash": ""
-  },
-  "exemples/espace-demo/test-alex/mie69drp.md": {
-    "mtime": 1790276940.0229516,
-    "ast_hash": "6c76d53173e6a834ad6d319f0f061811",
     "semantic_hash": ""
   },
   "src/core/filtres.test.ts": {
@@ -340,23 +310,13 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_vues/tableau.yaml": {
-    "mtime": 1790278069.652885,
-    "ast_hash": "8fd7f3120541b54eac7843e04735435e",
+    "mtime": 1790279012.0853167,
+    "ast_hash": "a7dbeb9d014375c416ec53b92f0e5607",
     "semantic_hash": ""
   },
   "src/ui/Pastilles.tsx": {
     "mtime": 1790278586.4053745,
     "ast_hash": "0528cf572a4d2a65c7b71c0ee83bafd7",
-    "semantic_hash": ""
-  },
-  "exemples/espace-demo/projets/_vues/tableau-2.yaml": {
-    "mtime": 1790278083.409872,
-    "ast_hash": "94d63c0f7b261c755c14d191442fd709",
-    "semantic_hash": ""
-  },
-  "exemples/espace-demo/projets/vsds--ckgwilto.md": {
-    "mtime": 1790277741.8817453,
-    "ast_hash": "10018720f92e80a4e282145c277d3c67",
     "semantic_hash": ""
   },
   "src/core/calcul.test.ts": {
@@ -370,8 +330,8 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace-relations.test.ts": {
-    "mtime": 1790278460.5486104,
-    "ast_hash": "67750003e2a15751b17ddb5d09e23039",
+    "mtime": 1790278941.2888892,
+    "ast_hash": "38c13325c95fe6a92bdb7bd375616eb2",
     "semantic_hash": ""
   },
   "src/core/fixtures/espace-relations.ts": {
@@ -394,19 +354,99 @@
     "ast_hash": "f8bd87c5826309caf5441ac1bac834ee",
     "semantic_hash": ""
   },
-  "exemples/espace-demo/taches/api--t7wd3n5c.md": {
-    "mtime": 1790278611.6030812,
-    "ast_hash": "2247f47926536a583ba1d2b4ebc6b581",
+  "src/exemples.test.ts": {
+    "mtime": 1790279027.2502592,
+    "ast_hash": "9f65beb0b6e6d98bb9499fcb1f84e31f",
     "semantic_hash": ""
   },
-  "exemples/espace-demo/taches/maquettes--t4kq8m2x.md": {
-    "mtime": 1790278611.6028101,
-    "ast_hash": "d3196a9b693b3d926896615cc7bb7f92",
+  "exemples/espace-demo/clients/_schema.yaml": {
+    "mtime": 1790279012.079324,
+    "ast_hash": "a06a454d1d249d59a8b9135517239ef1",
     "semantic_hash": ""
   },
-  "exemples/espace-demo/taches/tests--t9pz6r1b.md": {
-    "mtime": 1790278611.6034555,
-    "ast_hash": "c6b62a98714c1790e1e3c392feafb76c",
+  "exemples/espace-demo/clients/acme--cacme001.md": {
+    "mtime": 1790279012.0881436,
+    "ast_hash": "c90ea1e838c312e9ef4636d81d28b7b3",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/clients/globex--cglob002.md": {
+    "mtime": 1790279012.0883796,
+    "ast_hash": "192b47d692038fe639a52e720a900d2a",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/clients/initech--cinit003.md": {
+    "mtime": 1790279012.0885901,
+    "ast_hash": "bf03430d2bf5e2a9419646025cdf30f9",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/application-mobile--pmobi002.md": {
+    "mtime": 1790279012.0892384,
+    "ast_hash": "cd6d555ea23d4944f3c4ace248c0ee7a",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/audit-securite--paudi004.md": {
+    "mtime": 1790279012.089823,
+    "ast_hash": "a7c0af034d89d94c035c80564d8a3cf6",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/boutique-en-ligne--pbout003.md": {
+    "mtime": 1790279012.0895617,
+    "ast_hash": "dd2f9484244f59703637fa23cb0a9fc6",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/site-vitrine--psite001.md": {
+    "mtime": 1790279012.0888627,
+    "ast_hash": "a31d82255439ae1c816c477de80aee03",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/_vues/tableau.yaml": {
+    "mtime": 1790279012.087641,
+    "ast_hash": "dfd5fd5f4146af4e373a48d8b2bca721",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/cadrage--tcadr004.md": {
+    "mtime": 1790279012.0909033,
+    "ast_hash": "5940a68949067abfa17be6da862a5af9",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/catalogue--tcata005.md": {
+    "mtime": 1790279012.091204,
+    "ast_hash": "3807ed7f98e86d541f63d059c2b4f8c9",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/entretiens--tentr008.md": {
+    "mtime": 1790279012.0920382,
+    "ast_hash": "9fbcd9261fa858f6cb792d0f82548e1a",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/integration--tinte002.md": {
+    "mtime": 1790279012.090389,
+    "ast_hash": "04ea9dc0d7ff122d6ac732234631c394",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/maquettes--tmaqu001.md": {
+    "mtime": 1790279012.0901203,
+    "ast_hash": "6ee24f50260dce45d9d04daeaeb6d2ac",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/mise-en-ligne--tmise003.md": {
+    "mtime": 1790279012.0906525,
+    "ast_hash": "0501150359dcfb9f523e32cb450c677c",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/paiement--tpaie006.md": {
+    "mtime": 1790279012.0914783,
+    "ast_hash": "c535520b0b9ec994cc819551fd850742",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/rapport--trapp009.md": {
+    "mtime": 1790279012.0923195,
+    "ast_hash": "cc1cce483f008598f46f4f69d10994ca",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/taches/recette--trece007.md": {
+    "mtime": 1790279012.0917342,
+    "ast_hash": "e7a82f12a30cd4487da0bd5bcf8ca44a",
     "semantic_hash": ""
   }
 }
