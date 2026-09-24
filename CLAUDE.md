@@ -1,0 +1,77 @@
+# mdbase (nom provisoire)
+
+Bases de données relationnelles avec l'ergonomie des bases Notion, dont le seul stockage est un dossier de fichiers Markdown + YAML. App web 100 % statique (Chrome / Edge, File System Access API), local-first, aucun appel réseau.
+
+**La spec fait foi : `docs/SPEC.md`. La lire en entier avant toute implémentation.** Les points `[DÉCIDÉ]` ne se rediscutent pas sans validation d'Alexis ; les points `[PLUS TARD]` ne s'implémentent pas mais ne doivent pas être rendus impossibles.
+
+## Commandes
+
+```bash
+npm run dev         # serveur Vite (ouvrir dans Chrome ou Edge)
+npm test            # Vitest, une passe (tests du cœur, dans Node)
+npm run test:watch
+npm run typecheck   # tsc -b sur les trois projets (core, app, test)
+npm run build       # typecheck + build statique dans dist/
+```
+
+Pour tester à la main : `npm run dev`, puis ouvrir `exemples/espace-demo/`.
+
+## Architecture et conventions (refacti)
+
+```
+src/
+  core/          TypeScript pur, zéro dépendance UI : parsing, schéma, index,
+                 graphe de dépendances, rollups, formules, filtres, écriture
+    fichiers.ts            interface AdaptateurFichiers (lister, lire, ecrire,
+                           renommer, supprimer, dateModification) + helpers de chemins
+    adaptateur-memoire.ts  implémentation en mémoire, double des tests
+  adapters/
+    fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
+  ui/            React
+  main.tsx       point d'entrée mince : monte l'UI, aucune logique
+```
+
+- **Le cœur n'importe ni React, ni le DOM, ni Node** (spec §12). Deux protections, à ne jamais contourner :
+  - `tsconfig.core.json` compile `src/core` sans lib DOM ni types : `window`, `document`, `process` n'y existent pas ;
+  - `src/core/architecture.test.ts` refuse tout import hors du cœur, sauf la liste fermée `LIBRAIRIES_AUTORISEES` (à étendre explicitement quand une librairie sans DOM est ajoutée, ex. `yaml`, `minisearch`).
+- **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
+- Chemins : relatifs à la racine de l'espace, séparés par `/`, racine = `""`.
+- Nommage en français, comme la spec et le format de fichiers (`lister`, `colonnes`, `champ_titre`).
+- Découper quand un module grandit vraiment, jamais par avance ; les sous-dossiers de `core/` apparaîtront avec les jalons (relations, formules…).
+- Le nettoyage structurel est un commit à part, jamais mélangé à une fonctionnalité.
+
+Trois projets TypeScript (`tsconfig.core.json`, `tsconfig.app.json`, `tsconfig.test.json`), tous en `strict` + `noUncheckedIndexedAccess`.
+
+## Tests
+
+- Vitest, fichiers `*.test.ts` à côté du code, environnement Node.
+- Les tests du cœur tournent sur `AdaptateurMemoire` (horloge injectable pour les dates) : ni navigateur, ni disque.
+- **Règle stricte : aucune fonctionnalité sans test.** Unitaire par défaut ; les 9 invariants de la spec (§13) deviennent des tests dès qu'ils sont atteignables, et ne se retirent jamais.
+- Chemins critiques (perte de données : écriture, réécriture préservant les champs inconnus, suppressions, renommages) : `npm test` avant tout commit qui les touche.
+- L'adaptateur FSA et l'UI se valident à la main dans Chrome pour l'instant ; Playwright si ça devient fragile.
+
+## Jalons
+
+Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. État :
+- [x] 1. Socle
+- [ ] 2. Lecture/écriture (ajouter `yaml` aux librairies autorisées du cœur)
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Changelog
+
+**Cadence : en fin de session, pas à chaque commit.** Mettre à jour à la fin d'une session de travail, ou dès qu'un gros lot de changements s'est accumulé ; Claude le propose quand il voit que beaucoup a changé depuis la dernière mise à jour. L'entrée décrit ce qui est désormais sur `main`.
+
+Changelog = `CHANGELOG.md` (Keep a Changelog), entrées sous `[Unreleased]`. Pas de projet Linear pour l'instant : relancer `/init-repo` une fois créé pour basculer.
+
+## Environnement
+
+Aucune variable d'environnement. Aucun appel réseau, aucune télémétrie (spec §12).

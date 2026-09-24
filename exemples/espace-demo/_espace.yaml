@@ -1,0 +1,7 @@
+version: 1
+barre_laterale:
+  dashboards: []
+  groupes:
+    - nom: Travail
+      bases: [projets, taches]
+  hors_groupe: []

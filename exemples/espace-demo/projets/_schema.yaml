@@ -1,0 +1,15 @@
+version: 1
+id: projets
+nom: Projets
+champ_titre: titre
+colonnes:
+  - cle: titre
+    nom: Titre
+    type: text
+  - cle: statut
+    nom: Statut
+    type: select
+    options:
+      - { label: À faire, couleur: gris }
+      - { label: En cours, couleur: bleu }
+      - { label: Terminé, couleur: vert }

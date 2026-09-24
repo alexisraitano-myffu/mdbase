@@ -1,0 +1,8 @@
+version: 1
+id: taches
+nom: Tâches
+champ_titre: titre
+colonnes:
+  - cle: titre
+    nom: Titre
+    type: text

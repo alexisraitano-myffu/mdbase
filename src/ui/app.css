@@ -1,0 +1,26 @@
+:root {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #1f1f1f;
+  background: #fbfbfa;
+}
+body { margin: 0; }
+.accueil {
+  max-width: 32rem;
+  margin: 15vh auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d5d5d3;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+button:hover { background: #f1f1ef; }
+.discret { color: #787774; border-color: transparent; background: none; }
+.erreur { color: #c4332b; }
