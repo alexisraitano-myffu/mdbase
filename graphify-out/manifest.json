@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790276020.8190308,
-    "ast_hash": "0942bf7f5781cc8e39f9161c369f4caa",
+    "mtime": 1790276293.761047,
+    "ast_hash": "ea38d799e668bfeeea654256c82d876d",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -112,11 +112,6 @@
   "exemples/espace-demo/projets/_schema.yaml": {
     "mtime": 1790276020.6899834,
     "ast_hash": "5e25efe9f8e1bcff7eea94ff4507599f",
-    "semantic_hash": ""
-  },
-  "exemples/espace-demo/projets/navi--k2x9m4pq.md": {
-    "mtime": 1790274908.9622562,
-    "ast_hash": "593435f071cbbc00a556b80abaa5b69c",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/_schema.yaml": {
@@ -227,6 +222,16 @@
   "src/ui/useDepot.ts": {
     "mtime": 1790275890.7494597,
     "ast_hash": "ec16b9b0047f6147cb507f412034afb0",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/fezfze--n4e7pqvf.md": {
+    "mtime": 1790276214.990747,
+    "ast_hash": "2a15ecfd64078424e8b502ecffdee570",
+    "semantic_hash": ""
+  },
+  "exemples/espace-demo/projets/navi-et-oui--k2x9m4pq.md": {
+    "mtime": 1790276124.933986,
+    "ast_hash": "8ec9075a48c2b8e26105afd24f61fe68",
     "semantic_hash": ""
   }
 }

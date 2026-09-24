@@ -36,3 +36,27 @@ export function nomFichierLigne(titre: string, id: string): string {
   const s = slug(titre)
   return s === '' ? `${id}.md` : `${s}--${id}.md`
 }
+
+/** Rend `base` unique parmi `pris` en ajoutant `<sep>2`, `<sep>3`… */
+export function dedoublonner(base: string, pris: ReadonlySet<string>, sep: string): string {
+  if (!pris.has(base)) return base
+  for (let i = 2; ; i++) if (!pris.has(`${base}${sep}${i}`)) return `${base}${sep}${i}`
+}
+
+/**
+ * Clé d'une nouvelle colonne : slug snake_case du nom, dédoublonné (spec §3).
+ * La clé `id` est réservée à l'identifiant de ligne.
+ */
+export function cleColonne(nom: string, existantes: Iterable<string>): string {
+  const pris = new Set(existantes)
+  pris.add('id')
+  return dedoublonner(slug(nom).replace(/-/g, '_') || 'colonne', pris, '_')
+}
+
+/**
+ * Identifiant d'une nouvelle base, qui est aussi le nom de son dossier (spec §3).
+ * Jamais préfixé par « _ » ni « . » (réservés à la configuration).
+ */
+export function idBase(nom: string, existants: Iterable<string>): string {
+  return dedoublonner(slug(nom) || 'base', new Set(existants), '-')
+}

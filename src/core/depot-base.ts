@@ -32,7 +32,7 @@ type Entree = {
  * enchaînées, jamais en parallèle sur un même fichier.
  */
 export class DepotBase {
-  readonly schema: Schema
+  schema: Schema
   private readonly adaptateur: AdaptateurFichiers
   private readonly options: Required<OptionsDepot>
   private readonly entrees: Entree[]
@@ -111,6 +111,53 @@ export class DepotBase {
     })
   }
 
+  /**
+   * Adopte un nouveau schéma : chaque ligne est relue depuis son texte, pour
+   * qu'une valeur devenue valide (option ajoutée…) ou une colonne retirée
+   * soit prise en compte.
+   */
+  remplacerSchema(schema: Schema): void {
+    this.schema = schema
+    for (const e of this.entrees) {
+      const relue = lireLigne(e.persistee.chemin, e.persistee.source, schema)
+      if (!relue.ok) continue
+      e.persistee = { ...relue.ligne, date: e.persistee.date }
+      e.enAttente = Object.fromEntries(
+        Object.entries(e.enAttente).filter(([cle]) => {
+          const c = colonne(schema, cle)
+          return c !== undefined && estSaisie(c)
+        }),
+      )
+      e.affichee = superposer(e.persistee, e.enAttente, schema)
+    }
+    this.publier()
+  }
+
+  /**
+   * Retire une colonne de tous les fichiers de lignes qui la contiennent
+   * (suppression de colonne, spec §5). À faire AVANT de la retirer du schéma.
+   * Renvoie le nombre de fichiers réécrits.
+   */
+  async effacerColonne(cle: string): Promise<number> {
+    await this.vider()
+    let n = 0
+    for (const e of this.entrees) {
+      if (!(cle in e.persistee.cellules) && !contientCle(e.persistee.source, cle)) continue
+      n++
+      void this.enchainer(e, async () => {
+        e.persistee = await enregistrerLigne(this.adaptateur, this.schema, e.persistee, { [cle]: undefined })
+        e.affichee = superposer(e.persistee, e.enAttente, this.schema)
+      })
+    }
+    await Promise.all(this.entrees.map((e) => e.file))
+    return n
+  }
+
+  /** Renomme tous les fichiers selon leur titre (changement de colonne titre). */
+  async renommerTousSelonTitre(): Promise<void> {
+    await Promise.all(this.entrees.map((e) => this.renommerSelonTitre(e.affichee.chemin)))
+  }
+
   /** Écrit immédiatement tout ce qui est en attente (fermeture de l'onglet, tests). */
   async vider(): Promise<void> {
     for (const e of this.entrees) this.lancerEcriture(e)
@@ -166,6 +213,12 @@ export class DepotBase {
     this.instantane = this.entrees.map((e) => e.affichee)
     for (const fn of this.abonnes) fn()
   }
+}
+
+/** La clé apparaît-elle dans le frontmatter, même sans valeur (`statut:`) ? */
+function contientCle(source: string, cle: string): boolean {
+  const echappee = cle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${echappee}\\s*:`, 'm').test(source.split(/^---\s*$/m, 3)[1] ?? '')
 }
 
 function superposer(ligne: LigneChargee, modifs: Modifications, schema: Schema): LigneChargee {

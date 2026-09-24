@@ -1,52 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { AdaptateurMemoire } from './adaptateur-memoire'
 import { chargerBase } from './base'
-import { DepotBase, type Planifier } from './depot-base'
+import { DepotBase } from './depot-base'
 import { ErreurEcriture } from './ligne'
 import { TEXTE_SCHEMA_PROJETS } from './fixtures/schema-projets'
-
-/** Minuteur manuel : rien ne s'exécute avant `avancer()`. */
-function minuteur() {
-  const taches = new Set<() => void>()
-  const planifier: Planifier = (action) => {
-    taches.add(action)
-    return () => taches.delete(action)
-  }
-  const avancer = () => {
-    const courantes = [...taches]
-    taches.clear()
-    for (const t of courantes) t()
-  }
-  return { planifier, avancer, enAttente: () => taches.size }
-}
-
-/** Compte les écritures pour vérifier le regroupement. */
-class AdaptateurCompteur extends AdaptateurMemoire {
-  ecritures: string[] = []
-  override async ecrire(chemin: string, contenu: string) {
-    this.ecritures.push(chemin)
-    return super.ecrire(chemin, contenu)
-  }
-}
-
-/** Chaque écriture a une date distincte, comme sur un vrai disque entre deux actions. */
-function horlogeCroissante() {
-  let t = 0
-  return () => ++t
-}
-
-let graine = 0
-const aleatoire = (n: number) => Uint8Array.from({ length: n }, (_, i) => (graine * 7 + i * 13) % 256)
+import { AdaptateurCompteur, aleatoire, minuteur } from './fixtures/outils'
 
 async function ouvrir() {
   const a = new AdaptateurCompteur({
     'projets/_schema.yaml': TEXTE_SCHEMA_PROJETS,
     'projets/navi--k2x9m4pq.md': '---\nid: k2x9m4pq\ntitre: Navi\nstatut: En cours\n---\nCorps\n',
-  }, horlogeCroissante())
+  })
   const r = await chargerBase(a, 'projets')
   if (!r.ok) throw new Error(r.raison)
   const m = minuteur()
-  graine++
   const depot = new DepotBase(a, r.base.schema, r.base.lignes, { aleatoire, planifier: m.planifier })
   return { a, depot, m }
 }

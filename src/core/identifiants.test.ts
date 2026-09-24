@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { genererId, nomFichierLigne, slug } from './identifiants'
+import { cleColonne, genererId, idBase, nomFichierLigne, slug } from './identifiants'
 
 function aleatoireFixe(...suites: number[][]) {
   let i = 0
@@ -32,5 +32,22 @@ describe('noms de fichiers', () => {
 
   it('borne la longueur du slug', () => {
     expect(slug('a'.repeat(200)).length).toBe(60)
+  })
+})
+
+describe('clés de colonnes et ids de bases', () => {
+  it('dérive une clé snake_case unique, jamais « id »', () => {
+    expect(cleColonne('Date de fin', [])).toBe('date_de_fin')
+    expect(cleColonne('Statut', ['statut'])).toBe('statut_2')
+    expect(cleColonne('Statut', ['statut', 'statut_2'])).toBe('statut_3')
+    expect(cleColonne('Id', [])).toBe('id_2')
+    expect(cleColonne('???', [])).toBe('colonne')
+  })
+
+  it('dérive un id de base unique', () => {
+    expect(idBase('Tâches perso', [])).toBe('taches-perso')
+    expect(idBase('Projets', ['projets'])).toBe('projets-2')
+    expect(idBase('_config', [])).toBe('config')
+    expect(idBase('', [])).toBe('base')
   })
 })
