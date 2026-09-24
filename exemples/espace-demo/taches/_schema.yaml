@@ -6,3 +6,15 @@ colonnes:
   - cle: titre
     nom: Titre
     type: text
+  - cle: projet
+    nom: Projet
+    type: relation
+    cible: projets
+    proprietaire: true
+    inverse: taches
+  - cle: heures
+    nom: Heures
+    type: number
+  - cle: fait
+    nom: Fait
+    type: checkbox

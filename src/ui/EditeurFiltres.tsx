@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { operateursPour } from '../core/filtres'
-import { estSaisie, type Colonne, type Schema } from '../core/schema'
+import { useEspace } from './contexte-espace'
+import { natureDe, type Colonne, type Schema } from '../core/schema'
 import type { Filtre, Operateur } from '../core/vue'
 
 export const LIBELLES_OPERATEURS: Record<Operateur, string> = {
@@ -27,9 +28,9 @@ export const LIBELLES_OPERATEURS: Record<Operateur, string> = {
   parmi: 'parmi',
 }
 
-/** Colonnes filtrables tant que rollups et formules n'ont pas de valeurs (jalons 6 et 10). */
+/** Toutes les colonnes se filtrent et se trient, calculées comprises ; les formules au jalon 10. */
 export function colonnesFiltrables(schema: Schema): Colonne[] {
-  return schema.colonnes.filter(estSaisie)
+  return schema.colonnes.filter((c) => c.type !== 'formula')
 }
 
 /** Liste de filtres combinés en ET, éditable. Chaque changement est remonté aussitôt. */
@@ -92,7 +93,9 @@ export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; f
   const op = filtre.operateur
   if (['vide', 'non_vide', 'aujourdhui', 'cette_semaine', 'ce_mois'].includes(op)) return null
 
-  if (colonne.type === 'checkbox') {
+  if (colonne.type === 'relation') return <ChoixLigne cible={colonne.cible} valeur={String(filtre.valeur ?? '')} changer={changer} />
+
+  if (natureDe(colonne) === 'case') {
     return (
       <select value={String(filtre.valeur === true || filtre.valeur === 'true')} onChange={(e) => changer(e.target.value === 'true')}>
         <option value="true">coché</option>
@@ -132,7 +135,7 @@ export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; f
     )
   }
 
-  if (colonne.type === 'date') {
+  if (natureDe(colonne) === 'date') {
     if (op === 'jours_passes' || op === 'jours_a_venir') {
       return <ChampTexte valeur={String(filtre.valeur ?? '')} type="number" suffixe="jours" changer={(v) => changer(v === '' ? undefined : Number(v))} />
     }
@@ -160,8 +163,8 @@ export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; f
   return (
     <ChampTexte
       valeur={String(filtre.valeur ?? '')}
-      type={colonne.type === 'number' ? 'number' : 'text'}
-      changer={(v) => changer(colonne.type === 'number' && v !== '' ? Number(v) : v)}
+      type={natureDe(colonne) === 'nombre' ? 'number' : 'text'}
+      changer={(v) => changer(natureDe(colonne) === 'nombre' && v !== '' ? Number(v) : v)}
     />
   )
 }
@@ -205,5 +208,24 @@ export function ChampTexte(p: {
       />
       {p.suffixe && ` ${p.suffixe}`}
     </span>
+  )
+}
+
+/** Choix d'une ligne de la base liée, par son titre (filtre sur une relation). */
+function ChoixLigne({ cible, valeur, changer }: { cible: string; valeur: string; changer: (v: unknown) => void }) {
+  const { etat } = useEspace()
+  const lignes = [...(etat.titres.get(cible) ?? new Map<string, string>())].sort(([, a], [, b]) => a.localeCompare(b, 'fr'))
+  return (
+    <select value={valeur} onChange={(e) => changer(e.target.value)}>
+      <option value="" disabled>
+        choisir…
+      </option>
+      {valeur && !lignes.some(([id]) => id === valeur) && <option value={valeur}>⚠ {valeur}</option>}
+      {lignes.map(([id, titre]) => (
+        <option key={id} value={id}>
+          {titre || 'Sans titre'}
+        </option>
+      ))}
+    </select>
   )
 }

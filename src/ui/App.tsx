@@ -10,6 +10,7 @@ import { aleatoire, aujourdhui, planifier } from '../adapters/navigateur'
 import { DepotEspace } from '../core/depot-espace'
 import { FournisseurActions } from './actions'
 import { BarreLaterale } from './BarreLaterale'
+import { ContexteEspace } from './contexte-espace'
 import { VueBase } from './VueBase'
 
 type Etat =
@@ -109,26 +110,28 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   const base = choisie ? etat.bases.get(choisie) : undefined
 
   return (
-    <div className="espace">
-      <BarreLaterale
-        espace={espace}
-        etat={etat}
-        nomEspace={nom}
-        choisie={choisie}
-        choisir={setChoisie}
-        changerDossier={changer}
-      />
-      <main className="contenu">
-        {!base && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
-        {base && !base.chargement.ok && (
-          <p className="erreur">
-            « {base.id} » n'est pas une base : {base.chargement.raison}
-          </p>
-        )}
-        {base?.chargement.ok && base.depot && (
-          <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} />
-        )}
-      </main>
-    </div>
+    <ContexteEspace.Provider value={{ espace, etat }}>
+      <div className="espace">
+        <BarreLaterale
+          espace={espace}
+          etat={etat}
+          nomEspace={nom}
+          choisie={choisie}
+          choisir={setChoisie}
+          changerDossier={changer}
+        />
+        <main className="contenu">
+          {!base && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
+          {base && !base.chargement.ok && (
+            <p className="erreur">
+              « {base.id} » n'est pas une base : {base.chargement.raison}
+            </p>
+          )}
+          {base?.chargement.ok && base.depot && (
+            <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} />
+          )}
+        </main>
+      </div>
+    </ContexteEspace.Provider>
   )
 }

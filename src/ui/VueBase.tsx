@@ -8,13 +8,25 @@ import { BarreVue } from './BarreVue'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
 import { useErreurDepot, useLignes } from './useDepot'
+import { useEspace } from './contexte-espace'
 
 type Props = { espace: DepotEspace; etat: EtatBase; depot: DepotBase; chargement: Extract<ChargementBase, { ok: true }> }
 
 /** Une base ouverte : sa vue courante, filtrée et triée. */
 export function VueBase({ espace, etat, depot, chargement }: Props) {
   const erreur = useErreurDepot(depot)
-  const lignes = useLignes(depot)
+  const lignesStockees = useLignes(depot)
+  const { etat: etatEspace } = useEspace()
+  // Chaque ligne avec ses colonnes calculées : filtres, tris et affichage les traitent comme les autres.
+  const calculs = etatEspace.calculs.get(etat.id)
+  const lignes = useMemo(
+    () =>
+      lignesStockees.map((l) => {
+        const c = calculs?.get(l.id)
+        return c ? { ...l, cellules: { ...l.cellules, ...c } } : l
+      }),
+    [lignesStockees, calculs],
+  )
   const aujourdhui = useAujourdhui()
   const [idVue, setIdVue] = useState(etat.vues[0]!.id)
   const vue = etat.vues.find((v) => v.id === idVue) ?? etat.vues[0]!

@@ -3,6 +3,7 @@ import { filtreDePastille, operateurParDefaut, operateursPour, SANS_VALEUR } fro
 import { colonne as colonneDe, type Colonne, type Schema } from '../core/schema'
 import type { FiltreRapide, Operateur } from '../core/vue'
 import { colonnesFiltrables, LIBELLES_OPERATEURS, ValeurFiltre } from './EditeurFiltres'
+import { titreDe, useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
 
 type Props = { schema: Schema; pastilles: FiltreRapide[]; changer: (p: FiltreRapide[]) => void }
@@ -57,12 +58,17 @@ function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: FiltreR
   const { colonne, pastille } = p
   const operateur = pastille.operateur ?? operateurParDefaut(colonne)
   const actif = filtreDePastille(p.schema, pastille) !== null
+  const { etat } = useEspace()
+  const valeurAffichee =
+    colonne.type === 'relation' && typeof pastille.valeur === 'string'
+      ? (titreDe(etat, colonne.cible, pastille.valeur) ?? `⚠ ${pastille.valeur}`)
+      : pastille.valeur
 
   return (
     <>
       <button ref={ancre} className={`pilule ${actif ? 'active' : ''}`} onClick={() => setOuvert(true)}>
         {colonne.nom}
-        {actif && <span className="resume">{' : '}{resumer(colonne, operateur, pastille.valeur)}</span>}
+        {actif && <span className="resume">{' : '}{resumer(colonne, operateur, valeurAffichee)}</span>}
         <span className="chevron"> ▾</span>
       </button>
       {ouvert && (

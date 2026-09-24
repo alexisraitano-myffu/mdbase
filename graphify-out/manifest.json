@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/ui/App.tsx": {
-    "mtime": 1790277262.1797378,
-    "ast_hash": "0014e4503bee36c65422b4911841d08c",
+    "mtime": 1790278394.3006308,
+    "ast_hash": "d04cb18bf29dac7e3f685358e374626d",
     "semantic_hash": ""
   },
   "tsconfig.app.json": {
@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790277331.9275627,
-    "ast_hash": "6f16936cba674923de9a31afa8d8e835",
+    "mtime": 1790278150.8972254,
+    "ast_hash": "ba40b40196c7111e836ea3beb6d9fa6e",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "src/core/schema.ts": {
-    "mtime": 1790275291.9050622,
-    "ast_hash": "eb6a72525bad981a6ba3b74934b02d54",
+    "mtime": 1790278181.7172272,
+    "ast_hash": "927eaa02817835da2203ea1ccd1eb06d",
     "semantic_hash": ""
   },
   "src/core/valeurs.test.ts": {
@@ -235,13 +235,13 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.test.ts": {
-    "mtime": 1790277316.0409522,
-    "ast_hash": "2a4f4e7ec4f43d50363e5cf3c3b9a2bf",
+    "mtime": 1790278402.8248448,
+    "ast_hash": "983554b157285c8c054d79b6d096ae5e",
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790277316.0352998,
-    "ast_hash": "21e1ea31ace7719fcea6c8a10f05ed9b",
+    "mtime": 1790278386.4353178,
+    "ast_hash": "d3e2b3fdc69ae02062495569c46999f7",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -305,8 +305,8 @@
     "semantic_hash": ""
   },
   "src/core/filtres.ts": {
-    "mtime": 1790277905.3513014,
-    "ast_hash": "6b6af32ff23f8051936edc450fc9761e",
+    "mtime": 1790278181.7176392,
+    "ast_hash": "c5360699fb77ec41069d9c19380c307f",
     "semantic_hash": ""
   },
   "src/core/vue.test.ts": {
@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_vues/tableau.yaml": {
-    "mtime": 1790277961.949297,
-    "ast_hash": "bbc66d72b718a03c84bf1cd0f59843d9",
+    "mtime": 1790278069.652885,
+    "ast_hash": "8fd7f3120541b54eac7843e04735435e",
     "semantic_hash": ""
   },
   "src/ui/Pastilles.tsx": {
@@ -350,13 +350,43 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_vues/tableau-2.yaml": {
-    "mtime": 1790277731.6350296,
-    "ast_hash": "e89b89924840ed44be6e4314df704e2e",
+    "mtime": 1790278083.409872,
+    "ast_hash": "94d63c0f7b261c755c14d191442fd709",
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/vsds--ckgwilto.md": {
     "mtime": 1790277741.8817453,
     "ast_hash": "10018720f92e80a4e282145c277d3c67",
+    "semantic_hash": ""
+  },
+  "src/core/calcul.test.ts": {
+    "mtime": 1790278326.8942096,
+    "ast_hash": "0a40987847b83492dc0ea6eba359f7f5",
+    "semantic_hash": ""
+  },
+  "src/core/calcul.ts": {
+    "mtime": 1790278333.051718,
+    "ast_hash": "d174a7e7b5133f577ba7ad6397f071d1",
+    "semantic_hash": ""
+  },
+  "src/core/depot-espace-relations.test.ts": {
+    "mtime": 1790278460.5486104,
+    "ast_hash": "67750003e2a15751b17ddb5d09e23039",
+    "semantic_hash": ""
+  },
+  "src/core/fixtures/espace-relations.ts": {
+    "mtime": 1790278326.8938694,
+    "ast_hash": "f0c5a66f4140535f789cc56dcd204d68",
+    "semantic_hash": ""
+  },
+  "src/core/graphe.test.ts": {
+    "mtime": 1790278316.127047,
+    "ast_hash": "56214d3ce0f85909ab88acf65a34e367",
+    "semantic_hash": ""
+  },
+  "src/core/graphe.ts": {
+    "mtime": 1790278240.5886548,
+    "ast_hash": "2fd20f12104c322e48cee4257bf4d4ea",
     "semantic_hash": ""
   }
 }

@@ -79,7 +79,7 @@ export function Tableau({ espace, base, depot, lignesVue, tris, valeursCreation,
   }, [aEditer, rangees.length, virtuel])
 
   async function nouvelleLigne() {
-    const ligne = await lancer(depot.creer(valeursCreation()))
+    const ligne = await lancer(espace.creerLigne(base, valeursCreation()))
     if (!ligne) return
     retenir(ligne.id)
     setAEditer(ligne.chemin)

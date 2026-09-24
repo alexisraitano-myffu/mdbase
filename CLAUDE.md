@@ -36,6 +36,8 @@ src/
     espace-config.ts       lecture/réécriture de `_espace.yaml`, barre latérale effective
     vue.ts                 lecture/réécriture des `_vues/*.yaml`
     filtres.ts             évaluation des filtres, tris, héritage à la création, application d'une vue
+    graphe.ts              graphe de dépendances des colonnes calculées, ordre topologique, boucles
+    calcul.ts              valeurs des colonnes calculées (relations non propriétaires, rollups)
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
@@ -49,6 +51,8 @@ src/
   - `src/core/architecture.test.ts` refuse tout import hors du cœur, sauf la liste fermée `LIBRAIRIES_AUTORISEES` (à étendre explicitement quand une librairie sans DOM est ajoutée, ex. `yaml`, `minisearch`).
 - **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
 - Le cœur n'a ni minuteur, ni `crypto`, ni horloge : `Planifier`, `Aleatoire` et la date du jour (`Contexte.aujourdhui`) lui sont injectés.
+- Colonnes calculées : jamais stockées, recalculées dans `DepotEspace` à chaque modification de lignes, sur tout l'espace (écart assumé au « recalcul incrémental » du §12 : simple et assez rapide pour quelques milliers de lignes ; à revoir si ça rame). L'UI lit des lignes « enrichies » (cellules stockées + calculées).
+- Filtres, tris et affichage s'appuient sur la **nature** d'une colonne (`natureDe` : texte, nombre, date, case, choix, liste), pas sur son type : un rollup se comporte comme son résultat.
 - Écart assumé à la spec §8 : une ligne **modifiée** dans la vue reste visible (« sortira de la vue ») comme une ligne créée, sinon elle disparaîtrait en pleine édition.
 - TanStack Table est en **v9** (`useTable`, fonctionnalités déclarées via `tableFeatures`) : les exemples v8 (`useReactTable`, `getCoreRowModel`) ne marchent pas. Guides à jour dans `node_modules/@tanstack/*/skills/`.
 - Fichiers de configuration (`_schema.yaml`, `_espace.yaml`…) : toujours relus sur le disque juste avant d'être modifiés, jamais réécrits depuis un état en mémoire.
@@ -75,7 +79,8 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 3. Tableau minimal (validé dans Chrome ; finitions du ressenti à reprendre plus tard)
 - [x] 4. Gestion du schéma (validé dans Chrome)
 - [x] 5. Filtres, tris, filtres rapides (validé dans Chrome)
-- [ ] 6. Relations et rollups
+- [x] 6. Relations et rollups (à valider dans Chrome)
+- [ ] 7. Pages
 
 ## graphify
 

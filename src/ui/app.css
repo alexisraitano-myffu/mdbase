@@ -227,3 +227,14 @@ button:hover { background: var(--survol); }
 .pilule .chevron { opacity: 0.6; font-size: 0.8em; }
 .ajout-pastille { padding: 0.2rem 0.5rem; font-size: 0.9em; }
 .panneau-pastille { padding: 6px; display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
+.pastille-relation {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  white-space: nowrap;
+  background: #f1f1ef;
+  text-decoration: underline;
+  text-decoration-color: #d3d3d0;
+  text-underline-offset: 2px;
+}
+.lien-casse { color: #b35c00; font-size: 0.9em; white-space: nowrap; }

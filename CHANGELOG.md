@@ -24,6 +24,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Filtres combinés en ET avec tous les opérateurs de la spec (texte insensible à la casse et aux accents, dates relatives, « aujourd'hui » comme valeur d'avant/après), tris multiples (vides en bas, select dans l'ordre de ses options), indicateur de tri dans l'en-tête.
 - Filtres rapides en pastilles : une colonne épinglée au-dessus du tableau (« + Filtre rapide »), réglée directement depuis sa pastille (opérateur + valeur), enregistrée dans la vue ; une pastille non réglée ne filtre rien.
 - Création de ligne : valeurs héritées des filtres de la vue et des pastilles réglées (spec §8) ; une ligne créée ou modifiée reste visible sur fond jaune jusqu'au prochain changement de vue ou de filtres.
+- Jalon 6 (relations et rollups) : colonnes Relation (vers une autre base, colonne miroir créée automatiquement) et Rollup (16 calculs, rollups de rollups) depuis le « + » des en-têtes.
+- Cellule relation : titres des lignes liées en pastilles, menu de recherche pour lier ou délier, depuis l'un ou l'autre côté ; liens cassés signalés et retirables.
+- Rollups affichés selon leur résultat (nombres à la française, pourcentages, dates, pastilles), filtrables et triables comme une colonne saisie.
+- Boucles de dépendances refusées à la configuration avec les noms des colonnes ; colonnes dont la source a été supprimée affichées en erreur.
+- Supprimer une relation (de n'importe quel côté) retire les deux colonnes et tous les liens.
 ### Changed
 ### Fixed
 - Les menus flottants restent dans la fenêtre (les panneaux Filtrer / Trier débordaient à droite).

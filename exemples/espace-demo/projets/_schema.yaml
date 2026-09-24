@@ -32,3 +32,21 @@ colonnes:
   - cle: site
     nom: Site
     type: url
+  - cle: taches
+    nom: Tâches
+    type: relation
+    cible: taches
+    proprietaire: false
+    inverse: projet
+  - cle: heures
+    nom: Heures
+    type: rollup
+    relation: taches
+    champ: heures
+    calcul: somme
+  - cle: avancement
+    nom: Avancement
+    type: rollup
+    relation: taches
+    champ: fait
+    calcul: pourcent_coches

@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
-import { estSaisie, type Colonne, type ColonneChoix } from '../core/schema'
+import { colonne as colonneDe, estSaisie, natureDe, type Colonne, type ColonneChoix, type ColonneRelation } from '../core/schema'
 import { lireNombre, type Cellule as ValeurCellule, type Valeur } from '../core/valeurs'
 import { couleurOption } from './couleurs'
 import { Flottant } from './flottant'
+import { useLancer } from './actions'
+import { titreDe, useEspace } from './contexte-espace'
 
 type Props = {
   depot: DepotBase
@@ -27,9 +29,11 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
   }
   const estTitre = colonne.cle === depot.schema.champTitre
 
-  if (!estSaisie(colonne)) {
-    return <div className="cellule calculee">{colonne.type === 'relation' ? '' : '—'}</div>
+  if (colonne.type === 'relation') {
+    return <CelluleRelation base={depot.schema.id} ligne={ligne} colonne={colonne} surModification={surModification} />
   }
+
+  if (!estSaisie(colonne)) return <CelluleCalculee base={depot.schema.id} cellule={cellule} colonne={colonne} />
 
   if (colonne.type === 'checkbox') {
     const coche = cellule?.etat === 'ok' && cellule.valeur === true
@@ -50,11 +54,6 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
         creer={(label) => creerOption(colonne.cle, label)}
       />
     )
-  }
-
-  if (colonne.type === 'relation') {
-    const ids = cellule?.etat === 'ok' && Array.isArray(cellule.valeur) ? cellule.valeur : []
-    return <div className="cellule calculee">{ids.join(', ')}</div>
   }
 
   const quitter = () => {
@@ -100,7 +99,12 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
 function Avertissement({ cellule }: { cellule: Extract<ValeurCellule, { etat: 'invalide' }> }) {
   return (
     <span className="invalide" title={cellule.raison}>
-      ⚠ {typeof cellule.brut === 'object' ? JSON.stringify(cellule.brut) : String(cellule.brut)}
+      ⚠{' '}
+      {cellule.brut === undefined
+        ? 'erreur'
+        : typeof cellule.brut === 'object'
+          ? JSON.stringify(cellule.brut)
+          : String(cellule.brut)}
     </span>
   )
 }
@@ -234,3 +238,136 @@ function CelluleChoix(p: {
     </div>
   )
 }
+
+/** Relation, des deux côtés : titres des lignes liées en pastilles, menu pour lier ou délier (spec §5). */
+function CelluleRelation(p: { base: string; ligne: LigneChargee; colonne: ColonneRelation; surModification: () => void }) {
+  const { espace, etat } = useEspace()
+  const lancer = useLancer()
+  const ancre = useRef<HTMLDivElement>(null)
+  const [ouvert, setOuvert] = useState(false)
+  const [recherche, setRecherche] = useState('')
+  const { colonne, ligne } = p
+  const cellule = ligne.cellules[colonne.cle]
+  const ids = cellule?.etat === 'ok' && Array.isArray(cellule.valeur) ? cellule.valeur : []
+
+  const changer = (suivants: string[]) => {
+    p.surModification()
+    void lancer(Promise.resolve().then(() => espace.modifierRelation(p.base, ligne.id, colonne.cle, suivants)))
+  }
+  const basculer = (id: string) => changer(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
+
+  const texte = normaliser(recherche.trim())
+  const candidats = [...(etat.titres.get(colonne.cible) ?? new Map<string, string>())]
+    .filter(([, titre]) => normaliser(titre).includes(texte))
+    .sort(([a], [b]) => Number(ids.includes(b)) - Number(ids.includes(a)))
+    .slice(0, 50)
+  const casses = ids.filter((id) => titreDe(etat, colonne.cible, id) === null)
+
+  return (
+    <div className="cellule" ref={ancre} onClick={() => setOuvert(true)}>
+      {cellule?.etat === 'invalide' ? (
+        <Avertissement cellule={cellule} />
+      ) : (
+        ids.map((id) => {
+          const titre = titreDe(etat, colonne.cible, id)
+          return titre === null ? (
+            <span key={id} className="lien-casse" title="Lien cassé : aucune ligne ne porte cet id">
+              ⚠ {id}
+            </span>
+          ) : (
+            <span key={id} className="pastille-relation">
+              {titre}
+            </span>
+          )
+        })
+      )}
+      {ouvert && (
+        <Flottant
+          ancre={ancre.current}
+          fermer={() => {
+            setOuvert(false)
+            setRecherche('')
+          }}
+        >
+          <input
+            className="recherche-option"
+            autoFocus
+            placeholder="Chercher une ligne à lier"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+          {casses.map((id) => (
+            <button key={id} className="option" onClick={() => basculer(id)} title="Retirer ce lien cassé">
+              <span className="coche">✓</span>
+              <span className="lien-casse">⚠ {id}</span>
+            </button>
+          ))}
+          {candidats.map(([id, titre]) => (
+            <button key={id} className="option" onClick={() => basculer(id)}>
+              <span className="coche">{ids.includes(id) ? '✓' : ''}</span>
+              {titre || 'Sans titre'}
+            </button>
+          ))}
+          {candidats.length === 0 && <div className="option discret">Aucune ligne</div>}
+        </Flottant>
+      )}
+    </div>
+  )
+}
+
+/** Rollup (et bientôt formule) : lecture seule, affiché selon la nature du résultat. */
+function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; colonne: Colonne }) {
+  const { etat } = useEspace()
+  const { cellule, colonne } = p
+  if (colonne.type === 'formula') return <div className="cellule calculee">—</div>
+  if (!cellule) return <div className="cellule calculee" />
+  if (cellule.etat === 'invalide') {
+    return (
+      <div className="cellule">
+        <Avertissement cellule={cellule} />
+      </div>
+    )
+  }
+  const v = cellule.valeur
+  let contenu: ReactNode = String(v)
+  switch (natureDe(colonne)) {
+    case 'nombre': {
+      const n = Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+      contenu = colonne.type === 'rollup' && colonne.calcul.startsWith('pourcent') ? `${n} %` : n
+      break
+    }
+    case 'date':
+      contenu = formaterDate(String(v))
+      break
+    case 'liste': {
+      // Rollup « afficher » : on montre les valeurs comme dans leur colonne d'origine.
+      const champ = champRemonte(etat, p.base, colonne)
+      const valeurs = Array.isArray(v) ? v : [String(v)]
+      contenu = valeurs.map((x, i) =>
+        champ?.type === 'relation' ? (
+          <span key={i} className="pastille-relation">
+            {titreDe(etat, champ.cible, x) ?? `⚠ ${x}`}
+          </span>
+        ) : champ?.type === 'select' || champ?.type === 'multiselect' ? (
+          <Pastille key={i} label={x} couleur={champ.options.find((o) => o.label === x)?.couleur} />
+        ) : (
+          <span key={i}>{i > 0 ? `, ${x}` : x}</span>
+        ),
+      )
+      break
+    }
+  }
+  return <div className="cellule calculee">{contenu}</div>
+}
+
+/** Colonne de la base liée que remonte un rollup. */
+function champRemonte(etat: ReturnType<typeof useEspace>['etat'], base: string, c: Colonne): Colonne | undefined {
+  if (c.type !== 'rollup') return undefined
+  const schema = etat.bases.get(base)?.depot?.schema
+  const relation = schema && colonneDe(schema, c.relation)
+  if (relation?.type !== 'relation') return undefined
+  const cible = etat.bases.get(relation.cible)?.depot?.schema
+  return cible && colonneDe(cible, c.champ)
+}
+
+const normaliser = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
