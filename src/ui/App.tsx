@@ -6,6 +6,7 @@ import {
   navigateurCompatible,
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
+import { chargerBase, type ChargementBase } from '../core/base'
 import { listerBases } from '../core/espace'
 
 type Etat =
@@ -13,7 +14,7 @@ type Etat =
   | { type: 'chargement' }
   | { type: 'aucun' }
   | { type: 'permission'; handle: FileSystemDirectoryHandle }
-  | { type: 'ouvert'; handle: FileSystemDirectoryHandle; bases: string[] }
+  | { type: 'ouvert'; handle: FileSystemDirectoryHandle; bases: { id: string; chargement: ChargementBase }[] }
 
 export function App() {
   const [etat, setEtat] = useState<Etat>(() =>
@@ -22,7 +23,10 @@ export function App() {
   const [erreur, setErreur] = useState<string | null>(null)
 
   async function ouvrir(handle: FileSystemDirectoryHandle) {
-    const bases = await listerBases(new AdaptateurFsa(handle))
+    const adaptateur = new AdaptateurFsa(handle)
+    const bases = await Promise.all(
+      (await listerBases(adaptateur)).map(async (id) => ({ id, chargement: await chargerBase(adaptateur, id) })),
+    )
     setEtat({ type: 'ouvert', handle, bases })
   }
 
@@ -82,7 +86,7 @@ export function App() {
           ) : (
             <ul>
               {etat.bases.map((b) => (
-                <li key={b}>{b}</li>
+                <ResumeBase key={b.id} id={b.id} chargement={b.chargement} />
               ))}
             </ul>
           )}
@@ -93,5 +97,37 @@ export function App() {
       )}
       {erreur && <p className="erreur">{erreur}</p>}
     </main>
+  )
+}
+
+function ResumeBase({ id, chargement }: { id: string; chargement: ChargementBase }) {
+  if (!chargement.ok) {
+    return (
+      <li>
+        {id} <span className="erreur">non reconnue : {chargement.raison}</span>
+      </li>
+    )
+  }
+  const { schema, lignes, nonReconnus, avertissements } = chargement.base
+  const invalides = lignes.flatMap((l) =>
+    Object.entries(l.cellules).flatMap(([cle, c]) =>
+      c.etat === 'invalide' ? [`${l.chemin} · ${cle} : ${c.raison}`] : [],
+    ),
+  )
+  const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`), ...invalides]
+  return (
+    <li>
+      <strong>{schema.nom}</strong>{' '}
+      <span className="discret">
+        {lignes.length} ligne{lignes.length > 1 ? 's' : ''}, {schema.colonnes.length} colonnes
+      </span>
+      {signalements.length > 0 && (
+        <ul className="avertissements">
+          {signalements.map((s) => (
+            <li key={s}>⚠ {s}</li>
+          ))}
+        </ul>
+      )}
+    </li>
   )
 }

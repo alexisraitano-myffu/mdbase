@@ -24,3 +24,4 @@ button {
 button:hover { background: #f1f1ef; }
 .discret { color: #787774; border-color: transparent; background: none; }
 .erreur { color: #c4332b; }
+.avertissements { color: #b35c00; font-size: 0.85em; margin: 0.25rem 0; }

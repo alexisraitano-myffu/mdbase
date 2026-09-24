@@ -25,6 +25,10 @@ src/
     fichiers.ts            interface AdaptateurFichiers (lister, lire, ecrire,
                            renommer, supprimer, dateModification) + helpers de chemins
     adaptateur-memoire.ts  implémentation en mémoire, double des tests
+    schema.ts / valeurs.ts lecture tolérante de `_schema.yaml`, décodage/encodage par type
+    ligne.ts               lecture d'une ligne, réécriture par l'API Document de `yaml`
+    base.ts                chargement d'une base, écriture sûre (date de modification)
+    fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
   ui/            React
@@ -54,7 +58,8 @@ Trois projets TypeScript (`tsconfig.core.json`, `tsconfig.app.json`, `tsconfig.t
 
 Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. État :
 - [x] 1. Socle
-- [ ] 2. Lecture/écriture (ajouter `yaml` aux librairies autorisées du cœur)
+- [x] 2. Lecture/écriture
+- [ ] 3. Tableau minimal
 
 ## graphify
 
