@@ -6,10 +6,12 @@ import { appliquerVue, filtreDePastille, valeursHeritees } from '../core/filtres
 import type { Filtre, ModificationVue } from '../core/vue'
 import { useLancer } from './actions'
 import { BarreVue } from './BarreVue'
+import { Calendrier } from './Calendrier'
 import { Collection } from './Collection'
 import { Kanban } from './Kanban'
 import { Page } from './Page'
 import { Tableau } from './Tableau'
+import { Timeline } from './Timeline'
 import { useAujourdhui } from './useAujourdhui'
 import { useErreurDepot, useLignes } from './useDepot'
 import { useEspace } from './contexte-espace'
@@ -146,9 +148,24 @@ export function VueBase({ espace, etat, depot, chargement }: Props) {
               />
             )
           })()}
-        {(vue.type === 'calendrier' || vue.type === 'timeline') && (
-          <p className="discret">Les vues calendrier et timeline arrivent au jalon 9.</p>
-        )}
+        {(vue.type === 'calendrier' || vue.type === 'timeline') &&
+          (() => {
+            const Composant = vue.type === 'calendrier' ? Calendrier : Timeline
+            return (
+              <Composant
+                key={vue.id}
+                espace={espace}
+                base={etat.id}
+                depot={depot}
+                vue={vue}
+                modifierVue={reglages.modifier}
+                lignesVue={lignesVue}
+                valeursCreation={() => valeursHeritees(depot.schema, filtres)}
+                retenir={retenir}
+                ouvrir={(l) => setPage({ base: etat.id, id: l.id })}
+              />
+            )
+          })()}
       </div>
       {page && (
         <Page

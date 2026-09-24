@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { appliquerVue, correspond, decaler, filtreDePastille, trier, valeursHeritees, type Contexte } from './filtres'
+import { appliquerVue, correspond, filtreDePastille, trier, valeursHeritees, type Contexte } from './filtres'
+import { decaler } from './temps'
 import { schemaProjets } from './fixtures/schema-projets'
 import { creerLigne, lireLigne, type Modifications } from './ligne'
 import type { Filtre } from './vue'

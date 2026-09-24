@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lireVue, modifierVue, vueParDefaut } from './vue'
+import { lireVue, modifierVue, vueParDefaut, type Vue } from './vue'
 
 const KANBAN = `id: kanban-statut
 nom: Par statut
@@ -113,6 +113,16 @@ describe('réglages de la vue', () => {
     const avec = modifierVue(null, vueParDefaut(), { retourLigne: true, groupe: 'statut', masquees: ['a'] })
     const sans = modifierVue(avec, vueParDefaut(), { retourLigne: false, groupe: undefined, masquees: [] })
     expect(sans).toBe('id: tableau\nnom: Tableau\ntype: tableau\n')
+  })
+
+  it('écrit et relit les réglages temporels ; une échelle inconnue est ignorée', () => {
+    const vue: Vue = { ...vueParDefaut(), id: 'planning', nom: 'Planning', type: 'timeline' }
+    const texte = modifierVue(null, vue, { champDebut: 'debut', champFin: 'echeance', champsJalons: ['revue'], echelle: 'trimestre' })
+    expect(texte).toBe(
+      'id: planning\nnom: Planning\ntype: timeline\nchamp_debut: debut\nchamp_fin: echeance\nchamps_jalons: [ revue ]\nechelle: trimestre\n',
+    )
+    expect(lireVue(texte, 'planning').vue).toMatchObject({ champDebut: 'debut', champFin: 'echeance', champsJalons: ['revue'], echelle: 'trimestre' })
+    expect(lireVue('type: calendrier\nechelle: annee\n', 'c').vue?.echelle).toBeUndefined()
   })
 
   it('ignore un réglage mal formé', () => {

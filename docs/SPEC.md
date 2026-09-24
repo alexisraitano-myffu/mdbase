@@ -286,6 +286,19 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 - **Collection** : cartes affichant les champs choisis et, en option, les premières lignes du corps.
 - **Calendrier** : champ date utilisé, champ de fin optionnel pour les plages, vue mois / semaine, glisser-déposer pour changer la date.
 - **Timeline** : champ de début, champ de fin, **champs jalons** (zéro ou plusieurs colonnes date affichées comme des points sur la ligne), zoom semaine / mois / trimestre, redimensionnement et déplacement des barres à la souris.
+- Calendrier et timeline : une ligne sans date n'apparaît pas au calendrier (compteur « sans date ») ; dans la timeline elle garde sa rangée, et un clic sur la rangée la place à cette date. Une fin absente ou antérieure au début donne une plage d'un jour. Déplacer ou étirer garde l'heure d'une date qui en a une. Les colonnes calculées (rollup de date) s'affichent mais ne se glissent pas.
+
+### Exemple `_vues/planning.yaml`
+
+```yaml
+id: planning
+nom: Planning
+type: timeline          # ou calendrier
+champ_debut: debut      # calendrier : le champ date utilisé
+champ_fin: echeance     # optionnel
+champs_jalons: [revue]  # timeline seulement
+echelle: mois           # calendrier : mois | semaine ; timeline : semaine | mois | trimestre
+```
 
 ### Exemple `_vues/kanban-statut.yaml`
 

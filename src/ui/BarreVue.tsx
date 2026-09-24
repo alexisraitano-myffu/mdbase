@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { DepotEspace } from '../core/depot-espace'
-import type { Schema } from '../core/schema'
+import { natureDe, type Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
 import type { ModificationVue, Tri, TypeVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
@@ -55,6 +55,8 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
           <Panneau libelle="Options" actif={false}>
             {vue.type === 'kanban' || vue.type === 'collection' ? (
               <OptionsCartes schema={schema} vue={vue} modifier={modifier} />
+            ) : vue.type === 'calendrier' || vue.type === 'timeline' ? (
+              <OptionsTemps schema={schema} vue={vue} modifier={modifier} />
             ) : (
               <OptionsVue schema={schema} vue={vue} modifier={modifier} />
             )}
@@ -71,11 +73,17 @@ const TYPES_CREABLES: { type: TypeVue; nom: string; icone: string }[] = [
   { type: 'tableau', nom: 'Tableau', icone: '▦' },
   { type: 'kanban', nom: 'Kanban', icone: '▥' },
   { type: 'collection', nom: 'Collection', icone: '▣' },
+  { type: 'calendrier', nom: 'Calendrier', icone: '▤' },
+  { type: 'timeline', nom: 'Timeline', icone: '▬' },
 ]
 
 export const ICONES_VUES: Record<TypeVue, string> = { tableau: '▦', kanban: '▥', collection: '▣', calendrier: '▤', timeline: '▬' }
 
-/** « + » des onglets : nouvelle vue d'un type donné ; un kanban est groupé d'emblée par la première colonne qui s'y prête. */
+/**
+ * « + » des onglets : nouvelle vue d'un type donné. Un kanban est groupé d'emblée
+ * par la première colonne qui s'y prête, un calendrier ou une timeline placé
+ * sur la première colonne de date.
+ */
 function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: Vue[]; choisirVue: (id: string) => void }) {
   const lancer = useLancer()
   const ancre = useRef<HTMLButtonElement>(null)
@@ -86,7 +94,9 @@ function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: 
       type === 'kanban'
         ? (['select', 'checkbox', 'relation', 'multiselect'] as const).flatMap((t) => p.schema.colonnes.filter((c) => c.type === t))[0]?.cle
         : undefined
-    const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, groupe ? { groupe } : {}))
+    const date = type === 'calendrier' || type === 'timeline' ? colonnesDates(p.schema)[0]?.cle : undefined
+    const reglages = { ...(groupe && { groupe }), ...(date && { champDebut: date }) }
+    const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, reglages))
     if (id) p.choisirVue(id)
   }
   return (
@@ -347,6 +357,69 @@ function OptionsCartes({ schema, vue, modifier }: { schema: Schema; vue: Vue; mo
             {c.nom}
           </label>
         ))}
+    </div>
+  )
+}
+
+const colonnesDates = (schema: Schema) => schema.colonnes.filter((c) => natureDe(c) === 'date')
+
+/** Réglages du calendrier et de la timeline : champ de date (ou de début), de fin, jalons (spec §7). */
+function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
+  const dates = colonnesDates(schema)
+  if (dates.length === 0) return <div className="discret">Ajoute d'abord une colonne de type date à la base.</div>
+  const timeline = vue.type === 'timeline'
+  const jalons = new Set(vue.champsJalons ?? [])
+  const candidats = dates.filter((c) => c.cle !== vue.champDebut && c.cle !== vue.champFin)
+  return (
+    <div className="editeur-filtres">
+      <label className="case-reglage">
+        {timeline ? 'Début' : 'Date'}
+        <select value={vue.champDebut ?? ''} onChange={(e) => modifier({ champDebut: e.target.value || undefined })}>
+          <option value="" disabled>
+            choisir…
+          </option>
+          {dates.map((c) => (
+            <option key={c.cle} value={c.cle}>
+              {c.nom}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="case-reglage">
+        Fin
+        <select value={vue.champFin ?? ''} onChange={(e) => modifier({ champFin: e.target.value || undefined })}>
+          <option value="">{timeline ? 'pas de fin (barres d’un jour)' : 'pas de fin (un seul jour)'}</option>
+          {dates
+            .filter((c) => c.cle !== vue.champDebut)
+            .map((c) => (
+              <option key={c.cle} value={c.cle}>
+                {c.nom}
+              </option>
+            ))}
+        </select>
+      </label>
+      {timeline && (
+        <>
+          <div className="titre-section">Jalons (points sur la barre)</div>
+          {candidats.length === 0 && <div className="discret">Aucune autre colonne date à poser en jalon.</div>}
+          {candidats.map((c) => (
+              <label key={c.cle} className="case-reglage">
+                <input
+                  type="checkbox"
+                  checked={jalons.has(c.cle)}
+                  onChange={(e) => {
+                    const suivants = new Set(jalons)
+                    if (e.target.checked) suivants.add(c.cle)
+                    else suivants.delete(c.cle)
+                    modifier({ champsJalons: dates.map((x) => x.cle).filter((x) => suivants.has(x)) })
+                  }}
+                />
+                <span className="icone">{ICONES[c.type]}</span>
+                {c.nom}
+              </label>
+            ))}
+        </>
+      )}
     </div>
   )
 }

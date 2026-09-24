@@ -1,0 +1,9 @@
+id: planning
+nom: Planning
+type: timeline
+champ_debut: debut
+champ_fin: echeance
+champs_jalons: [ revue ]
+echelle: mois
+tris:
+  - { colonne: debut, sens: asc }

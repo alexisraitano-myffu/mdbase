@@ -40,6 +40,8 @@ src/
     calcul.ts              valeurs des colonnes calculées (relations non propriétaires, rollups)
     mise-en-page.ts        lecture/réécriture des `_pages/*.yaml`, règles d'affichage d'une page
     groupes.ts             colonnes d'une vue, groupement, nouvelle valeur d'une carte déplacée
+    temps.ts               jours ISO en UTC pur, grille du calendrier, placement des plages,
+                           gestes (déplacer, étirer), étendue et graduations de la timeline
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
@@ -84,8 +86,9 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 5. Filtres, tris, filtres rapides (validé dans Chrome)
 - [x] 6. Relations et rollups (validé dans Chrome)
 - [x] 7. Pages (validé dans Chrome)
-- [x] 8. Vues : groupement, kanban, collection (à valider dans Chrome)
-- [ ] 9. Vues temporelles : calendrier, timeline
+- [x] 8. Vues : groupement, kanban, collection (validé dans Chrome)
+- [x] 9. Vues temporelles : calendrier, timeline (à valider dans Chrome)
+- [ ] 10. Formules
 
 ## graphify
 

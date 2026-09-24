@@ -40,6 +40,7 @@ export type Tri = { colonne: string; sens: 'asc' | 'desc' }
  */
 export type FiltreRapide = { colonne: string; operateur?: Operateur; valeur?: unknown }
 export type TypeVue = 'tableau' | 'kanban' | 'collection' | 'calendrier' | 'timeline'
+export type EchelleVue = 'semaine' | 'mois' | 'trimestre'
 
 export type Vue = {
   id: string
@@ -67,6 +68,14 @@ export type Vue = {
   champsCarte?: string[]
   /** Collection : premières lignes du corps sur la carte. */
   apercuCorps?: boolean
+  /** Calendrier et timeline : colonne de date qui place la ligne (début de la plage). */
+  champDebut?: string
+  /** Calendrier et timeline : fin optionnelle de la plage. */
+  champFin?: string
+  /** Timeline : colonnes de date affichées comme des points sur la barre. */
+  champsJalons?: string[]
+  /** Calendrier : `mois` ou `semaine` ; timeline : `semaine`, `mois` ou `trimestre`. */
+  echelle?: EchelleVue
   /** Vue par défaut d'une base sans `_vues/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
@@ -89,6 +98,10 @@ const REGLAGES = {
   sousGroupe: 'sous_groupe',
   champsCarte: 'champs_carte',
   apercuCorps: 'apercu_corps',
+  champDebut: 'champ_debut',
+  champFin: 'champ_fin',
+  champsJalons: 'champs_jalons',
+  echelle: 'echelle',
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
 /** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
@@ -128,6 +141,13 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   const champsCarte = chaines(brut.champs_carte)
   if (champsCarte) r.champsCarte = champsCarte
   if (brut.apercu_corps === true) r.apercuCorps = true
+  const champDebut = texte(brut.champ_debut)
+  if (champDebut) r.champDebut = champDebut
+  const champFin = texte(brut.champ_fin)
+  if (champFin) r.champFin = champFin
+  const champsJalons = chaines(brut.champs_jalons)
+  if (champsJalons) r.champsJalons = champsJalons
+  if (brut.echelle === 'semaine' || brut.echelle === 'mois' || brut.echelle === 'trimestre') r.echelle = brut.echelle
   return r
 }
 

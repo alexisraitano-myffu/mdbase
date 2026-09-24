@@ -12,7 +12,9 @@ colonnes:
       - { label: En cours, couleur: bleu }
       - { label: Terminé, couleur: vert }
   - { cle: client, nom: Client, type: relation, cible: clients, proprietaire: true, inverse: projets }
+  - { cle: debut, nom: Début, type: date }
   - { cle: echeance, nom: Échéance, type: date }
+  - { cle: revue, nom: Revue client, type: date }
   - { cle: budget, nom: Budget, type: number }
   - { cle: taches, nom: Tâches, type: relation, cible: taches, proprietaire: false, inverse: projet }
   - { cle: heures, nom: Heures, type: rollup, relation: taches, champ: heures, calcul: somme }
@@ -24,4 +26,4 @@ colonnes:
     champ: fait
     calcul: compter
     filtre: { operateur: egal, valeur: false }
-vues: [ tableau, par-statut ]
+vues: [ tableau, par-statut, planning ]

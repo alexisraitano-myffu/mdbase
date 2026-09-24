@@ -3,7 +3,9 @@ id: psite001
 titre: Site vitrine
 statut: En cours
 client: cacme001
+debut: 2026-09-01
 echeance: 2026-10-15
+revue: 2026-09-25
 budget: 8000
 ---
 ## Objectif

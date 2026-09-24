@@ -90,8 +90,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790280771.2352326,
-    "ast_hash": "0bd099b8dd9d560e59cf9a966ed62c61",
+    "mtime": 1790284356.5894785,
+    "ast_hash": "74b7545d3072a3af0d7b017929e3c65f",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
-    "mtime": 1790277962.0716481,
-    "ast_hash": "d2129b215a500ac4f9adb7ad2e2d2996",
+    "mtime": 1790284356.589067,
+    "ast_hash": "16e74d763b57ddd1e75ffedeaefe3219",
     "semantic_hash": ""
   },
   "exemples/espace-demo/_espace.yaml": {
@@ -110,13 +110,13 @@
     "semantic_hash": ""
   },
   "exemples/espace-demo/projets/_schema.yaml": {
-    "mtime": 1790279012.081367,
-    "ast_hash": "963f344a36440c8b328cae607aba7eef",
+    "mtime": 1790284344.9349499,
+    "ast_hash": "5044eb71874ef7cbdd8be826695ad8a4",
     "semantic_hash": ""
   },
   "exemples/espace-demo/taches/_schema.yaml": {
-    "mtime": 1790279012.0833058,
-    "ast_hash": "76b3002cfbc4d95a97977e975776f580",
+    "mtime": 1790284344.935098,
+    "ast_hash": "a61332f491698549fe8800b890741e3d",
     "semantic_hash": ""
   },
   "index.html": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "src/core/schema.ts": {
-    "mtime": 1790278181.7172272,
-    "ast_hash": "927eaa02817835da2203ea1ccd1eb06d",
+    "mtime": 1790284297.8370302,
+    "ast_hash": "edf98aa6b5d210867231edb9c9c7783f",
     "semantic_hash": ""
   },
   "src/core/valeurs.test.ts": {
@@ -215,13 +215,13 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.test.ts": {
-    "mtime": 1790280734.1925814,
-    "ast_hash": "44c790a0c58162746a52f34b54bcdc93",
+    "mtime": 1790284322.3805368,
+    "ast_hash": "c9f58332fa7767c96cd22281cb537b0b",
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790280674.3169563,
-    "ast_hash": "c6b2deffd1a2c12bbfeb4a70cfbf07c3",
+    "mtime": 1790284305.4715145,
+    "ast_hash": "646229edbe8645af759caa0ab31c57f9",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "src/core/schema-ecriture.ts": {
-    "mtime": 1790278941.2812924,
-    "ast_hash": "09b985d2d6d33553c98ce6224b27222a",
+    "mtime": 1790284297.8373797,
+    "ast_hash": "ac069179ccb06372ac24cb0e896fc4ae",
     "semantic_hash": ""
   },
   "src/ui/BarreLaterale.tsx": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "src/ui/BarreVue.tsx": {
-    "mtime": 1790280703.1751983,
-    "ast_hash": "557e6c74106e6f3846dba847fa4c34b7",
+    "mtime": 1790284344.920852,
+    "ast_hash": "3a2ce0a0b42236655d5ad99de3f96ad6",
     "semantic_hash": ""
   },
   "src/ui/EditeurFiltres.tsx": {
@@ -355,13 +355,13 @@
     "semantic_hash": ""
   },
   "src/exemples.test.ts": {
-    "mtime": 1790279027.2502592,
-    "ast_hash": "9f65beb0b6e6d98bb9499fcb1f84e31f",
+    "mtime": 1790284345.0544493,
+    "ast_hash": "7409261692996a202af9e9aa578643fc",
     "semantic_hash": ""
   },
   "exemples/espace-demo/clients/_schema.yaml": {
-    "mtime": 1790279012.079324,
-    "ast_hash": "a06a454d1d249d59a8b9135517239ef1",
+    "mtime": 1790284344.9352295,
+    "ast_hash": "0e99ca620f8a85bc27dd0f13d53478e7",
     "semantic_hash": ""
   },
   "exemples/espace-demo/clients/acme--cacme001.md": {
@@ -524,14 +524,14 @@
     "ast_hash": "1114553ec59958f8dae56fa54e6eacf3",
     "semantic_hash": ""
   },
-  "exemples/espace-demo/projets/_vues/vue-statut.yaml": {
-    "mtime": 1790280769.724518,
-    "ast_hash": "b96ba5a5b317a49d74694ac4102f7e37",
+  "exemples/espace-demo/projets/_vues/par-statut.yaml": {
+    "mtime": 1790284344.9296892,
+    "ast_hash": "3760b2b21d744806c50c5eed0f8eac0c",
     "semantic_hash": ""
   },
-  "exemples/espace-demo/taches/_vues/vue-priorite.yaml": {
-    "mtime": 1790280769.7289479,
-    "ast_hash": "19dfe828afb9007caef6f1146d32ac18",
+  "exemples/espace-demo/taches/_vues/par-priorite.yaml": {
+    "mtime": 1790284344.9343977,
+    "ast_hash": "f1a6a0d4d266b415df184820a17d056e",
     "semantic_hash": ""
   }
 }

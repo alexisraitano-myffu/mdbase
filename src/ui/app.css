@@ -413,3 +413,137 @@ button:hover { background: var(--survol); }
 }
 .carte-ajout { justify-content: center; align-items: center; min-height: 60px; box-shadow: none; border: 1px dashed #d5d5d3; }
 .onglet.cible { box-shadow: inset 2px 0 0 #2383e2; }
+
+/* Vues temporelles : barre commune */
+.barre-temps { display: flex; align-items: center; gap: 6px; padding: 4px 0 8px; }
+.barre-temps .periode { font-weight: 600; text-transform: capitalize; margin-right: 6px; }
+.espaceur { flex: 1; }
+.echelles { display: flex; gap: 2px; margin-right: 8px; }
+.echelles button { padding: 0.25rem 0.6rem; }
+.echelles button.actif { background: var(--survol); color: #37352f; }
+body.en-glisser { cursor: grabbing; user-select: none; }
+.poignee { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; }
+.poignee-debut { left: 0; }
+.poignee-fin { right: 0; }
+.titre-evt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Calendrier */
+.calendrier { flex: 1; overflow: auto; display: flex; flex-direction: column; }
+.cal-jours-semaine { display: grid; grid-template-columns: repeat(7, 1fr); color: var(--discret); font-size: 0.85em; border-bottom: 1px solid var(--bordure); }
+.cal-jours-semaine div { padding: 4px 6px; text-align: right; }
+.cal-grille { flex: 1; display: flex; flex-direction: column; }
+.cal-semaine {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 2px;
+  min-height: 110px;
+  border-bottom: 1px solid var(--bordure);
+}
+.cal-une-semaine .cal-semaine { min-height: 420px; }
+.cal-jour { grid-row: 1 / -1; border-right: 1px solid var(--bordure); display: flex; justify-content: flex-end; align-items: flex-start; gap: 4px; padding: 4px 6px; }
+.cal-jour:nth-child(7) { border-right: none; }
+.cal-jour.hors-mois { background: #fafaf9; color: var(--discret); }
+.num-jour { font-size: 0.85em; line-height: 20px; }
+.cal-jour.aujourdhui .num-jour { background: #eb5757; color: #fff; border-radius: 10px; padding: 0 6px; font-weight: 600; }
+.ajout-jour { visibility: hidden; order: -1; padding: 0 6px; line-height: 20px; }
+.cal-jour:hover .ajout-jour { visibility: visible; }
+.cal-evt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 4px;
+  padding: 0 8px;
+  font-size: 0.9em;
+  background: #fff;
+  border: 1px solid #d5d5d3;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(15, 15, 15, 0.08);
+  cursor: pointer;
+  z-index: 1;
+  min-width: 0;
+}
+.cal-evt.deplacable { cursor: grab; }
+.cal-evt.coupe-avant { margin-left: 0; border-left-style: dashed; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.cal-evt.coupe-apres { margin-right: 0; border-right-style: dashed; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.cal-evt.glisse, .tl-barre.glisse { box-shadow: 0 4px 14px rgba(15, 15, 15, 0.22); border-color: #2383e2; z-index: 3; }
+.cal-evt.sortira, .tl-barre.sortira { opacity: 0.55; }
+
+/* Timeline */
+.timeline-vue { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.timeline { flex: 1; overflow: auto; border-top: 1px solid var(--bordure); position: relative; }
+.tl-entete { position: sticky; top: 0; z-index: 4; display: flex; background: #fff; border-bottom: 1px solid var(--bordure); height: 52px; }
+.tl-coin { position: sticky; left: 0; z-index: 5; width: 240px; flex-shrink: 0; box-sizing: border-box; padding: 16px 8px 0; background: #fff; color: var(--discret); border-right: 1px solid var(--bordure); }
+.tl-graduations { position: relative; flex-shrink: 0; }
+.tl-haut, .tl-bas { position: relative; height: 26px; }
+.tl-graduation {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  padding: 5px 4px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 0.8em;
+  color: var(--discret);
+  border-left: 1px solid var(--bordure);
+}
+.tl-haut .tl-graduation { font-weight: 600; color: #37352f; text-transform: capitalize; }
+.tl-corps { position: relative; }
+.tl-fond { position: absolute; top: 0; bottom: 0; z-index: 0; pointer-events: none; }
+.tl-trait { position: absolute; top: 0; bottom: 0; border-left: 1px solid #f3f3f1; }
+.tl-aujourdhui { position: absolute; top: 0; bottom: 0; border-left: 2px solid #eb5757; z-index: 2; }
+.tl-ligne { position: absolute; top: 0; left: 0; right: 0; height: 36px; display: flex; }
+.tl-ligne:hover .tl-piste { background: rgba(0, 0, 0, 0.015); }
+.tl-titre {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 240px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0 8px;
+  line-height: 36px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #fff;
+  border-right: 1px solid var(--bordure);
+  border-bottom: 1px solid #f3f3f1;
+  cursor: pointer;
+}
+.tl-titre:hover { background: var(--survol); }
+.tl-titre.sortira { color: var(--discret); }
+button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-align: left; height: 36px; }
+.tl-piste { position: relative; flex-shrink: 0; border-bottom: 1px solid #f3f3f1; }
+.tl-piste.a-placer { cursor: copy; }
+.tl-barre {
+  position: absolute;
+  top: 6px;
+  height: 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 0.9em;
+  background: #d3e5ef;
+  color: #183347;
+  border: 1px solid #b6d3e6;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1;
+}
+.tl-barre.deplacable { cursor: grab; }
+.tl-titre-dehors { position: absolute; top: 0; line-height: 36px; font-size: 0.9em; color: var(--discret); white-space: nowrap; pointer-events: none; }
+.tl-jalon {
+  position: absolute;
+  top: 12px;
+  width: 11px;
+  height: 11px;
+  margin-left: -6px;
+  background: #f2994a;
+  border: 1px solid #fff;
+  transform: rotate(45deg);
+  z-index: 2;
+  cursor: pointer;
+}

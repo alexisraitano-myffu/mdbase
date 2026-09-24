@@ -1,0 +1,5 @@
+id: calendrier
+nom: Calendrier
+type: calendrier
+champ_debut: echeance
+echelle: mois

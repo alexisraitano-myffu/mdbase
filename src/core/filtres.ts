@@ -1,6 +1,7 @@
 import type { LigneChargee } from './base'
 import type { Modifications } from './ligne'
 import { colonne as colonneDe, natureDe, type Colonne, type Schema } from './schema'
+import { decaler, jourSemaine } from './temps'
 import type { Valeur } from './valeurs'
 import type { Filtre, FiltreRapide, Operateur, Tri } from './vue'
 
@@ -176,22 +177,6 @@ function comparerDate(v: string, f: Filtre, ctx: Contexte): boolean {
     default:
       return false
   }
-}
-
-function enUTC(iso: string): Date {
-  const [a, m, j] = iso.split('-').map(Number)
-  return new Date(Date.UTC(a!, m! - 1, j!))
-}
-
-/** 0 = dimanche … 6 = samedi. */
-function jourSemaine(iso: string): number {
-  return enUTC(iso).getUTCDay()
-}
-
-export function decaler(iso: string, jours: number): string {
-  const d = enUTC(iso)
-  d.setUTCDate(d.getUTCDate() + jours)
-  return d.toISOString().slice(0, 10)
 }
 
 // ── Tris ───────────────────────────────────────────────────────────
