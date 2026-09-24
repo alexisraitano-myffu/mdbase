@@ -35,6 +35,12 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
             choisir={() => choisirVue(v.id)}
             renommer={(nom) => void lancer(espace.modifierVue(base, v.id, { nom }))}
             supprimer={vues.length > 1 ? () => void lancer(espace.supprimerVue(base, v.id)) : undefined}
+            deposer={(glissee) => {
+              if (glissee === v.id) return
+              const ids = vues.map((x) => x.id).filter((x) => x !== glissee)
+              ids.splice(ids.indexOf(v.id), 0, glissee)
+              void lancer(espace.ordonnerVues(base, ids))
+            }}
           />
         ))}
         <AjoutVue espace={espace} base={base} schema={schema} vues={vues} choisirVue={choisirVue} />
@@ -102,8 +108,17 @@ function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: 
   )
 }
 
-function Onglet(p: { vue: Vue; active: boolean; choisir: () => void; renommer: (nom: string) => void; supprimer?: (() => void) | undefined }) {
+function Onglet(p: {
+  vue: Vue
+  active: boolean
+  choisir: () => void
+  renommer: (nom: string) => void
+  supprimer?: (() => void) | undefined
+  /** Une vue glissée est déposée sur cet onglet : elle prend sa place. */
+  deposer: (idGlissee: string) => void
+}) {
   const [edition, setEdition] = useState(false)
+  const [cible, setCible] = useState(false)
   const [menu, setMenu] = useState(false)
   const ancre = useRef<HTMLDivElement>(null)
   if (edition) {
@@ -127,14 +142,27 @@ function Onglet(p: { vue: Vue; active: boolean; choisir: () => void; renommer: (
   return (
     <div
       ref={ancre}
-      className={`onglet ${p.active ? 'actif' : ''}`}
+      className={`onglet ${p.active ? 'actif' : ''} ${cible ? 'cible' : ''}`}
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData('text/vue', p.vue.id)}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('text/vue')) return
+        e.preventDefault()
+        setCible(true)
+      }}
+      onDragLeave={() => setCible(false)}
+      onDrop={(e) => {
+        setCible(false)
+        const id = e.dataTransfer.getData('text/vue')
+        if (id) p.deposer(id)
+      }}
       onClick={p.choisir}
       onDoubleClick={() => setEdition(true)}
       onContextMenu={(e) => {
         e.preventDefault()
         setMenu(true)
       }}
-      title="Double-clic pour renommer, clic droit pour plus"
+      title="Glisser pour réordonner, double-clic pour renommer, clic droit pour plus"
     >
       <span className="icone">{ICONES_VUES[p.vue.type]}</span>
       {p.vue.nom}

@@ -24,3 +24,4 @@ colonnes:
     champ: fait
     calcul: compter
     filtre: { operateur: egal, valeur: false }
+vues: [ tableau, par-statut ]

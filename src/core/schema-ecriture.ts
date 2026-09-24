@@ -12,6 +12,8 @@ export type OperationSchema =
   | { type: 'champ_titre'; cle: string }
   | { type: 'ajouter_option'; cle: string; option: Option }
   | { type: 'renommer_base'; nom: string }
+  /** Ordre des onglets de vues ; une liste vide retire la clé. */
+  | { type: 'ordre_vues'; ids: string[] }
   /** Remplace des propriétés d'une colonne (config d'un rollup…) ; `undefined` retire la propriété. */
   | { type: 'modifier_colonne'; cle: string; proprietes: Record<string, unknown> }
 
@@ -47,6 +49,10 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
       break
     case 'champ_titre':
       doc.set('champ_titre', op.cle)
+      break
+    case 'ordre_vues':
+      if (op.ids.length === 0) doc.delete('vues')
+      else doc.set('vues', doc.createNode(op.ids, { flow: true }))
       break
     case 'ajouter_colonne': {
       const { cle, nom, type, ...reste } = op.colonne

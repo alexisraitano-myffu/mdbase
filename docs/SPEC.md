@@ -147,6 +147,7 @@ colonnes:
 ```
 
 Règles :
+- `vues` (optionnel) : ordre des onglets de vues de la base ; les vues non citées suivent, par nom de fichier. Réordonner les onglets ne modifie que ce fichier.
 - **La `cle` d'une colonne est fixée à la création et ne change jamais.** Renommer une colonne modifie seulement `nom`. Aucune réécriture de fichiers de lignes.
 - La clé est un slug `snake_case` dérivé du nom à la création, dédoublonné si nécessaire.
 - **La clé `id` est réservée** à l'identifiant de ligne, caché et géré automatiquement. Une colonne dont le slug donnerait `id` (ex. une colonne nommée « Id ») reçoit une clé dédoublonnée (`id_2`).

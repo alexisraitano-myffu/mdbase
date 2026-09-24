@@ -16,3 +16,4 @@ colonnes:
   # Rollup de rollup : somme des heures des projets, elles-mêmes somme des heures des tâches.
   - { cle: heures, nom: Heures, type: rollup, relation: projets, champ: heures, calcul: somme }
   - { cle: avancement, nom: Avancement moyen, type: rollup, relation: projets, champ: avancement, calcul: moyenne }
+vues: [ cartes, tableau ]

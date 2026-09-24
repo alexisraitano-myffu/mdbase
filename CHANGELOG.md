@@ -40,6 +40,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Calculs en pied de colonne (somme, moyenne, comptes, % cochées, dates…) et par groupe.
 - Groupement du tableau (select, case, multiselect, relation, texte) : groupes repliables, « + » par groupe qui reprend la valeur du groupe.
 - Jalon 8b : vues Kanban (colonnes selon un select, une case, une relation ou un multiselect ; couloirs optionnels ; glisser une carte change sa valeur ; « + Nouvelle » par colonne) et Collection (grille de cartes, début du contenu en option). Champs de carte au choix, carte cliquable pour ouvrir la page. Choix du type au « + » des onglets.
+- Onglets de vues réordonnables par glisser-déposer ; l'ordre est gardé dans `_schema.yaml` (clé `vues`), une nouvelle vue prend le dernier onglet.
 ### Changed
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
 ### Fixed

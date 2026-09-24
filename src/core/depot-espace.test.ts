@@ -226,13 +226,47 @@ describe('DepotEspace : vues, modifications rapides', () => {
 })
 
 describe('DepotEspace : création de vues typées', () => {
-  it('crée un kanban avec ses réglages en une seule écriture', async () => {
+  it('crée un kanban avec ses réglages, et lui donne le dernier onglet', async () => {
     const { a, espace } = await ouvrir()
     const id = await espace.creerVue('projets', 'Par statut', 'kanban', { groupe: 'statut', champsCarte: ['budget'] })
-    expect(a.ecritures).toEqual([`projets/_vues/${id}.yaml`])
+    expect(a.ecritures).toEqual([`projets/_vues/${id}.yaml`, 'projets/_schema.yaml'])
+    expect(await a.lire('projets/_schema.yaml')).toContain('vues: [ par-statut ]')
     expect(await a.lire(`projets/_vues/${id}.yaml`)).toBe(
       'id: par-statut\nnom: Par statut\ntype: kanban\ngroupe: statut\nchamps_carte: [ budget ]\n',
     )
     expect(espace.etat().bases.get('projets')!.vues.find((v) => v.id === id)).toMatchObject({ type: 'kanban', groupe: 'statut' })
+  })
+})
+
+describe('DepotEspace : ordre des onglets de vues', () => {
+  const avecVues = {
+    'projets/_schema.yaml': SCHEMA_PROJETS + 'vues: [ tableau, kanban ]\n',
+    'projets/_vues/archive.yaml': 'nom: Archive\n',
+    'projets/_vues/kanban.yaml': 'nom: Kanban\ntype: kanban\n',
+    'projets/_vues/tableau.yaml': 'nom: Tableau\n',
+  }
+  const ids = (e: DepotEspace) => e.etat().bases.get('projets')!.vues.map((v) => v.id)
+
+  it('suit l’ordre du schéma, puis le nom de fichier pour les vues non citées', async () => {
+    const espace = await DepotEspace.ouvrir(new AdaptateurCompteur(avecVues), { aleatoire, planifier: minuteur().planifier, aujourdhui: () => '2026-09-24' })
+    expect(ids(espace)).toEqual(['tableau', 'kanban', 'archive'])
+  })
+
+  it('réordonne en n’écrivant que le schéma, et l’ordre survit au rechargement', async () => {
+    const a = new AdaptateurCompteur(avecVues)
+    const espace = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier, aujourdhui: () => '2026-09-24' })
+    a.ecritures = []
+    await espace.ordonnerVues('projets', ['archive', 'tableau', 'kanban'])
+    expect(ids(espace)).toEqual(['archive', 'tableau', 'kanban'])
+    expect(a.ecritures).toEqual(['projets/_schema.yaml'])
+    const relu = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier, aujourdhui: () => '2026-09-24' })
+    expect(ids(relu)).toEqual(['archive', 'tableau', 'kanban'])
+  })
+
+  it('retire une vue supprimée de l’ordre', async () => {
+    const a = new AdaptateurCompteur(avecVues)
+    const espace = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier, aujourdhui: () => '2026-09-24' })
+    await espace.supprimerVue('projets', 'kanban')
+    expect(await a.lire('projets/_schema.yaml')).toContain('vues: [ tableau ]')
   })
 })

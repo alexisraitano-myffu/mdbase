@@ -15,3 +15,4 @@ colonnes:
   - { cle: echeance, nom: Échéance, type: date }
   - { cle: heures, nom: Heures, type: number }
   - { cle: fait, nom: Fait, type: checkbox }
+vues: [ tableau, par-priorite ]

@@ -34,6 +34,8 @@ export type Schema = {
   nom: string
   champTitre: string
   colonnes: Colonne[]
+  /** Ordre des onglets de vues (clé `vues`) ; les vues non citées suivent, par nom de fichier. */
+  ordreVues: string[]
 }
 
 /** Calculs de rollup (spec §5). */
@@ -142,6 +144,7 @@ export function lireSchema(texte: string, idBase: string): LectureSchema {
       nom: typeof brut.nom === 'string' ? brut.nom : idBase,
       champTitre,
       colonnes,
+      ordreVues: Array.isArray(brut.vues) ? brut.vues.filter((v): v is string => typeof v === 'string') : [],
     },
     avertissements,
   }

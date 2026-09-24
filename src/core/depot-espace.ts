@@ -381,7 +381,10 @@ export class DepotEspace {
       delete vue.implicite
       await this.adaptateur.ecrire(cheminVue(base, id), modifierVue(null, vue, reglages))
       // La vue implicite n'a pas de fichier : la garder ferait croire qu'elle existe encore.
-      this.remplacerVues(base, (vs) => [...vs.filter((v) => !v.implicite), vue])
+      const suivantes = [...vues.filter((v) => !v.implicite), vue]
+      this.remplacerVues(base, () => suivantes)
+      // La nouvelle vue prend le dernier onglet, y compris après un rechargement.
+      await this.modifierSchema(base, { type: 'ordre_vues', ids: suivantes.map((v) => v.id) })
       return id
     })
   }
@@ -392,7 +395,20 @@ export class DepotEspace {
       if (vues.length <= 1) throw new ErreurSchema('Une base garde toujours au moins une vue')
       if (!this.vue(base, idVue).implicite) await this.adaptateur.supprimer(cheminVue(base, idVue))
       this.remplacerVues(base, (vs) => vs.filter((v) => v.id !== idVue))
+      const ordre = this.schema(base).ordreVues
+      if (ordre.includes(idVue)) await this.modifierSchema(base, { type: 'ordre_vues', ids: ordre.filter((x) => x !== idVue) })
     })
+  }
+
+  /** Réordonne les onglets de vues ; l'ordre est gardé dans `_schema.yaml` (clé `vues`). */
+  ordonnerVues(base: string, ids: string[]): Promise<void> {
+    const vues = this.etatBase(base).vues
+    const parId = new Map(vues.map((v) => [v.id, v]))
+    const ordonnees = [...ids.flatMap((id) => parId.get(id) ?? []), ...vues.filter((v) => !ids.includes(v.id))]
+    this.remplacerVues(base, () => ordonnees)
+    return this.enFile(() =>
+      this.modifierSchema(base, { type: 'ordre_vues', ids: ordonnees.filter((v) => !v.implicite).map((v) => v.id) }),
+    )
   }
 
   // ── Mises en page ────────────────────────────────────────────────
@@ -519,7 +535,7 @@ export class DepotEspace {
     return { pages: pages.length > 0 ? pages : [miseEnPageParDefaut()], avertissements }
   }
 
-  private async chargerVues(base: string): Promise<{ vues: Vue[]; avertissements: string[] }> {
+  private async chargerVues(base: string, ordre: readonly string[]): Promise<{ vues: Vue[]; avertissements: string[] }> {
     const dossier = joindre(base, DOSSIER_VUES)
     let entrees
     try {
@@ -536,6 +552,8 @@ export class DepotEspace {
       avertissements.push(...lue.avertissements)
       if (lue.vue) vues.push(lue.vue)
     }
+    const rang = (id: string) => (ordre.includes(id) ? ordre.indexOf(id) : ordre.length)
+    vues.sort((a, b) => rang(a.id) - rang(b.id))
     return { vues: vues.length > 0 ? vues : [vueParDefaut()], avertissements }
   }
 
@@ -584,7 +602,7 @@ export class DepotEspace {
       this.bases.set(id, { id, chargement, depot: null, vues: [], pages: [] })
       return
     }
-    const { vues, avertissements } = await this.chargerVues(id)
+    const { vues, avertissements } = await this.chargerVues(id, chargement.base.schema.ordreVues)
     const { pages, avertissements: avertissementsPages } = await this.chargerPages(id)
     chargement.base.avertissements.push(...avertissements, ...avertissementsPages)
     const depot = new DepotBase(this.adaptateur, chargement.base.schema, chargement.base.lignes, this.options)
