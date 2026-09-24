@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/ui/App.tsx": {
-    "mtime": 1790275948.0808337,
-    "ast_hash": "795e97f131a0350e226d276b89f593ce",
+    "mtime": 1790276723.0780916,
+    "ast_hash": "37ccf7067df832345275b4badd64a8d6",
     "semantic_hash": ""
   },
   "tsconfig.app.json": {
@@ -90,13 +90,13 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1790276020.8193069,
-    "ast_hash": "df91eb7e8b66e52526161387aaa4c23c",
+    "mtime": 1790276766.4958277,
+    "ast_hash": "32f0f7f9ffa8299d3397548e0d70a881",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790276293.761047,
-    "ast_hash": "ea38d799e668bfeeea654256c82d876d",
+    "mtime": 1790276766.4955132,
+    "ast_hash": "6a6bdbde8cdf469f2124bc636b503e87",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -205,13 +205,13 @@
     "semantic_hash": ""
   },
   "src/ui/Tableau.tsx": {
-    "mtime": 1790276000.6150908,
-    "ast_hash": "8fd1535572b31b6e3048724aa674438b",
+    "mtime": 1790276664.0484178,
+    "ast_hash": "895f37161dce31f9013879ff14dbcc17",
     "semantic_hash": ""
   },
   "src/ui/cellules.tsx": {
-    "mtime": 1790275913.7483068,
-    "ast_hash": "d10cc1f102430459066823923bd9f71c",
+    "mtime": 1790276626.1819386,
+    "ast_hash": "60600126c53e0a0c4f4fc26e42b723d5",
     "semantic_hash": ""
   },
   "src/ui/couleurs.ts": {
@@ -267,6 +267,26 @@
   "src/core/schema-ecriture.ts": {
     "mtime": 1790276429.7014577,
     "ast_hash": "d69ac25968f876d104db04dd8db5a2a9",
+    "semantic_hash": ""
+  },
+  "src/ui/BarreLaterale.tsx": {
+    "mtime": 1790276706.293331,
+    "ast_hash": "78f108ba89a83a3f122bacd95ceb19b6",
+    "semantic_hash": ""
+  },
+  "src/ui/EnteteColonne.tsx": {
+    "mtime": 1790276646.4430234,
+    "ast_hash": "a7e5c336d05ddebc31d6be6702851f53",
+    "semantic_hash": ""
+  },
+  "src/ui/actions.tsx": {
+    "mtime": 1790276646.4384873,
+    "ast_hash": "ae41470140d1727aad150262c7b52d3f",
+    "semantic_hash": ""
+  },
+  "src/ui/flottant.tsx": {
+    "mtime": 1790276749.0159845,
+    "ast_hash": "995ab7f533c7bd7c48281119e77f3a80",
     "semantic_hash": ""
   }
 }

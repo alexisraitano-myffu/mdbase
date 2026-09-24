@@ -70,7 +70,7 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 1. Socle
 - [x] 2. Lecture/écriture
 - [x] 3. Tableau minimal (validé dans Chrome ; finitions du ressenti à reprendre plus tard)
-- [x] 4. Gestion du schéma (à valider dans Chrome)
+- [x] 4. Gestion du schéma (validé dans Chrome)
 - [ ] 5. Filtres, tris, filtres rapides
 
 ## graphify
