@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import { estSaisie, type Colonne, type ColonneChoix } from '../core/schema'
 import { lireNombre, type Cellule as ValeurCellule, type Valeur } from '../core/valeurs'
 import { couleurOption } from './couleurs'
+import { Flottant } from './flottant'
 
 type Props = {
   depot: DepotBase
@@ -11,10 +12,12 @@ type Props = {
   colonne: Colonne
   /** Ouvre l'éditeur dès le montage (ligne tout juste créée). */
   editionInitiale?: boolean
+  /** Crée une option de select à la volée et renvoie son libellé. */
+  creerOption: (cle: string, label: string) => Promise<string>
 }
 
 /** Une cellule du tableau : affichage, et édition au clic selon le type. */
-export function Cellule({ depot, ligne, colonne, editionInitiale = false }: Props) {
+export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerOption }: Props) {
   const [edition, setEdition] = useState(editionInitiale)
   const cellule = ligne.cellules[colonne.cle]
   const modifier = (v: Valeur | undefined) => depot.modifier(ligne.chemin, colonne.cle, v)
@@ -35,7 +38,14 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false }: Prop
   }
 
   if (colonne.type === 'select' || colonne.type === 'multiselect') {
-    return <CelluleChoix colonne={colonne} cellule={cellule} modifier={modifier} />
+    return (
+      <CelluleChoix
+        colonne={colonne}
+        cellule={cellule}
+        modifier={modifier}
+        creer={(label) => creerOption(colonne.cle, label)}
+      />
+    )
   }
 
   if (colonne.type === 'relation') {
@@ -145,21 +155,40 @@ function CelluleChoix(p: {
   colonne: ColonneChoix
   cellule: ValeurCellule | undefined
   modifier: (v: Valeur | undefined) => void
+  creer: (label: string) => Promise<string>
 }) {
   const [ouvert, setOuvert] = useState(false)
+  const [recherche, setRecherche] = useState('')
   const ancre = useRef<HTMLDivElement>(null)
   const { colonne, cellule } = p
   const choisis = cellule?.etat === 'ok' ? (Array.isArray(cellule.valeur) ? cellule.valeur : [String(cellule.valeur)]) : []
   const couleur = (label: string) => colonne.options.find((o) => o.label === label)?.couleur
 
+  const fermer = () => {
+    setOuvert(false)
+    setRecherche('')
+  }
+
   const basculer = (label: string) => {
     if (colonne.type === 'select') {
       p.modifier(choisis[0] === label ? undefined : label)
-      setOuvert(false)
+      fermer()
     } else {
       const suivants = choisis.includes(label) ? choisis.filter((x) => x !== label) : [...choisis, label]
       p.modifier(suivants)
+      setRecherche('')
     }
+  }
+
+  const texte = recherche.trim()
+  const visibles = colonne.options.filter((o) => o.label.toLowerCase().includes(texte.toLowerCase()))
+  const exacte = colonne.options.find((o) => o.label === texte)
+
+  const valider = async () => {
+    if (texte === '') return
+    if (exacte) return basculer(exacte.label)
+    if (visibles.length === 1 && visibles[0]) return basculer(visibles[0].label)
+    basculer(await p.creer(texte))
   }
 
   return (
@@ -170,50 +199,34 @@ function CelluleChoix(p: {
         choisis.map((l) => <Pastille key={l} label={l} couleur={couleur(l)} />)
       )}
       {ouvert && (
-        <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
-          {colonne.options.length === 0 && <div className="discret">Aucune option</div>}
-          {colonne.options.map((o) => (
+        <Flottant ancre={ancre.current} fermer={fermer}>
+          <input
+            className="recherche-option"
+            autoFocus
+            placeholder="Chercher ou créer une option"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void valider()}
+          />
+          {visibles.map((o) => (
             <button key={o.label} className="option" onClick={() => basculer(o.label)}>
               <span className="coche">{choisis.includes(o.label) ? '✓' : ''}</span>
               <Pastille label={o.label} couleur={o.couleur} />
             </button>
           ))}
-          {choisis.length > 0 && (
-            <button className="option discret" onClick={() => (p.modifier(undefined), setOuvert(false))}>
+          {texte !== '' && !exacte && (
+            <button className="option" onClick={() => void valider()}>
+              <span className="coche">+</span>
+              Créer <Pastille label={texte} />
+            </button>
+          )}
+          {choisis.length > 0 && texte === '' && (
+            <button className="option discret" onClick={() => (p.modifier(undefined), fermer())}>
               Vider
             </button>
           )}
         </Flottant>
       )}
-    </div>
-  )
-}
-
-/** Panneau flottant sous une ancre, fermé par un clic extérieur ou Échap. */
-function Flottant(p: { ancre: HTMLElement | null; fermer: () => void; children: ReactNode }) {
-  const panneau = useRef<HTMLDivElement>(null)
-  const { fermer } = p
-  useEffect(() => {
-    const clic = (e: MouseEvent) => {
-      if (!panneau.current?.contains(e.target as Node)) fermer()
-    }
-    const touche = (e: KeyboardEvent) => e.key === 'Escape' && fermer()
-    document.addEventListener('mousedown', clic)
-    document.addEventListener('keydown', touche)
-    return () => {
-      document.removeEventListener('mousedown', clic)
-      document.removeEventListener('keydown', touche)
-    }
-  }, [fermer])
-  const r = p.ancre?.getBoundingClientRect()
-  return (
-    <div
-      ref={panneau}
-      className="flottant"
-      style={{ top: (r?.bottom ?? 0) + 2, left: r?.left ?? 0, minWidth: r?.width ?? 180 }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {p.children}
     </div>
   )
 }

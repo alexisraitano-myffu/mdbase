@@ -9,31 +9,25 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
-import { colonne as colonneDuSchema, type Colonne } from '../core/schema'
+import type { DepotEspace } from '../core/depot-espace'
+import { colonne as colonneDuSchema } from '../core/schema'
+import { useLancer } from './actions'
 import { Cellule } from './cellules'
+import { AjoutColonne, ICONES, MenuColonne } from './EnteteColonne'
 import { useLignes } from './useDepot'
 
 const HAUTEUR_LIGNE = 34
 
 const fonctionnalites = tableFeatures({ columnSizingFeature, columnResizingFeature })
 
-const ICONES: Record<Colonne['type'], string> = {
-  text: 'Aa',
-  number: '#',
-  date: '▦',
-  checkbox: '☑',
-  select: '◉',
-  multiselect: '☰',
-  url: '🔗',
-  relation: '↗',
-  rollup: '∑',
-  formula: 'ƒ',
-}
-
 /** Vue tableau d'une base (spec §7) : lignes virtualisées, édition dans les cellules. */
-export function Tableau({ depot }: { depot: DepotBase }) {
+export function Tableau({ espace, base, depot }: { espace: DepotEspace; base: string; depot: DepotBase }) {
   const lignes = useLignes(depot)
+  const lancer = useLancer()
   const [aEditer, setAEditer] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ cle: string; ancre: HTMLElement } | null>(null)
+  const [survol, setSurvol] = useState<string | null>(null)
+  const creerOption = async (cle: string, label: string) => (await espace.ajouterOption(base, cle, label)).label
   const defilement = useRef<HTMLDivElement>(null)
 
   const colonnes = useMemo<ColumnDef<typeof fonctionnalites, LigneChargee>[]>(
@@ -69,22 +63,47 @@ export function Tableau({ depot }: { depot: DepotBase }) {
   }, [aEditer, rangees.length, virtuel])
 
   async function nouvelleLigne() {
-    const ligne = await depot.creer()
-    setAEditer(ligne.chemin)
+    const ligne = await lancer(depot.creer())
+    if (ligne) setAEditer(ligne.chemin)
+  }
+
+  const deposer = (cle: string, cible: string) => {
+    const index = depot.schema.colonnes.findIndex((c) => c.cle === cible)
+    if (cle !== cible && index >= 0) void lancer(espace.deplacerColonne(base, cle, index))
   }
 
   const largeur = table.getTotalSize()
 
   return (
     <div className="tableau" ref={defilement}>
-      <div style={{ width: largeur + 40 }}>
+      <div style={{ width: largeur + 80 }}>
         <div className="entete">
           {table.getFlatHeaders().map((h) => {
             const c = colonneDe(h.column.id)
             return (
-              <div key={h.id} className="cellule-entete" style={{ width: h.getSize() }}>
-                <span className="icone">{ICONES[c.type]}</span>
-                {c.nom}
+              <div
+                key={h.id}
+                className={`cellule-entete ${survol === c.cle ? 'cible' : ''}`}
+                style={{ width: h.getSize() }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setSurvol(c.cle)
+                }}
+                onDragLeave={() => setSurvol(null)}
+                onDrop={(e) => {
+                  setSurvol(null)
+                  deposer(e.dataTransfer.getData('text/colonne'), c.cle)
+                }}
+              >
+                <span
+                  className="libelle-entete"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('text/colonne', c.cle)}
+                  onClick={(e) => setMenu({ cle: c.cle, ancre: e.currentTarget.parentElement! })}
+                >
+                  <span className="icone">{ICONES[c.type]}</span>
+                  {c.nom}
+                </span>
                 <div
                   className={`poignee ${h.column.getIsResizing() ? 'active' : ''}`}
                   onMouseDown={h.getResizeHandler()}
@@ -93,7 +112,19 @@ export function Tableau({ depot }: { depot: DepotBase }) {
               </div>
             )
           })}
+          <AjoutColonne espace={espace} base={base} />
         </div>
+        {menu && colonneDuSchema(depot.schema, menu.cle) && (
+          <MenuColonne
+            key={menu.cle}
+            espace={espace}
+            base={base}
+            depot={depot}
+            colonne={colonneDuSchema(depot.schema, menu.cle)!}
+            ancre={menu.ancre}
+            fermer={() => setMenu(null)}
+          />
+        )}
 
         <div style={{ height: virtuel.getTotalSize(), position: 'relative' }}>
           {virtuel.getVirtualItems().map((v) => {
@@ -111,6 +142,7 @@ export function Tableau({ depot }: { depot: DepotBase }) {
                       ligne={rangee.original}
                       colonne={colonneDe(cell.column.id)}
                       editionInitiale={rangee.id === aEditer && cell.column.id === depot.schema.champTitre}
+                      creerOption={creerOption}
                     />
                   </div>
                 ))}

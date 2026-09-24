@@ -140,13 +140,13 @@
     "semantic_hash": ""
   },
   "src/core/identifiants.test.ts": {
-    "mtime": 1790275386.480498,
-    "ast_hash": "6f5887b648a784d385d4bdc7c2587058",
+    "mtime": 1790276371.6796758,
+    "ast_hash": "e7098c88bf017d79d2856a94b4bb9c9c",
     "semantic_hash": ""
   },
   "src/core/identifiants.ts": {
-    "mtime": 1790275343.2586868,
-    "ast_hash": "64a937c1b4d5652cc266e789fa5dff8e",
+    "mtime": 1790276371.6713047,
+    "ast_hash": "1cd2c85ba2e8340f282378be5849a7e2",
     "semantic_hash": ""
   },
   "src/core/ligne.test.ts": {
@@ -195,13 +195,13 @@
     "semantic_hash": ""
   },
   "src/core/depot-base.test.ts": {
-    "mtime": 1790275861.8098228,
-    "ast_hash": "9f19934480969650a3d61edb384348b9",
+    "mtime": 1790276550.8771386,
+    "ast_hash": "336aae5adb2c634ab00750469e7b7cd7",
     "semantic_hash": ""
   },
   "src/core/depot-base.ts": {
-    "mtime": 1790275823.927547,
-    "ast_hash": "b6d5d6a29aa4bfc65b2a4d3b66b5290b",
+    "mtime": 1790276492.6683197,
+    "ast_hash": "33c06e784f8c3c1f909925cd6a0439b9",
     "semantic_hash": ""
   },
   "src/ui/Tableau.tsx": {
@@ -232,6 +232,41 @@
   "exemples/espace-demo/projets/navi-et-oui--k2x9m4pq.md": {
     "mtime": 1790276124.933986,
     "ast_hash": "8ec9075a48c2b8e26105afd24f61fe68",
+    "semantic_hash": ""
+  },
+  "src/core/depot-espace.test.ts": {
+    "mtime": 1790276587.058221,
+    "ast_hash": "73ca36e885d1a73f7a4d512d0aa87880",
+    "semantic_hash": ""
+  },
+  "src/core/depot-espace.ts": {
+    "mtime": 1790276537.5891697,
+    "ast_hash": "c5d7c997294155e492a15e4a514041ff",
+    "semantic_hash": ""
+  },
+  "src/core/espace-config.test.ts": {
+    "mtime": 1790276472.997749,
+    "ast_hash": "067e9ac70cae3bc43fab348ee6f568a6",
+    "semantic_hash": ""
+  },
+  "src/core/espace-config.ts": {
+    "mtime": 1790276458.6681504,
+    "ast_hash": "8fb2cec3f140db3e8140a6246893f07a",
+    "semantic_hash": ""
+  },
+  "src/core/fixtures/outils.ts": {
+    "mtime": 1790276550.6644053,
+    "ast_hash": "4de2b54186fd62c1f7f42a044400f79b",
+    "semantic_hash": ""
+  },
+  "src/core/schema-ecriture.test.ts": {
+    "mtime": 1790276403.8190958,
+    "ast_hash": "8ac2a54bdce3cbe80f3a3258f053b177",
+    "semantic_hash": ""
+  },
+  "src/core/schema-ecriture.ts": {
+    "mtime": 1790276429.7014577,
+    "ast_hash": "d69ac25968f876d104db04dd8db5a2a9",
     "semantic_hash": ""
   }
 }

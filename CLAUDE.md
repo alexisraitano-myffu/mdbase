@@ -30,6 +30,10 @@ src/
     base.ts                chargement d'une base, écriture sûre (date de modification)
     depot-base.ts          état vivant d'une base ouverte : affichage immédiat,
                            écritures regroupées (300 ms) et sérialisées par fichier
+    depot-espace.ts        espace ouvert : bases, barre latérale, opérations de schéma
+                           (orchestre schéma + lignes, ex. suppression de colonne)
+    schema-ecriture.ts     réécriture de `_schema.yaml` (API Document)
+    espace-config.ts       lecture/réécriture de `_espace.yaml`, barre latérale effective
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
@@ -44,6 +48,7 @@ src/
 - **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
 - Le cœur n'a ni minuteur ni `crypto` : `Planifier` et `Aleatoire` lui sont injectés.
 - TanStack Table est en **v9** (`useTable`, fonctionnalités déclarées via `tableFeatures`) : les exemples v8 (`useReactTable`, `getCoreRowModel`) ne marchent pas. Guides à jour dans `node_modules/@tanstack/*/skills/`.
+- Fichiers de configuration (`_schema.yaml`, `_espace.yaml`…) : toujours relus sur le disque juste avant d'être modifiés, jamais réécrits depuis un état en mémoire.
 - Chemins : relatifs à la racine de l'espace, séparés par `/`, racine = `""`.
 - Nommage en français, comme la spec et le format de fichiers (`lister`, `colonnes`, `champ_titre`).
 - Découper quand un module grandit vraiment, jamais par avance ; les sous-dossiers de `core/` apparaîtront avec les jalons (relations, formules…).
@@ -65,7 +70,8 @@ Suivre l'ordre de la spec §14, un jalon livré et testé avant le suivant. Éta
 - [x] 1. Socle
 - [x] 2. Lecture/écriture
 - [x] 3. Tableau minimal (validé dans Chrome ; finitions du ressenti à reprendre plus tard)
-- [ ] 4. Gestion du schéma
+- [x] 4. Gestion du schéma (à valider dans Chrome)
+- [ ] 5. Filtres, tris, filtres rapides
 
 ## graphify
 

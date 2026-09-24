@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { AdaptateurFsa } from '../adapters/fsa/adaptateur-fsa'
 import {
   choisirDossier,
@@ -7,20 +7,20 @@ import {
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
 import { aleatoire, planifier } from '../adapters/navigateur'
-import { chargerBase, type ChargementBase } from '../core/base'
-import { DepotBase } from '../core/depot-base'
-import { listerBases } from '../core/espace'
+import type { ChargementBase } from '../core/base'
+import type { DepotBase } from '../core/depot-base'
+import { DepotEspace } from '../core/depot-espace'
+import { FournisseurActions } from './actions'
+import { BarreLaterale } from './BarreLaterale'
 import { Tableau } from './Tableau'
 import { useErreurDepot } from './useDepot'
-
-type BaseOuverte = { id: string; chargement: ChargementBase; depot: DepotBase | null }
 
 type Etat =
   | { type: 'incompatible' }
   | { type: 'chargement' }
   | { type: 'aucun' }
   | { type: 'permission'; handle: FileSystemDirectoryHandle }
-  | { type: 'ouvert'; handle: FileSystemDirectoryHandle; bases: BaseOuverte[] }
+  | { type: 'ouvert'; handle: FileSystemDirectoryHandle; espace: DepotEspace }
 
 export function App() {
   const [etat, setEtat] = useState<Etat>(() =>
@@ -29,17 +29,8 @@ export function App() {
   const [erreur, setErreur] = useState<string | null>(null)
 
   async function ouvrir(handle: FileSystemDirectoryHandle) {
-    const adaptateur = new AdaptateurFsa(handle)
-    const bases = await Promise.all(
-      (await listerBases(adaptateur)).map(async (id): Promise<BaseOuverte> => {
-        const chargement = await chargerBase(adaptateur, id)
-        const depot = chargement.ok
-          ? new DepotBase(adaptateur, chargement.base.schema, chargement.base.lignes, { aleatoire, planifier })
-          : null
-        return { id, chargement, depot }
-      }),
-    )
-    setEtat({ type: 'ouvert', handle, bases })
+    const espace = await DepotEspace.ouvrir(new AdaptateurFsa(handle), { aleatoire, planifier })
+    setEtat({ type: 'ouvert', handle, espace })
   }
 
   async function tenter(action: () => Promise<void>) {
@@ -67,7 +58,7 @@ export function App() {
   useEffect(() => {
     if (etat.type !== 'ouvert') return
     const vider = () => {
-      if (document.visibilityState === 'hidden') for (const b of etat.bases) void b.depot?.vider()
+      if (document.visibilityState === 'hidden') void etat.espace.vider()
     }
     document.addEventListener('visibilitychange', vider)
     return () => document.removeEventListener('visibilitychange', vider)
@@ -75,7 +66,13 @@ export function App() {
 
   const choisir = () => tenter(async () => ouvrir(await choisirDossier()))
 
-  if (etat.type === 'ouvert') return <Espace nom={etat.handle.name} bases={etat.bases} changer={choisir} />
+  if (etat.type === 'ouvert') {
+    return (
+      <FournisseurActions>
+        <Espace nom={etat.handle.name} espace={etat.espace} changer={choisir} />
+      </FournisseurActions>
+    )
+  }
 
   return (
     <main className="accueil">
@@ -107,43 +104,45 @@ export function App() {
   )
 }
 
-function Espace({ nom, bases, changer }: { nom: string; bases: BaseOuverte[]; changer: () => void }) {
-  const [choisie, setChoisie] = useState(bases[0]?.id ?? null)
-  const base = bases.find((b) => b.id === choisie)
+function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; changer: () => void }) {
+  const etat = useSyncExternalStore(espace.abonner, espace.etat)
+  const [choisie, setChoisie] = useState<string | null>(
+    () => etat.groupes.flatMap((g) => g.bases)[0] ?? etat.horsGroupe[0] ?? null,
+  )
+  const base = choisie ? etat.bases.get(choisie) : undefined
 
   return (
     <div className="espace">
-      <nav className="barre-laterale">
-        <div className="nom-espace">{nom}</div>
-        {bases.map((b) => (
-          <button
-            key={b.id}
-            className={`entree-base ${b.id === choisie ? 'active' : ''}`}
-            onClick={() => setChoisie(b.id)}
-          >
-            {b.chargement.ok ? b.chargement.base.schema.nom : b.id}
-          </button>
-        ))}
-        <button className="discret changer" onClick={changer}>
-          Changer de dossier
-        </button>
-      </nav>
+      <BarreLaterale
+        espace={espace}
+        etat={etat}
+        nomEspace={nom}
+        choisie={choisie}
+        choisir={setChoisie}
+        changerDossier={changer}
+      />
       <main className="contenu">
-        {!base && <p className="discret">Aucune base dans ce dossier.</p>}
+        {!base && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
         {base && !base.chargement.ok && (
           <p className="erreur">
             « {base.id} » n'est pas une base : {base.chargement.raison}
           </p>
         )}
         {base?.chargement.ok && base.depot && (
-          <VueBase key={base.id} depot={base.depot} chargement={base.chargement} />
+          <VueBase key={base.id} espace={espace} id={base.id} depot={base.depot} chargement={base.chargement} />
         )}
       </main>
     </div>
   )
 }
 
-function VueBase({ depot, chargement }: { depot: DepotBase; chargement: Extract<ChargementBase, { ok: true }> }) {
+function VueBase(p: {
+  espace: DepotEspace
+  id: string
+  depot: DepotBase
+  chargement: Extract<ChargementBase, { ok: true }>
+}) {
+  const { espace, id, depot, chargement } = p
   const erreur = useErreurDepot(depot)
   const { nonReconnus, avertissements } = chargement.base
   const signalements = [...avertissements, ...nonReconnus.map((f) => `${f.chemin} : ${f.raison}`)]
@@ -163,7 +162,7 @@ function VueBase({ depot, chargement }: { depot: DepotBase; chargement: Extract<
           </ul>
         </details>
       )}
-      <Tableau depot={depot} />
+      <Tableau espace={espace} base={id} depot={depot} />
     </>
   )
 }
