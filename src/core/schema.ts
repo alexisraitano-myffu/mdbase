@@ -36,6 +36,59 @@ export type Schema = {
   colonnes: Colonne[]
 }
 
+/** Calculs de rollup (spec §5). */
+export const CALCULS = [
+  'afficher',
+  'compter',
+  'compter_valeurs',
+  'compter_uniques',
+  'compter_vides',
+  'compter_non_vides',
+  'pourcent_coches',
+  'pourcent_non_coches',
+  'somme',
+  'moyenne',
+  'mediane',
+  'min',
+  'max',
+  'amplitude',
+  'date_plus_tot',
+  'date_plus_tard',
+] as const
+export type Calcul = (typeof CALCULS)[number]
+
+/**
+ * Nature de la valeur d'une colonne : elle décide des filtres, des tris et de
+ * l'affichage. Un rollup a la nature de son résultat (spec §5 : « se comporte
+ * exactement comme une colonne saisie »).
+ */
+export type Nature = 'texte' | 'nombre' | 'date' | 'case' | 'choix' | 'liste'
+
+export function natureDe(c: Colonne): Nature {
+  switch (c.type) {
+    case 'text':
+    case 'url':
+      return 'texte'
+    case 'number':
+      return 'nombre'
+    case 'date':
+      return 'date'
+    case 'checkbox':
+      return 'case'
+    case 'select':
+      return 'choix'
+    case 'multiselect':
+    case 'relation':
+      return 'liste'
+    case 'rollup':
+      if (c.calcul === 'afficher') return 'liste'
+      if (c.calcul === 'date_plus_tot' || c.calcul === 'date_plus_tard') return 'date'
+      return 'nombre'
+    case 'formula':
+      return 'texte' // précisé au jalon 10, selon le type du résultat
+  }
+}
+
 export type LectureSchema = { schema: Schema | null; avertissements: string[] }
 
 /** Colonne dont la valeur est écrite dans les fichiers de lignes (spec §3, invariant 1). */

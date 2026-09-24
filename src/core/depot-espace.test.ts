@@ -35,7 +35,7 @@ async function ouvrir() {
     'projets/sinam--p4m1z8rt.md': '---\nid: p4m1z8rt\ntitre: sinam\n---\n',
     'clients/_schema.yaml': SCHEMA_CLIENTS,
   })
-  const espace = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier })
+  const espace = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier, aujourdhui: () => '2026-09-24' })
   a.ecritures = []
   return { a, espace }
 }
@@ -134,7 +134,7 @@ describe('DepotEspace : colonnes', () => {
   it('liste les colonnes calculées dépendantes, y compris dans une autre base', async () => {
     const { espace } = await ouvrir()
     expect(espace.dependants('projets', 'budget')).toEqual(['Clients › Budget total', 'Projets › Marge'])
-    expect(espace.dependants('projets', 'client')).toEqual(['Projets › Nb tâches'])
+    expect(espace.dependants('projets', 'client')).toEqual(['Projets › Nb tâches', 'Clients › Budget total'])
     expect(espace.dependants('projets', 'code')).toEqual([])
   })
 
@@ -199,7 +199,7 @@ describe('DepotEspace : vues', () => {
       'projets/_vues/b.yaml': 'nom: B\ntris:\n  - { colonne: budget, sens: desc }\n',
       'projets/_vues/notes.txt': 'ignoré',
     })
-    const espace = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier })
+    const espace = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier, aujourdhui: () => '2026-09-24' })
     expect(espace.etat().bases.get('projets')!.vues.map((v) => [v.id, v.nom])).toEqual([
       ['a', 'A'],
       ['b', 'B'],

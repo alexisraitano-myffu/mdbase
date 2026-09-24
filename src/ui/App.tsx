@@ -6,7 +6,7 @@ import {
   navigateurCompatible,
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
-import { aleatoire, planifier } from '../adapters/navigateur'
+import { aleatoire, aujourdhui, planifier } from '../adapters/navigateur'
 import { DepotEspace } from '../core/depot-espace'
 import { FournisseurActions } from './actions'
 import { BarreLaterale } from './BarreLaterale'
@@ -26,7 +26,7 @@ export function App() {
   const [erreur, setErreur] = useState<string | null>(null)
 
   async function ouvrir(handle: FileSystemDirectoryHandle) {
-    const espace = await DepotEspace.ouvrir(new AdaptateurFsa(handle), { aleatoire, planifier })
+    const espace = await DepotEspace.ouvrir(new AdaptateurFsa(handle), { aleatoire, planifier, aujourdhui })
     setEtat({ type: 'ouvert', handle, espace })
   }
 

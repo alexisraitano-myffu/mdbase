@@ -1,3 +1,5 @@
 id: tableau-2
 nom: Tableau 2
 type: tableau
+filtres_rapides:
+  - { colonne: echeance, operateur: egal }

@@ -4,5 +4,5 @@ type: tableau
 tris:
   - { colonne: echeance, sens: asc }
 filtres_rapides:
-  - { colonne: statut, operateur: parmi }
-  - { colonne: echeance, operateur: avant, valeur: aujourdhui }
+  - { colonne: statut, operateur: parmi, valeur: [ En cours ] }
+  - { colonne: titre, operateur: contient }

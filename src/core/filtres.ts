@@ -1,6 +1,6 @@
 import type { LigneChargee } from './base'
 import type { Modifications } from './ligne'
-import { colonne as colonneDe, type Colonne, type Schema } from './schema'
+import { colonne as colonneDe, natureDe, type Colonne, type Schema } from './schema'
 import type { Valeur } from './valeurs'
 import type { Filtre, FiltreRapide, Operateur, Tri } from './vue'
 
@@ -10,26 +10,22 @@ import type { Filtre, FiltreRapide, Operateur, Tri } from './vue'
 /** « Aujourd'hui » est injecté : le cœur ne lit pas l'horloge lui-même. */
 export type Contexte = { aujourdhui: string }
 
-/** Opérateurs proposés pour chaque type de colonne (spec §7). */
+/** Opérateurs proposés pour une colonne, selon la nature de sa valeur (spec §7). */
 export function operateursPour(c: Colonne): Operateur[] {
   const communs: Operateur[] = ['vide', 'non_vide']
-  switch (c.type) {
-    case 'text':
-    case 'url':
+  switch (natureDe(c)) {
+    case 'texte':
       return ['egal', 'different_de', 'contient', 'ne_contient_pas', 'commence_par', 'finit_par', ...communs]
-    case 'number':
+    case 'nombre':
       return ['egal', 'different_de', 'superieur', 'inferieur', 'superieur_egal', 'inferieur_egal', ...communs]
     case 'date':
       return ['egal', 'avant', 'apres', 'entre', 'aujourdhui', 'cette_semaine', 'ce_mois', 'jours_passes', 'jours_a_venir', ...communs]
-    case 'checkbox':
+    case 'case':
       return ['egal']
-    case 'select':
+    case 'choix':
       return ['egal', 'different_de', 'parmi', ...communs]
-    case 'multiselect':
-    case 'relation':
+    case 'liste':
       return ['contient', 'ne_contient_pas', ...communs]
-    default:
-      return communs
   }
 }
 
@@ -38,13 +34,11 @@ export const SANS_VALEUR: readonly Operateur[] = ['vide', 'non_vide', 'aujourdhu
 
 /** Opérateur d'une pastille nouvellement épinglée : le plus utile pour le type. */
 export function operateurParDefaut(c: Colonne): Operateur {
-  switch (c.type) {
-    case 'select':
+  switch (natureDe(c)) {
+    case 'choix':
       return 'parmi'
-    case 'multiselect':
-    case 'relation':
-    case 'text':
-    case 'url':
+    case 'liste':
+    case 'texte':
       return 'contient'
     default:
       return 'egal'
@@ -69,7 +63,7 @@ type Lue = { vide: true } | { vide: false; valeur: Valeur | undefined }
 
 function lire(ligne: LigneChargee, c: Colonne): Lue {
   const cellule = ligne.cellules[c.cle]
-  if (!cellule) return c.type === 'checkbox' ? { vide: false, valeur: false } : { vide: true }
+  if (!cellule) return natureDe(c) === 'case' ? { vide: false, valeur: false } : { vide: true }
   return { vide: false, valeur: cellule.etat === 'ok' ? cellule.valeur : undefined }
 }
 
@@ -85,27 +79,23 @@ export function correspond(ligne: LigneChargee, schema: Schema, f: Filtre, ctx: 
   if (lue.vide || lue.valeur === undefined) return negatif
 
   const v = lue.valeur
-  switch (c.type) {
-    case 'text':
-    case 'url':
+  switch (natureDe(c)) {
+    case 'texte':
       return comparerTexte(String(v), f)
-    case 'number':
+    case 'nombre':
       return comparerNombre(Number(v), f)
     case 'date':
       return comparerDate(String(v).slice(0, 10), f, ctx)
-    case 'checkbox':
+    case 'case':
       return v === (f.valeur === true || f.valeur === 'true')
-    case 'select':
+    case 'choix':
       if (f.operateur === 'parmi') return Array.isArray(f.valeur) && f.valeur.includes(v)
       return f.operateur === 'egal' ? v === f.valeur : f.operateur === 'different_de' ? v !== f.valeur : false
-    case 'multiselect':
-    case 'relation': {
+    case 'liste': {
       const liste = Array.isArray(v) ? v : [String(v)]
       const contient = liste.includes(String(f.valeur))
       return f.operateur === 'contient' ? contient : f.operateur === 'ne_contient_pas' ? !contient : false
     }
-    default:
-      return true
   }
 }
 
@@ -235,14 +225,14 @@ export function trier(lignes: readonly LigneChargee[], schema: Schema, tris: rea
 
 function comparer(c: Colonne, a: Valeur | undefined, b: Valeur | undefined): number {
   if (a === undefined || b === undefined) return a === b ? 0 : a === undefined ? 1 : -1
-  switch (c.type) {
-    case 'number':
+  switch (natureDe(c)) {
+    case 'nombre':
+    case 'case':
       return Number(a) - Number(b)
-    case 'checkbox':
-      return Number(a) - Number(b)
-    case 'select': {
+    case 'choix': {
       // Ordre des options, comme dans Notion.
-      const rang = (x: Valeur) => c.options.findIndex((o) => o.label === x)
+      const options = c.type === 'select' ? c.options : []
+      const rang = (x: Valeur) => options.findIndex((o) => o.label === x)
       return rang(a) - rang(b)
     }
     case 'date':
