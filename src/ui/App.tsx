@@ -13,6 +13,9 @@ import { FournisseurActions } from './actions'
 import { BarreLaterale } from './BarreLaterale'
 import { ContexteEspace } from './contexte-espace'
 import { VueBase } from './VueBase'
+import { VueDashboard } from './Dashboard'
+
+export type Selection = { type: 'base' | 'dashboard'; id: string }
 
 type Etat =
   | { type: 'incompatible' }
@@ -111,10 +114,15 @@ export function App() {
 
 function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; changer: () => void }) {
   const etat = useSyncExternalStore(espace.abonner, espace.etat)
-  const [choisie, setChoisie] = useState<string | null>(
-    () => etat.groupes.flatMap((g) => g.bases)[0] ?? etat.horsGroupe[0] ?? null,
-  )
+  // Base ou dashboard affiché dans la zone principale.
+  const [selection, setSelection] = useState<Selection | null>(() => {
+    const premiere = etat.groupes.flatMap((g) => g.bases)[0] ?? etat.horsGroupe[0]
+    return premiere ? { type: 'base', id: premiere } : null
+  })
+  const choisie = selection?.type === 'base' ? selection.id : null
   const base = choisie ? etat.bases.get(choisie) : undefined
+  const dashboard = selection?.type === 'dashboard' ? etat.dashboards.find((d) => d.id === selection.id) : undefined
+  const choisir = (id: string) => setSelection({ type: 'base', id })
 
   return (
     <ContexteEspace.Provider value={{ espace, etat }}>
@@ -123,12 +131,14 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           espace={espace}
           etat={etat}
           nomEspace={nom}
-          choisie={choisie}
-          choisir={setChoisie}
+          selection={selection}
+          choisir={choisir}
+          choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
           changerDossier={changer}
         />
         <main className="contenu">
-          {!base && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
+          {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}
+          {!base && !dashboard && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
           {base && !base.chargement.ok && (
             <p className="erreur">
               « {base.id} » n'est pas une base : {base.chargement.raison}

@@ -45,23 +45,7 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
         ))}
         <AjoutVue espace={espace} base={base} schema={schema} vues={vues} choisirVue={choisirVue} />
 
-        <div className="outils-vue">
-          <Panneau libelle={`Filtrer${vue.filtres.length ? ` (${vue.filtres.length})` : ''}`} actif={vue.filtres.length > 0}>
-            <EditeurFiltres schema={schema} filtres={vue.filtres} changer={(filtres) => modifier({ filtres })} />
-          </Panneau>
-          <Panneau libelle={`Trier${vue.tris.length ? ` (${vue.tris.length})` : ''}`} actif={vue.tris.length > 0}>
-            <EditeurTris schema={schema} tris={vue.tris} changer={(tris) => modifier({ tris })} />
-          </Panneau>
-          <Panneau libelle="Options" actif={false}>
-            {vue.type === 'kanban' || vue.type === 'collection' ? (
-              <OptionsCartes schema={schema} vue={vue} modifier={modifier} />
-            ) : vue.type === 'calendrier' || vue.type === 'timeline' ? (
-              <OptionsTemps schema={schema} vue={vue} modifier={modifier} />
-            ) : (
-              <OptionsVue schema={schema} vue={vue} modifier={modifier} />
-            )}
-          </Panneau>
-        </div>
+        <OutilsVue schema={schema} vue={vue} modifier={modifier} />
       </div>
 
       <Pastilles schema={schema} pastilles={vue.filtresRapides} changer={(filtresRapides) => modifier({ filtresRapides })} />
@@ -69,7 +53,44 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
   )
 }
 
-const TYPES_CREABLES: { type: TypeVue; nom: string; icone: string }[] = [
+/**
+ * Réglages d'une nouvelle vue : un kanban est groupé d'emblée par la première
+ * colonne qui s'y prête, un calendrier ou une timeline placé sur la première
+ * colonne de date.
+ */
+export function reglagesParDefaut(type: TypeVue, schema: Schema): ModificationVue {
+  const groupe =
+    type === 'kanban'
+      ? (['select', 'checkbox', 'relation', 'multiselect'] as const).flatMap((t) => schema.colonnes.filter((c) => c.type === t))[0]?.cle
+      : undefined
+  const date = type === 'calendrier' || type === 'timeline' ? colonnesDates(schema)[0]?.cle : undefined
+  return { ...(groupe && { groupe }), ...(date && { champDebut: date }) }
+}
+
+/** Filtrer, Trier et Options d'une vue ; `modifier` enregistre dans le fichier de la vue ou dans le dashboard. */
+export function OutilsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
+  return (
+    <div className="outils-vue">
+      <Panneau libelle={`Filtrer${vue.filtres.length ? ` (${vue.filtres.length})` : ''}`} actif={vue.filtres.length > 0}>
+        <EditeurFiltres schema={schema} filtres={vue.filtres} changer={(filtres) => modifier({ filtres })} />
+      </Panneau>
+      <Panneau libelle={`Trier${vue.tris.length ? ` (${vue.tris.length})` : ''}`} actif={vue.tris.length > 0}>
+        <EditeurTris schema={schema} tris={vue.tris} changer={(tris) => modifier({ tris })} />
+      </Panneau>
+      <Panneau libelle="Options" actif={false}>
+        {vue.type === 'kanban' || vue.type === 'collection' ? (
+          <OptionsCartes schema={schema} vue={vue} modifier={modifier} />
+        ) : vue.type === 'calendrier' || vue.type === 'timeline' ? (
+          <OptionsTemps schema={schema} vue={vue} modifier={modifier} />
+        ) : (
+          <OptionsVue schema={schema} vue={vue} modifier={modifier} />
+        )}
+      </Panneau>
+    </div>
+  )
+}
+
+export const TYPES_CREABLES: { type: TypeVue; nom: string; icone: string }[] = [
   { type: 'tableau', nom: 'Tableau', icone: '▦' },
   { type: 'kanban', nom: 'Kanban', icone: '▥' },
   { type: 'collection', nom: 'Collection', icone: '▣' },
@@ -79,24 +100,14 @@ const TYPES_CREABLES: { type: TypeVue; nom: string; icone: string }[] = [
 
 export const ICONES_VUES: Record<TypeVue, string> = { tableau: '▦', kanban: '▥', collection: '▣', calendrier: '▤', timeline: '▬' }
 
-/**
- * « + » des onglets : nouvelle vue d'un type donné. Un kanban est groupé d'emblée
- * par la première colonne qui s'y prête, un calendrier ou une timeline placé
- * sur la première colonne de date.
- */
+/** « + » des onglets : nouvelle vue d'un type donné, avec ses réglages par défaut. */
 function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: Vue[]; choisirVue: (id: string) => void }) {
   const lancer = useLancer()
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
   const creer = async (type: TypeVue, nom: string) => {
     setOuvert(false)
-    const groupe =
-      type === 'kanban'
-        ? (['select', 'checkbox', 'relation', 'multiselect'] as const).flatMap((t) => p.schema.colonnes.filter((c) => c.type === t))[0]?.cle
-        : undefined
-    const date = type === 'calendrier' || type === 'timeline' ? colonnesDates(p.schema)[0]?.cle : undefined
-    const reglages = { ...(groupe && { groupe }), ...(date && { champDebut: date }) }
-    const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, reglages))
+    const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, reglagesParDefaut(type, p.schema)))
     if (id) p.choisirVue(id)
   }
   return (

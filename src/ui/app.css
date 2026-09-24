@@ -614,3 +614,35 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
 button.principal { background: #2383e2; border-color: #2383e2; color: #fff; }
 button.principal:hover { background: #1b6fc2; }
 button.principal:disabled { opacity: 0.45; cursor: default; }
+
+/* Dashboards */
+.dashboards { margin-bottom: 8px; }
+.dashboards .titre-groupe .menu-groupe { visibility: visible; }
+.zone-dashboard { overflow: auto; padding-bottom: 2rem; gap: 14px; }
+.titre-dashboard { font-size: 1.9rem; font-weight: 700; margin: 0 0 0.75rem; }
+.rangee-dashboard { position: relative; display: flex; gap: 14px; align-items: stretch; flex-shrink: 0; }
+.bloc-dashboard {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  background: #fff;
+}
+.bloc-casse { justify-content: center; align-items: flex-start; min-height: 120px; }
+.entete-bloc { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.entete-bloc .outils-vue { margin-left: 0; }
+.lien-base { padding: 0.1rem 0.3rem; font-weight: 500; color: #37352f; }
+.nom-vue-bloc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.etiquette-bloc { font-size: 0.75em; color: var(--discret); border: 1px solid var(--bordure); border-radius: 10px; padding: 0 6px; white-space: nowrap; }
+.etiquette-bloc.propre { color: #6940a5; border-color: #e8deee; background: #f6f3f9; }
+.contenu-bloc { height: 380px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.contenu-bloc > * { min-height: 0; }
+.ajout-bloc { align-self: flex-start; }
+.ajout-bloc.compact { align-self: stretch; width: 36px; padding: 0; font-size: 1.2em; border: 1px dashed #d5d5d3; border-radius: 8px; }
+.deplacer-rangee { width: 24px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; visibility: hidden; }
+.rangee-dashboard:hover .deplacer-rangee { visibility: visible; }
+.deplacer-rangee button { padding: 0 6px; }

@@ -1,21 +1,24 @@
 import { useRef, useState, type DragEvent } from 'react'
 import type { DepotEspace, EtatEspace } from '../core/depot-espace'
 import { useLancer } from './actions'
+import type { Selection } from './App'
 import { Flottant } from './flottant'
 
 type Props = {
   espace: DepotEspace
   etat: EtatEspace
   nomEspace: string
-  choisie: string | null
+  selection: Selection | null
   choisir: (id: string) => void
+  choisirDashboard: (id: string) => void
   changerDossier: () => void
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, choisie, choisir, changerDossier }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier }: Props) {
   const lancer = useLancer()
-  const [creation, setCreation] = useState<'base' | 'groupe' | null>(null)
+  const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
+  const choisie = selection?.type === 'base' ? selection.id : null
   const [cible, setCible] = useState<string | null>(null)
 
   const nomBase = (id: string) => {
@@ -58,6 +61,36 @@ export function BarreLaterale({ espace, etat, nomEspace, choisie, choisir, chang
     <nav className="barre-laterale">
       <div className="nom-espace">{nomEspace}</div>
 
+      <section className="groupe dashboards">
+        <div className="titre-groupe">
+          <span>Dashboards</span>
+          <button className="discret menu-groupe" onClick={() => setCreation('dashboard')} aria-label="Nouveau dashboard" title="Nouveau dashboard">
+            +
+          </button>
+        </div>
+        {etat.dashboards.map((d) => (
+          <EntreeDashboard
+            key={d.id}
+            nom={d.dashboard?.nom ?? d.id}
+            active={selection?.type === 'dashboard' && selection.id === d.id}
+            choisir={() => choisirDashboard(d.id)}
+            renommer={(nom) => void lancer(espace.modifierDashboard(d.id, { type: 'renommer', nom }))}
+            supprimer={() => void lancer(espace.supprimerDashboard(d.id))}
+          />
+        ))}
+        {creation === 'dashboard' && (
+          <ChampEnLigne
+            placeholder="Nom du dashboard"
+            valider={async (nom) => {
+              setCreation(null)
+              const id = await lancer(espace.creerDashboard(nom))
+              if (id) choisirDashboard(id)
+            }}
+            annuler={() => setCreation(null)}
+          />
+        )}
+      </section>
+
       {etat.groupes.map((g) => (
         <section key={g.nom} className={`groupe ${cible === `groupe:${g.nom}` ? 'cible' : ''}`} {...deposable(`groupe:${g.nom}`, g.nom)}>
           <EnteteGroupe
@@ -75,7 +108,7 @@ export function BarreLaterale({ espace, etat, nomEspace, choisie, choisir, chang
         {entrees(etat.horsGroupe, null)}
       </section>
 
-      {creation ? (
+      {creation && creation !== 'dashboard' ? (
         <ChampEnLigne
           placeholder={creation === 'base' ? 'Nom de la base' : 'Nom du groupe'}
           valider={async (nom) => {
@@ -141,6 +174,64 @@ function EntreeBase(p: {
       title="Double-clic pour renommer"
     >
       {p.nom}
+    </div>
+  )
+}
+
+function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void; renommer: (nom: string) => void; supprimer: () => void }) {
+  const [edition, setEdition] = useState(false)
+  const [menu, setMenu] = useState<'options' | 'confirmer' | null>(null)
+  const ancre = useRef<HTMLDivElement>(null)
+  if (edition) {
+    return (
+      <ChampEnLigne
+        initial={p.nom}
+        valider={(nom) => {
+          setEdition(false)
+          if (nom !== p.nom) p.renommer(nom)
+        }}
+        annuler={() => setEdition(false)}
+      />
+    )
+  }
+  return (
+    <div
+      ref={ancre}
+      className={`entree-base ${p.active ? 'active' : ''}`}
+      onClick={p.choisir}
+      onDoubleClick={() => setEdition(true)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        setMenu('options')
+      }}
+      title="Double-clic pour renommer, clic droit pour plus"
+    >
+      <span className="icone">▦</span> {p.nom}
+      {menu && (
+        <Flottant ancre={ancre.current} fermer={() => setMenu(null)}>
+          {menu === 'options' ? (
+            <>
+              <button className="option" onClick={() => (setMenu(null), setEdition(true))}>
+                Renommer
+              </button>
+              <button className="option danger-texte" onClick={() => setMenu('confirmer')}>
+                Supprimer le dashboard…
+              </button>
+            </>
+          ) : (
+            <div className="confirmation">
+              <strong>Supprimer « {p.nom} » ?</strong>
+              <p>Le fichier du dashboard et ses vues propres sont supprimés. Les bases et leurs vues ne changent pas.</p>
+              <div className="boutons">
+                <button onClick={() => setMenu(null)}>Annuler</button>
+                <button className="danger" onClick={() => (setMenu(null), p.supprimer())}>
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          )}
+        </Flottant>
+      )}
     </div>
   )
 }

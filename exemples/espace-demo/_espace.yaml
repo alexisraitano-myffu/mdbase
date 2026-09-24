@@ -1,6 +1,6 @@
 version: 1
 barre_laterale:
-  dashboards: []
+  dashboards: [ pilotage ]
   groupes:
     - nom: Travail
       bases: [ clients, projets, taches ]

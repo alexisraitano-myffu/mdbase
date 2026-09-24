@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1790286609.0773351,
-    "ast_hash": "45e2edf522aacc76b22f0b791eb124f8",
+    "mtime": 1790286889.6365283,
+    "ast_hash": "f6d55abbcd92f2d6dc5749e909172299",
     "semantic_hash": ""
   },
   "docs/SPEC.md": {
@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "src/core/depot-espace.ts": {
-    "mtime": 1790286484.1239195,
-    "ast_hash": "ac923d7ffb4a280c891b8eee4e99d22e",
+    "mtime": 1790287036.9749413,
+    "ast_hash": "0366a23ebe765422c4fffedaf89c5b7f",
     "semantic_hash": ""
   },
   "src/core/espace-config.test.ts": {
@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "src/core/espace-config.ts": {
-    "mtime": 1790276458.6681504,
-    "ast_hash": "8fb2cec3f140db3e8140a6246893f07a",
+    "mtime": 1790287036.9742482,
+    "ast_hash": "e2f34deed57017704a148e0c6f55027f",
     "semantic_hash": ""
   },
   "src/core/fixtures/outils.ts": {
@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "src/core/vue.ts": {
-    "mtime": 1790285402.6556466,
-    "ast_hash": "bf2be0e99d12a7a464346c32279832b8",
+    "mtime": 1790286956.066296,
+    "ast_hash": "6482922585dee7231b4a91b4ead022b1",
     "semantic_hash": ""
   },
   "src/ui/BarreVue.tsx": {
@@ -602,6 +602,21 @@
   "src/ui/EditeurFormule.tsx": {
     "mtime": 1790286531.8167279,
     "ast_hash": "a299531c836f165a820b9b0655ef8fb4",
+    "semantic_hash": ""
+  },
+  "src/core/dashboard.test.ts": {
+    "mtime": 1790287009.1617777,
+    "ast_hash": "15e4e056ccddebc826940a18c191432b",
+    "semantic_hash": ""
+  },
+  "src/core/dashboard.ts": {
+    "mtime": 1790287009.1566525,
+    "ast_hash": "92dcfe5c04a5802ace2fc59291ddacea",
+    "semantic_hash": ""
+  },
+  "src/core/depot-espace-dashboards.test.ts": {
+    "mtime": 1790287058.1874535,
+    "ast_hash": "c2b090cf02eef25d22dd3380129437d8",
     "semantic_hash": ""
   }
 }

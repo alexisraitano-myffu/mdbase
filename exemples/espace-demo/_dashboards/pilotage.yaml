@@ -1,0 +1,16 @@
+id: pilotage
+nom: Pilotage
+rangees:
+  - blocs:
+      - { base: projets, vue: par-statut }
+  - blocs:
+      - base: taches
+        vue:
+          id: en-retard
+          nom: Tâches en retard
+          type: tableau
+          filtres:
+            - { colonne: en_retard, operateur: egal, valeur: true }
+          tris:
+            - { colonne: echeance, sens: asc }
+      - { base: clients, vue: cartes }
