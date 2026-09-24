@@ -148,6 +148,7 @@ export function MenuColonne({
           Utiliser comme titre
         </button>
       )}
+      {colonne.type === 'relation' && <NettoyerLiens espace={espace} base={base} cle={colonne.cle} fermer={fermer} />}
       {estTitre ? (
         <div className="option discret">Colonne titre : choisis-en une autre pour pouvoir la supprimer</div>
       ) : (
@@ -156,6 +157,25 @@ export function MenuColonne({
         </button>
       )}
     </Flottant>
+  )
+}
+
+/** Retire d'un coup les liens cassés d'une relation (ids qui ne correspondent plus à aucune ligne). */
+function NettoyerLiens({ espace, base, cle, fermer }: { espace: DepotEspace; base: string; cle: string; fermer: () => void }) {
+  const n = espace.liensCasses(base, cle).reduce((total, x) => total + x.ids.length, 0)
+  if (n === 0) return null
+  return (
+    <button
+      className="option"
+      title="Liens vers des lignes supprimées ou introuvables : ils sont retirés des fichiers qui les portent"
+      onClick={() => {
+        espace.nettoyerLiensCasses(base, cle)
+        fermer()
+      }}
+    >
+      <span className="icone">⚠</span>
+      {n === 1 ? 'Retirer le lien cassé' : `Retirer les ${n} liens cassés`}
+    </button>
   )
 }
 

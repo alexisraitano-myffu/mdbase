@@ -736,3 +736,5 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .versions-copie { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
 .versions-copie pre { background: #f7f7f5; border-radius: 6px; padding: 0.5rem; font-size: 0.85em; max-height: 16rem; overflow: auto; white-space: pre-wrap; }
 .nom-version { font-size: 0.85em; color: var(--discret); }
+.case-a-cocher { display: block; font-size: 0.9em; margin: 0.4rem 0; }
+.case-a-cocher input { margin-right: 6px; }

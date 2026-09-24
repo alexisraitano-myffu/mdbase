@@ -52,6 +52,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Jalon 11 (dashboards) : section Dashboards en haut de la barre latérale (créer, renommer, supprimer), fichiers `_dashboards/<id>.yaml`. Un dashboard empile des rangées d'un ou deux blocs ; chaque bloc montre une vue d'une base, soit une vue existante de la base (partagée), soit une vue propre écrite dans le dashboard. Filtres rapides, options et ouverture des pages depuis chaque bloc, rangées déplaçables.
 - Jalon 11 (recherche globale) : Ctrl+K ou ⌘K (ou « Rechercher » dans la barre latérale) cherche dans les titres, les champs texte et le corps des pages de toutes les bases, sans tenir compte des accents ni de la casse, avec les débuts de mots et les petites fautes. Résultats groupés par base avec un extrait surligné ; Entrée ou un clic ouvre la page dans sa base. Index en mémoire tenu à jour à chaque modification.
 - Démo : dashboard « Pilotage ».
+- Jalon 12 (robustesse synchro) : le dossier est relu au retour sur l'onglet, et à la demande depuis la barre latérale (« Relire le dossier »). Lignes modifiées, ajoutées ou supprimées ailleurs, schémas, vues, mises en page, dashboards, barre latérale et nouvelles bases apparaissent sans recharger la page ; une modification pas encore écrite reste affichée et s'écrit par-dessus la nouvelle version. Le corps d'une page ouverte suit un changement externe.
+- Ids en double (copie de fichier, conflit OneDrive) : lignes marquées dans le tableau, bandeau « Comparer et choisir » qui montre les versions côte à côte (fichier, date, colonnes et contenu qui diffèrent). Garder une version (les autres fichiers sont supprimés) ou faire d'une copie une ligne à part, avec un nouvel id.
+- Copies de conflit OneDrive des fichiers de réglages (`tableau-DESKTOP-AB12.yaml`) : jamais chargées, signalées dans la barre latérale, les deux textes côte à côte pour garder l'original ou la copie.
+- Supprimer une ligne (menu ⋯ de la page), avec la proposition de retirer aussi les liens qui pointaient vers elle ; sinon ils restent, affichés comme liens cassés.
+- « Retirer les liens cassés » dans le menu d'une colonne relation.
 
 ### Changed
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).

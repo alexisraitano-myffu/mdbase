@@ -624,6 +624,63 @@ export class DepotEspace {
     for (const id of actuels) if (!ids.includes(id)) basculer(id, false)
   }
 
+  /** Liens (côté propriétaire, dans les autres bases) qui pointent vers une ligne. */
+  liensVers(base: string, id: string): LienVers[] {
+    const liens: LienVers[] = []
+    for (const b of this.bases.values()) {
+      if (!b.depot) continue
+      const relations = b.depot.schema.colonnes.filter((c): c is ColonneRelation => c.type === 'relation' && c.proprietaire && c.cible === base)
+      for (const l of b.depot.lignes()) {
+        for (const c of relations) if (idsDe(l, c.cle).includes(id)) liens.push({ base: b.id, chemin: l.chemin, cle: c.cle })
+      }
+    }
+    return liens
+  }
+
+  /**
+   * Supprime une ligne (son fichier). Les liens qui pointaient vers elle
+   * deviennent des liens cassés, sauf si `nettoyer` : ils sont alors retirés
+   * des fichiers qui les portent (spec §5, nettoyage proposé, jamais silencieux).
+   * Si un autre fichier porte le même id, les liens restent : ils pointent vers lui.
+   */
+  async supprimerLigne(base: string, chemin: string, nettoyer: boolean): Promise<void> {
+    const depot = this.depot(base)
+    const ligne = depot.lignes().find((l) => l.chemin === chemin)
+    if (!ligne) throw new ErreurSchema(`Ligne introuvable : ${chemin}`)
+    const encoreLa = depot.lignes().some((l) => l.id === ligne.id && l.chemin !== chemin)
+    if (nettoyer && !encoreLa) {
+      for (const lien of this.liensVers(base, ligne.id)) {
+        const d = this.depot(lien.base)
+        const l = d.lignes().find((x) => x.chemin === lien.chemin)!
+        d.modifier(lien.chemin, lien.cle, idsDe(l, lien.cle).filter((x) => x !== ligne.id))
+      }
+    }
+    await depot.supprimer(chemin)
+  }
+
+  /** Lignes d'une relation (côté propriétaire) qui portent des liens cassés, et ces ids. */
+  liensCasses(base: string, cle: string): { chemin: string; ids: string[] }[] {
+    const c = colonne(this.schema(base), cle)
+    if (c?.type !== 'relation' || !c.proprietaire) return []
+    const existants = this.instantane.titres.get(c.cible)
+    return this.depot(base)
+      .lignes()
+      .map((l) => ({ chemin: l.chemin, ids: idsDe(l, cle).filter((id) => !existants?.has(id)) }))
+      .filter((x) => x.ids.length > 0)
+  }
+
+  /** Retire les liens cassés d'une relation dans toutes les lignes ; renvoie le nombre de liens retirés. */
+  nettoyerLiensCasses(base: string, cle: string): number {
+    const depot = this.depot(base)
+    let n = 0
+    for (const { chemin, ids } of this.liensCasses(base, cle)) {
+      const l = depot.lignes().find((x) => x.chemin === chemin)!
+      depot.modifier(chemin, cle, idsDe(l, cle).filter((id) => !ids.includes(id)))
+      n += ids.length
+    }
+    return n
+  }
+
   /**
    * Crée une ligne (spec §8). Les valeurs d'une relation non propriétaire
    * (héritées d'un filtre « contient ») s'écrivent dans les lignes liées.
@@ -942,6 +999,14 @@ export class DepotEspace {
     this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies }
     for (const fn of this.abonnes) fn()
   }
+}
+
+export type LienVers = { base: string; chemin: string; cle: string }
+
+/** Ids d'une cellule relation stockée (vide si absente ou invalide). */
+function idsDe(l: LigneChargee, cle: string): string[] {
+  const c = l.cellules[cle]
+  return c?.etat === 'ok' && Array.isArray(c.valeur) ? c.valeur.map(String) : []
 }
 
 /** Égalité de contenu, pour ne remplacer que ce qui a vraiment changé. */

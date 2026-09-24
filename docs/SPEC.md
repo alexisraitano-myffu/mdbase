@@ -201,6 +201,11 @@ L'app écrit strictement, mais **lit avec tolérance**, car un fichier peut avoi
 - **Écriture sûre face aux changements externes** : avant d'écrire un fichier, l'app compare sa date de modification à celle de la dernière lecture. Si elle a changé, l'app relit le fichier, réapplique uniquement le champ que l'utilisateur vient de modifier, puis écrit. Pas d'écran de conflit en V1.
 - **La réécriture d'un fichier préserve son formatage** : utiliser l'API `Document` de la librairie `yaml` (eemeli/yaml) pour modifier le frontmatter sans toucher au reste, commentaires compris.
 
+Précisions d'implémentation (jalon 12) :
+- Id en double : les lignes restent affichées (les liens et les calculs vont vers la première lue). L'utilisateur choisit : garder une version (les autres fichiers sont supprimés, après confirmation) ou faire d'une version une ligne à part (nouvel id, nouveau nom de fichier ; la nouvelle est écrite avant que l'ancienne soit effacée).
+- Copie de conflit : un fichier `<nom>-<SUFFIXE>.<ext>` à côté de `<nom>.<ext>`, où le suffixe contient une majuscule (nom de machine ajouté par OneDrive ; les noms fabriqués par l'app n'en ont jamais). Une copie d'un fichier de configuration n'est jamais chargée ; elle est signalée, et l'utilisateur garde l'original ou la copie. Une copie d'une ligne se voit comme un id en double.
+- Suppression d'une ligne : le nettoyage des liens qui pointaient vers elle est proposé (case cochée par défaut dans la confirmation), jamais fait en silence. Si un autre fichier porte le même id, les liens restent.
+
 ---
 
 ## 5. Relations et rollups [DÉCIDÉ]
@@ -481,7 +486,7 @@ Précisions d'implémentation :
 ### Environnement navigateur
 - API File System Access : fonctionne sur **Chrome et Edge** (cible Windows), pas sur Firefox ni Safari. Afficher un message clair sur les navigateurs non compatibles.
 - Le handle du dossier est conservé dans IndexedDB pour ne pas redemander le dossier à chaque ouverture (seule la permission est redemandée).
-- **Changements externes** (synchro OneDrive depuis une autre machine) : le navigateur ne peut pas surveiller le dossier. À chaque retour sur l'onglet (`visibilitychange` / `focus`), rescanner les dates de modification et recharger les fichiers modifiés. Bouton de rafraîchissement manuel en complément.
+- **Changements externes** (synchro OneDrive depuis une autre machine) : le navigateur ne peut pas surveiller le dossier. À chaque retour sur l'onglet (`visibilitychange` / `focus`), rescanner les dates de modification et recharger les fichiers modifiés. Bouton de rafraîchissement manuel en complément. (Jalon 12 : relecture de tout l'espace, dates des lignes comparées, fichiers de configuration relus ; une relecture croisée par une écriture de l'app est jetée et refaite au coup suivant.)
 - Application **100 % statique** : aucun appel réseau, aucune télémétrie.
 
 ---

@@ -16,6 +16,7 @@ import {
 import { colonne as colonneDe, type Schema } from '../core/schema'
 import type { Filtre } from '../core/vue'
 import { useLancer } from './actions'
+import { titreLigne } from './Calendrier'
 import { Cellule } from './cellules'
 import { useEspace } from './contexte-espace'
 import { ICONES } from './EnteteColonne'
@@ -75,6 +76,7 @@ export function Page(p: Props) {
   return (
     <Cadre pleinEcran={p.pleinEcran}>
       <EntetePage {...p}>
+        <MenuLigne base={p.base} ligne={ligne} fermerPage={p.fermer} />
         <ReglagesPage base={p.base} schema={depot.schema} mep={mep} choisir={setIdPage} vue={p.vue} />
       </EntetePage>
       <div className="contenu-page">
@@ -126,6 +128,61 @@ function EntetePage(p: Props & { children?: ReactNode }) {
       <div className="espace-libre" />
       {p.children}
     </div>
+  )
+}
+
+/** Menu ⋯ de la page : suppression de la ligne, avec les liens vers elle (spec §5). */
+function MenuLigne({ base, ligne, fermerPage }: { base: string; ligne: LigneChargee; fermerPage: () => void }) {
+  const { espace } = useEspace()
+  const lancer = useLancer()
+  const ancre = useRef<HTMLButtonElement>(null)
+  const [etape, setEtape] = useState<'ferme' | 'menu' | 'confirmer'>('ferme')
+  const [nettoyer, setNettoyer] = useState(true)
+  const liens = etape === 'confirmer' ? espace.liensVers(base, ligne.id).length : 0
+  const titre = titreLigne(ligne, espace.etat().bases.get(base)!.depot!.schema.champTitre)
+
+  return (
+    <>
+      <button ref={ancre} className="discret" onClick={() => setEtape('menu')} aria-label="Actions de la ligne">
+        ⋯
+      </button>
+      {etape === 'menu' && (
+        <Flottant ancre={ancre.current} fermer={() => setEtape('ferme')}>
+          <button className="option danger-texte" onClick={() => setEtape('confirmer')}>
+            Supprimer la ligne…
+          </button>
+        </Flottant>
+      )}
+      {etape === 'confirmer' && (
+        <Flottant ancre={ancre.current} fermer={() => setEtape('ferme')}>
+          <div className="confirmation">
+            <p>
+              Supprimer « {titre} » ? Son fichier est effacé du dossier <code>{base}</code>.
+            </p>
+            {liens > 0 && (
+              <label className="case-a-cocher">
+                <input type="checkbox" checked={nettoyer} onChange={(e) => setNettoyer(e.target.checked)} />
+                {liens === 1 ? 'Retirer aussi le lien qui pointe vers elle' : `Retirer aussi les ${liens} liens qui pointent vers elle`}
+                <span className="discret"> (sinon ils restent, signalés comme cassés)</span>
+              </label>
+            )}
+            <div className="boutons">
+              <button onClick={() => setEtape('ferme')}>Annuler</button>
+              <button
+                className="danger"
+                onClick={() => {
+                  setEtape('ferme')
+                  fermerPage()
+                  void lancer(espace.supprimerLigne(base, ligne.chemin, nettoyer))
+                }}
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </Flottant>
+      )}
+    </>
   )
 }
 
