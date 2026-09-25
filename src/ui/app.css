@@ -911,3 +911,43 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .memoire-ia ul { list-style: none; margin: 0; padding: 0; }
 .memoire-ia li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.9em; padding: 2px 0; }
 .titre-accueil { display: flex; align-items: center; gap: 12px; }
+
+/* Sélection de lignes et recopie */
+.gouttiere { flex-shrink: 0; width: 28px; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--bordure); box-sizing: border-box; }
+.gouttiere input { margin: 0; cursor: pointer; }
+.rangee .gouttiere input { visibility: hidden; }
+.rangee:hover .gouttiere input, .rangee.choisie .gouttiere input, .tableau:has(.rangee.choisie) .rangee .gouttiere input { visibility: visible; }
+.rangee.choisie, .rangee.choisie:hover { background: var(--accent-fond); }
+.tableau.selectionnable .pied::before { content: ''; flex-shrink: 0; width: 28px; }
+.poignee-recopie {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--accent);
+  cursor: ns-resize;
+  visibility: hidden;
+  touch-action: none;
+}
+.case:hover .poignee-recopie { visibility: visible; }
+.case.recopie { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); }
+.recopie-en-cours, .recopie-en-cours * { cursor: ns-resize !important; user-select: none; }
+.barre-selection {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(var(--ombre), 0.06), 0 4px 16px rgba(var(--ombre), 0.18);
+  white-space: nowrap;
+}
+.compte-selection { font-weight: 500; margin-right: 6px; }
+.astuce-selection { font-size: 0.8em; margin-right: 6px; }

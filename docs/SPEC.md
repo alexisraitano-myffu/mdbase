@@ -304,6 +304,14 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 
 ### Par type
 - **Tableau** : groupement optionnel (repliable), largeur des colonnes, retour à la ligne, calculs en pied de colonne (et par groupe).
+- **Tableau, plusieurs lignes à la fois [DÉCIDÉ]** :
+  - **Sélection** : case dans la gouttière de chaque ligne (visible au survol), Maj+clic pour une plage, case d'en-tête pour toutes les lignes de la vue. Une barre d'actions apparaît : copier, dupliquer, supprimer. Échap vide la sélection, Suppr propose la suppression.
+  - **Modification en lot** : dans une sélection de plusieurs lignes, une cellule modifiée l'est sur toutes (comme Notion), sauf le titre, propre à chaque ligne.
+  - **Supprimer** : confirmation, avec la case « retirer aussi les liens vers elles » quand d'autres lignes pointent vers la sélection (§5).
+  - **Dupliquer** : nouveau fichier, nouvel id, mêmes valeurs saisies et même corps. Les liens portés par l'autre base ne sont pas recopiés (ce serait écrire dans ses fichiers).
+  - **Copier** : les lignes sélectionnées, colonnes affichées, en tableau Markdown (texte) et en tableau HTML (pour un tableur ou un traitement de texte).
+  - **Coller** un tableau (Markdown, CSV, ou cases copiées d'un tableur) hors d'un champ en édition : aperçu de l'import avant d'écrire. Une première ligne qui nomme des colonnes sert d'en-têtes ; sinon chaque valeur va dans la colonne affichée à la même place. Une seule valeur collée ne crée rien.
+  - **Recopie** : la poignée au coin d'une cellule, tirée vers le haut ou le bas, donne sa valeur aux lignes survolées (le tableau défile au bord). Pas sur le titre ni sur une colonne calculée.
 - **Kanban** : champ de groupe (`select`, `checkbox`, `relation`), sous-groupe optionnel (couloirs horizontaux), champs affichés sur la carte, glisser-déposer entre colonnes qui modifie la valeur. Sur une relation, le déplacement **remplace** le lien (pas d'ajout). Grouper sur une relation multi-valeurs n'est pas une bonne pratique : ce cas trouvera sa vraie place avec les relations 1-n [PLUS TARD].
 - **Collection** : cartes affichant les champs choisis et, en option, les premières lignes du corps.
 - **Calendrier** : champ date utilisé, champ de fin optionnel pour les plages, vue mois / semaine, champs affichés sous le titre, glisser-déposer pour changer la date (la ligne suit le pointeur et s'accroche au jour le plus proche au relâcher).

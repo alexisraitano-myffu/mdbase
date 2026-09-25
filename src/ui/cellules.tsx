@@ -19,24 +19,31 @@ type Props = {
   /** Crée une option de select à la volée et renvoie son libellé. */
   creerOption: (cle: string, label: string) => Promise<string>
   surModification: () => void
+  /**
+   * Ligne comprise dans une sélection de plusieurs lignes : la valeur choisie
+   * va à toute la sélection (sauf le titre, propre à chaque ligne).
+   */
+  lot?: ((cle: string, valeur: Valeur | undefined) => void) | undefined
 }
 
 /** Une cellule du tableau : affichage, et édition au clic selon le type. */
-export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerOption, surModification }: Props) {
+export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerOption, surModification, lot }: Props) {
   const [edition, setEdition] = useState(editionInitiale)
   // La ligne créée s'affiche avant que le tableau ne demande l'édition de son titre : on suit la demande.
   useEffect(() => {
     if (editionInitiale) setEdition(true)
   }, [editionInitiale])
   const cellule = ligne.cellules[colonne.cle]
+  const estTitre = colonne.cle === depot.schema.champTitre
+  const enLot = estTitre ? undefined : lot
   const modifier = (v: Valeur | undefined) => {
     surModification()
-    depot.modifier(ligne.chemin, colonne.cle, v)
+    if (enLot) enLot(colonne.cle, v)
+    else depot.modifier(ligne.chemin, colonne.cle, v)
   }
-  const estTitre = colonne.cle === depot.schema.champTitre
 
   if (colonne.type === 'relation') {
-    return <CelluleRelation base={depot.schema.id} ligne={ligne} colonne={colonne} surModification={surModification} />
+    return <CelluleRelation base={depot.schema.id} ligne={ligne} colonne={colonne} surModification={surModification} lot={enLot} />
   }
 
   if (!estSaisie(colonne)) return <CelluleCalculee base={depot.schema.id} cellule={cellule} colonne={colonne} />
@@ -246,7 +253,13 @@ function CelluleChoix(p: {
 }
 
 /** Relation, des deux côtés : titres des lignes liées en pastilles, menu pour lier ou délier (spec §5). */
-function CelluleRelation(p: { base: string; ligne: LigneChargee; colonne: ColonneRelation; surModification: () => void }) {
+function CelluleRelation(p: {
+  base: string
+  ligne: LigneChargee
+  colonne: ColonneRelation
+  surModification: () => void
+  lot?: ((cle: string, valeur: Valeur | undefined) => void) | undefined
+}) {
   const { espace, etat } = useEspace()
   const lancer = useLancer()
   const ancre = useRef<HTMLDivElement>(null)
@@ -258,7 +271,8 @@ function CelluleRelation(p: { base: string; ligne: LigneChargee; colonne: Colonn
 
   const changer = (suivants: string[]) => {
     p.surModification()
-    void lancer(Promise.resolve().then(() => espace.modifierRelation(p.base, ligne.id, colonne.cle, suivants)))
+    if (p.lot) p.lot(colonne.cle, suivants)
+    else void lancer(Promise.resolve().then(() => espace.modifierRelation(p.base, ligne.id, colonne.cle, suivants)))
   }
   const basculer = (id: string) => changer(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
 

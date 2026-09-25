@@ -21,6 +21,7 @@ import { convertirValeur, type ColonneImportee } from './echange'
 import { IndexRecherche, type Resultat } from './recherche'
 import { MemoireAssistant } from './ia/memoire'
 import type { Modifications } from './ligne'
+import type { Valeur } from './valeurs'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
 import { CHAMPS_MODIFIABLES, lireVue, modifierVue, vueParDefaut, type ModificationVue, type TypeVue, type Vue } from './vue'
@@ -668,6 +669,51 @@ export class DepotEspace {
     await depot.supprimer(chemin)
   }
 
+  /** Supprime plusieurs lignes d'une base (sélection du tableau), une par une, mêmes règles que `supprimerLigne`. */
+  async supprimerLignes(base: string, chemins: readonly string[], nettoyer: boolean): Promise<void> {
+    for (const chemin of chemins) await this.supprimerLigne(base, chemin, nettoyer)
+  }
+
+  /**
+   * Donne la même valeur à une colonne de plusieurs lignes (modification en
+   * lot, recopie d'une cellule vers le haut ou le bas). Une relation passe par
+   * `modifierRelation` (côté non propriétaire compris) ; le titre renomme les fichiers.
+   */
+  async modifierLignes(base: string, chemins: readonly string[], cle: string, valeur: Valeur | undefined): Promise<void> {
+    const depot = this.depot(base)
+    const c = colonne(depot.schema, cle)
+    if (!c || (!estSaisie(c) && c.type !== 'relation')) throw new ErreurSchema(`Colonne non modifiable : ${cle}`)
+    const lignes = chemins.flatMap((ch) => depot.lignes().find((l) => l.chemin === ch) ?? [])
+    for (const l of lignes) {
+      if (c.type === 'relation') this.modifierRelation(base, l.id, cle, Array.isArray(valeur) ? valeur.map(String) : [])
+      else depot.modifier(l.chemin, cle, valeur)
+    }
+    if (cle === depot.schema.champTitre) for (const l of lignes) await depot.renommerSelonTitre(l.chemin)
+  }
+
+  /**
+   * Duplique des lignes : valeurs saisies (liens côté propriétaire compris) et
+   * corps, dans un nouveau fichier avec un nouvel id. Les liens portés par
+   * l'autre base ne sont pas recopiés : ce serait écrire dans ses fichiers.
+   */
+  async dupliquerLignes(base: string, chemins: readonly string[]): Promise<LigneChargee[]> {
+    const depot = this.depot(base)
+    const copies: LigneChargee[] = []
+    for (const chemin of chemins) {
+      const l = depot.lignes().find((x) => x.chemin === chemin)
+      if (!l) continue
+      const valeurs: Modifications = {}
+      for (const c of depot.schema.colonnes) {
+        const v = l.cellules[c.cle]
+        if (estSaisie(c) && v?.etat === 'ok') valeurs[c.cle] = v.valeur
+      }
+      const copie = await depot.creer(valeurs)
+      if (l.corps.trim() !== '') depot.modifierCorps(copie.chemin, l.corps)
+      copies.push(copie)
+    }
+    return copies
+  }
+
   /** Lignes d'une relation (côté propriétaire) qui portent des liens cassés, et ces ids. */
   liensCasses(base: string, cle: string): { chemin: string; ids: string[] }[] {
     const c = colonne(this.schema(base), cle)
@@ -735,6 +781,26 @@ export class DepotEspace {
     const norme = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase()
     const colonnes = this.schema(base).colonnes.filter((c) => (TYPES_CREABLES as readonly string[]).includes(c.type))
     return entetes.map((e) => colonnes.find((c) => norme(c.nom) === norme(e))?.cle ?? null)
+  }
+
+  /**
+   * Tableau collé dans une base : si sa première ligne nomme au moins une
+   * colonne saisissable, c'est une ligne d'en-têtes (retrouvées comme à
+   * l'import) ; sinon chaque valeur va dans la colonne affichée à la même
+   * place (`ordre`), `null` pour une colonne qu'on ne remplit pas à la main.
+   */
+  preparerCollage(base: string, grille: readonly string[][], ordre: readonly string[]): { entetes: string[]; cles: (string | null)[]; lignes: string[][] } {
+    const [premiere = [], ...suite] = grille
+    const trouvees = this.correspondances(base, premiere)
+    if (trouvees.some((c) => c !== null)) return { entetes: [...premiere], cles: trouvees, lignes: suite.map((l) => [...l]) }
+    const schema = this.schema(base)
+    const largeur = Math.max(0, ...grille.map((l) => l.length))
+    const cibles = Array.from({ length: largeur }, (_, i) => (ordre[i] ? colonne(schema, ordre[i]) : undefined))
+    return {
+      entetes: cibles.map((c, i) => c?.nom ?? `Colonne ${i + 1}`),
+      cles: cibles.map((c) => (c && (TYPES_CREABLES as readonly string[]).includes(c.type) ? c.cle : null)),
+      lignes: grille.map((l) => [...l]),
+    }
   }
 
   /**

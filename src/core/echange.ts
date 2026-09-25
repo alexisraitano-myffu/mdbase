@@ -131,6 +131,46 @@ export function versMarkdown(g: Grille): string {
   return [ligne(g.entetes), `| ${g.entetes.map(() => '---').join(' | ')} |`, ...g.lignes.map(ligne)].join('\n') + '\n'
 }
 
+/** Tableau HTML, pour qu'un tableur, un traitement de texte ou Notion reçoive des cases en collant. */
+export function versHtml(g: Grille): string {
+  const echapper = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\r?\n/g, '<br>')
+  const ligne = (l: string[], balise: 'th' | 'td') => `<tr>${l.map((x) => `<${balise}>${echapper(x)}</${balise}>`).join('')}</tr>`
+  return `<table><thead>${ligne(g.entetes, 'th')}</thead><tbody>${g.lignes.map((l) => ligne(l, 'td')).join('')}</tbody></table>`
+}
+
+/**
+ * Relit un tableau Markdown (GFM) : `null` si le texte n'en est pas un (il
+ * faut la ligne de séparation `---` sous les en-têtes). `\\|` et `<br>`
+ * redeviennent `|` et un retour à la ligne, comme les écrit `versMarkdown`.
+ */
+export function lireMarkdown(texte: string): string[][] | null {
+  const lignes = texte.replace(/^\uFEFF/, '').split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '')
+  if (lignes.length < 2 || !lignes.every((l) => l.includes('|'))) return null
+  const cases = (l: string) => {
+    const brut = l.replace(/^\|/, '').replace(/(?<!\\)\|$/, '')
+    const champs: string[] = []
+    let champ = ''
+    for (let i = 0; i < brut.length; i++) {
+      const c = brut[i]!
+      if (c === '\\' && (brut[i + 1] === '|' || brut[i + 1] === '\\')) champ += brut[++i]
+      else if (c === '|') {
+        champs.push(champ)
+        champ = ''
+      } else champ += c
+    }
+    champs.push(champ)
+    return champs.map((x) => x.trim().replace(/<br\s*\/?>/gi, '\n'))
+  }
+  const [entetes, separation, ...corps] = lignes.map(cases)
+  if (!separation!.every((x) => /^:?-{1,}:?$/.test(x))) return null
+  return [entetes!, ...corps]
+}
+
+/** Texte collé dans un tableau : un tableau Markdown s'il en est un, sinon du CSV (tabulations d'un tableur comprises). */
+export function lireTableauColle(texte: string): string[][] {
+  return lireMarkdown(texte) ?? lireCsv(texte)
+}
+
 // ── Import ───────────────────────────────────────────────────────
 
 export type ColonneImportee = { nom: string; type: TypeCreable; options: string[] }

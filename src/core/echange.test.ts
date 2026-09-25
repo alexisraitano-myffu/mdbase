@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { convertirValeur, deduireColonnes, grilleDeVue, lireCsv, lireDate, versCsv, versMarkdown } from './echange'
+import { convertirValeur, deduireColonnes, grilleDeVue, lireCsv, lireDate, lireMarkdown, lireTableauColle, versCsv, versHtml, versMarkdown } from './echange'
 import { schemas } from './fixtures/espace-relations'
 import type { Cellule, Valeur } from './valeurs'
 
@@ -108,4 +108,37 @@ describe('import : types devinés', () => {
     expect(convertirValeur('text', '  ')).toBeUndefined()
     expect(lireDate('2026-10-05 14:30:00')).toBe('2026-10-05T14:30')
   })
+})
+
+describe('tableau collé', () => {
+  it('relit un tableau Markdown écrit par versMarkdown, | et retours à la ligne compris', () => {
+    const g = { entetes: ['Titre', 'Note'], lignes: [['a | b', 'l1\nl2'], ['c\\d', '']] }
+    expect(lireMarkdown(versMarkdown(g))).toEqual([g.entetes, ...g.lignes])
+  })
+
+  it('accepte un tableau sans | aux bords, aligné, avec des : dans la séparation', () => {
+    expect(lireMarkdown('Titre | Heures\n:--- | ---:\n A | 3 \n')).toEqual([
+      ['Titre', 'Heures'],
+      ['A', '3'],
+    ])
+  })
+
+  it('un texte sans ligne de séparation n’est pas un tableau Markdown', () => {
+    expect(lireMarkdown('| a | b |\n| c | d |')).toBeNull()
+    expect(lireMarkdown('une seule ligne')).toBeNull()
+  })
+
+  it('collé depuis un tableur (tabulations) ou en CSV, il passe par lireCsv', () => {
+    expect(lireTableauColle('Titre\tHeures\r\nA\t3\r\n')).toEqual([
+      ['Titre', 'Heures'],
+      ['A', '3'],
+    ])
+    expect(lireTableauColle('| Titre |\n| --- |\n| A |')).toEqual([['Titre'], ['A']])
+  })
+})
+
+it('tableau HTML : en-têtes en th, texte échappé, retours à la ligne en <br>', () => {
+  expect(versHtml({ entetes: ['Titre'], lignes: [['<a> & "b"\nsuite']] })).toBe(
+    '<table><thead><tr><th>Titre</th></tr></thead><tbody><tr><td>&lt;a&gt; &amp; &quot;b&quot;<br>suite</td></tr></tbody></table>',
+  )
 })

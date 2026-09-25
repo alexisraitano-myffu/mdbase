@@ -132,14 +132,23 @@ async function exporterImage(depuis: HTMLElement, nom: string) {
 /**
  * Import d'un CSV : dans une nouvelle base (types devinés, modifiables) ou,
  * avec `base`, en lignes ajoutées à une base existante (colonnes retrouvées par nom).
+ * Avec `colle`, un tableau collé dans la base prend la place du fichier.
  */
-export function FenetreImport(p: { espace: DepotEspace; base?: string; fermer: () => void; ouvrir?: (base: string) => void }) {
+export function FenetreImport(p: {
+  espace: DepotEspace
+  base?: string
+  colle?: { entetes: string[]; cles: (string | null)[]; lignes: string[][] }
+  fermer: () => void
+  ouvrir?: (base: string) => void
+}) {
   const lancer = useLancer()
-  const [lu, setLu] = useState<{ fichier: string; entetes: string[]; lignes: string[][] } | null>(null)
+  const [lu, setLu] = useState<{ fichier: string; entetes: string[]; lignes: string[][] } | null>(
+    p.colle ? { fichier: 'Presse-papiers', entetes: p.colle.entetes, lignes: p.colle.lignes } : null,
+  )
   const [erreur, setErreur] = useState<string | null>(null)
   const [nom, setNom] = useState('')
   const [colonnes, setColonnes] = useState<ColonneImportee[]>([])
-  const [cles, setCles] = useState<(string | null)[]>([])
+  const [cles, setCles] = useState<(string | null)[]>(p.colle?.cles ?? [])
   const [enCours, setEnCours] = useState(false)
   const schema = p.base ? p.espace.etat().bases.get(p.base)?.depot?.schema : undefined
 
@@ -181,17 +190,26 @@ export function FenetreImport(p: { espace: DepotEspace; base?: string; fermer: (
   const saisissables = schema?.colonnes.filter((c) => (TYPES_CREABLES as readonly string[]).includes(c.type)) ?? []
 
   return (
-    <Fenetre titre={p.base ? `Importer des lignes dans ${schema?.nom ?? p.base}` : 'Nouvelle base depuis un CSV'} fermer={p.fermer}>
+    <Fenetre
+      titre={p.colle ? `Coller des lignes dans ${schema?.nom ?? p.base}` : p.base ? `Importer des lignes dans ${schema?.nom ?? p.base}` : 'Nouvelle base depuis un CSV'}
+      fermer={p.fermer}
+    >
       <div className="import">
-        <label className="choix-fichier">
-          <input type="file" accept=".csv,text/csv,text/plain" onChange={(e) => void choisir(e)} />
-        </label>
+        {!p.colle && (
+          <label className="choix-fichier">
+            <input type="file" accept=".csv,text/csv,text/plain" onChange={(e) => void choisir(e)} />
+          </label>
+        )}
         {erreur && <p className="erreur">{erreur}</p>}
         {lu && (
           <>
             <p className="discret">
               {lu.fichier} : {lu.lignes.length} ligne{lu.lignes.length > 1 ? 's' : ''}, {lu.entetes.length} colonne{lu.entetes.length > 1 ? 's' : ''}.
-              {p.base ? ' Chaque colonne du fichier va dans la colonne de même nom ; les autres sont ignorées.' : ' La première colonne devient le titre.'}
+              {p.colle
+                ? ' Chaque colonne collée va dans la colonne choisie ; « Ignorer » la laisse de côté.'
+                : p.base
+                  ? ' Chaque colonne du fichier va dans la colonne de même nom ; les autres sont ignorées.'
+                  : ' La première colonne devient le titre.'}
             </p>
             {!p.base && (
               <label className="case-reglage">
@@ -202,7 +220,7 @@ export function FenetreImport(p: { espace: DepotEspace; base?: string; fermer: (
             <table className="colonnes-import">
               <thead>
                 <tr>
-                  <th>Colonne du fichier</th>
+                  <th>{p.colle ? 'Colonne collée' : 'Colonne du fichier'}</th>
                   <th>{p.base ? 'Va dans' : 'Type'}</th>
                   <th>Aperçu</th>
                 </tr>
@@ -257,7 +275,7 @@ export function FenetreImport(p: { espace: DepotEspace; base?: string; fermer: (
                 disabled={enCours || (p.base ? cles.every((c) => c === null) : nom.trim() === '')}
                 onClick={() => void importer()}
               >
-                {enCours ? 'Import…' : `Importer ${lu.lignes.length} ligne${lu.lignes.length > 1 ? 's' : ''}`}
+                {enCours ? 'Import…' : `${p.colle ? 'Coller' : 'Importer'} ${lu.lignes.length} ligne${lu.lignes.length > 1 ? 's' : ''}`}
               </button>
             </div>
           </>
