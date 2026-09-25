@@ -19,6 +19,7 @@ import { boucle } from './graphe'
 import { copieDeConflit, doublons } from './conflits'
 import { convertirValeur, type ColonneImportee } from './echange'
 import { IndexRecherche, type Resultat } from './recherche'
+import { MemoireAssistant } from './ia/memoire'
 import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
@@ -99,10 +100,13 @@ export class DepotEspace {
   /** Modifications de configuration appliquées en mémoire mais pas encore écrites. */
   private configEnVol = 0
   private copies: CopieConflit[] = []
+  /** Mémoire et skills de l'assistant IA (`_assistant/`, spec §3). */
+  readonly assistant: MemoireAssistant
 
   private constructor(adaptateur: AdaptateurFichiers, options: OptionsEspace) {
     this.adaptateur = adaptateur
     this.options = options
+    this.assistant = new MemoireAssistant(adaptateur)
   }
 
   static async ouvrir(adaptateur: AdaptateurFichiers, options: OptionsEspace): Promise<DepotEspace> {

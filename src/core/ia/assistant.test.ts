@@ -136,7 +136,7 @@ describe('proposer', () => {
     const p = await proposer(modele, espace, 'Termine la tâche C', { aujourdhui: AUJOURDHUI, baseOuverte: 'taches' })
     expect(p.type).toBe('plan')
     expect(modele.requetes).toHaveLength(1)
-    expect(modele.requetes[0]!.outils.map((o) => o.nom)).toEqual(['modifier_lignes', 'creer_lignes', 'repondre'])
+    expect(modele.requetes[0]!.outils.map((o) => o.nom)).toEqual(['modifier_lignes', 'creer_lignes', 'retenir', 'oublier', 'creer_skill', 'repondre'])
     expect(modele.requetes[0]!.messages[1]).toEqual({ role: 'user', contenu: 'Termine la tâche C' })
     await ecrire()
     expect(a.ecritures).toEqual([])
@@ -165,9 +165,9 @@ describe('proposer', () => {
   it('texte sans appel ou outil `repondre` : une réponse, raisonnement <think> retiré', async () => {
     const { espace } = await ouvrir()
     const texte = await proposer(modeleScripte({ texte: '<think>hmm</think>\nQuelle tâche ?', appels: [] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
-    expect(texte).toEqual({ type: 'reponse', texte: 'Quelle tâche ?' })
+    expect(texte).toEqual({ type: 'reponse', texte: 'Quelle tâche ?', memoire: [] })
     const outil = await proposer(modeleScripte({ texte: '', appels: [appel('repondre', { texte: 'Laquelle des deux ?' })] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
-    expect(outil).toEqual({ type: 'reponse', texte: 'Laquelle des deux ?' })
+    expect(outil).toEqual({ type: 'reponse', texte: 'Laquelle des deux ?', memoire: [] })
   })
 })
 
@@ -197,6 +197,57 @@ describe('conversation', () => {
       ],
     }
     expect(resumerPlan(plan)).toBe('Modifier 2 lignes dans Tâches : A (Statut → Terminé) ; C (Statut → Terminé)\nCréer 1 ligne dans Tâches : D')
+  })
+})
+
+describe('mémoire et skills', () => {
+  const SKILL = { nom: 'Revue du lundi', description: 'le lundi matin', instructions: 'Passer les tâches en retard en « À faire ».' }
+
+  it('lus sur le disque et envoyés au modèle avec la structure de l’espace', async () => {
+    const { espace } = await ouvrir()
+    await espace.assistant.retenir('« le client » désigne Acme')
+    await espace.assistant.enregistrerSkill(SKILL)
+    const modele = modeleScripte({ texte: 'ok', appels: [] })
+    await proposer(modele, espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    const systeme = modele.requetes[0]!.messages[0]!.contenu
+    expect(systeme).toContain('## Mémoire\n- « le client » désigne Acme')
+    expect(systeme).toContain('## Skills\n### Revue du lundi\nle lundi matin\nPasser les tâches en retard en « À faire ».')
+  })
+
+  it('retenir et oublier : des actions à écrire aussitôt, sans plan ; oublier un fait absent est refusé', async () => {
+    const { espace } = await ouvrir()
+    await espace.assistant.retenir('Semaine du mardi au lundi')
+    const r = await proposer(
+      modeleScripte({ texte: '', appels: [appel('retenir', { fait: 'Réponses courtes' }), appel('oublier', { fait: 'semaine du mardi au lundi' })] }),
+      espace,
+      'x',
+      { aujourdhui: AUJOURDHUI, baseOuverte: null },
+    )
+    expect(r).toEqual({
+      type: 'reponse',
+      texte: '',
+      memoire: [
+        { type: 'retenir', fait: 'Réponses courtes' },
+        { type: 'oublier', fait: 'Semaine du mardi au lundi' },
+      ],
+    })
+    expect(() => valider(espace, 'oublier', { fait: 'inconnu' })).toThrow(/fait absent de la mémoire/)
+    expect(() => valider(espace, 'retenir', { fait: ' ' })).toThrow(/`fait` : texte attendu/)
+  })
+
+  it('creer_skill : proposé dans le plan (nouveau ou remplacé), écrit seulement à l’application', async () => {
+    const { a, espace } = await ouvrir()
+    const p = await proposer(modeleScripte({ texte: '', appels: [appel('creer_skill', SKILL)] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    if (p.type !== 'plan') throw new Error('plan attendu')
+    expect(p.plan.skills).toEqual([{ ...SKILL, remplace: false }])
+    expect(resumerPlan(p.plan)).toBe('Créer le skill « Revue du lundi » : le lundi matin')
+    expect(await espace.assistant.lire()).toEqual({ memoire: [], skills: [] })
+
+    await appliquerPlan(espace, p.plan)
+    expect((await espace.assistant.lire()).skills).toEqual([SKILL])
+    expect(await a.lire('_assistant/skills/revue-du-lundi.md')).toBe('---\nnom: Revue du lundi\ndescription: le lundi matin\n---\n\nPasser les tâches en retard en « À faire ».\n')
+    const p2 = await proposer(modeleScripte({ texte: '', appels: [appel('creer_skill', { ...SKILL, nom: 'revue du LUNDI' })] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    expect(p2.type === 'plan' && p2.plan.skills![0]!.remplace).toBe(true)
   })
 })
 

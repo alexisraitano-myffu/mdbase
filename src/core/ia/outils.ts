@@ -4,6 +4,7 @@ import { estSaisie, type Colonne, type Schema } from '../schema'
 import { jourSemaine } from '../temps'
 import type { Cellule } from '../valeurs'
 import { OPERATEURS } from '../vue'
+import type { Skill } from './memoire'
 import type { DefinitionOutil } from './modele'
 
 // Ce que voit le modèle (spec §12, « Module IA ») : la consigne, les outils,
@@ -54,6 +55,29 @@ export const OUTILS: DefinitionOutil[] = [
     },
   },
   {
+    nom: 'retenir',
+    description: "Retient un fait durable pour les prochaines conversations (préférence, vocabulaire, habitude). Jamais une valeur de ligne : elle est déjà dans les données.",
+    parametres: { type: 'object', properties: { fait: { type: 'string', description: 'une phrase courte' } }, required: ['fait'] },
+  },
+  {
+    nom: 'oublier',
+    description: 'Retire un fait de la mémoire, cité exactement comme dans la section Mémoire.',
+    parametres: { type: 'object', properties: { fait: { type: 'string' } }, required: ['fait'] },
+  },
+  {
+    nom: 'creer_skill',
+    description: "Crée ou remplace un skill : une procédure nommée que l'utilisateur pourra redemander. Seulement quand l'utilisateur demande explicitement de créer ou modifier un skill.",
+    parametres: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string' },
+        description: { type: 'string', description: 'une ligne : quand s’en servir' },
+        instructions: { type: 'string', description: 'les étapes, en Markdown, avec les noms de bases et de colonnes' },
+      },
+      required: ['nom', 'description', 'instructions'],
+    },
+  },
+  {
     nom: 'repondre',
     description: 'Répond sans rien modifier : demande ambiguë (poser une question courte), impossible, ou simple question.',
     parametres: { type: 'object', properties: { texte: { type: 'string' } }, required: ['texte'] },
@@ -69,7 +93,9 @@ Règles :
 - Dates au format AAAA-MM-JJ. Nombres en chiffres. Case à cocher : true ou false. null vide un champ.
 - Les colonnes calculées sont en lecture seule.
 - Pour modifier toutes les lignes qui répondent à un critère, utilise \`filtres\` plutôt qu'une liste d'ids.
-- Si la demande est ambiguë ou impossible, appelle \`repondre\` avec une question courte, sans rien modifier.`
+- Si la demande est ambiguë ou impossible, appelle \`repondre\` avec une question courte, sans rien modifier.
+- Mémoire : quand l'utilisateur te demande de retenir quelque chose, ou exprime une préférence durable, appelle \`retenir\` (en plus des autres appels). \`oublier\` quand il le demande. Tiens compte de la section Mémoire.
+- Skills : si la demande correspond à un skill (par son nom ou sa description), suis ses instructions. N'appelle \`creer_skill\` que si l'utilisateur demande de créer ou modifier un skill.`
 
 /** Au-delà, les lignes ne sont plus toutes listées : celles de la base ouverte et les plus proches de la demande. */
 const LIGNES_MAX = 150
@@ -122,6 +148,8 @@ export type OptionsContexte = {
   baseOuverte: string | null
   /** Lignes proches de la demande, les plus pertinentes d'abord (recherche plein texte). */
   candidats: readonly { base: string; ligne: string }[]
+  memoire?: readonly string[]
+  skills?: readonly Skill[]
 }
 
 /** Description de l'espace envoyée au modèle : schémas complets, puis les lignes utiles. */
@@ -131,6 +159,12 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
   for (const { id, schema } of bases) {
     parties.push(`${id} « ${schema.nom} »`)
     for (const c of schema.colonnes) parties.push(`- ${c.cle} « ${c.nom} » : ${typeLisible(c)}${c.cle === schema.champTitre ? ' (titre de la ligne)' : ''}`)
+  }
+  // Mémoire et skills avant ce qui change à chaque demande : le début du message reste identique d'une demande à l'autre.
+  if (o.memoire?.length) parties.push('', '## Mémoire', ...o.memoire.map((f) => `- ${f}`))
+  if (o.skills?.length) {
+    parties.push('', '## Skills')
+    for (const s of o.skills) parties.push(`### ${s.nom}`, s.description, s.instructions)
   }
   parties.push('', `Aujourd'hui : ${o.aujourdhui} (${JOURS[jourSemaine(o.aujourdhui)]})`)
   if (o.baseOuverte) parties.push(`Base ouverte : ${o.baseOuverte}`)

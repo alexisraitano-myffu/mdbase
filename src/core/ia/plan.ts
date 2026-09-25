@@ -6,6 +6,7 @@ import type { Modifications } from '../ligne'
 import { estSaisie, estObjet, type Colonne, type Schema } from '../schema'
 import { lireNombre, type Cellule, type Valeur } from '../valeurs'
 import type { Filtre, Operateur } from '../vue'
+import type { Assistant, Skill } from './memoire'
 import type { AppelOutil } from './modele'
 
 // Validation des appels d'outils du modèle (spec §12, « Module IA ») : chaque
@@ -24,9 +25,18 @@ export type LignePlan = {
   changements: Changement[]
 }
 export type Operation = { type: 'modifier' | 'creer'; base: string; nomBase: string; lignes: LignePlan[] }
-export type Plan = { operations: Operation[] }
+/** Skill proposé : écrit seulement après confirmation, comme une modification de données (spec §12). */
+export type SkillPropose = Skill & { remplace: boolean }
+export type Plan = { operations: Operation[]; skills?: SkillPropose[] }
 
-export type AppelValide = { type: 'operation'; operation: Operation } | { type: 'reponse'; texte: string }
+/** Retenir ou oublier : écrit aussitôt, avec une mention annulable (spec §12). */
+export type ActionMemoire = { type: 'retenir' | 'oublier'; fait: string }
+
+export type AppelValide =
+  | { type: 'operation'; operation: Operation }
+  | { type: 'reponse'; texte: string }
+  | { type: 'memoire'; action: ActionMemoire }
+  | { type: 'skill'; skill: SkillPropose }
 
 const normaliser = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const erreur = (message: string): never => {
@@ -184,8 +194,13 @@ function creer(etat: EtatEspace, args: Record<string, unknown>): Operation {
   return { type: 'creer', base: base.id, nomBase: base.schema.nom, lignes }
 }
 
+const texteRequis = (args: Record<string, unknown>, cle: string): string => {
+  const v = args[cle]
+  return typeof v === 'string' && v.trim() !== '' ? v.trim() : erreur(`\`${cle}\` : texte attendu`)
+}
+
 /** Valide un appel d'outil contre l'état de l'espace ; lève `ErreurProposition` s'il est refusé. */
-export function validerAppel(etat: EtatEspace, appel: AppelOutil, ctx: Contexte): AppelValide {
+export function validerAppel(etat: EtatEspace, appel: AppelOutil, ctx: Contexte, assistant: Assistant = { memoire: [], skills: [] }): AppelValide {
   let args: unknown
   try {
     args = JSON.parse(appel.arguments || '{}')
@@ -200,6 +215,18 @@ export function validerAppel(etat: EtatEspace, appel: AppelOutil, ctx: Contexte)
       return { type: 'operation', operation: creer(etat, args) }
     case 'repondre':
       return { type: 'reponse', texte: typeof args.texte === 'string' ? args.texte : '' }
+    case 'retenir':
+      return { type: 'memoire', action: { type: 'retenir', fait: texteRequis(args, 'fait') } }
+    case 'oublier': {
+      const fait = texteRequis(args, 'fait')
+      const trouve = assistant.memoire.find((f) => normaliser(f) === normaliser(fait))
+      return trouve ? { type: 'memoire', action: { type: 'oublier', fait: trouve } } : erreur(`fait absent de la mémoire : « ${fait} »`)
+    }
+    case 'creer_skill': {
+      const nom = texteRequis(args, 'nom')
+      const skill = { nom, description: texteRequis(args, 'description'), instructions: texteRequis(args, 'instructions') }
+      return { type: 'skill', skill: { ...skill, remplace: assistant.skills.some((x) => normaliser(x.nom) === normaliser(nom)) } }
+    }
     default:
       return erreur(`outil inconnu : ${appel.nom}`)
   }
@@ -209,7 +236,8 @@ const LIGNES_RESUMEES = 15
 
 /** Résumé texte d'un plan : ce que le modèle relit de la conversation, et ce qui en reste affiché après coup. */
 export function resumerPlan(plan: Plan): string {
-  return plan.operations
+  const skills = (plan.skills ?? []).map((s) => `${s.remplace ? 'Remplacer' : 'Créer'} le skill « ${s.nom} » : ${s.description}`)
+  const operations = plan.operations
     .map((op) => {
       const n = op.lignes.length
       const lignes = op.lignes.slice(0, LIGNES_RESUMEES).map((l) => {
@@ -219,12 +247,12 @@ export function resumerPlan(plan: Plan): string {
       const reste = n > LIGNES_RESUMEES ? ` ; et ${n - LIGNES_RESUMEES} autres` : ''
       return `${op.type === 'creer' ? 'Créer' : 'Modifier'} ${n} ligne${n > 1 ? 's' : ''} dans ${op.nomBase} : ${lignes.join(' ; ')}${reste}`
     })
-    .join('\n')
+  return [...operations, ...skills].join('\n')
 }
 
 /**
- * Applique un plan confirmé. Une ligne supprimée entre l'aperçu et la
- * confirmation est ignorée ; renvoie le nombre de lignes écrites.
+ * Applique un plan confirmé, skills compris. Une ligne supprimée entre
+ * l'aperçu et la confirmation est ignorée ; renvoie le nombre de lignes écrites.
  */
 export async function appliquerPlan(espace: DepotEspace, plan: Plan): Promise<number> {
   let n = 0
@@ -248,5 +276,6 @@ export async function appliquerPlan(espace: DepotEspace, plan: Plan): Promise<nu
       n++
     }
   }
+  for (const { remplace: _, ...skill } of plan.skills ?? []) await espace.assistant.enregistrerSkill(skill)
   return n
 }
