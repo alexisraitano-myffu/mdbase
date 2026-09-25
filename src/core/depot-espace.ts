@@ -1059,6 +1059,9 @@ export class DepotEspace {
     return this.historique.groupe(action)
   }
 
+  /** Ce que chaque action groupée, annulation ou rétablissement vient de changer (pour le montrer). */
+  ecouterEtapes = (fn: (changements: readonly Changement[]) => void): (() => void) => this.historique.ecouter(fn)
+
   peutAnnuler = (): boolean => this.historique.peutAnnuler()
   peutRetablir = (): boolean => this.historique.peutRetablir()
 

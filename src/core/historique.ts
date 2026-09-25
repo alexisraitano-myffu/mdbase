@@ -28,6 +28,13 @@ export class Historique {
   private enCours: Etape | null = null
   /** Rejeu d'une annulation : ses changements vont dans l'autre pile, sans vider le futur. */
   private rejeu: 'passe' | 'futur' | null = null
+  private readonly ecouteurs = new Set<(changements: readonly Changement[]) => void>()
+
+  /** Prévient à la fin de chaque action groupée (et de chaque annulation) de ce qu'elle a changé. */
+  ecouter(fn: (changements: readonly Changement[]) => void): () => void {
+    this.ecouteurs.add(fn)
+    return () => void this.ecouteurs.delete(fn)
+  }
 
   noter(c: Changement): void {
     if (this.enCours) {
@@ -60,7 +67,9 @@ export class Historique {
     this.enCours = etape
     const clore = () => {
       if (this.enCours === etape) this.enCours = null
-      if (etape.changements.length > 0) this.empiler(etape)
+      if (etape.changements.length === 0) return
+      this.empiler(etape)
+      for (const fn of this.ecouteurs) fn(etape.changements)
     }
     let r: T
     try {

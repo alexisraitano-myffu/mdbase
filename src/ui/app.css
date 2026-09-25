@@ -3,6 +3,7 @@
   font-size: 14px;
   color: var(--texte);
   background: var(--fond-app);
+  accent-color: var(--accent);
 
   /* Surfaces */
   --fond-app: #eceef1;
@@ -966,3 +967,45 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 }
 .plage-en-cours, .plage-en-cours * { user-select: none; cursor: cell; }
 .remplacement p { margin: 0 0 0.6rem; }
+
+/* Cases copiées : pointillé qui défile sur les bords de la zone (comme un tableur). */
+.case.copiee::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, var(--copie-haut) 50%, transparent 50%),
+    linear-gradient(90deg, var(--copie-bas) 50%, transparent 50%),
+    linear-gradient(0deg, var(--copie-gauche) 50%, transparent 50%),
+    linear-gradient(0deg, var(--copie-droite) 50%, transparent 50%);
+  background-size: 8px 1.5px, 8px 1.5px, 1.5px 8px, 1.5px 8px;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  animation: fourmis 0.5s linear infinite;
+}
+@keyframes fourmis {
+  to { background-position: 8px 0, -8px 100%, 0 -8px, 100% 8px; }
+}
+
+/* Cases que la dernière action a touchées : un reflet qui s'éteint (calque au-dessus du fond de la plage). */
+.case.eclair-a::before, .case.eclair-b::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--surligne);
+  mix-blend-mode: multiply;
+  opacity: 0;
+}
+.case.eclair-a::before { animation: eclair-a 0.9s ease-out; }
+.case.eclair-b::before { animation: eclair-b 0.9s ease-out; }
+@keyframes eclair-a { from { opacity: 1; } }
+@keyframes eclair-b { from { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .case.copiee::after { animation: none; }
+  .case.eclair-a::before, .case.eclair-b::before { animation: none; }
+}

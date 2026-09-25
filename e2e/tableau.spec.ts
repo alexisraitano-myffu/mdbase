@@ -272,8 +272,11 @@ test.describe('plage de cellules et annulation', () => {
     expect(copie.texte.split('\r\n')).toHaveLength(2)
     expect(copie.texte).toMatch(/^Haute\t.*\t10\r\nHaute\t.*\t8$/)
     expect(copie.html).not.toContain('<th>')
+    // Les cases copiées gardent un pointillé jusqu'à Échap.
+    await expect(page.locator('.case.copiee')).toHaveCount(8)
     await page.keyboard.press('Escape')
     await expect(page.locator('.case[style*="accent-fond"]')).toHaveCount(0)
+    await expect(page.locator('.case.copiee')).toHaveCount(0)
   })
 
   test('une valeur collée sur une plage la remplit, après confirmation ; Ctrl+Z la défait', async ({ espace, page }) => {
@@ -287,11 +290,16 @@ test.describe('plage de cellules et annulation', () => {
     const fenetre = page.getByRole('dialog', { name: 'Coller dans le tableau' })
     await expect(fenetre).toContainText('Remplacer 2 valeurs dans 2 lignes')
     await fenetre.getByRole('button', { name: 'Remplacer' }).click()
+    // Les cases touchées brillent un instant.
+    const eclairees = page.locator('.case.eclair-a, .case.eclair-b')
+    await expect(eclairees).toHaveCount(2)
     await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toContain('heures: 7\n')
     await expect.poll(() => espace.lire('taches/recette--trece007.md')).toContain('heures: 7\n')
+    await expect(eclairees).toHaveCount(0)
 
     await page.keyboard.press('ControlOrMeta+z')
     await expect(page.getByRole('status')).toHaveText('Modification annulée')
+    await expect(eclairees).toHaveCount(2)
     await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toContain('heures: 8\n')
     await expect.poll(() => espace.lire('taches/recette--trece007.md')).toContain('heures: 3\n')
     await page.keyboard.press('ControlOrMeta+Shift+z')

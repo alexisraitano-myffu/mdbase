@@ -7,7 +7,7 @@ import {
   type Updater,
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useMemo, useRef, useState, type PointerEvent as EvenementPointeur } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as EvenementPointeur } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, Remplacement } from '../core/depot-espace'
@@ -222,6 +222,47 @@ export function Tableau(p: Props) {
     return bords.join(', ')
   }
 
+  // Cases copiées : bord en pointillé qui défile, comme dans un tableur, jusqu'à Échap ou la prochaine action.
+  const [copie, setCopie] = useState<{ chemins: ReadonlySet<string>; c1: number; c2: number } | null>(null)
+  /** Classe et bords du pointillé d'une case copiée ; `undefined` hors copie. */
+  const bordCopie = (chemin: string, c: number) => {
+    const l = rangs.get(chemin)
+    if (!copie || l === undefined || !copie.chemins.has(chemin) || c < copie.c1 || c > copie.c2) return undefined
+    const bord = (oui: boolean) => (oui ? 'var(--accent)' : 'transparent')
+    return {
+      '--copie-haut': bord(!copie.chemins.has(ordreAffiche[l - 1] ?? '')),
+      '--copie-bas': bord(!copie.chemins.has(ordreAffiche[l + 1] ?? '')),
+      '--copie-gauche': bord(c === copie.c1),
+      '--copie-droite': bord(c === copie.c2),
+    } as CSSProperties
+  }
+
+  // Après un collage, une recopie, une action en lot ou un Ctrl+Z : les cases touchées brillent un instant.
+  const [eclair, setEclair] = useState<{ cles: ReadonlySet<string>; lignes: ReadonlySet<string>; n: number } | null>(null)
+  useEffect(
+    () =>
+      espace.ecouterEtapes((changements) => {
+        setCopie(null)
+        const cles = new Set<string>()
+        const touchees = new Set<string>()
+        for (const c of changements) {
+          if (c.base !== base) continue
+          if (c.type === 'cellule') cles.add(`${c.id}\u0000${c.cle}`)
+          else touchees.add(c.id)
+        }
+        if (cles.size + touchees.size > 0) setEclair((e) => ({ cles, lignes: touchees, n: (e?.n ?? 0) + 1 }))
+      }),
+    [espace, base],
+  )
+  useEffect(() => {
+    if (!eclair) return
+    const t = setTimeout(() => setEclair(null), 1000)
+    return () => clearTimeout(t)
+  }, [eclair])
+  // Deux noms d'animation en alternance : un éclair qui suit un autre repart du début.
+  const classeEclair = eclair ? (eclair.n % 2 ? 'eclair-a' : 'eclair-b') : ''
+  const eclaireCase = (id: string, cle: string) => !!eclair && (eclair.lignes.has(id) || eclair.cles.has(`${id}\u0000${cle}`))
+
   /** Le clic qui suit un glisser ne doit pas ouvrir l'éditeur de la case où il finit. */
   const bloquerClic = () => {
     const stop = (ev: MouseEvent) => {
@@ -292,6 +333,7 @@ export function Tableau(p: Props) {
     const occupe = (t: EventTarget | null) => estChampDeSaisie(t) || ouvert()
     const touche = (e: KeyboardEvent) => {
       if (occupe(e.target)) return
+      if (e.key === 'Escape') setCopie(null)
       if (bornes) {
         if (e.key === 'Escape') setPlage(null)
         else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -318,6 +360,7 @@ export function Tableau(p: Props) {
         const g = grilleDeVue(lignesPlage, visibles.slice(bornes.c1, bornes.c2 + 1), libelle, true)
         e.clipboardData?.setData('text/plain', versTsv(g.lignes))
         e.clipboardData?.setData('text/html', versHtml(g, false))
+        setCopie({ chemins: new Set(lignesPlage.map((l) => l.chemin)), c1: bornes.c1, c2: bornes.c2 })
         return
       }
       if (choisies.length === 0) return
@@ -325,6 +368,7 @@ export function Tableau(p: Props) {
       const g = grilleChoisies()
       e.clipboardData?.setData('text/plain', versMarkdown(g))
       e.clipboardData?.setData('text/html', versHtml(g))
+      setCopie({ chemins: new Set(choisies.map((l) => l.chemin)), c1: 0, c2: visibles.length - 1 })
     }
     const coller = (e: ClipboardEvent) => {
       if (ouvert()) return
@@ -580,8 +624,8 @@ export function Tableau(p: Props) {
                 {tailles.map(({ colonne, largeur }, ci) => (
                   <div
                     key={colonne.cle}
-                    className={`case ${recopie?.cle === colonne.cle && plageRecopie?.has(ligne.chemin) ? 'recopie' : ''}`}
-                    style={{ width: largeur, boxShadow: bordPlage(ligne.chemin, ci) }}
+                    className={`case ${recopie?.cle === colonne.cle && plageRecopie?.has(ligne.chemin) ? 'recopie' : ''} ${bordCopie(ligne.chemin, ci) ? 'copiee' : ''} ${eclaireCase(ligne.id, colonne.cle) ? classeEclair : ''}`}
+                    style={{ width: largeur, boxShadow: bordPlage(ligne.chemin, ci), ...bordCopie(ligne.chemin, ci) }}
                     data-l={selectionnable ? rangs.get(ligne.chemin) : undefined}
                     data-c={ci}
                     onPointerDown={(ev) => appuiCase(ev, ligne.chemin, ci)}

@@ -129,4 +129,18 @@ describe('annuler / rétablir', () => {
     await ecrire()
     expect(await a.lire(A)).not.toContain('heures:')
   })
+
+  it('chaque action groupée et chaque annulation disent ce qu’elles ont touché ; une frappe seule, non', async () => {
+    const { espace, taches } = await ouvrir()
+    const recus: string[][] = []
+    espace.ecouterEtapes((cs) => recus.push(cs.map((c) => (c.type === 'cellule' ? `${c.id}.${c.cle}` : `${c.type} ${c.id}`))))
+    taches().modifier(A, 'heures', 9)
+    expect(recus).toEqual([])
+    await espace.modifierLignes('taches', [A, B], 'statut', 'Terminé')
+    await espace.annuler()
+    expect(recus).toEqual([
+      ['t0000001.statut', 't0000002.statut'],
+      ['t0000002.statut', 't0000001.statut'],
+    ])
+  })
 })
