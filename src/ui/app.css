@@ -738,3 +738,8 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .nom-version { font-size: 0.85em; color: var(--discret); }
 .case-a-cocher { display: block; font-size: 0.9em; margin: 0.4rem 0; }
 .case-a-cocher input { margin-right: 6px; }
+.accueil h1 { margin: 0; font-size: 1.9rem; }
+.accueil > p { margin: 0 0 0.5rem; color: var(--discret); line-height: 1.5; }
+.essai-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.5rem; margin-top: 0.5rem; }
+.essai-demo button { padding-left: 0; }
+.essai-demo p { flex-basis: 100%; margin: 0; font-size: 0.85em; }

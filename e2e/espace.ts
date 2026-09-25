@@ -118,7 +118,7 @@ export const test = base.extend<{ espace: Espace }>({
     page.on('console', (m) => m.type() === 'error' && erreurs.push(m.text()))
     page.on('pageerror', (e) => erreurs.push(String(e)))
     await page.addInitScript(preparerPage, DOSSIER)
-    await page.goto('/')
+    await page.goto('./') // relatif à baseURL, qui peut porter un sous-chemin
     const espace = new Espace(page)
     for (const [chemin, texte] of Object.entries(lireDemo())) await espace.ecrire(chemin, texte)
     await page.getByRole('button', { name: 'Ouvrir un dossier' }).click()

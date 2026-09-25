@@ -6,6 +6,7 @@ import {
   navigateurCompatible,
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
+import { demoExiste, ouvrirDemo } from '../adapters/fsa/demo'
 import { useAujourdhui } from './useAujourdhui'
 import { aleatoire, aujourdhui, maintenant, planifier } from '../adapters/navigateur'
 import { DepotEspace } from '../core/depot-espace'
@@ -30,6 +31,10 @@ export function App() {
     navigateurCompatible() ? { type: 'chargement' } : { type: 'incompatible' },
   )
   const [erreur, setErreur] = useState<string | null>(null)
+  const [avecDemo, setAvecDemo] = useState(false)
+  useEffect(() => {
+    void demoExiste().then(setAvecDemo)
+  }, [])
 
   async function ouvrir(handle: FileSystemDirectoryHandle) {
     const espace = await DepotEspace.ouvrir(new AdaptateurFsa(handle), { aleatoire, planifier, aujourdhui, maintenant })
@@ -74,6 +79,7 @@ export function App() {
   }, [jour, etat])
 
   const choisir = () => tenter(async () => ouvrir(await choisirDossier()))
+  const demo = (neuve: boolean) => tenter(async () => ouvrir(await ouvrirDemo(neuve)))
 
   if (etat.type === 'ouvert') {
     return (
@@ -91,7 +97,26 @@ export function App() {
           <strong>Edge</strong>.
         </p>
       )}
-      {etat.type === 'aucun' && <button onClick={choisir}>Ouvrir un dossier</button>}
+      {etat.type === 'aucun' && (
+        <>
+          <h1>mdbase</h1>
+          <p>
+            Des bases de données comme dans Notion, rangées dans un dossier de fichiers Markdown que tu gardes. Rien n'est envoyé nulle part.
+          </p>
+          <button onClick={choisir}>Ouvrir un dossier</button>
+          <div className="essai-demo">
+            <button className="discret" onClick={() => demo(false)}>
+              {avecDemo ? 'Reprendre la démo' : 'Essayer avec la démo'}
+            </button>
+            {avecDemo && (
+              <button className="discret" onClick={() => demo(true)}>
+                Repartir d’une démo neuve
+              </button>
+            )}
+            <p className="discret">La démo vit dans le stockage de ce navigateur, pas sur ton disque.</p>
+          </div>
+        </>
+      )}
       {etat.type === 'permission' && (
         <>
           <button

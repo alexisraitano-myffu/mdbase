@@ -21,8 +21,13 @@ export async function retrouverDossier(): Promise<DossierMemorise | null> {
 /** Doit être appelé depuis un geste utilisateur (clic). */
 export async function choisirDossier(): Promise<FileSystemDirectoryHandle> {
   const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
-  await transaction('readwrite', (m) => m.put(handle, CLE))
+  await memoriserDossier(handle)
   return handle
+}
+
+/** Retient le dossier pour la prochaine ouverture de l'app. */
+export async function memoriserDossier(handle: FileSystemDirectoryHandle): Promise<void> {
+  await transaction('readwrite', (m) => m.put(handle, CLE))
 }
 
 /** Doit être appelé depuis un geste utilisateur (clic). */
