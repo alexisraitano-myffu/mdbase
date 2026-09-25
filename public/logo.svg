@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="27 19 126 120" fill="none" stroke="#bca9dd" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
   <title>mdbase</title>
   <!-- « M↓ » de la marque Markdown en bas ; le d au-dessus, dans l'axe de la flèche ; le b à sa droite, plus bas. -->
-  <path d="M36 130V107l11 13 11-13v23" stroke-width="7"/><path d="M84 28v58"/><circle cx="67" cy="74" r="17"/><path d="M84 104v24M75 119l9 9 9-9" stroke-width="7"/><path d="M110 58v72"/><circle cx="127" cy="113" r="17"/>
+  <path d="M36 130V107l11 13 11-13v23" stroke-width="7"/><path d="M84 28v63"/><path d="M84 57H67a17 17 0 0 0-17 17v7a10 10 0 0 0 10 10h24"/><path d="M84 106v22M75 119l9 9 9-9" stroke-width="7"/><path d="M110 58v72"/><path d="M110 96h17a17 17 0 0 1 17 17v7a10 10 0 0 1-10 10h-24"/>
 </svg>
