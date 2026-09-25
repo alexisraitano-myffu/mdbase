@@ -114,7 +114,7 @@ export function App() {
       {(etat.type === 'aucun' || etat.type === 'permission') && (
         <>
           <h1 className="titre-accueil">
-            <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width={48} height={44} />
+            <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width={38} height={48} />
             mdbase
           </h1>
           <p>
