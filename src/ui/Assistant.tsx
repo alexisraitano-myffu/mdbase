@@ -3,7 +3,7 @@ import { ArrowRight, Sparkles } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
 import { proposer, type Proposition } from '../core/ia/assistant'
 import { appliquerPlan } from '../core/ia/plan'
-import { modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
+import { listerModeles, modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
 import type { ReglagesIA } from '../adapters/ia/reglages'
 import { aujourdhui } from '../adapters/navigateur'
 import { Fenetre } from './fenetre'
@@ -13,12 +13,31 @@ import { Icone } from './icones'
 // un avertissement ; chaque modification proposée est montrée avant d'être appliquée.
 
 /** Activation et réglages : l'avertissement est toujours affiché avant d'activer. `enregistrer` ferme la fenêtre. */
+/** Services préréglés : un clic remplit l'adresse. Aucun n'est imposé (spec §12). */
+const SERVICES = [
+  { nom: 'OVH (Europe)', adresse: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1' },
+  { nom: 'Mistral (Europe)', adresse: 'https://api.mistral.ai/v1' },
+  { nom: 'Ollama (local)', adresse: 'http://localhost:11434/v1' },
+  { nom: 'LM Studio (local)', adresse: 'http://localhost:1234/v1' },
+]
+
 export function FenetreReglagesIA(p: { reglages: ReglagesIA; enregistrer: (r: ReglagesIA) => void; fermer: () => void }) {
   const [r, setR] = useState(p.reglages)
-  const champ = (cle: 'adresse' | 'cle' | 'modele', libelle: string, aide: string, type = 'text') => (
+  const [modeles, setModeles] = useState<string[]>([])
+  // Liste des modèles demandée au service dès que l'adresse (ou la clé) change.
+  useEffect(() => {
+    if (!/^https?:\/\/.+/.test(r.adresse.trim())) return setModeles([])
+    let actuel = true
+    const t = setTimeout(() => void listerModeles(r).then((m) => actuel && setModeles(m)), 400)
+    return () => {
+      actuel = false
+      clearTimeout(t)
+    }
+  }, [r.adresse, r.cle])
+  const champ = (cle: 'adresse' | 'cle' | 'modele', libelle: string, aide: string, type = 'text', liste?: string) => (
     <label className="champ-ia">
       <span>{libelle}</span>
-      <input type={type} value={r[cle]} onChange={(e) => setR({ ...r, [cle]: e.target.value })} placeholder={aide} autoComplete="off" spellCheck={false} />
+      <input type={type} value={r[cle]} onChange={(e) => setR({ ...r, [cle]: e.target.value })} placeholder={aide} autoComplete="off" spellCheck={false} list={liste} />
     </label>
   )
   const complet = r.adresse.trim() !== '' && r.modele.trim() !== ''
@@ -31,14 +50,27 @@ export function FenetreReglagesIA(p: { reglages: ReglagesIA; enregistrer: (r: Re
             colonnes, options) et des lignes (titres et valeurs, pas le contenu des pages).
           </p>
           <p>
-            Rien n’est envoyé tant qu’il n’est pas activé. Il ne peut modifier que ce dossier, et chaque modification t’est montrée avant d’être
+            Aucune donnée n’est envoyée tant qu’il n’est pas activé (la liste des modèles est seulement demandée au service). Il ne peut modifier que ce dossier, et chaque modification t’est montrée avant d’être
             appliquée. La clé reste dans ce navigateur. Choisis un service dont la politique de données te convient (sans conservation, hébergé en
             Europe, ou local).
           </p>
         </div>
+        <div className="services-ia">
+          {SERVICES.map((sv) => (
+            <button key={sv.nom} className={`pilule${r.adresse === sv.adresse ? ' active' : ''}`} onClick={() => setR({ ...r, adresse: sv.adresse })}>
+              {sv.nom}
+            </button>
+          ))}
+        </div>
         {champ('adresse', 'Adresse du service', 'https://…/v1 (compatible OpenAI)')}
         {champ('cle', 'Clé d’API', 'vide pour un serveur local', 'password')}
-        {champ('modele', 'Modèle', 'nom exact du modèle')}
+        {champ('modele', 'Modèle', modeles.length > 0 ? `choisir parmi ${modeles.length} modèles` : 'nom du modèle', 'text', 'modeles-ia')}
+        <datalist id="modeles-ia">
+          {modeles.map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
+        <p className="discret note-ia">Gardés dans ce navigateur : à remplir une seule fois.</p>
         <div className="boutons">
           {p.reglages.actif && (
             <button

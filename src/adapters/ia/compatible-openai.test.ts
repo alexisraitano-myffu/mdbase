@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adresseComplete, modeleCompatibleOpenAI } from './compatible-openai'
+import { adresseComplete, listerModeles, modeleCompatibleOpenAI } from './compatible-openai'
 
 const CONNEXION = { adresse: 'https://exemple.test/v1/', cle: ' secret ', modele: 'qwen' }
 
@@ -66,5 +66,12 @@ describe('connecteur compatible OpenAI', () => {
     await expect(modeleCompatibleOpenAI(CONNEXION, refus.envoyer)({ messages: [], outils: [] })).rejects.toThrow('Le service a répondu : clé refusée (invalid token)')
     const injoignable = faux(new TypeError('Failed to fetch'))
     await expect(modeleCompatibleOpenAI(CONNEXION, injoignable.envoyer)({ messages: [], outils: [] })).rejects.toThrow(/Service injoignable.*CORS/)
+  })
+
+  it('liste des modèles : seulement ceux de discussion, triés ; vide si le service ne répond pas', async () => {
+    const f = faux(json({ data: [{ id: 'whisper-large-v3' }, { id: 'Qwen3.8-27B' }, { id: 'bge-m3' }, { id: 'gpt-oss-120b' }] }))
+    expect(await listerModeles({ adresse: 'https://x.test/v1/chat/completions', cle: '' }, f.envoyer)).toEqual(['gpt-oss-120b', 'Qwen3.8-27B'])
+    expect(f.requetes[0]!.url).toBe('https://x.test/v1/models')
+    expect(await listerModeles({ adresse: 'https://x.test/v1', cle: '' }, faux(new TypeError('Failed to fetch')).envoyer)).toEqual([])
   })
 })

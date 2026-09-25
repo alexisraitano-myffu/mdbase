@@ -26,7 +26,7 @@ async function activer(page: Page) {
   await expect(fenetre).toContainText('À chaque demande, l’assistant envoie au service choisi')
   await fenetre.getByPlaceholder(/compatible OpenAI/).fill(SERVICE)
   await fenetre.getByPlaceholder(/serveur local/).fill('cle-de-test')
-  await fenetre.getByPlaceholder('nom exact du modèle').fill('qwen-test')
+  await fenetre.getByPlaceholder(/modèle/).fill('qwen-test')
   await fenetre.getByRole('button', { name: 'J’ai compris, activer' }).click()
   await expect(page.getByPlaceholder(/passe les tâches en retard/)).toBeFocused()
 }
@@ -36,6 +36,15 @@ test('désactivé par défaut : l’avertissement s’affiche et rien n’est en
   await page.keyboard.press('Control+j')
   const fenetre = page.getByRole('dialog', { name: 'Assistant IA' })
   await expect(fenetre.getByRole('button', { name: 'J’ai compris, activer' })).toBeDisabled()
+
+  // Un service préréglé remplit l'adresse ; ses modèles de discussion sont proposés.
+  await page.route('https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models', (route) =>
+    route.fulfill({ json: { data: [{ id: 'Qwen3.8-27B' }, { id: 'whisper-large-v3' }] }, headers: { 'Access-Control-Allow-Origin': '*' } }),
+  )
+  await fenetre.getByRole('button', { name: 'OVH (Europe)' }).click()
+  await expect(fenetre.getByPlaceholder(/compatible OpenAI/)).toHaveValue('https://oai.endpoints.kepler.ai.cloud.ovh.net/v1')
+  await expect(fenetre.locator('#modeles-ia option')).toHaveCount(1)
+  await expect(fenetre.locator('#modeles-ia option')).toHaveAttribute('value', 'Qwen3.8-27B')
   await page.keyboard.press('Escape')
   await expect(fenetre).toHaveCount(0)
   expect(recues).toHaveLength(0)

@@ -52,6 +52,25 @@ async function messageErreur(r: Response): Promise<string> {
   return `Le service a répondu : ${cause}${detail ? ` (${detail})` : ''}`
 }
 
+/** Modèles de discussion proposés par le service (`GET …/models`) ; vide si le service ne les liste pas. */
+export async function listerModeles(c: Pick<Connexion, 'adresse' | 'cle'>, envoyer: typeof fetch = (...a) => fetch(...a)): Promise<string[]> {
+  const base = adresseComplete(c.adresse).replace(/\/chat\/completions$/, '')
+  try {
+    const r = await envoyer(`${base}/models`, { headers: c.cle.trim() ? { Authorization: `Bearer ${c.cle.trim()}` } : {} })
+    if (!r.ok) return []
+    const json = (await r.json()) as { data?: { id?: unknown }[] }
+    return (json.data ?? [])
+      .flatMap((m) => (typeof m.id === 'string' ? [m.id] : []))
+      .filter((id) => !PAS_DE_DISCUSSION.test(id))
+      .sort((a, b) => a.localeCompare(b))
+  } catch {
+    return []
+  }
+}
+
+/** Modèles listés par les services mais inutilisables ici : voix, images, vecteurs, modération. */
+const PAS_DE_DISCUSSION = /whisper|tts|diffusion|embed|bge|guard|rerank|moderation|ocr|dall-e|transcribe/i
+
 /** `envoyer` est injectable pour les tests ; par défaut, le `fetch` du navigateur. */
 export function modeleCompatibleOpenAI(c: Connexion, envoyer: typeof fetch = (...a) => fetch(...a)): ModeleIA {
   return async ({ messages, outils }) => {
