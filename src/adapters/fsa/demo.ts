@@ -1,4 +1,4 @@
-import { memoriserDossier } from './dossier-memorise'
+import { MARQUE_DEMO, memoriserDossier } from './dossier-memorise'
 
 // Espace de démonstration « sans installation » : la démo du dépôt est copiée
 // dans le stockage privé du navigateur (OPFS), qui offre la même API de
@@ -37,6 +37,6 @@ export async function ouvrirDemo(neuve: boolean): Promise<FileSystemDirectoryHan
       await flux.close()
     }
   }
-  await memoriserDossier(dossier)
+  await memoriserDossier(MARQUE_DEMO)
   return dossier
 }

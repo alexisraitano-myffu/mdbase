@@ -11,9 +11,17 @@ export function navigateurCompatible(): boolean {
 
 export type DossierMemorise = { handle: FileSystemDirectoryHandle; autorise: boolean }
 
-export async function retrouverDossier(): Promise<DossierMemorise | null> {
-  const handle = await transaction<FileSystemDirectoryHandle | undefined>('readonly', (m) => m.get(CLE))
+/**
+ * La démo (dossier OPFS) est mémorisée par cette marque, pas par son handle :
+ * relire un handle OPFS depuis IndexedDB fait planter Chromium en navigation
+ * privée. Elle se retrouve par `navigator.storage.getDirectory()`.
+ */
+export const MARQUE_DEMO = 'demo'
+
+export async function retrouverDossier(): Promise<DossierMemorise | typeof MARQUE_DEMO | null> {
+  const handle = await transaction<FileSystemDirectoryHandle | typeof MARQUE_DEMO | undefined>('readonly', (m) => m.get(CLE))
   if (!handle) return null
+  if (handle === MARQUE_DEMO) return MARQUE_DEMO
   const autorise = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
   return { handle, autorise }
 }
@@ -26,7 +34,7 @@ export async function choisirDossier(): Promise<FileSystemDirectoryHandle> {
 }
 
 /** Retient le dossier pour la prochaine ouverture de l'app. */
-export async function memoriserDossier(handle: FileSystemDirectoryHandle): Promise<void> {
+export async function memoriserDossier(handle: FileSystemDirectoryHandle | typeof MARQUE_DEMO): Promise<void> {
   await transaction('readwrite', (m) => m.put(handle, CLE))
 }
 

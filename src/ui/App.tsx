@@ -3,6 +3,7 @@ import { AdaptateurFsa } from '../adapters/fsa/adaptateur-fsa'
 import {
   choisirDossier,
   demanderPermission,
+  MARQUE_DEMO,
   navigateurCompatible,
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
@@ -57,7 +58,10 @@ export function App() {
     void tenter(async () => {
       const memorise = await retrouverDossier()
       if (!memorise) setEtat({ type: 'aucun' })
-      else if (memorise.autorise) await ouvrir(memorise.handle)
+      else if (memorise === MARQUE_DEMO) {
+        if (await demoExiste()) await ouvrir(await ouvrirDemo(false))
+        else setEtat({ type: 'aucun' })
+      } else if (memorise.autorise) await ouvrir(memorise.handle)
       else setEtat({ type: 'permission', handle: memorise.handle })
     })
   }, [etat.type])
@@ -79,6 +83,14 @@ export function App() {
   }, [jour, etat])
 
   const choisir = () => tenter(async () => ouvrir(await choisirDossier()))
+  // Refusée sans fenêtre quand le navigateur bloque la demande (refus ou fenêtres ignorées) : on le dit.
+  const [refus, setRefus] = useState(false)
+  const rouvrir = (handle: FileSystemDirectoryHandle) =>
+    tenter(async () => {
+      setRefus(false)
+      if (await demanderPermission(handle)) await ouvrir(handle)
+      else setRefus(true)
+    })
   const demo = (neuve: boolean) => tenter(async () => ouvrir(await ouvrirDemo(neuve)))
 
   if (etat.type === 'ouvert') {
@@ -97,16 +109,30 @@ export function App() {
           <strong>Edge</strong>.
         </p>
       )}
-      {etat.type === 'aucun' && (
+      {(etat.type === 'aucun' || etat.type === 'permission') && (
         <>
           <h1>mdbase</h1>
           <p>
             Des bases de données comme dans Notion, rangées dans un dossier de fichiers Markdown que tu gardes. Rien n'est envoyé nulle part.
           </p>
           <div className="choix-accueil">
+            {etat.type === 'permission' && (
+              <div>
+                <button className="principal" onClick={() => rouvrir(etat.handle)}>
+                  Rouvrir « {etat.handle.name} »
+                </button>
+                <p className="discret">Le dernier dossier ouvert : le navigateur redemande l'autorisation à chaque visite.</p>
+                {refus && (
+                  <p className="erreur">
+                    Le navigateur n'a pas donné l'accès à « {etat.handle.name} » (il bloque la demande après quelques refus). Choisis le
+                    dossier avec « Ouvrir un autre dossier », ou autorise-le depuis l'icône à gauche de l'adresse.
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <div className="boutons-accueil">
-                <button className="principal" onClick={() => demo(false)}>
+                <button className={etat.type === 'aucun' ? 'principal' : ''} onClick={() => demo(false)}>
                   {avecDemo ? 'Reprendre la démo' : 'Essayer avec la démo'}
                 </button>
                 {avecDemo && (
@@ -118,26 +144,10 @@ export function App() {
               <p className="discret">Rien à installer ni à choisir : un espace d'exemple, gardé dans le stockage de ce navigateur.</p>
             </div>
             <div>
-              <button onClick={choisir}>Ouvrir un dossier</button>
+              <button onClick={choisir}>{etat.type === 'permission' ? 'Ouvrir un autre dossier' : 'Ouvrir un dossier'}</button>
               <p className="discret">Pour tes vraies données : un dossier de ton disque, lu et modifié sur place.</p>
             </div>
           </div>
-        </>
-      )}
-      {etat.type === 'permission' && (
-        <>
-          <button
-            onClick={() =>
-              tenter(async () => {
-                if (await demanderPermission(etat.handle)) await ouvrir(etat.handle)
-              })
-            }
-          >
-            Rouvrir « {etat.handle.name} »
-          </button>
-          <button className="discret" onClick={choisir}>
-            Choisir un autre dossier
-          </button>
         </>
       )}
       {erreur && <p className="erreur">{erreur}</p>}
