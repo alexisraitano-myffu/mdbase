@@ -70,6 +70,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Contenu des pages dans la police de l'interface (l'éditeur imposait Noto Serif / Noto Sans).
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
 ### Fixed
+- Accueil : « Essayer avec la démo » devient l'action principale ; avec un dossier mémorisé, l'écran « Rouvrir » garde la démo et « Ouvrir un autre dossier », et explique un refus d'autorisation du navigateur (auparavant le clic ne faisait rien).
+- La démo est mémorisée par une marque et non par son dossier OPFS : relire ce dossier depuis IndexedDB faisait planter Chromium en navigation privée au rechargement.
 - Une ligne créée par « + Nouvelle ligne » n'ouvrait pas toujours son titre en édition (la ligne s'affichait avant la demande d'édition).
 - Les menus flottants restent dans la fenêtre (les panneaux Filtrer / Trier débordaient à droite).
 - Les menus flottants (select, en-têtes) sont rendus hors du tableau : ils pouvaient apparaître décalés ou coupés dans les lignes.
