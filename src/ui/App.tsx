@@ -103,17 +103,24 @@ export function App() {
           <p>
             Des bases de données comme dans Notion, rangées dans un dossier de fichiers Markdown que tu gardes. Rien n'est envoyé nulle part.
           </p>
-          <button onClick={choisir}>Ouvrir un dossier</button>
-          <div className="essai-demo">
-            <button className="discret" onClick={() => demo(false)}>
-              {avecDemo ? 'Reprendre la démo' : 'Essayer avec la démo'}
-            </button>
-            {avecDemo && (
-              <button className="discret" onClick={() => demo(true)}>
-                Repartir d’une démo neuve
-              </button>
-            )}
-            <p className="discret">La démo vit dans le stockage de ce navigateur, pas sur ton disque.</p>
+          <div className="choix-accueil">
+            <div>
+              <div className="boutons-accueil">
+                <button className="principal" onClick={() => demo(false)}>
+                  {avecDemo ? 'Reprendre la démo' : 'Essayer avec la démo'}
+                </button>
+                {avecDemo && (
+                  <button className="discret" onClick={() => demo(true)}>
+                    Repartir d’une démo neuve
+                  </button>
+                )}
+              </div>
+              <p className="discret">Rien à installer ni à choisir : un espace d'exemple, gardé dans le stockage de ce navigateur.</p>
+            </div>
+            <div>
+              <button onClick={choisir}>Ouvrir un dossier</button>
+              <p className="discret">Pour tes vraies données : un dossier de ton disque, lu et modifié sur place.</p>
+            </div>
           </div>
         </>
       )}

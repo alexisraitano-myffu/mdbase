@@ -4,7 +4,7 @@
 
 Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules, dashboards : l'ergonomie des bases Notion, sans compte ni serveur. Chaque ligne est un fichier `.md` lisible, chaque réglage un petit fichier YAML. Le dossier se synchronise avec ce que tu utilises déjà (OneDrive, Dropbox, iCloud, git).
 
-**[Essayer dans le navigateur](https://alexisraitano-myffu.github.io/mdbase/)** : bouton « Essayer avec la démo », rien à installer. La démo vit dans le stockage du navigateur ; pour tes vraies données, « Ouvrir un dossier ».
+**[Essayer dans le navigateur](https://alexisraitano-myffu.github.io/mdbase/)** : clique sur « Essayer avec la démo », rien à installer ni à choisir (Chrome ou Edge). La démo vit dans le stockage du navigateur ; « Ouvrir un dossier » sert à tes vraies données, un dossier de ton disque.
 
 ![Tableau d'une base](docs/captures/tableau.png)
 

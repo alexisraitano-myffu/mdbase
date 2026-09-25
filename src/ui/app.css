@@ -792,9 +792,10 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .case-a-cocher input { margin-right: 6px; }
 .accueil h1 { margin: 0; font-size: 1.9rem; }
 .accueil > p { margin: 0 0 0.5rem; color: var(--discret); line-height: 1.5; }
-.essai-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.5rem; margin-top: 0.5rem; }
-.essai-demo button { padding-left: 0; }
-.essai-demo p { flex-basis: 100%; margin: 0; font-size: 0.85em; }
+.choix-accueil { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 0.5rem; }
+.choix-accueil > div { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+.choix-accueil p { margin: 0; font-size: 0.85em; }
+.boutons-accueil { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* Habillage « Îlots » : ce qui suit habille l'interface (contenu en panneau sur fond teinté, pilules).
    Les animations viendront plus tard. */
