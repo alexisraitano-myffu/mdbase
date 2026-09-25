@@ -63,7 +63,7 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
           </details>
         )}
         {doublons && <BandeauDoublons depot={depot} doublons={doublons} />}
-        <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} />
+        <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} lignesVue={lignesVue} />
         <ContenuVue
           espace={espace}
           base={etat.id}

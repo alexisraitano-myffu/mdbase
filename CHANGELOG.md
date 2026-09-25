@@ -61,6 +61,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - « Essayer avec la démo » sur l'accueil : la démo copiée dans le stockage du navigateur, sans rien installer ni choisir de dossier ; « Repartir d'une démo neuve » pour tout effacer.
 - Publication open source (licence MIT, README) et version en ligne sur GitHub Pages, déployée après typage, tests et tests de bout en bout sur le build.
 
+- Export d'une vue (menu « Exporter ») : ses lignes, filtres et tris appliqués, en tableau Markdown (copié ou téléchargé) ou en CSV (relisible par un tableur, BOM pour Excel, formules neutralisées), et la vue entière en image PNG, au-delà de la partie visible (timeline, tableau, kanban, calendrier, collection).
+- Import CSV : nouvelle base (séparateur deviné, types devinés et modifiables avant l'import : nombre, date, case, lien, sélection) ou lignes ajoutées à une base existante (colonnes retrouvées par nom).
 ### Changed
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
 - Icônes Lucide (embarquées dans le build) à la place des caractères Unicode : types de colonnes, vues, menus, fermer, chevrons, coches, cases à cocher.

@@ -24,6 +24,7 @@
     "@tanstack/react-virtual": "^3.14.13",
     "lucide-react": "^1.48.0",
     "minisearch": "^7.2.0",
+    "modern-screenshot": "^4.7.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "yaml": "^2.9.1"

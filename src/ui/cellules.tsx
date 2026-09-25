@@ -369,7 +369,7 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
 }
 
 /** Colonne de la base liée que remonte un rollup. */
-function champRemonte(etat: ReturnType<typeof useEspace>['etat'], base: string, c: Colonne): Colonne | undefined {
+export function champRemonte(etat: ReturnType<typeof useEspace>['etat'], base: string, c: Colonne): Colonne | undefined {
   if (c.type !== 'rollup') return undefined
   const schema = etat.bases.get(base)?.depot?.schema
   const relation = schema && colonneDe(schema, c.relation)

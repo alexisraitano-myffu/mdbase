@@ -18,6 +18,7 @@ Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules
 - **Vues** enregistrées : tableau (groupement, calculs en pied de colonne), kanban, collection, calendrier, timeline avec jalons. Filtres, tris et filtres rapides en pastilles.
 - **Pages** : chaque ligne s'ouvre en panneau ou en plein écran, avec ses propriétés, ses onglets de relations et un contenu en Markdown.
 - **Dashboards** qui rassemblent des vues de plusieurs bases, et une **recherche globale** (`Ctrl+K` ou `⌘K`).
+- **Import et export** : une vue en tableau Markdown, en CSV ou en image PNG (la timeline entière, par exemple) ; un CSV en nouvelle base ou en lignes ajoutées.
 - **Pensé pour la synchro** : relecture du dossier au retour sur l'onglet, écriture sûre quand un fichier a changé ailleurs, détection des copies de conflit OneDrive et des identifiants en double.
 
 ![Timeline groupée par projet](docs/captures/timeline.png)
@@ -81,7 +82,7 @@ Chaque push sur `main` passe le typage, les tests et les tests de bout en bout s
 
 ## État
 
-La V1 décrite dans la spec est complète. Le nom est provisoire. Prochaines étapes : import CSV et export des vues (données et image), puis des animations.
+La V1 décrite dans la spec est complète. Le nom est provisoire. Prochaines étapes : des animations, et d'autres tests de bout en bout.
 
 ## Licence
 

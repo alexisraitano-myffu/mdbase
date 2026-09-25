@@ -847,6 +847,17 @@ button { border-radius: 8px; }
 .flottant { border-radius: 12px; }
 :is(.recherche-globale, .fenetre) { border-radius: 16px; }
 
+/* Import et export */
+.separateur { height: 1px; background: var(--bordure); margin: 4px 2px; }
+.import { display: flex; flex-direction: column; gap: 0.75rem; padding-top: 0.5rem; }
+.import > p { margin: 0; }
+.colonnes-import { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+.colonnes-import th { text-align: left; font-weight: 500; color: var(--discret); padding: 0.3rem 0.5rem; }
+.colonnes-import td { padding: 0.3rem 0.5rem; border-top: 1px solid var(--bordure); }
+.colonnes-import input, .colonnes-import select, .import .case-reglage input { font: inherit; padding: 3px 6px; border: 1px solid var(--bordure); border-radius: 6px; background: var(--fond); color: inherit; }
+.en-capture :is(.nouvelle-ligne, .cellule-entete.ajout, .ajout-carte, .carte-ajout, .ajout-jour, .ajout-groupe, .ajout-ligne, .bouton-ouvrir, .invite-calcul) { visibility: hidden; }
+.apercu-import { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Icônes (Lucide) */
 svg.icone { flex-shrink: 0; vertical-align: -0.2em; opacity: 0.75; }
 button:has(> svg.icone) { display: inline-flex; align-items: center; gap: 0.4em; }

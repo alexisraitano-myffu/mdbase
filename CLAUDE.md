@@ -49,6 +49,7 @@ src/
                            gestes (déplacer, étirer), étendue et graduations de la timeline
     dashboard.ts           lecture/réécriture des `_dashboards/*.yaml`, même opération en mémoire
     recherche.ts           index plein texte (MiniSearch) de toutes les bases, extraits surlignés
+    echange.ts             import/export : grille d'une vue, CSV (écriture, lecture), Markdown, types devinés d'un CSV
     conflits.ts            ids en double, copies de conflit de synchro (suffixe de machine OneDrive)
     fixtures/              données de test partagées
   adapters/

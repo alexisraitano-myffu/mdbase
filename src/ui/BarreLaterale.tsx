@@ -4,7 +4,8 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Ellipsis, Plus, RotateCw, Search, Table2 } from 'lucide-react'
+import { Ellipsis, Plus, RotateCw, Search, Table2, Upload } from 'lucide-react'
+import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 
 type Props = {
@@ -28,6 +29,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
   const [cible, setCible] = useState<string | null>(null)
+  const [importCsv, setImport] = useState(false)
 
   const nomBase = (id: string) => {
     const c = etat.bases.get(id)?.chargement
@@ -140,6 +142,9 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
           <button className="discret ajout-barre" onClick={() => setCreation('groupe')}>
             <Icone de={Plus} /> Nouveau groupe
           </button>
+          <button className="discret ajout-barre" onClick={() => setImport(true)}>
+            <Icone de={Upload} /> Importer un CSV
+          </button>
         </>
       )}
 
@@ -153,6 +158,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         <Icone de={RotateCw} className={relu.enCours ? 'tourne' : ''} />
         {relu.enCours ? 'Relecture…' : relu.a ? `Relu à ${relu.a.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Relire le dossier'}
       </button>
+      {importCsv && <FenetreImport espace={espace} fermer={() => setImport(false)} ouvrir={choisir} />}
       <button className="discret changer" onClick={changerDossier}>
         Changer de dossier
       </button>

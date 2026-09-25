@@ -10,7 +10,7 @@ import { Flottant } from './flottant'
 import { Plus, TriangleAlert } from 'lucide-react'
 import { Icone, ICONES } from './icones'
 
-const NOMS_TYPES: Record<TypeCreable, string> = {
+export const NOMS_TYPES: Record<TypeCreable, string> = {
   text: 'Texte',
   number: 'Nombre',
   date: 'Date',

@@ -1,10 +1,12 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { DepotEspace } from '../core/depot-espace'
+import type { LigneVue } from '../core/filtres'
 import { natureDe, type Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
 import type { ModificationVue, Tri, TypeVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
+import { MenuExporter } from './Echange'
 import { Flottant } from './flottant'
 import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
@@ -18,10 +20,12 @@ type Props = {
   vues: Vue[]
   vue: Vue
   choisirVue: (id: string) => void
+  /** Lignes affichées par la vue, pour l'export. */
+  lignesVue: LigneVue[]
 }
 
 /** Onglets de vues, panneaux Filtrer / Trier, et pastilles de filtres rapides (spec §7). */
-export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props) {
+export function BarreVue({ espace, base, schema, vues, vue, choisirVue, lignesVue }: Props) {
   const lancer = useLancer()
   const modifier = (m: Parameters<DepotEspace['modifierVue']>[2]) => void lancer(espace.modifierVue(base, vue.id, m))
 
@@ -47,6 +51,7 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue }: Props)
         <AjoutVue espace={espace} base={base} schema={schema} vues={vues} choisirVue={choisirVue} />
 
         <OutilsVue schema={schema} vue={vue} modifier={modifier} />
+        <MenuExporter espace={espace} base={base} schema={schema} vue={vue} lignesVue={lignesVue} />
       </div>
 
       <Pastilles schema={schema} pastilles={vue.filtresRapides} changer={(filtresRapides) => modifier({ filtresRapides })} />

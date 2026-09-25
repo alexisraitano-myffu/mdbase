@@ -1,5 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
 import type { LigneChargee } from '../core/base'
 import { differences, nomInattendu } from '../core/conflits'
 import type { DepotBase } from '../core/depot-base'
@@ -8,34 +7,10 @@ import { nomDe } from '../core/fichiers'
 import { colonne as colonneDe } from '../core/schema'
 import { useLancer } from './actions'
 import { ValeurCompacte } from './cellules'
-import { X } from 'lucide-react'
-import { Icone } from './icones'
+import { Fenetre } from './fenetre'
 
 // Conflits de synchronisation (spec §4) : rien n'est tranché à la place de
 // l'utilisateur. On montre les versions côte à côte, il choisit.
-
-/** Fenêtre modale commune aux deux sortes de conflits. */
-function Fenetre({ titre, fermer, children }: { titre: string; fermer: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const clavier = (e: KeyboardEvent) => e.key === 'Escape' && fermer()
-    document.addEventListener('keydown', clavier)
-    return () => document.removeEventListener('keydown', clavier)
-  }, [fermer])
-  return createPortal(
-    <div className="voile-fenetre" onMouseDown={(e) => e.target === e.currentTarget && fermer()}>
-      <div className="fenetre" role="dialog" aria-label={titre}>
-        <div className="entete-fenetre">
-          <h2>{titre}</h2>
-          <button className="discret" onClick={fermer} aria-label="Fermer">
-            <Icone de={X} />
-          </button>
-        </div>
-        <div className="corps-fenetre">{children}</div>
-      </div>
-    </div>,
-    document.body,
-  )
-}
 
 const dateFichier = (ms: number) =>
   new Date(ms).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })

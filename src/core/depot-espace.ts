@@ -17,6 +17,7 @@ import {
 } from './dashboard'
 import { boucle } from './graphe'
 import { copieDeConflit, doublons } from './conflits'
+import { convertirValeur, type ColonneImportee } from './echange'
 import { IndexRecherche, type Resultat } from './recherche'
 import type { Modifications } from './ligne'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
@@ -698,6 +699,60 @@ export class DepotEspace {
     const ligne = await this.depot(base).creer(saisies)
     for (const [cle, ids] of liens) this.modifierRelation(base, ligne.id, cle, ids)
     return ligne
+  }
+
+  // ── Import CSV ───────────────────────────────────────────────────
+
+  /**
+   * Nouvelle base depuis un CSV : la première colonne devient le titre, les
+   * autres sont créées avec le type choisi, puis une ligne par enregistrement.
+   */
+  async importerBase(nom: string, colonnes: readonly ColonneImportee[], lignes: readonly string[][], groupe: string | null = null): Promise<string> {
+    const base = await this.creerBase(nom, groupe)
+    const [titre, ...autres] = colonnes
+    const cles: string[] = [this.schema(base).champTitre]
+    if (titre) await this.renommerColonne(base, cles[0]!, titre.nom)
+    for (const c of autres) cles.push(await this.ajouterColonne(base, c.nom, c.type))
+    await this.importerLignes(base, cles, lignes)
+    return base
+  }
+
+  /**
+   * Colonne de la base qui reçoit chaque colonne du CSV : même nom, sans tenir
+   * compte de la casse ni des accents. `null` si aucune, ou si la colonne n'est
+   * pas saisissable à la main (relation, rollup, formule).
+   */
+  correspondances(base: string, entetes: readonly string[]): (string | null)[] {
+    const norme = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase()
+    const colonnes = this.schema(base).colonnes.filter((c) => (TYPES_CREABLES as readonly string[]).includes(c.type))
+    return entetes.map((e) => colonnes.find((c) => norme(c.nom) === norme(e))?.cle ?? null)
+  }
+
+  /**
+   * Ajoute une ligne par enregistrement ; `cles[i]` est la colonne qui reçoit
+   * la i-ème valeur (`null` : ignorée). Les options de sélection absentes sont
+   * créées d'abord. Une valeur illisible pour le type de sa colonne est laissée vide.
+   */
+  async importerLignes(base: string, cles: readonly (string | null)[], lignes: readonly string[][]): Promise<number> {
+    const cibles = cles.map((cle) => {
+      const c = cle === null ? undefined : colonne(this.schema(base), cle)
+      return c && (TYPES_CREABLES as readonly string[]).includes(c.type) ? { cle: c.cle, type: c.type as TypeCreable } : null
+    })
+    for (const [i, cible] of cibles.entries()) {
+      if (cible?.type !== 'select' && cible?.type !== 'multiselect') continue
+      const labels = new Set(lignes.flatMap((l) => [convertirValeur(cible.type, l[i] ?? '')].flat()).filter((v): v is string => typeof v === 'string'))
+      for (const label of labels) await this.ajouterOption(base, cible.cle, label)
+    }
+    for (const l of lignes) {
+      const valeurs: Modifications = {}
+      for (const [i, cible] of cibles.entries()) {
+        if (!cible) continue
+        const v = convertirValeur(cible.type, l[i] ?? '')
+        if (v !== undefined) valeurs[cible.cle] = v
+      }
+      await this.creerLigne(base, valeurs)
+    }
+    return lignes.length
   }
 
   // ── Vues ─────────────────────────────────────────────────────────
