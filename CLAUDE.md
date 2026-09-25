@@ -1,6 +1,6 @@
 # mdbase (nom provisoire)
 
-Bases de données relationnelles avec l'ergonomie des bases Notion, dont le seul stockage est un dossier de fichiers Markdown + YAML. App web 100 % statique (Chrome / Edge, File System Access API), local-first, aucun appel réseau.
+Bases de données relationnelles avec l'ergonomie des bases Notion, dont le seul stockage est un dossier de fichiers Markdown + YAML. App web 100 % statique (Chrome / Edge, File System Access API), local-first, aucun appel réseau hors module IA (désactivé par défaut, spec §12).
 
 **La spec fait foi : `docs/SPEC.md`. La lire en entier avant toute implémentation.** Les points `[DÉCIDÉ]` ne se rediscutent pas sans validation d'Alexis ; les points `[PLUS TARD]` ne s'implémentent pas mais ne doivent pas être rendus impossibles.
 
@@ -131,4 +131,4 @@ Dépôt public `alexisraitano-myffu/mdbase` (licence MIT). `.github/workflows/pa
 
 ## Environnement
 
-Aucune variable d'environnement. Aucun appel réseau, aucune télémétrie (spec §12).
+Aucune variable d’environnement. Aucune télémétrie. Seul appel réseau : le module IA, désactivé par défaut, vers l’adresse que l’utilisateur a saisie (spec §12, « Module IA »).

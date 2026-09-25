@@ -13,7 +13,7 @@ Une application de bases de données relationnelles avec l'ergonomie de Notion, 
 - L'utilisateur **ne voit et n'édite jamais les fichiers directement**. Tout passe par l'interface : bases, vues, pages. L'app crée et maintient les fichiers.
 - Les fichiers restent lisibles, portables et synchronisables (OneDrive en priorité), sans serveur ni compte.
 - Cible initiale : utilisateurs Windows frustrés par Excel et les outils existants, dossier synchronisé via OneDrive.
-- **Local-first et sécurisé par simplicité** : aucune donnée ne quitte la machine, aucun code n'est exécuté depuis les données.
+- **Local-first et sécurisé par simplicité** : aucune donnée ne quitte la machine (seule exception : le module IA, désactivé par défaut, voir §12), aucun code n'est exécuté depuis les données.
 
 ### Principes directeurs
 1. **UX avant tout.** Le niveau d'ergonomie visé est celui des bases Notion. Le fond peut être simple, l'usage doit être fluide.
@@ -488,6 +488,14 @@ Précisions d'implémentation :
 - Le handle du dossier est conservé dans IndexedDB pour ne pas redemander le dossier à chaque ouverture (seule la permission est redemandée).
 - **Changements externes** (synchro OneDrive depuis une autre machine) : le navigateur ne peut pas surveiller le dossier. À chaque retour sur l'onglet (`visibilitychange` / `focus`), rescanner les dates de modification et recharger les fichiers modifiés. Bouton de rafraîchissement manuel en complément. (Jalon 12 : relecture de tout l'espace, dates des lignes comparées, fichiers de configuration relus ; une relecture croisée par une écriture de l'app est jetée et refaite au coup suivant.)
 - Application **100 % statique** : aucun appel réseau, aucune télémétrie.
+
+### Module IA [DÉCIDÉ]
+Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, après la V1).
+- **Désactivé par défaut.** L'activer affiche d'abord un avertissement qui dit quelles données partent et vers quelle adresse ; rien n'est envoyé avant l'activation.
+- **Connecteur générique** : tout service compatible OpenAI (`/chat/completions` avec appels d'outils), distant ou local. L'utilisateur fournit l'adresse, sa clé et le nom du modèle ; la clé reste dans son navigateur. Aucun fournisseur imposé, aucune clé embarquée.
+- **Périmètre** : le modèle ne voit et ne modifie que l'espace ouvert. Il ne touche jamais aux fichiers : il propose des opérations typées (outils), que le cœur valide comme une saisie de l'interface (colonnes, types, options, lignes existantes).
+- **Aperçu obligatoire** : toute écriture proposée est montrée (lignes, colonnes, avant → après) et n'est appliquée qu'après confirmation. Une proposition invalide est refusée en entier, jamais appliquée à moitié.
+- Le cœur définit l'interface du modèle et les outils ; l'appel réseau vit dans un adaptateur.
 
 ---
 
