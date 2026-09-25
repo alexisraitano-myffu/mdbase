@@ -14,14 +14,20 @@ Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules
 
 ## Ce que ça fait
 
-- **Bases et colonnes** : texte, nombre, date, case à cocher, choix simple ou multiple, lien, relation, rollup, formule. Création, renommage, réordonnancement et suppression depuis l'interface.
+- **Bases et colonnes** : texte, nombre, date, case à cocher, choix simple ou multiple, lien, relation, rollup, formule. Création, renommage, réordonnancement et suppression depuis l'interface ; une base supprimée ne casse rien, les relations vers elle deviennent du texte.
 - **Relations** entre bases, toujours bidirectionnelles, et **rollups** (somme, moyenne, comptes, pourcentages, dates…), y compris des rollups de rollups.
 - **Formules** avec autocomplétion, erreurs en français et aperçu du résultat. Un interpréteur maison, qui n'exécute jamais de code venu des données.
 - **Vues** enregistrées : tableau (groupement, calculs en pied de colonne), kanban, collection, calendrier, timeline avec jalons. Filtres, tris et filtres rapides en pastilles.
 - **Pages** : chaque ligne s'ouvre en panneau ou en plein écran, avec ses propriétés, ses onglets de relations et un contenu en Markdown.
 - **Dashboards** qui rassemblent des vues de plusieurs bases, et une **recherche globale** (`Ctrl+K` ou `⌘K`).
 - **Import et export** : une vue en tableau Markdown, en CSV ou en image PNG (la timeline entière, par exemple) ; un CSV en nouvelle base ou en lignes ajoutées.
-- **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut : une demande en français (« passe les tâches en retard en priorité haute »), un aperçu des lignes et des valeurs avant → après, et rien n'est écrit avant « Appliquer ». C'est une conversation : il pose une question quand c'est ambigu, retient tes préférences et peut enregistrer des procédures nommées (skills) dans le dossier. Il se branche sur n'importe quel service compatible OpenAI, distant ou local (Ollama, LM Studio) : tu fournis l'adresse, ta clé et le modèle.
+- **Tableau comme dans un tableur** : sélection de lignes pour agir en lot (modifier, dupliquer, supprimer), plage de cellules tracée à la souris, copier-coller avec Excel ou du Markdown (en remplaçant ou en lignes nouvelles), poignée pour recopier une valeur, et annuler / rétablir (`Ctrl+Z`, `Ctrl+Maj+Z`).
+- **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut. Tu lui demandes en français, il propose, tu confirmes :
+  - **les données** : modifier ou créer des lignes (« passe les tâches en retard en priorité haute »), écrire le contenu d'une page ;
+  - **la structure** : créer une base, ajouter, renommer ou supprimer des colonnes (relations, rollups et formules compris), créer ou régler des vues avec leurs filtres, tris et groupements, créer des dashboards. Une colonne qu'il crée peut être remplie dans la même demande ;
+  - **les suppressions** (lignes, colonnes, vues, dashboards, bases) : seulement si tu les demandes, en rouge dans l'aperçu avec ce qu'elles touchent.
+
+  Rien n'est écrit avant « Appliquer », et un plan appliqué s'annule d'un `Ctrl+Z` (sauf ce qui a été supprimé dans la structure). C'est une conversation : il pose une question quand c'est ambigu, retient tes préférences et peut enregistrer des procédures nommées (skills) dans le dossier. Il se branche sur n'importe quel service compatible OpenAI, distant ou local (Ollama, LM Studio) : tu fournis l'adresse, ta clé et le modèle ; la clé reste dans ton navigateur.
 - **Pensé pour la synchro** : relecture du dossier au retour sur l'onglet, écriture sûre quand un fichier a changé ailleurs, détection des copies de conflit OneDrive et des identifiants en double.
 
 ![Timeline groupée par projet](docs/captures/timeline.png)
