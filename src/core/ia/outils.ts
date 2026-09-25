@@ -3,11 +3,12 @@ import type { EtatEspace } from '../depot-espace'
 import { estSaisie, type Colonne, type Schema } from '../schema'
 import { jourSemaine } from '../temps'
 import type { Cellule } from '../valeurs'
-import { OPERATEURS } from '../vue'
+import { OPERATEURS, type Niveau, type Vue } from '../vue'
 import type { Skill } from './memoire'
 import type { DefinitionOutil } from './modele'
 import { TYPES_COLONNE, TYPES_VUE } from './structure'
 import { CALCULS } from '../schema'
+import { COULEURS } from '../couleurs'
 
 // Ce que voit le modèle (spec §12, « Module IA ») : la consigne, les outils,
 // et une description compacte de l'espace ouvert. Rien d'autre ne quitte la machine.
@@ -43,6 +44,28 @@ const COLONNE = {
   required: ['nom', 'type'],
 }
 
+const COULEUR = {
+  couleur: { type: ['string', 'null'], enum: [...COULEURS, null], description: 'calendrier, timeline : couleur fixe des barres ; null la retire' },
+  couleur_par: {
+    type: ['string', 'null'],
+    description: 'calendrier, timeline : colonne à choix dont la couleur d’option colore chaque barre (l’emporte sur couleur) ; null la retire',
+  },
+}
+
+const NIVEAU = {
+  type: 'object',
+  properties: {
+    relation: { type: 'string', description: 'clé de la colonne relation, dans la base du niveau au-dessus' },
+    champ_debut: { type: 'string', description: 'colonne date de la base liée (par défaut : sa première date)' },
+    champ_fin: { type: 'string', description: 'colonne date de fin de la base liée ; sans fin, les lignes sont des losanges' },
+    champs_jalons: { type: 'array', items: { type: 'string' } },
+    ...COULEUR,
+    filtres: { type: 'array', items: FILTRE, description: 'filtres sur les lignes de la base liée' },
+    deplier: { type: 'array', items: { type: 'object' }, description: 'niveaux suivants, même forme, depuis la base liée' },
+  },
+  required: ['relation'],
+}
+
 const REGLAGES_VUE = {
   groupe: { type: ['string', 'null'], description: 'clé de la colonne de groupement (tableau, kanban) ; null le retire' },
   filtres: { type: 'array', items: FILTRE, description: 'remplacent les filtres de la vue' },
@@ -52,7 +75,16 @@ const REGLAGES_VUE = {
   },
   colonnes_masquees: { type: 'array', items: { type: 'string' } },
   champ_debut: { type: 'string', description: 'calendrier, timeline : colonne date' },
-  champ_fin: { type: 'string', description: 'calendrier, timeline : colonne date de fin (facultative)' },
+  champ_fin: { type: ['string', 'null'], description: 'calendrier, timeline : colonne date de fin (facultative) ; null la retire' },
+  ...COULEUR,
+  champs_jalons: { type: 'array', items: { type: 'string' }, description: 'timeline : colonnes date affichées en losanges sur la barre' },
+  echelle: { type: 'string', enum: ['semaine', 'mois', 'trimestre'], description: 'calendrier : mois ou semaine ; timeline : semaine, mois ou trimestre' },
+  deplier: {
+    type: ['array', 'null'],
+    items: NIVEAU,
+    description:
+      'timeline en arbre : sous chaque ligne, les lignes liées par une relation, niveau par niveau (un projet, ses versions, leurs jalons). Remplace les niveaux existants ; null ou [] les retire.',
+  },
 }
 
 const LIGNES_VISEES = {
@@ -126,7 +158,7 @@ export const OUTILS: DefinitionOutil[] = [
   },
   {
     nom: 'creer_vue',
-    description: 'Crée une vue dans une base : type, groupement, filtres, tris, colonnes masquées, colonne date (calendrier, timeline).',
+    description: 'Crée une vue dans une base : type, groupement, filtres, tris, colonnes masquées ; calendrier et timeline : dates, jalons, échelle, couleurs, et pour une timeline les niveaux dépliés par relation.',
     parametres: {
       type: 'object',
       properties: { base: { type: 'string' }, nom: { type: 'string' }, type: { type: 'string', enum: [...TYPES_VUE] }, ...REGLAGES_VUE },
@@ -135,7 +167,7 @@ export const OUTILS: DefinitionOutil[] = [
   },
   {
     nom: 'modifier_vue',
-    description: 'Modifie une vue existante (id ou nom) : nom, groupement, filtres, tris, colonnes masquées, colonnes date.',
+    description: 'Modifie une vue existante (id ou nom) : nom, groupement, filtres, tris, colonnes masquées ; calendrier et timeline : dates, jalons, échelle, couleurs, niveaux dépliés.',
     parametres: { type: 'object', properties: { base: { type: 'string' }, vue: { type: 'string' }, nom: { type: 'string' }, ...REGLAGES_VUE }, required: ['base', 'vue'] },
   },
   {
@@ -266,6 +298,31 @@ export type OptionsContexte = {
   skills?: readonly Skill[]
 }
 
+/** Réglages d'une vue temporelle, en clair : pour la modifier sans repartir de zéro (niveaux dépliés compris). */
+function detailTemps(v: Vue): string {
+  if (v.type !== 'calendrier' && v.type !== 'timeline') return ''
+  const niveau = (n: Niveau): string =>
+    [
+      `relation ${n.relation}`,
+      n.champDebut && `début ${n.champDebut}`,
+      n.champFin && `fin ${n.champFin}`,
+      n.couleurPar && `couleur selon ${n.couleurPar}`,
+      n.couleur && `couleur ${n.couleur}`,
+      n.deplier.length > 0 && `puis ${n.deplier.map(niveau).join(' ; ')}`,
+    ]
+      .filter(Boolean)
+      .join(', ')
+  const r = [
+    v.champDebut && `début ${v.champDebut}`,
+    v.champFin && `fin ${v.champFin}`,
+    v.champsJalons?.length && `jalons ${v.champsJalons.join(', ')}`,
+    v.couleurPar && `couleur selon ${v.couleurPar}`,
+    v.couleur && `couleur ${v.couleur}`,
+    v.deplier?.length && `déplie [${v.deplier.map(niveau).join(' | ')}]`,
+  ].filter(Boolean)
+  return r.length > 0 ? ` : ${r.join(', ')}` : ''
+}
+
 /** Description de l'espace envoyée au modèle : schémas complets, puis les lignes utiles. */
 export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
   const bases = [...etat.bases.values()].flatMap((b) => (b.depot ? [{ id: b.id, schema: b.depot.schema, lignes: b.depot.lignes() }] : []))
@@ -274,7 +331,7 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
     parties.push(`${id} « ${schema.nom} »`)
     for (const c of schema.colonnes) parties.push(`- ${c.cle} « ${c.nom} » : ${typeLisible(c)}${c.cle === schema.champTitre ? ' (titre de la ligne)' : ''}`)
     const vues = etat.bases.get(id)?.vues ?? []
-    parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type})`).join(', ')}`)
+    parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type}${detailTemps(v)})`).join(', ')}`)
   }
   if (etat.dashboards.length > 0) {
     parties.push('', '## Dashboards', ...etat.dashboards.map((d) => `${d.id} « ${d.dashboard?.nom ?? d.id} »`))

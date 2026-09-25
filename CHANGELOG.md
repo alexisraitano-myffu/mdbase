@@ -80,6 +80,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Dashboards : filtres et filtres rapides globaux, sur la base de son choix. Les blocs de cette base sont filtrés, ceux des autres bases suivent leurs relations (les tâches du projet choisi) ; une pastille « Projets » permet de cocher des projets.
 - Mode consultation : une icône en haut à droite (ou Ctrl+E) passe l'espace en lecture seule, épuré : ne restent que la navigation, les onglets de vues, les filtres rapides et les pages en lecture. Le mode est gardé par le navigateur.
 - Couleurs dans le calendrier et la timeline : « Couleur » dans « Options » colore les barres selon une colonne select (la couleur de l'option, par exemple le statut) ou d'une couleur fixe, et chaque niveau déplié a la sienne. La feuille de route de la démo colore les projets selon leur statut et les tâches selon leur priorité.
+- Assistant IA : il règle aussi les calendriers et timelines (jalons, échelle, couleurs fixes ou selon une colonne, niveaux dépliés par relation avec leurs dates, couleurs et filtres), et voit ces réglages dans la description de l'espace pour les modifier.
 
 ### Changed
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
@@ -89,6 +90,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Couleur d'accent : le vert laisse place au noir et aux gris déjà utilisés (boutons principaux, sélection, cases cochées, barres de timeline).
 
 ### Fixed
+- Assistant IA : une vue proposée entrait dans l'état de l'espace dès la proposition (un onglet sans fichier pouvait apparaître, même en annulant), et la vraie était ensuite créée avec un suffixe « -2 ».
 - Accueil : « Essayer avec la démo » devient l'action principale ; avec un dossier mémorisé, l'écran « Rouvrir » garde la démo et « Ouvrir un autre dossier », et explique un refus d'autorisation du navigateur (auparavant le clic ne faisait rien).
 - La démo est mémorisée par une marque et non par son dossier OPFS : relire ce dossier depuis IndexedDB faisait planter Chromium en navigation privée au rechargement.
 - Une ligne créée par « + Nouvelle ligne » n'ouvrait pas toujours son titre en édition (la ligne s'affichait avant la demande d'édition).

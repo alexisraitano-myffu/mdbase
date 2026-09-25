@@ -5,9 +5,10 @@ import { correspond, type Contexte } from '../filtres'
 import { compiler, ErreurFormule, stockerExpression } from '../formules/formule'
 import { boucle } from '../graphe'
 import { cleColonne, idBase } from '../identifiants'
-import { CALCULS, estObjet, lireSchema, type Calcul, type Colonne, type Schema } from '../schema'
+import { COULEURS } from '../couleurs'
+import { CALCULS, estObjet, lireSchema, natureDe, type Calcul, type Colonne, type Schema } from '../schema'
 import { nouveauSchema } from '../schema-ecriture'
-import type { ModificationVue, Tri, TypeVue, Vue } from '../vue'
+import { PROFONDEUR_MAX, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
 import { erreur, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne } from './references'
 
 // Outils de structure de l'assistant (spec §12, « Module IA ») : bases,
@@ -29,7 +30,8 @@ export class Brouillon {
   constructor(etat: EtatEspace) {
     this.source = etat
     for (const b of etat.bases.values()) {
-      if (b.depot) this.bases.set(b.id, { id: b.id, schema: b.depot.schema, lignes: b.depot.lignes(), vues: b.vues, nouvelle: false })
+      // Copie des vues : `creer_vue` y ajoute la sienne, l'état réel ne doit pas la voir avant « Appliquer ».
+      if (b.depot) this.bases.set(b.id, { id: b.id, schema: b.depot.schema, lignes: b.depot.lignes(), vues: [...b.vues], nouvelle: false })
     }
     this.dashboards = etat.dashboards.map((d) => ({ id: d.id, nom: d.dashboard?.nom ?? d.id }))
   }
@@ -188,8 +190,63 @@ function trouverVue(bb: BaseBrouillon, ref: unknown): Vue {
   return v ?? erreur(`vue inconnue dans ${bb.id} : « ${ref} » (vues : ${bb.vues.map((x) => x.id).join(', ')})`)
 }
 
+/**
+ * Niveau déplié proposé, avec la base qu'il affiche : `Correspondances`
+ * s'en sert pour suivre les clés réelles, l'écriture de la vue l'ignore.
+ */
+type NiveauPrevu = Niveau & { base?: string }
+
+const colonneDate = (schema: Schema, ref: unknown) => {
+  const c = trouverColonne(schema, ref)
+  return natureDe(c) === 'date' ? c.cle : erreur(`« ${c.nom} » n'est pas une colonne date de ${schema.id}`)
+}
+
+/** Couleur des barres (calendrier, timeline, niveau déplié) : fixe, ou selon une colonne select. null la retire. */
+function lireCouleur(schema: Schema, args: Record<string, unknown>): { couleur?: string; couleurPar?: string } {
+  const r: { couleur?: string; couleurPar?: string } = {}
+  if (args.couleur === null) r.couleur = undefined
+  else if (args.couleur !== undefined) {
+    if (!(COULEURS as readonly unknown[]).includes(args.couleur)) erreur(`couleur inconnue : ${JSON.stringify(args.couleur)} (couleurs : ${COULEURS.join(', ')})`)
+    r.couleur = args.couleur as string
+  }
+  if (args.couleur_par === null) r.couleurPar = undefined
+  else if (args.couleur_par !== undefined) {
+    const c = trouverColonne(schema, args.couleur_par)
+    if (c.type !== 'select' && c.type !== 'multiselect') erreur(`couleur_par : « ${c.nom} » n'est pas une colonne à choix de ${schema.id}`)
+    r.couleurPar = c.cle
+  }
+  return r
+}
+
+/** Niveaux dépliés de la timeline : chaque relation, ses dates et ses filtres sont vérifiés dans la base liée. */
+function lireNiveaux(b: Brouillon, bb: BaseBrouillon, brut: unknown, profondeur: number): NiveauPrevu[] {
+  if (!Array.isArray(brut)) return erreur('`deplier` : liste de niveaux attendue')
+  if (profondeur > PROFONDEUR_MAX) erreur(`deplier : ${PROFONDEUR_MAX} niveaux au plus`)
+  return brut.map((n): NiveauPrevu => {
+    if (!estObjet(n)) return erreur('deplier : objet { relation, champ_debut, … } attendu')
+    const rel = trouverColonne(bb.schema, n.relation)
+    if (rel.type !== 'relation') erreur(`deplier : « ${rel.nom} » n'est pas une relation de ${bb.id}`)
+    const cible = b.bases.get((rel as Extract<Colonne, { type: 'relation' }>).cible) ?? erreur(`deplier : base liée par « ${rel.nom} » introuvable`)
+    const debut = n.champ_debut !== undefined ? colonneDate(cible.schema, n.champ_debut) : cible.schema.colonnes.find((c) => natureDe(c) === 'date')?.cle
+    const fin = n.champ_fin !== undefined && n.champ_fin !== null ? colonneDate(cible.schema, n.champ_fin) : undefined
+    const jalons = Array.isArray(n.champs_jalons) ? n.champs_jalons.map((j) => colonneDate(cible.schema, j)) : []
+    const couleur = lireCouleur(cible.schema, n)
+    return {
+      relation: rel.cle,
+      base: cible.id,
+      ...(debut && { champDebut: debut }),
+      ...(fin && { champFin: fin }),
+      ...(jalons.length > 0 && { champsJalons: jalons }),
+      ...(couleur.couleur && { couleur: couleur.couleur }),
+      ...(couleur.couleurPar && { couleurPar: couleur.couleurPar }),
+      filtres: n.filtres === undefined ? [] : lireFiltres({ id: cible.id, schema: cible.schema, lignes: [...cible.lignes] }, n.filtres),
+      deplier: n.deplier === undefined ? [] : lireNiveaux(b, cible, n.deplier, profondeur + 1),
+    }
+  })
+}
+
 /** Réglages de vue proposés : colonnes vérifiées, filtres comme ceux de `modifier_lignes`. */
-function lireReglagesVue(bb: BaseBrouillon, args: Record<string, unknown>, genre: TypeVue): ModificationVue {
+function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, unknown>, genre: TypeVue): ModificationVue {
   const base = { id: bb.id, schema: bb.schema, lignes: [...bb.lignes] }
   const r: ModificationVue = {}
   const col = (ref: unknown) => trouverColonne(bb.schema, ref).cle
@@ -205,7 +262,19 @@ function lireReglagesVue(bb: BaseBrouillon, args: Record<string, unknown>, genre
   else if (args.groupe !== undefined) r.groupe = col(args.groupe)
   if (Array.isArray(args.colonnes_masquees)) r.masquees = args.colonnes_masquees.map(col)
   if (args.champ_debut !== undefined) r.champDebut = col(args.champ_debut)
-  if (args.champ_fin !== undefined) r.champFin = col(args.champ_fin)
+  if (args.champ_fin === null) r.champFin = undefined
+  else if (args.champ_fin !== undefined) r.champFin = col(args.champ_fin)
+  if (Array.isArray(args.champs_jalons)) r.champsJalons = args.champs_jalons.map((j) => colonneDate(bb.schema, j))
+  if (args.echelle !== undefined) {
+    const echelles = genre === 'calendrier' ? ['mois', 'semaine'] : ['semaine', 'mois', 'trimestre']
+    if (!echelles.includes(String(args.echelle))) erreur(`echelle : ${echelles.join(', ')} pour une vue ${genre}`)
+    r.echelle = args.echelle as ModificationVue['echelle']
+  }
+  Object.assign(r, lireCouleur(bb.schema, args))
+  if (args.deplier !== undefined) {
+    if (genre !== 'timeline') erreur('deplier : seulement pour une vue timeline')
+    r.deplier = args.deplier === null ? [] : lireNiveaux(b, bb, args.deplier, 1)
+  }
   if (avecDate(genre) && !r.champDebut) {
     const date = bb.schema.colonnes.find((c) => c.type === 'date')
     if (!date) erreur(`une vue ${genre} demande une colonne date dans ${bb.id}`)
@@ -252,7 +321,7 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       const nomVue = texteRequis(args, 'nom')
       const genre = (args.type ?? 'tableau') as TypeVue
       if (!TYPES_VUE.includes(genre)) erreur(`type de vue inconnu : ${JSON.stringify(args.type)} (types : ${TYPES_VUE.join(', ')})`)
-      const reglages = lireReglagesVue(bb, { ...args, nom: undefined }, genre)
+      const reglages = lireReglagesVue(b, bb, { ...args, nom: undefined }, genre)
       const id = idBase(nomVue, bb.vues.filter((v) => !v.implicite).map((v) => v.id))
       bb.vues.push({ id, nom: nomVue, type: genre, filtres: [], tris: [], filtresRapides: [], ...reglages })
       return { structure: [{ type: 'creer_vue', base: bb.id, nomBase: bb.schema.nom, id, nom: nomVue, genre, reglages }] }
@@ -260,7 +329,7 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
     case 'modifier_vue': {
       const bb = b.base(args.base)
       const vue = trouverVue(bb, args.vue)
-      const reglages = lireReglagesVue(bb, args, vue.type)
+      const reglages = lireReglagesVue(b, bb, args, vue.type)
       if (Object.keys(reglages).length === 0) erreur('modifier_vue : aucun réglage à changer')
       return { structure: [{ type: 'modifier_vue', base: bb.id, nomBase: bb.schema.nom, vue: vue.id, nomVue: vue.nom, reglages }] }
     }
@@ -436,7 +505,27 @@ export class Correspondances {
       ...(r.masquees ? { masquees: r.masquees.map(k) } : {}),
       ...(r.champDebut ? { champDebut: k(r.champDebut) } : {}),
       ...(r.champFin ? { champFin: k(r.champFin) } : {}),
+      ...(r.champsJalons ? { champsJalons: r.champsJalons.map(k) } : {}),
+      ...(r.couleurPar ? { couleurPar: k(r.couleurPar) } : {}),
+      ...(r.deplier ? { deplier: this.niveaux(base, r.deplier) } : {}),
     }
+  }
+
+  /** Niveaux dépliés aux clés réelles, chacun dans sa base (et sans la base notée à la validation). */
+  private niveaux(base: string, niveaux: readonly NiveauPrevu[]): Niveau[] {
+    return niveaux.map(({ base: cible = base, ...n }) => {
+      const k = (c: string) => this.cle(cible, c)
+      return {
+        ...n,
+        relation: this.cle(base, n.relation),
+        ...(n.champDebut ? { champDebut: k(n.champDebut) } : {}),
+        ...(n.champFin ? { champFin: k(n.champFin) } : {}),
+        ...(n.champsJalons ? { champsJalons: n.champsJalons.map(k) } : {}),
+        ...(n.couleurPar ? { couleurPar: k(n.couleurPar) } : {}),
+        filtres: n.filtres.map((f) => ({ ...f, colonne: k(f.colonne) })),
+        deplier: this.niveaux(cible, n.deplier),
+      }
+    })
   }
 }
 

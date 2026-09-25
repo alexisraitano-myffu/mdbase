@@ -107,6 +107,55 @@ describe('assistant : structure', () => {
     expect(await a.lire('_dashboards/suivi.yaml')).toContain(`vue: ${fichier.nom.replace('.yaml', '')}`)
   })
 
+  it('timeline en arbre : dates, couleur selon une colonne, tâches dépliées sous leur projet avec leurs filtres', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(
+      espace,
+      appel('ajouter_colonnes', {
+        base: 'projets',
+        colonnes: [
+          { nom: 'Début', type: 'date' },
+          { nom: 'Fin', type: 'date' },
+          { nom: 'Phase', type: 'select', options: ['Cadrage', 'Production'] },
+        ],
+      }),
+      appel('creer_vue', {
+        base: 'projets',
+        nom: 'Feuille de route',
+        type: 'timeline',
+        champ_debut: 'Début',
+        champ_fin: 'Fin',
+        couleur_par: 'Phase',
+        echelle: 'trimestre',
+        deplier: [{ relation: 'Tâches', champ_debut: 'echeance', couleur: 'orange', filtres: [{ colonne: 'fait', operateur: 'egal', valeur: false }] }],
+      }),
+    )
+    // Proposée mais pas appliquée : la vue n'existe pas encore dans l'espace.
+    expect(espace.etat().bases.get('projets')!.vues.map((v) => v.nom)).not.toContain('Feuille de route')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect((await a.lister('projets/_vues')).map((e) => e.nom)).toEqual(['feuille-de-route.yaml'])
+    const fichier = (await a.lister('projets/_vues')).find((e) => e.nom.startsWith('feuille'))!
+    const vue = await a.lire(`projets/_vues/${fichier.nom}`)
+    const idVue = fichier.nom.replace('.yaml', '')
+    expect(vue).toContain('champ_debut: debut\nchamp_fin: fin\ncouleur_par: phase\nechelle: trimestre\n')
+    expect(vue).toContain(
+      ['deplier:', '  - relation: taches', '    champ_debut: echeance', '    couleur: orange', '    filtres:', '      - { colonne: fait, operateur: egal, valeur: false }'].join('\n'),
+    )
+    expect(vue).not.toContain('base:')
+
+    const refus = async (...appels: AppelOutil[]) =>
+      proposer(obstine(...appels), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null }).then(
+        () => '',
+        (e: Error) => e.message,
+      )
+    expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, couleur: 'fuchsia' }))).toContain('couleur inconnue')
+    expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, couleur_par: 'titre' }))).toContain('pas une colonne à choix')
+    expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, deplier: [{ relation: 'heures' }] }))).toContain('pas une relation')
+    expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, deplier: [{ relation: 'taches', champ_fin: 'statut' }] }))).toContain('pas une colonne date')
+    expect(await refus(appel('creer_vue', { base: 'projets', nom: 'K', type: 'kanban', groupe: 'Phase', deplier: [{ relation: 'taches' }] }))).toContain('seulement pour une vue timeline')
+  })
+
   it('supprimer des lignes par filtre retire aussi les liens vers elles, et s’annule d’un Ctrl+Z', async () => {
     const { a, espace, ecrire } = await ouvrir()
     const p = await plan(espace, appel('supprimer_lignes', { base: 'projets', filtres: [{ colonne: 'titre', operateur: 'egal', valeur: 'Navi' }] }))
