@@ -18,9 +18,10 @@ import {
 import { boucle } from './graphe'
 import { copieDeConflit, doublons } from './conflits'
 import { convertirValeur, type ColonneImportee } from './echange'
+import { Historique, type Changement } from './historique'
 import { IndexRecherche, type Resultat } from './recherche'
 import { MemoireAssistant } from './ia/memoire'
-import type { Modifications } from './ligne'
+import { ErreurEcriture, type Modifications } from './ligne'
 import type { Valeur } from './valeurs'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
 import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
@@ -43,6 +44,9 @@ const DOSSIER_PAGES = '_pages'
 const DOSSIER_DASHBOARDS = '_dashboards'
 
 /** Types proposés à la création d'une colonne (relations, rollups, formules : jalons suivants). */
+/** Pause (ms) après laquelle une nouvelle frappe dans la même cellule ouvre une autre étape d'annulation. */
+const PAUSE_FRAPPE = 1000
+
 export const TYPES_CREABLES = ['text', 'number', 'date', 'checkbox', 'select', 'multiselect', 'url'] as const
 export type TypeCreable = (typeof TYPES_CREABLES)[number]
 
@@ -87,6 +91,18 @@ export type OptionsEspace = OptionsDepot & {
   maintenant?: () => string
 }
 
+/** Ce qu'un collage sur des cellules va écrire (voir `preparerRemplacement`). */
+export type Remplacement = {
+  modifs: { chemin: string; cle: string; valeur: Valeur | undefined }[]
+  nouvelles: Modifications[]
+  /** Options de sélection à créer d'abord. */
+  options: { cle: string; label: string }[]
+  /** Valeurs laissées de côté : colonne calculée, hors du tableau, ou texte illisible pour son type. */
+  ignorees: number
+  /** Lignes existantes touchées. */
+  lignes: number
+}
+
 export class DepotEspace {
   private readonly adaptateur: AdaptateurFichiers
   private readonly options: OptionsEspace
@@ -103,6 +119,10 @@ export class DepotEspace {
   private copies: CopieConflit[] = []
   /** Mémoire et skills de l'assistant IA (`_assistant/`, spec §3). */
   readonly assistant: MemoireAssistant
+  /** Annuler / rétablir sur les données (cellules, lignes créées ou supprimées). */
+  private readonly historique = new Historique()
+  /** Une pause dans la frappe clôt l'étape d'annulation de la cellule en cours. */
+  private arreterFrappe: (() => void) | undefined
 
   private constructor(adaptateur: AdaptateurFichiers, options: OptionsEspace) {
     this.adaptateur = adaptateur
@@ -615,6 +635,10 @@ export class DepotEspace {
    * fichier par lien (invariant 2).
    */
   modifierRelation(base: string, idLigne: string, cle: string, ids: readonly string[]): void {
+    this.enUneEtape(() => this.modifierRelationSansEtape(base, idLigne, cle, ids))
+  }
+
+  private modifierRelationSansEtape(base: string, idLigne: string, cle: string, ids: readonly string[]): void {
     const c = colonne(this.schema(base), cle)
     if (c?.type !== 'relation') throw new ErreurSchema(`Pas une relation : ${cle}`)
     const ligne = this.ligne(base, idLigne)
@@ -654,7 +678,11 @@ export class DepotEspace {
    * des fichiers qui les portent (spec §5, nettoyage proposé, jamais silencieux).
    * Si un autre fichier porte le même id, les liens restent : ils pointent vers lui.
    */
-  async supprimerLigne(base: string, chemin: string, nettoyer: boolean): Promise<void> {
+  supprimerLigne(base: string, chemin: string, nettoyer: boolean): Promise<void> {
+    return this.enUneEtape(() => this.supprimerLigneSansEtape(base, chemin, nettoyer))
+  }
+
+  private async supprimerLigneSansEtape(base: string, chemin: string, nettoyer: boolean): Promise<void> {
     const depot = this.depot(base)
     const ligne = depot.lignes().find((l) => l.chemin === chemin)
     if (!ligne) throw new ErreurSchema(`Ligne introuvable : ${chemin}`)
@@ -670,8 +698,10 @@ export class DepotEspace {
   }
 
   /** Supprime plusieurs lignes d'une base (sélection du tableau), une par une, mêmes règles que `supprimerLigne`. */
-  async supprimerLignes(base: string, chemins: readonly string[], nettoyer: boolean): Promise<void> {
-    for (const chemin of chemins) await this.supprimerLigne(base, chemin, nettoyer)
+  supprimerLignes(base: string, chemins: readonly string[], nettoyer: boolean): Promise<void> {
+    return this.enUneEtape(async () => {
+      for (const chemin of chemins) await this.supprimerLigne(base, chemin, nettoyer)
+    })
   }
 
   /**
@@ -679,7 +709,11 @@ export class DepotEspace {
    * lot, recopie d'une cellule vers le haut ou le bas). Une relation passe par
    * `modifierRelation` (côté non propriétaire compris) ; le titre renomme les fichiers.
    */
-  async modifierLignes(base: string, chemins: readonly string[], cle: string, valeur: Valeur | undefined): Promise<void> {
+  modifierLignes(base: string, chemins: readonly string[], cle: string, valeur: Valeur | undefined): Promise<void> {
+    return this.enUneEtape(() => this.modifierLignesSansEtape(base, chemins, cle, valeur))
+  }
+
+  private async modifierLignesSansEtape(base: string, chemins: readonly string[], cle: string, valeur: Valeur | undefined): Promise<void> {
     const depot = this.depot(base)
     const c = colonne(depot.schema, cle)
     if (!c || (!estSaisie(c) && c.type !== 'relation')) throw new ErreurSchema(`Colonne non modifiable : ${cle}`)
@@ -696,7 +730,11 @@ export class DepotEspace {
    * corps, dans un nouveau fichier avec un nouvel id. Les liens portés par
    * l'autre base ne sont pas recopiés : ce serait écrire dans ses fichiers.
    */
-  async dupliquerLignes(base: string, chemins: readonly string[]): Promise<LigneChargee[]> {
+  dupliquerLignes(base: string, chemins: readonly string[]): Promise<LigneChargee[]> {
+    return this.enUneEtape(() => this.dupliquerSansEtape(base, chemins))
+  }
+
+  private async dupliquerSansEtape(base: string, chemins: readonly string[]): Promise<LigneChargee[]> {
     const depot = this.depot(base)
     const copies: LigneChargee[] = []
     for (const chemin of chemins) {
@@ -727,6 +765,10 @@ export class DepotEspace {
 
   /** Retire les liens cassés d'une relation dans toutes les lignes ; renvoie le nombre de liens retirés. */
   nettoyerLiensCasses(base: string, cle: string): number {
+    return this.enUneEtape(() => this.nettoyerLiensCassesSansEtape(base, cle))
+  }
+
+  private nettoyerLiensCassesSansEtape(base: string, cle: string): number {
     const depot = this.depot(base)
     let n = 0
     for (const { chemin, ids } of this.liensCasses(base, cle)) {
@@ -741,7 +783,11 @@ export class DepotEspace {
    * Crée une ligne (spec §8). Les valeurs d'une relation non propriétaire
    * (héritées d'un filtre « contient ») s'écrivent dans les lignes liées.
    */
-  async creerLigne(base: string, valeurs: Modifications = {}): Promise<LigneChargee> {
+  creerLigne(base: string, valeurs: Modifications = {}): Promise<LigneChargee> {
+    return this.enUneEtape(() => this.creerLigneSansEtape(base, valeurs))
+  }
+
+  private async creerLigneSansEtape(base: string, valeurs: Modifications = {}): Promise<LigneChargee> {
     const schema = this.schema(base)
     const saisies: Modifications = {}
     const liens: [string, string[]][] = []
@@ -804,11 +850,94 @@ export class DepotEspace {
   }
 
   /**
+   * Tableau collé sur des cellules (spec §7, « Coller ») : ce qui sera
+   * remplacé, à partir de la case en haut à gauche de la zone choisie.
+   * `lignes` et `colonnes` vont de cette case jusqu'au bout de la vue ; une
+   * valeur seule collée sur une zone plus grande la remplit toute. Les lignes
+   * collées au-delà de la dernière deviennent des lignes nouvelles.
+   */
+  preparerRemplacement(
+    base: string,
+    cible: { lignes: readonly string[]; colonnes: readonly string[]; hauteur: number; largeur: number },
+    grille: readonly string[][],
+  ): Remplacement {
+    const r: Remplacement = { modifs: [], nouvelles: [], options: [], ignorees: 0, lignes: 0 }
+    const seule = grille.length === 1 && grille[0]!.length === 1 && cible.hauteur * cible.largeur > 1
+    const valeurs = seule ? Array.from({ length: cible.hauteur }, () => Array<string>(cible.largeur).fill(grille[0]![0]!)) : grille
+    const touchees = new Set<string>()
+    for (const [i, rangee] of valeurs.entries()) {
+      const chemin = cible.lignes[i]
+      const nouvelle: Modifications = {}
+      for (const [j, brut] of rangee.entries()) {
+        const cle = cible.colonnes[j]
+        const lu = cle === undefined ? null : this.lireSaisie(base, cle, brut)
+        if (!lu) {
+          r.ignorees++
+          continue
+        }
+        for (const label of lu.options) if (!r.options.some((o) => o.cle === cle && o.label === label)) r.options.push({ cle: cle!, label })
+        if (chemin) {
+          r.modifs.push({ chemin, cle: cle!, valeur: lu.valeur })
+          touchees.add(chemin)
+        } else if (lu.valeur !== undefined) nouvelle[cle!] = lu.valeur
+      }
+      if (!chemin && Object.keys(nouvelle).length > 0) r.nouvelles.push(nouvelle)
+    }
+    r.lignes = touchees.size
+    return r
+  }
+
+  /** Écrit un remplacement préparé : options manquantes, cellules, lignes nouvelles ; un seul Ctrl+Z le défait. */
+  appliquerRemplacement(base: string, r: Remplacement): Promise<void> {
+    return this.enUneEtape(async () => {
+      for (const o of r.options) await this.ajouterOption(base, o.cle, o.label)
+      for (const m of r.modifs) await this.modifierLignesSansEtape(base, [m.chemin], m.cle, m.valeur)
+      for (const v of r.nouvelles) await this.creerLigneSansEtape(base, v)
+    })
+  }
+
+  /**
+   * Valeur d'une colonne lue depuis un texte collé ; `null` si la colonne ne
+   * se saisit pas (rollup, formule) ou si le texte est illisible pour son type.
+   * Une relation se lit par titres (ou ids) de la base liée, séparés par des virgules.
+   */
+  private lireSaisie(base: string, cle: string, brut: string): { valeur: Valeur | undefined; options: string[] } | null {
+    const c = colonne(this.schema(base), cle)
+    if (!c || c.type === 'rollup' || c.type === 'formula') return null
+    const texte = brut.trim()
+    if (texte === '') return { valeur: undefined, options: [] }
+    if (c.type === 'relation') {
+      const titres = this.instantane.titres.get(c.cible) ?? new Map<string, string>()
+      const norme = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+      const ids: string[] = []
+      for (const morceau of texte.split(/\s*[,;]\s*/).filter((x) => x !== '')) {
+        const id = titres.has(morceau) ? morceau : [...titres].find(([, t]) => norme(t) === norme(morceau))?.[0]
+        if (!id) return null
+        if (!ids.includes(id)) ids.push(id)
+      }
+      return { valeur: ids, options: [] }
+    }
+    if (c.type === 'select' || c.type === 'multiselect') {
+      const labels = (c.type === 'select' ? [texte] : texte.split(/\s*[,;]\s*/).filter((x) => x !== '')).map(
+        (l) => c.options.find((o) => o.label.toLowerCase() === l.toLowerCase())?.label ?? l,
+      )
+      return { valeur: c.type === 'select' ? labels[0] : labels, options: labels.filter((l) => !c.options.some((o) => o.label === l)) }
+    }
+    const valeur = convertirValeur(c.type as TypeCreable, texte)
+    if (valeur === undefined && c.type !== 'checkbox') return null
+    return { valeur, options: [] }
+  }
+
+  /**
    * Ajoute une ligne par enregistrement ; `cles[i]` est la colonne qui reçoit
    * la i-ème valeur (`null` : ignorée). Les options de sélection absentes sont
    * créées d'abord. Une valeur illisible pour le type de sa colonne est laissée vide.
    */
-  async importerLignes(base: string, cles: readonly (string | null)[], lignes: readonly string[][]): Promise<number> {
+  importerLignes(base: string, cles: readonly (string | null)[], lignes: readonly string[][]): Promise<number> {
+    return this.enUneEtape(() => this.importerLignesSansEtape(base, cles, lignes))
+  }
+
+  private async importerLignesSansEtape(base: string, cles: readonly (string | null)[], lignes: readonly string[][]): Promise<number> {
     const cibles = cles.map((cle) => {
       const c = cle === null ? undefined : colonne(this.schema(base), cle)
       return c && (TYPES_CREABLES as readonly string[]).includes(c.type) ? { cle: c.cle, type: c.type as TypeCreable } : null
@@ -828,6 +957,56 @@ export class DepotEspace {
       await this.creerLigne(base, valeurs)
     }
     return lignes.length
+  }
+
+  // ── Annuler / rétablir ───────────────────────────────────────────
+
+  private noter(c: Changement) {
+    this.historique.noter(c)
+    if (c.type !== 'cellule') return
+    this.arreterFrappe?.()
+    this.arreterFrappe = this.options.planifier(() => this.historique.fermer(), PAUSE_FRAPPE)
+  }
+
+  /** Exécute `action` : tout ce qu'elle change dans les données s'annule d'un seul Ctrl+Z. */
+  enUneEtape<T>(action: () => T): T {
+    return this.historique.groupe(action)
+  }
+
+  peutAnnuler = (): boolean => this.historique.peutAnnuler()
+  peutRetablir = (): boolean => this.historique.peutRetablir()
+
+  /** Défait la dernière étape ; `false` s'il n'y a rien à annuler. */
+  annuler(): Promise<boolean> {
+    return this.historique.annuler((c) => this.inverser(c))
+  }
+
+  retablir(): Promise<boolean> {
+    return this.historique.retablir((c) => this.inverser(c))
+  }
+
+  /**
+   * Défait un changement. Ce qui ne peut plus l'être (base ou colonne
+   * supprimée depuis, ligne disparue) est laissé tel quel, sans bloquer le reste.
+   */
+  private async inverser(c: Changement): Promise<void> {
+    const depot = this.bases.get(c.base)?.depot
+    if (!depot) return
+    const ligne = depot.lignes().find((l) => l.id === c.id)
+    try {
+      if (c.type === 'cellule') {
+        const col = colonne(depot.schema, c.cle)
+        if (!ligne || !col || !estSaisie(col)) return
+        depot.modifier(ligne.chemin, c.cle, c.avant)
+        if (c.cle === depot.schema.champTitre) await depot.renommerSelonTitre(ligne.chemin)
+      } else if (c.type === 'creee') {
+        if (ligne) await depot.supprimer(ligne.chemin)
+      } else if (!ligne) {
+        await depot.restaurer(c.chemin, c.source, c.enAttente)
+      }
+    } catch (x) {
+      if (!(x instanceof ErreurSchema) && !(x instanceof ErreurEcriture)) throw x
+    }
   }
 
   // ── Vues ─────────────────────────────────────────────────────────
@@ -1090,7 +1269,7 @@ export class DepotEspace {
     const { vues, avertissements } = await this.chargerVues(id, chargement.base.schema.ordreVues)
     const { pages, avertissements: avertissementsPages } = await this.chargerPages(id)
     chargement.base.avertissements.push(...avertissements, ...avertissementsPages)
-    const depot = new DepotBase(this.adaptateur, chargement.base.schema, chargement.base.lignes, this.options)
+    const depot = new DepotBase(this.adaptateur, chargement.base.schema, chargement.base.lignes, { ...this.options, journal: (c) => this.noter(c) })
     // Toute modification de lignes peut changer les colonnes calculées de n'importe quelle base.
     depot.abonner(() => this.publier())
     this.bases.set(id, { id, chargement, depot, vues, pages })

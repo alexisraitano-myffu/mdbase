@@ -219,15 +219,112 @@ test.describe('copier-coller', () => {
     await expect.poll(async () => (await espace.lister('taches')).filter((n) => /^(audit|revue)--/.test(n)).length).toBe(2)
   })
 
-  test('coller dans un champ en cours d’édition ne crée aucune ligne', async ({ espace, page }) => {
+  test('une valeur seule collée dans un champ en édition reste dans le champ', async ({ espace, page }) => {
     await espace.base('Tâches')
     await (await cellule(page, 'Cadrage', 'Titre')).click()
-    await page.locator('.rangee input.editeur').focus()
     await page.locator('.rangee input.editeur').evaluate((el) => {
       const dt = new DataTransfer()
-      dt.setData('text/plain', 'a\nb\n')
+      dt.setData('text/plain', 'abc')
       el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
     })
     await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+
+  test('un tableau collé dans une cellule en édition remplace à partir d’elle, après confirmation', async ({ espace, page }) => {
+    await espace.base('Tâches')
+    await (await cellule(page, 'Catalogue produits', 'Heures')).click()
+    await page.locator('.rangee input.editeur').evaluate((el) => {
+      const dt = new DataTransfer()
+      dt.setData('text/plain', '1\r\n2\r\n')
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
+    })
+    const fenetre = page.getByRole('dialog', { name: 'Coller dans le tableau' })
+    await expect(fenetre).toContainText('Remplacer 2 valeurs dans 2 lignes')
+    await expect(fenetre).toContainText('Catalogue produits › Heures')
+    await fenetre.getByRole('button', { name: 'Remplacer' }).click()
+    await expect.poll(() => espace.lire('taches/catalogue--tcata005.md')).toContain('heures: 1\n')
+    await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toContain('heures: 2\n')
+  })
+})
+
+test.describe('plage de cellules et annulation', () => {
+  /** Glisse à la souris d'une case à une autre. */
+  async function tracer(page: Page, depart: Awaited<ReturnType<typeof cellule>>, arrivee: Awaited<ReturnType<typeof cellule>>) {
+    const a = (await depart.boundingBox())!
+    const b = (await arrivee.boundingBox())!
+    // Près du bord gauche des cases : la dernière colonne dépasse de l'écran de test.
+    await page.mouse.move(a.x + 12, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(b.x + 12, b.y + b.height / 2, { steps: 5 })
+    await page.mouse.up()
+  }
+
+  test('glisser trace une plage visible ; la copier donne ses cases sans en-têtes', async ({ espace, page }) => {
+    await espace.base('Tâches')
+    await tracer(page, await cellule(page, 'Catalogue produits', 'Priorité'), await cellule(page, 'Paiement', 'Heures'))
+    await expect(page.locator('.case[style*="accent-fond"]')).toHaveCount(8)
+    await expect(page.locator('.rangee input.editeur')).toHaveCount(0)
+    const copie = await page.evaluate(() => {
+      const dt = new DataTransfer()
+      document.body.dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }))
+      return { texte: dt.getData('text/plain'), html: dt.getData('text/html') }
+    })
+    expect(copie.texte.split('\r\n')).toHaveLength(2)
+    expect(copie.texte).toMatch(/^Haute\t.*\t10\r\nHaute\t.*\t8$/)
+    expect(copie.html).not.toContain('<th>')
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.case[style*="accent-fond"]')).toHaveCount(0)
+  })
+
+  test('une valeur collée sur une plage la remplit, après confirmation ; Ctrl+Z la défait', async ({ espace, page }) => {
+    await espace.base('Tâches')
+    await tracer(page, await cellule(page, 'Paiement', 'Heures'), await cellule(page, 'Recette', 'Heures'))
+    await page.evaluate(() => {
+      const dt = new DataTransfer()
+      dt.setData('text/plain', '7')
+      document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
+    })
+    const fenetre = page.getByRole('dialog', { name: 'Coller dans le tableau' })
+    await expect(fenetre).toContainText('Remplacer 2 valeurs dans 2 lignes')
+    await fenetre.getByRole('button', { name: 'Remplacer' }).click()
+    await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toContain('heures: 7\n')
+    await expect.poll(() => espace.lire('taches/recette--trece007.md')).toContain('heures: 7\n')
+
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect(page.getByRole('status')).toHaveText('Modification annulée')
+    await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toContain('heures: 8\n')
+    await expect.poll(() => espace.lire('taches/recette--trece007.md')).toContain('heures: 3\n')
+    await page.keyboard.press('ControlOrMeta+Shift+z')
+    await expect.poll(() => espace.lire('taches/recette--trece007.md')).toContain('heures: 7\n')
+  })
+
+  test('Suppr vide les cases de la plage ; Ctrl+Z les remet', async ({ espace, page }) => {
+    await espace.base('Tâches')
+    await tracer(page, await cellule(page, 'Paiement', 'Heures'), await cellule(page, 'Recette', 'Heures'))
+    await page.keyboard.press('Delete')
+    await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).not.toContain('heures:')
+    await expect.poll(() => espace.lire('taches/recette--trece007.md')).not.toContain('heures:')
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toContain('heures: 8\n')
+  })
+
+  test('Ctrl+Z défait une cellule modifiée et une ligne supprimée', async ({ espace, page }) => {
+    await espace.base('Tâches')
+    await (await cellule(page, 'Cadrage', 'Heures')).click()
+    await page.locator('.rangee input.editeur').fill('10')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => espace.lire('taches/cadrage--tcadr004.md')).toContain('heures: 10\n')
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect.poll(() => espace.lire('taches/cadrage--tcadr004.md')).toContain('heures: 4\n')
+
+    const avant = await espace.lire('taches/recette--trece007.md')
+    await cocher(page, 'Recette')
+    await page.keyboard.press('Delete')
+    await page.locator('.flottant').getByRole('button', { name: 'Supprimer' }).click()
+    await expect.poll(() => espace.lister('taches')).not.toContain('recette--trece007.md')
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect.poll(() => espace.lister('taches')).toContain('recette--trece007.md')
+    expect(await espace.lire('taches/recette--trece007.md')).toBe(avant)
+    await expect(page.locator('.rangee', { hasText: 'Recette' })).toBeVisible()
   })
 })

@@ -951,3 +951,17 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 }
 .compte-selection { font-weight: 500; margin-right: 6px; }
 .astuce-selection { font-size: 0.8em; margin-right: 6px; }
+.bandeau-info {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 20;
+  background: var(--surface);
+  color: var(--texte);
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9em;
+  box-shadow: 0 0 0 1px rgba(var(--ombre), 0.06), 0 3px 12px rgba(var(--ombre), 0.18);
+}
+.plage-en-cours, .plage-en-cours * { user-select: none; cursor: cell; }
+.remplacement p { margin: 0 0 0.6rem; }

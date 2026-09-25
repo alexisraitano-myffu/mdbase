@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { convertirValeur, deduireColonnes, grilleDeVue, lireCsv, lireDate, lireMarkdown, lireTableauColle, versCsv, versHtml, versMarkdown } from './echange'
+import { convertirValeur, deduireColonnes, grilleDeVue, lireCsv, lireDate, lireMarkdown, lireTableauColle, versCsv, versHtml, versTsv, versMarkdown } from './echange'
 import { schemas } from './fixtures/espace-relations'
 import type { Cellule, Valeur } from './valeurs'
 
@@ -141,4 +141,10 @@ it('tableau HTML : en-têtes en th, texte échappé, retours à la ligne en <br>
   expect(versHtml({ entetes: ['Titre'], lignes: [['<a> & "b"\nsuite']] })).toBe(
     '<table><thead><tr><th>Titre</th></tr></thead><tbody><tr><td>&lt;a&gt; &amp; &quot;b&quot;<br>suite</td></tr></tbody></table>',
   )
+})
+
+it('plage de cellules : TSV relu à l’identique, HTML sans en-têtes', () => {
+  const lignes = [['a', 'b\tc'], ['"d"', 'e\nf']]
+  expect(lireCsv(versTsv(lignes))).toEqual(lignes)
+  expect(versHtml({ entetes: ['X', 'Y'], lignes: [['1', '2']] }, false)).toBe('<table><tbody><tr><td>1</td><td>2</td></tr></tbody></table>')
 })

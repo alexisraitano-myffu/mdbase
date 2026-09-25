@@ -52,6 +52,7 @@ src/
     echange.ts             import/export : grille d'une vue, CSV (écriture, lecture), Markdown (écriture, lecture),
                            HTML, tableau collé, types devinés d'un CSV
     conflits.ts            ids en double, copies de conflit de synchro (suffixe de machine OneDrive)
+    historique.ts          annuler / rétablir : changements notés par DepotBase (journal), étapes groupées par DepotEspace.enUneEtape
     ia/                    assistant IA (spec §12, « Module IA ») : modele.ts (interface ModeleIA,
                            indépendante du fournisseur), outils.ts (outils, consigne, description de
                            l'espace envoyée), plan.ts (validation des appels comme une saisie, application
@@ -83,6 +84,7 @@ src/
 - Icônes : Lucide uniquement, via `src/ui/icones.tsx` (`Icone`, `ICONES` par type de colonne, `ICONES_VUES`) ; plus de caractères Unicode comme icônes. Couleurs : variables CSS du `:root` de `app.css`, jamais de couleur en dur ailleurs.
 - Skills de design (emilkowalski/skill) installés **dans ce projet seulement** (`.claude/skills/`, ignoré par git) : en essai avant de les rendre globaux.
 - Assistant IA : le modèle ne touche jamais aux fichiers. Il propose des appels d'outils que `ia/plan.ts` valide contre l'état de l'espace, et rien n'est écrit avant « Appliquer ». Toute nouvelle capacité passe par un outil validé de la même façon, jamais par du texte interprété.
+- Annulation : toute action qui touche plusieurs fichiers de données passe par `DepotEspace.enUneEtape` (un seul Ctrl+Z). Une nouvelle écriture de données doit passer par `DepotBase.modifier/creer/supprimer`, sinon elle échappe au journal.
 - Nommage en français, comme la spec et le format de fichiers (`lister`, `colonnes`, `champ_titre`).
 - Découper quand un module grandit vraiment, jamais par avance ; les sous-dossiers de `core/` apparaîtront avec les jalons (relations, formules…).
 - Le nettoyage structurel est un commit à part, jamais mélangé à une fonctionnalité.

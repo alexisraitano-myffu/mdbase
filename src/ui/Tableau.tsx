@@ -10,8 +10,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useMemo, useRef, useState, type PointerEvent as EvenementPointeur } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
-import type { DepotEspace } from '../core/depot-espace'
-import { grilleDeVue, lireTableauColle, versHtml, versMarkdown, type Grille, type Libelle } from '../core/echange'
+import type { DepotEspace, Remplacement } from '../core/depot-espace'
+import { grilleDeVue, lireCsv, lireMarkdown, lireTableauColle, versHtml, versMarkdown, versTsv, type Grille, type Libelle } from '../core/echange'
 import type { LigneVue } from '../core/filtres'
 import { colonnesDeLaVue, grouper, type Groupe } from '../core/groupes'
 import type { Modifications } from '../core/ligne'
@@ -19,14 +19,15 @@ import { colonne as colonneDuSchema, estSaisie, type Calcul, type Colonne } from
 import type { Valeur } from '../core/valeurs'
 import type { ModificationVue, Tri, Vue } from '../core/vue'
 import { useLancer } from './actions'
+import { BarreSelection, FenetreRemplacement } from './ActionsTableau'
+import { estChampDeSaisie } from './clavier'
 import { Cellule, champRemonte, Pastille } from './cellules'
 import { titreDe, useEspace } from './contexte-espace'
 import { AjoutColonne, MenuColonne } from './EnteteColonne'
 import { FenetreImport } from './Echange'
-import { Flottant } from './flottant'
 import { Icone, ICONES } from './icones'
 import { PiedTableau } from './PiedTableau'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, CopyPlus, Plus, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 
 const HAUTEUR_LIGNE = 34
 const HAUTEUR_GROUPE = 40
@@ -60,6 +61,9 @@ type Props = {
    */
   reglages?: { vue: Vue; modifier: (m: ModificationVue) => void }
 }
+
+/** Une case du tableau : rang de la ligne dans l'ordre affiché, rang de la colonne visible. */
+type Case = { l: number; c: number }
 
 /** Ce que la liste virtualisée affiche, ligne après ligne. */
 type Element =
@@ -194,17 +198,112 @@ export function Tableau(p: Props) {
   }
   const grilleChoisies = (): Grille => grilleDeVue(choisies, visibles, libelle, true)
 
-  // Clavier et presse-papiers, hors champ en cours d'édition : Échap, Suppr, copier, coller un tableau.
+  // Plage de cellules tracée à la souris (ou Maj+clic) : copier, coller en remplaçant, Suppr pour vider.
+  const [plage, setPlage] = useState<{ a: Case; b: Case } | null>(null)
+  const ancreCase = useRef<Case | null>(null)
+  const [remplacement, setRemplacement] = useState<{ r: Remplacement; depart: string; tableau: string[][] } | null>(null)
+  const rangs = useMemo(() => new Map(ordreAffiche.map((c, i) => [c, i])), [ordreAffiche])
+  const parChemin = useMemo(() => new Map(lignes.map((l) => [l.chemin, l])), [lignes])
+  const bornes = plage && {
+    l1: Math.min(plage.a.l, plage.b.l),
+    l2: Math.max(plage.a.l, plage.b.l),
+    c1: Math.min(plage.a.c, plage.b.c),
+    c2: Math.max(plage.a.c, plage.b.c),
+  }
+  /** Ombres qui dessinent le bord de la plage sur une case ; `undefined` hors plage. */
+  const bordPlage = (chemin: string, c: number): string | undefined => {
+    const l = rangs.get(chemin)
+    if (!bornes || l === undefined || l < bornes.l1 || l > bornes.l2 || c < bornes.c1 || c > bornes.c2) return undefined
+    const bords = ['inset 0 0 0 1000px var(--accent-fond)']
+    if (l === bornes.l1) bords.unshift('inset 0 2px 0 var(--accent)')
+    if (l === bornes.l2) bords.unshift('inset 0 -2px 0 var(--accent)')
+    if (c === bornes.c1) bords.unshift('inset 2px 0 0 var(--accent)')
+    if (c === bornes.c2) bords.unshift('inset -2px 0 0 var(--accent)')
+    return bords.join(', ')
+  }
+
+  /** Le clic qui suit un glisser ne doit pas ouvrir l'éditeur de la case où il finit. */
+  const bloquerClic = () => {
+    const stop = (ev: MouseEvent) => {
+      ev.stopPropagation()
+      ev.preventDefault()
+    }
+    document.addEventListener('click', stop, true)
+    setTimeout(() => document.removeEventListener('click', stop, true), 0)
+  }
+
+  function appuiCase(e: EvenementPointeur, chemin: string, c: number) {
+    if (!selectionnable || e.button !== 0) return
+    if ((e.target as HTMLElement).closest('input, textarea, select, a, button, .poignee-recopie')) return
+    const l = rangs.get(chemin)
+    if (l === undefined) return
+    const ici = { l, c }
+    if (e.shiftKey && ancreCase.current) {
+      setPlage({ a: ancreCase.current, b: ici })
+      bloquerClic()
+      return
+    }
+    ancreCase.current = ici
+    setPlage(null)
+    let glisse = false
+    const bouger = (ev: PointerEvent) => {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('.case[data-l]')
+      if (!el) return
+      const fin = { l: Number(el.dataset.l), c: Number(el.dataset.c) }
+      if (!glisse && fin.l === l && fin.c === c) return
+      if (!glisse) {
+        glisse = true
+        document.body.classList.add('plage-en-cours')
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+        document.getSelection()?.removeAllRanges()
+      }
+      setPlage({ a: ici, b: fin })
+    }
+    const lacher = () => {
+      document.removeEventListener('pointermove', bouger)
+      document.removeEventListener('pointerup', lacher)
+      document.body.classList.remove('plage-en-cours')
+      if (glisse) bloquerClic()
+    }
+    document.addEventListener('pointermove', bouger)
+    document.addEventListener('pointerup', lacher)
+  }
+
+  /** Prépare un collage qui remplace, à partir de la case (l, c), sur une zone hauteur × largeur. */
+  const demanderRemplacement = (l: number, c: number, hauteur: number, largeur: number, grille: string[][], tableau: string[][]) => {
+    const r = espace.preparerRemplacement(base, { lignes: ordreAffiche.slice(l), colonnes: visibles.slice(c).map((x) => x.cle), hauteur, largeur }, grille)
+    const ligne = parChemin.get(ordreAffiche[l] ?? '')
+    const titre = ligne ? (titreDe(etat, base, ligne.id) ?? 'Sans titre') : ''
+    setRemplacement({ r, depart: `${titre} › ${visibles[c]?.nom ?? ''}`, tableau })
+  }
+  const appliquerRemplacement = (r: Remplacement) => {
+    for (const m of r.modifs) {
+      const l = parChemin.get(m.chemin)
+      if (l) retenir(l.id)
+    }
+    void lancer(espace.appliquerRemplacement(base, r))
+  }
+
+  // Clavier et presse-papiers, hors champ en cours de saisie : Échap, Suppr, copier, coller.
   useEffect(() => {
     if (!selectionnable) return
-    // Une case à cocher (celles de la sélection) n'est pas un champ de saisie.
-    const editable = (t: EventTarget | null) =>
-      t instanceof HTMLElement &&
-      (t.isContentEditable || ['TEXTAREA', 'SELECT'].includes(t.tagName) || (t instanceof HTMLInputElement && !['checkbox', 'radio', 'button'].includes(t.type)))
     // Fenêtre ou menu ouvert : Échap et les raccourcis leur reviennent.
-    const occupe = (t: EventTarget | null) => editable(t) || document.querySelector('.voile-fenetre, .flottant') !== null
+    const ouvert = () => document.querySelector('.voile-fenetre, .flottant') !== null
+    const occupe = (t: EventTarget | null) => estChampDeSaisie(t) || ouvert()
     const touche = (e: KeyboardEvent) => {
-      if (choisies.length === 0 || occupe(e.target)) return
+      if (occupe(e.target)) return
+      if (bornes) {
+        if (e.key === 'Escape') setPlage(null)
+        else if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault()
+          const zone = { lignes: ordreAffiche.slice(bornes.l1), colonnes: visibles.slice(bornes.c1).map((c) => c.cle) }
+          const hauteur = bornes.l2 - bornes.l1 + 1
+          const largeur = bornes.c2 - bornes.c1 + 1
+          appliquerRemplacement(espace.preparerRemplacement(base, { ...zone, hauteur, largeur }, Array.from({ length: hauteur }, () => Array<string>(largeur).fill(''))))
+        }
+        return
+      }
+      if (choisies.length === 0) return
       if (e.key === 'Escape') setSelection(new Set())
       else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
@@ -212,28 +311,63 @@ export function Tableau(p: Props) {
       }
     }
     const copier = (e: ClipboardEvent) => {
-      if (choisies.length === 0 || occupe(e.target) || !(document.getSelection()?.isCollapsed ?? true)) return
+      if (occupe(e.target) || !(document.getSelection()?.isCollapsed ?? true)) return
+      if (bornes) {
+        e.preventDefault()
+        const lignesPlage = ordreAffiche.slice(bornes.l1, bornes.l2 + 1).flatMap((ch) => parChemin.get(ch) ?? [])
+        const g = grilleDeVue(lignesPlage, visibles.slice(bornes.c1, bornes.c2 + 1), libelle, true)
+        e.clipboardData?.setData('text/plain', versTsv(g.lignes))
+        e.clipboardData?.setData('text/html', versHtml(g, false))
+        return
+      }
+      if (choisies.length === 0) return
       e.preventDefault()
       const g = grilleChoisies()
       e.clipboardData?.setData('text/plain', versMarkdown(g))
       e.clipboardData?.setData('text/html', versHtml(g))
     }
     const coller = (e: ClipboardEvent) => {
-      if (occupe(e.target)) return
-      const grille = lireTableauColle(e.clipboardData?.getData('text/plain') ?? '')
-      // Une valeur seule n'est pas un tableau : rien à créer.
-      if (grille.length < 2 && (grille[0]?.length ?? 0) < 2) return
+      if (ouvert()) return
+      const texte = e.clipboardData?.getData('text/plain') ?? ''
+      const tableau = lireTableauColle(texte)
+      // Pour remplacer, les en-têtes d'un tableau Markdown ne sont pas des valeurs.
+      const md = lireMarkdown(texte)
+      const grille = md ? md.slice(1) : lireCsv(texte)
+      const plusieurs = grille.length > 1 || (grille[0]?.length ?? 0) > 1
+      // Dans une cellule en édition : une valeur seule va dans le champ, un tableau part de cette cellule.
+      if (estChampDeSaisie(e.target)) {
+        const cas = (e.target as HTMLElement).closest<HTMLElement>('.case[data-l]')
+        if (!cas || !plusieurs || !defilement.current?.contains(cas)) return
+        e.preventDefault()
+        demanderRemplacement(Number(cas.dataset.l), Number(cas.dataset.c), 1, 1, grille, tableau)
+        return
+      }
+      if (bornes) {
+        e.preventDefault()
+        if (grille.length === 0) return
+        demanderRemplacement(bornes.l1, bornes.c1, bornes.l2 - bornes.l1 + 1, bornes.c2 - bornes.c1 + 1, grille, tableau)
+        return
+      }
+      // Sans cellule choisie, un tableau collé devient des lignes nouvelles ; une valeur seule, rien.
+      if (tableau.length < 2 && (tableau[0]?.length ?? 0) < 2) return
       e.preventDefault()
-      const prepare = espace.preparerCollage(base, grille, visibles.map((c) => c.cle))
+      const prepare = espace.preparerCollage(base, tableau, visibles.map((c) => c.cle))
       if (prepare.lignes.length > 0) setCollage(prepare)
+    }
+    // Un appui hors des cases (et hors des fenêtres qu'elles ouvrent) efface la plage.
+    const ailleurs = (e: PointerEvent) => {
+      if (!(e.target instanceof Element) || e.target.closest('.case[data-l], .voile-fenetre, .flottant')) return
+      setPlage(null)
     }
     document.addEventListener('keydown', touche)
     document.addEventListener('copy', copier)
     document.addEventListener('paste', coller)
+    document.addEventListener('pointerdown', ailleurs)
     return () => {
       document.removeEventListener('keydown', touche)
       document.removeEventListener('copy', copier)
       document.removeEventListener('paste', coller)
+      document.removeEventListener('pointerdown', ailleurs)
     }
   })
 
@@ -443,11 +577,14 @@ export function Tableau(p: Props) {
                     />
                   </div>
                 )}
-                {tailles.map(({ colonne, largeur }) => (
+                {tailles.map(({ colonne, largeur }, ci) => (
                   <div
                     key={colonne.cle}
                     className={`case ${recopie?.cle === colonne.cle && plageRecopie?.has(ligne.chemin) ? 'recopie' : ''}`}
-                    style={{ width: largeur }}
+                    style={{ width: largeur, boxShadow: bordPlage(ligne.chemin, ci) }}
+                    data-l={selectionnable ? rangs.get(ligne.chemin) : undefined}
+                    data-c={ci}
+                    onPointerDown={(ev) => appuiCase(ev, ligne.chemin, ci)}
                   >
                     {ouvrir && colonne.cle === depot.schema.champTitre && (
                       <button className="bouton-ouvrir" onClick={() => ouvrir(ligne)}>
@@ -523,6 +660,22 @@ export function Tableau(p: Props) {
           vider={() => setSelection(new Set())}
         />
       )}
+      {remplacement && (
+        <FenetreRemplacement
+          remplacement={remplacement.r}
+          depart={remplacement.depart}
+          appliquer={() => {
+            appliquerRemplacement(remplacement.r)
+            setRemplacement(null)
+          }}
+          enNouvellesLignes={() => {
+            const prepare = espace.preparerCollage(base, remplacement.tableau, visibles.map((c) => c.cle))
+            setRemplacement(null)
+            if (prepare.lignes.length > 0) setCollage(prepare)
+          }}
+          fermer={() => setRemplacement(null)}
+        />
+      )}
       {collage && (
         <FenetreImport
           espace={espace}
@@ -530,85 +683,6 @@ export function Tableau(p: Props) {
           colle={collage}
           fermer={() => setCollage(null)}
         />
-      )}
-    </div>
-  )
-}
-
-/** Barre des lignes sélectionnées : copier, dupliquer, supprimer (avec les liens vers elles, spec §5). */
-function BarreSelection(p: {
-  espace: DepotEspace
-  base: string
-  choisies: LigneChargee[]
-  confirmer: boolean
-  setConfirmer: (v: boolean) => void
-  copier: () => Promise<void>
-  dupliquer: () => Promise<void>
-  supprimer: (nettoyer: boolean) => Promise<void>
-  vider: () => void
-}) {
-  const lancer = useLancer()
-  const bouton = useRef<HTMLButtonElement>(null)
-  const [nettoyer, setNettoyer] = useState(true)
-  const [copie, setCopie] = useState(false)
-  const n = p.choisies.length
-  const pluriel = n > 1 ? 's' : ''
-  const liens = p.confirmer ? [...new Set(p.choisies.map((l) => l.id))].reduce((t, id) => t + p.espace.liensVers(p.base, id).length, 0) : 0
-
-  return (
-    <div className="barre-selection" role="toolbar" aria-label="Lignes sélectionnées">
-      <span className="compte-selection">
-        {n} ligne{pluriel} sélectionnée{pluriel}
-      </span>
-      {n > 1 && <span className="discret astuce-selection">Une cellule modifiée l’est sur toutes</span>}
-      <button
-        className="discret"
-        onClick={() =>
-          void lancer(p.copier()).then(() => {
-            setCopie(true)
-            setTimeout(() => setCopie(false), 1200)
-          })
-        }
-      >
-        <Icone de={Copy} /> {copie ? 'Copié' : 'Copier'}
-      </button>
-      <button className="discret" onClick={() => void p.dupliquer()}>
-        <Icone de={CopyPlus} /> Dupliquer
-      </button>
-      <button ref={bouton} className="discret danger-texte" onClick={() => p.setConfirmer(true)}>
-        <Icone de={Trash2} /> Supprimer
-      </button>
-      <button className="discret" onClick={p.vider} aria-label="Désélectionner">
-        <Icone de={X} />
-      </button>
-      {p.confirmer && (
-        <Flottant ancre={bouton.current} fermer={() => p.setConfirmer(false)}>
-          <div className="confirmation">
-            <p>
-              Supprimer {n > 1 ? `ces ${n} lignes` : 'cette ligne'} ? {n > 1 ? 'Leurs fichiers sont effacés' : 'Son fichier est effacé'} du dossier <code>{p.base}</code>.
-            </p>
-            {liens > 0 && (
-              <label className="case-a-cocher">
-                <input type="checkbox" checked={nettoyer} onChange={(e) => setNettoyer(e.target.checked)} />
-                {liens === 1 ? 'Retirer aussi le lien qui pointe vers elles' : `Retirer aussi les ${liens} liens qui pointent vers elles`}
-                <span className="discret"> (sinon ils restent, signalés comme cassés)</span>
-              </label>
-            )}
-            <div className="boutons">
-              <button onClick={() => p.setConfirmer(false)}>Annuler</button>
-              <button
-                className="danger"
-                autoFocus
-                onClick={() => {
-                  p.setConfirmer(false)
-                  void p.supprimer(nettoyer)
-                }}
-              >
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </Flottant>
       )}
     </div>
   )

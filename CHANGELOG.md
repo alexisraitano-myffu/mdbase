@@ -69,6 +69,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Mémoire et skills de l'assistant, dans `_assistant/` du dossier (synchronisés avec les données, jamais affichés comme une base). Il retient une préférence quand on le lui dit (« Retenu : … », annulable) ; un skill est une procédure nommée créée à la demande, montrée en aperçu et écrite seulement sur « Appliquer ». Les deux sont listés dans les réglages de l'assistant, d'où on peut les retirer.
 - Tableau, plusieurs lignes à la fois : sélection (case au survol, Maj+clic, tout sélectionner) et barre d'actions pour copier, dupliquer et supprimer (avec les liens vers elles en option) ; dans une sélection, une cellule modifiée l'est sur toutes. Échap vide la sélection, Suppr propose la suppression.
 - Copier-coller dans un tableau : les lignes sélectionnées se copient en tableau Markdown et HTML ; un tableau Markdown, CSV ou copié d'un tableur se colle avec un aperçu, en-têtes reconnus ou valeurs rangées dans l'ordre des colonnes affichées.
+- Plage de cellules tracée à la souris (ou Maj+clic), surlignée : la copier donne ses cases, Suppr les vide, coller un tableau dessus (ou dans une case en édition) remplace les valeurs après une confirmation qui dit ce qui sera écrasé.
+- Annuler / rétablir (Ctrl+Z, Ctrl+Maj+Z) sur les données : cellules, lignes créées ou supprimées, actions en lot, collages, plans de l'assistant.
 - Recopie d'une cellule : sa poignée, tirée vers le haut ou le bas, donne sa valeur aux lignes survolées.
 - Logo « db » en mauve pastel (glyphes Geist Mono) : la flèche de Markdown prolonge la hampe du d. Icône d’onglet, icône iPhone et image de partage des liens.
 ### Changed

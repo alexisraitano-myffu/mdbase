@@ -19,6 +19,7 @@ import { VueDashboard } from './Dashboard'
 import { RechercheGlobale } from './RechercheGlobale'
 import { Assistant, FenetreReglagesIA } from './Assistant'
 import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/ia/reglages'
+import { estChampDeSaisie } from './clavier'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string }
 
@@ -228,6 +229,29 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
     document.addEventListener('keydown', clavier)
     return () => document.removeEventListener('keydown', clavier)
   }, [ouvrirAssistant])
+  // Ctrl+Z / ⌘Z annule la dernière modification des données, Ctrl+Maj+Z (ou Ctrl+Y) la rétablit.
+  // Dans un champ en cours de saisie, c'est l'annulation native du champ qui joue.
+  const [annonce, setAnnonce] = useState<string | null>(null)
+  useEffect(() => {
+    let minuterie: ReturnType<typeof setTimeout> | undefined
+    const clavier = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || estChampDeSaisie(e.target)) return
+      const touche = e.key.toLowerCase()
+      const retablir = touche === 'y' || (touche === 'z' && e.shiftKey)
+      if (touche !== 'z' && !retablir) return
+      e.preventDefault()
+      void lancer(retablir ? espace.retablir() : espace.annuler()).then((fait) => {
+        setAnnonce(fait ? (retablir ? 'Modification rétablie' : 'Modification annulée') : retablir ? 'Rien à rétablir' : 'Rien à annuler')
+        clearTimeout(minuterie)
+        minuterie = setTimeout(() => setAnnonce(null), 1600)
+      })
+    }
+    document.addEventListener('keydown', clavier)
+    return () => {
+      document.removeEventListener('keydown', clavier)
+      clearTimeout(minuterie)
+    }
+  }, [espace, lancer])
   const ouvrirResultat = (base: string, id: string) => {
     setSelection({ type: 'base', id: base })
     setPageDemandee((d) => ({ base, id, jeton: (d?.jeton ?? 0) + 1 }))
@@ -267,6 +291,11 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
       )}
       {ia === 'reglages' && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
       {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
+      {annonce && (
+        <div className="bandeau-info" role="status">
+          {annonce}
+        </div>
+      )}
     </ContexteEspace.Provider>
   )
 }

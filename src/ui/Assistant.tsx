@@ -238,9 +238,11 @@ export function Assistant(p: { espace: DepotEspace; dossier: string; baseOuverte
   const appliquer = async (i: number) => {
     const r = tours[i]?.resultat
     if (r?.type !== 'plan' || !r.plan) return
+    const plan = r.plan
     remplacer(i, { ...r, statut: 'application' })
     try {
-      await appliquerPlan(p.espace, r.plan)
+      // Un seul Ctrl+Z défait tout ce que l'assistant a écrit.
+      await p.espace.enUneEtape(() => appliquerPlan(p.espace, plan))
       remplacer(i, { ...r, statut: 'applique' })
     } catch (e) {
       remplacer(i, { ...r, statut: 'annule' })

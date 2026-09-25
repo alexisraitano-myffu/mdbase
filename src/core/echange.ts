@@ -131,11 +131,21 @@ export function versMarkdown(g: Grille): string {
   return [ligne(g.entetes), `| ${g.entetes.map(() => '---').join(' | ')} |`, ...g.lignes.map(ligne)].join('\n') + '\n'
 }
 
-/** Tableau HTML, pour qu'un tableur, un traitement de texte ou Notion reçoive des cases en collant. */
-export function versHtml(g: Grille): string {
+/**
+ * Tableau HTML, pour qu'un tableur, un traitement de texte ou Notion reçoive
+ * des cases en collant. Sans en-têtes pour une plage de cellules.
+ */
+export function versHtml(g: Grille, avecEntetes = true): string {
   const echapper = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\r?\n/g, '<br>')
   const ligne = (l: string[], balise: 'th' | 'td') => `<tr>${l.map((x) => `<${balise}>${echapper(x)}</${balise}>`).join('')}</tr>`
-  return `<table><thead>${ligne(g.entetes, 'th')}</thead><tbody>${g.lignes.map((l) => ligne(l, 'td')).join('')}</tbody></table>`
+  const tete = avecEntetes ? `<thead>${ligne(g.entetes, 'th')}</thead>` : ''
+  return `<table>${tete}<tbody>${g.lignes.map((l) => ligne(l, 'td')).join('')}</tbody></table>`
+}
+
+/** Cases séparées par des tabulations, comme un tableur les copie ; sans en-têtes (plage de cellules). */
+export function versTsv(lignes: readonly string[][]): string {
+  const champ = (s: string) => (/["\t\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)
+  return lignes.map((l) => l.map(champ).join('\t')).join('\r\n')
 }
 
 /**

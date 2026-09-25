@@ -93,3 +93,66 @@ describe('coller un tableau dans une base', () => {
     expect(r).toEqual({ entetes: ['Titre', 'Projet', 'Statut', 'Colonne 4'], cles: ['titre', null, 'statut', null], lignes: [['X', 'p0000001', 'Terminé', '4']] })
   })
 })
+
+describe('coller sur des cellules (remplacement)', () => {
+  const cible = (lignes: string[], colonnes: string[], hauteur = 1, largeur = 1) => ({ lignes, colonnes, hauteur, largeur })
+
+  it('une grille remplace les cellules à partir de la case choisie, et s’annule d’un coup', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const r = espace.preparerRemplacement('taches', cible([A, B, C], ['statut', 'heures']), [
+      ['Terminé', '1'],
+      ['À faire', '2,5'],
+    ])
+    expect(r).toMatchObject({ lignes: 2, ignorees: 0, nouvelles: [], options: [] })
+    await espace.appliquerRemplacement('taches', r)
+    await ecrire()
+    expect(await a.lire(A)).toContain('statut: Terminé\nheures: 1\n')
+    expect(await a.lire(B)).toContain('statut: À faire\nheures: 2.5\n')
+    expect(await a.lire(C)).not.toContain('statut:')
+    await espace.annuler()
+    await ecrire()
+    expect(await a.lire(A)).toContain('statut: À faire\nheures: 3\n')
+  })
+
+  it('une valeur seule collée sur une zone la remplit toute', async () => {
+    const { espace } = await ouvrir()
+    const r = espace.preparerRemplacement('taches', cible([A, B, C], ['heures', 'fait'], 3, 1), [['4']])
+    expect(r.modifs.map((m) => [m.chemin, m.cle, m.valeur])).toEqual([
+      [A, 'heures', 4],
+      [B, 'heures', 4],
+      [C, 'heures', 4],
+    ])
+  })
+
+  it('au-delà de la dernière ligne, des lignes nouvelles ; hors des colonnes ou illisible, ignoré', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const r = espace.preparerRemplacement('taches', cible([C], ['titre', 'heures']), [
+      ['C2', 'beaucoup'],
+      ['D', '1', 'en trop'],
+    ])
+    expect(r).toMatchObject({ lignes: 1, ignorees: 2, nouvelles: [{ titre: 'D', heures: 1 }] })
+    await espace.appliquerRemplacement('taches', r)
+    await ecrire()
+    expect((await a.lister('taches')).map((e) => e.nom)).toEqual(expect.arrayContaining(['c2--t0000003.md']))
+    expect((await a.lister('taches')).some((e) => e.nom.startsWith('d--'))).toBe(true)
+  })
+
+  it('relation lue par titres ; option inconnue créée ; colonne calculée ignorée', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const r = espace.preparerRemplacement('taches', cible([A], ['projet', 'statut']), [['sinam, NAVI', 'bloqué']])
+    expect(r.modifs.map((m) => m.valeur)).toEqual([['p0000002', 'p0000001'], 'bloqué'])
+    expect(r.options).toEqual([{ cle: 'statut', label: 'bloqué' }])
+    await espace.appliquerRemplacement('taches', r)
+    await ecrire()
+    expect(await a.lire('taches/_schema.yaml')).toContain('bloqué')
+    expect(espace.preparerRemplacement('projets', cible(['projets/navi--p0000001.md'], ['heures']), [['4']]).ignorees).toBe(1)
+    expect(espace.preparerRemplacement('taches', cible([A], ['projet']), [['Inconnu']]).ignorees).toBe(1)
+  })
+
+  it('une case collée vide efface la valeur', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    await espace.appliquerRemplacement('taches', espace.preparerRemplacement('taches', cible([A], ['heures']), [['']]))
+    await ecrire()
+    expect(await a.lire(A)).not.toContain('heures:')
+  })
+})

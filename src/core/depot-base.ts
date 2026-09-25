@@ -4,6 +4,7 @@ import { FichierIntrouvable, joindre, parent, type AdaptateurFichiers } from './
 import { genererId, nomFichierLigne, type Aleatoire } from './identifiants'
 import { changerIdentifiant, creerLigne, ErreurEcriture, lireLigne, type Modifications } from './ligne'
 import { colonne, estSaisie, type Schema } from './schema'
+import type { Changement } from './historique'
 import { encoder, type Cellule, type Valeur } from './valeurs'
 
 /** Programme `action` dans `ms` millisecondes ; renvoie de quoi l'annuler. Injecté : le cœur n'a pas de minuteur. */
@@ -14,6 +15,8 @@ export type OptionsDepot = {
   planifier: Planifier
   /** Délai de regroupement des écritures d'un même fichier (spec §12). */
   delai?: number
+  /** Reçoit chaque changement de données, pour l'annulation (Ctrl+Z). */
+  journal?: (c: Changement) => void
 }
 
 type Entree = {
@@ -48,7 +51,7 @@ export class DepotBase {
   constructor(adaptateur: AdaptateurFichiers, schema: Schema, lignes: LigneChargee[], options: OptionsDepot) {
     this.adaptateur = adaptateur
     this.schema = schema
-    this.options = { delai: 300, ...options }
+    this.options = { delai: 300, journal: () => undefined, ...options }
     this.entrees = lignes.map((l) => ({
       persistee: l,
       affichee: l,
@@ -75,6 +78,15 @@ export class DepotBase {
     const c = colonne(this.schema, cle)
     if (!c || !estSaisie(c)) throw new ErreurEcriture(`Colonne non modifiable : ${cle}`)
     const entree = this.trouver(chemin)
+    const avant = entree.affichee.cellules[cle]
+    this.options.journal({
+      type: 'cellule',
+      base: this.schema.id,
+      id: entree.persistee.id,
+      cle,
+      avant: avant?.etat === 'ok' ? avant.valeur : undefined,
+      apres: valeur,
+    })
     entree.enAttente = { ...entree.enAttente, [cle]: valeur }
     entree.affichee = afficher(entree, this.schema)
     this.planifierEcriture(entree)
@@ -107,8 +119,30 @@ export class DepotBase {
     const ligne = { ...lecture.ligne, date: await this.adaptateur.dateModification(chemin) }
     this.entrees.push({ persistee: ligne, affichee: ligne, enAttente: {}, corpsEnAttente: undefined, annuler: undefined, file: Promise.resolve() })
     this.generation++
+    this.options.journal({ type: 'creee', base: this.schema.id, id })
     this.publier()
     return ligne
+  }
+
+  /**
+   * Réécrit une ligne supprimée (annulation) : son fichier tel qu'il était,
+   * puis les modifications qui n'avaient pas encore été écrites.
+   */
+  async restaurer(chemin: string, source: string, enAttente: Modifications = {}): Promise<void> {
+    if (await this.existe(chemin)) throw new ErreurEcriture(`Un fichier porte déjà ce nom : ${chemin}`)
+    this.generation++
+    await this.adaptateur.ecrire(chemin, source)
+    const lecture = lireLigne(chemin, source, this.schema)
+    if (!lecture.ok) throw new Error(`Ligne restaurée illisible : ${lecture.raison}`)
+    const ligne = { ...lecture.ligne, date: await this.adaptateur.dateModification(chemin) }
+    this.entrees.push({ persistee: ligne, affichee: ligne, enAttente: {}, corpsEnAttente: undefined, annuler: undefined, file: Promise.resolve() })
+    this.generation++
+    this.options.journal({ type: 'creee', base: this.schema.id, id: ligne.id })
+    this.publier()
+    for (const [cle, v] of Object.entries(enAttente)) {
+      const c = colonne(this.schema, cle)
+      if (c && estSaisie(c)) this.modifier(chemin, cle, v)
+    }
   }
 
   /**
@@ -137,6 +171,14 @@ export class DepotBase {
    */
   supprimer(chemin: string): Promise<void> {
     const e = this.trouver(chemin)
+    this.options.journal({
+      type: 'supprimee',
+      base: this.schema.id,
+      id: e.persistee.id,
+      chemin: e.persistee.chemin,
+      source: e.persistee.source,
+      enAttente: { ...e.enAttente },
+    })
     e.annuler?.()
     e.annuler = undefined
     e.enAttente = {}
