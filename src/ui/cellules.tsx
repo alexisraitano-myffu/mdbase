@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import { colonne as colonneDe, estSaisie, natureDe, type Colonne, type ColonneChoix, type ColonneRelation } from '../core/schema'
@@ -22,6 +22,10 @@ type Props = {
 /** Une cellule du tableau : affichage, et édition au clic selon le type. */
 export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerOption, surModification }: Props) {
   const [edition, setEdition] = useState(editionInitiale)
+  // La ligne créée s'affiche avant que le tableau ne demande l'édition de son titre : on suit la demande.
+  useEffect(() => {
+    if (editionInitiale) setEdition(true)
+  }, [editionInitiale])
   const cellule = ligne.cellules[colonne.cle]
   const modifier = (v: Valeur | undefined) => {
     surModification()
