@@ -27,6 +27,8 @@ import { useLancer } from './actions'
 import { ValeurCompacte } from './cellules'
 import { glisser } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = {
   espace: DepotEspace
@@ -142,13 +144,13 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
         <span className="espaceur" />
         <Echelles valeurs={['mois', 'semaine']} active={semaine ? 'semaine' : 'mois'} changer={(echelle) => modifierVue({ echelle })} />
         <button className="discret" onClick={() => setCurseur(semaine ? decaler(curseur, -7) : ajouterMois(curseur, -1))} aria-label="Précédent">
-          ‹
+          <Icone de={ChevronLeft} />
         </button>
         <button className="discret" onClick={() => setCurseur(aujourdhui)}>
           Aujourd'hui
         </button>
         <button className="discret" onClick={() => setCurseur(semaine ? decaler(curseur, 7) : ajouterMois(curseur, 1))} aria-label="Suivant">
-          ›
+          <Icone de={ChevronRight} />
         </button>
       </div>
       <div className="cal-jours-semaine">
@@ -240,7 +242,7 @@ function Semaine(p: {
           <span className="num-jour">{Number(j.slice(8)) === 1 ? `1 ${MOIS_COURTS[Number(j.slice(5, 7)) - 1]}` : Number(j.slice(8))}</span>
           {p.creer && (
             <button className="discret ajout-jour" title="Nouvelle ligne à cette date" onClick={() => p.creer!(j)}>
-              +
+              <Icone de={Plus} />
             </button>
           )}
         </div>

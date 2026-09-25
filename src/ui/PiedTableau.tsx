@@ -5,6 +5,8 @@ import { natureDe, type Calcul, type Colonne } from '../core/schema'
 import type { Cellule } from '../core/valeurs'
 import { LIBELLES_CALCULS } from './EnteteColonne'
 import { Flottant } from './flottant'
+import { Check, ChevronDown } from 'lucide-react'
+import { Icone } from './icones'
 
 // Calculs en pied de colonne (spec §7), sur les lignes affichées : les mêmes
 // calculs que les rollups, sauf « afficher », qui n'a pas de sens en pied.
@@ -46,7 +48,7 @@ function CaseCalcul(p: { colonne: Colonne; largeur: number; lignes: readonly Lig
           <span className="libelle-calcul">{LIBELLES_CALCULS[calcul as Calcul] ?? calcul}</span> {formater(calcul, colonne, resultat)}
         </>
       ) : (
-        p.changer && <span className="invite-calcul">Calculer ▾</span>
+        p.changer && <span className="invite-calcul">Calculer <Icone de={ChevronDown} taille={12} /></span>
       )}
       {ouvert && p.changer && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
@@ -55,7 +57,7 @@ function CaseCalcul(p: { colonne: Colonne; largeur: number; lignes: readonly Lig
           </button>
           {choix.map((c) => (
             <button key={c} className="option" onClick={() => (setOuvert(false), p.changer!(colonne.cle, c))}>
-              <span className="coche">{c === calcul ? '✓' : ''}</span>
+              <span className="coche">{c === calcul && <Icone de={Check} taille={14} />}</span>
               {LIBELLES_CALCULS[c]}
             </button>
           ))}

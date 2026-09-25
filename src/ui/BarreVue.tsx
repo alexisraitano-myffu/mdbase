@@ -6,9 +6,10 @@ import type { ModificationVue, Tri, TypeVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
 import { Flottant } from './flottant'
-import { ICONES } from './EnteteColonne'
+import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
+import { Plus } from 'lucide-react'
 
 type Props = {
   espace: DepotEspace
@@ -90,15 +91,14 @@ export function OutilsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue;
   )
 }
 
-export const TYPES_CREABLES: { type: TypeVue; nom: string; icone: string }[] = [
-  { type: 'tableau', nom: 'Tableau', icone: '▦' },
-  { type: 'kanban', nom: 'Kanban', icone: '▥' },
-  { type: 'collection', nom: 'Collection', icone: '▣' },
-  { type: 'calendrier', nom: 'Calendrier', icone: '▤' },
-  { type: 'timeline', nom: 'Timeline', icone: '▬' },
+export const TYPES_CREABLES: { type: TypeVue; nom: string }[] = [
+  { type: 'tableau', nom: 'Tableau' },
+  { type: 'kanban', nom: 'Kanban' },
+  { type: 'collection', nom: 'Collection' },
+  { type: 'calendrier', nom: 'Calendrier' },
+  { type: 'timeline', nom: 'Timeline' },
 ]
 
-export const ICONES_VUES: Record<TypeVue, string> = { tableau: '▦', kanban: '▥', collection: '▣', calendrier: '▤', timeline: '▬' }
 
 /** « + » des onglets : nouvelle vue d'un type donné, avec ses réglages par défaut. */
 function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: Vue[]; choisirVue: (id: string) => void }) {
@@ -113,13 +113,13 @@ function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: 
   return (
     <>
       <button ref={ancre} className="discret onglet-ajout" title="Nouvelle vue" onClick={() => setOuvert(true)}>
-        +
+        <Icone de={Plus} />
       </button>
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
           {TYPES_CREABLES.map((t) => (
             <button key={t.type} className="option" onClick={() => void creer(t.type, t.nom)}>
-              <span className="icone">{t.icone}</span>
+              <Icone de={ICONES_VUES[t.type]} />
               {t.nom}
             </button>
           ))}
@@ -185,7 +185,7 @@ function Onglet(p: {
       }}
       title="Glisser pour réordonner, double-clic pour renommer, clic droit pour plus"
     >
-      <span className="icone">{ICONES_VUES[p.vue.type]}</span>
+      <Icone de={ICONES_VUES[p.vue.type]} />
       {p.vue.nom}
       {menu && (
         <Flottant ancre={ancre.current} fermer={() => setMenu(false)}>
@@ -256,7 +256,7 @@ function EditeurTris({ schema, tris, changer }: { schema: Schema; tris: Tri[]; c
       ))}
       {libres[0] && (
         <button className="discret ajout-filtre" onClick={() => changer([...tris, { colonne: libres[0]!.cle, sens: 'asc' }])}>
-          + Ajouter un tri
+          <Icone de={Plus} /> Ajouter un tri
         </button>
       )}
     </div>
@@ -298,7 +298,7 @@ function OptionsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modif
               })
             }
           />
-          <span className="icone">{ICONES[c.type]}</span>
+          <Icone de={ICONES[c.type]} />
           {c.nom}
         </label>
       ))}
@@ -418,7 +418,7 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
                     modifier({ champsJalons: dates.map((x) => x.cle).filter((x) => suivants.has(x)) })
                   }}
                 />
-                <span className="icone">{ICONES[c.type]}</span>
+                <Icone de={ICONES[c.type]} />
                 {c.nom}
               </label>
             ))}
@@ -450,7 +450,7 @@ function ChampsAffiches({ schema, vue, modifier, titre }: { schema: Schema; vue:
                 modifier({ champsCarte: schema.colonnes.map((x) => x.cle).filter((x) => suivants.has(x)) })
               }}
             />
-            <span className="icone">{ICONES[c.type]}</span>
+            <Icone de={ICONES[c.type]} />
             {c.nom}
           </label>
         ))}

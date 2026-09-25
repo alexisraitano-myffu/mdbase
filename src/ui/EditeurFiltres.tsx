@@ -3,6 +3,8 @@ import { operateursPour } from '../core/filtres'
 import { useEspace } from './contexte-espace'
 import { natureDe, type Colonne, type Schema } from '../core/schema'
 import type { Filtre, Operateur } from '../core/vue'
+import { Plus } from 'lucide-react'
+import { Icone } from './icones'
 
 export const LIBELLES_OPERATEURS: Record<Operateur, string> = {
   vide: 'est vide',
@@ -83,7 +85,7 @@ export function EditeurFiltres({ schema, filtres, changer }: { schema: Schema; f
           className="discret ajout-filtre"
           onClick={() => changer([...filtres, { colonne: colonnes[0]!.cle, operateur: operateursPour(colonnes[0]!)[0]! }])}
         >
-          + Ajouter un filtre
+          <Icone de={Plus} /> Ajouter un filtre
         </button>
       )}
     </div>

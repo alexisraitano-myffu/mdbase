@@ -8,6 +8,8 @@ import { nomDe } from '../core/fichiers'
 import { colonne as colonneDe } from '../core/schema'
 import { useLancer } from './actions'
 import { ValeurCompacte } from './cellules'
+import { X } from 'lucide-react'
+import { Icone } from './icones'
 
 // Conflits de synchronisation (spec §4) : rien n'est tranché à la place de
 // l'utilisateur. On montre les versions côte à côte, il choisit.
@@ -25,7 +27,7 @@ function Fenetre({ titre, fermer, children }: { titre: string; fermer: () => voi
         <div className="entete-fenetre">
           <h2>{titre}</h2>
           <button className="discret" onClick={fermer} aria-label="Fermer">
-            ✕
+            <Icone de={X} />
           </button>
         </div>
         <div className="corps-fenetre">{children}</div>

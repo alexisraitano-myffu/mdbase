@@ -7,19 +7,8 @@ import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { EditeurFormule } from './EditeurFormule'
 import { Flottant } from './flottant'
-
-export const ICONES: Record<Colonne['type'], string> = {
-  text: 'Aa',
-  number: '#',
-  date: '▦',
-  checkbox: '☑',
-  select: '◉',
-  multiselect: '☰',
-  url: '🔗',
-  relation: '↗',
-  rollup: '∑',
-  formula: 'ƒ',
-}
+import { Plus, TriangleAlert } from 'lucide-react'
+import { Icone, ICONES } from './icones'
 
 const NOMS_TYPES: Record<TypeCreable, string> = {
   text: 'Texte',
@@ -122,7 +111,7 @@ export function MenuColonne({
       {colonne.type === 'rollup' && <ReglagesRollup espace={espace} base={base} colonne={colonne} />}
       {colonne.type === 'formula' && (
         <button className="option" onClick={() => setFormule(true)}>
-          <span className="icone">{ICONES.formula}</span>
+          <Icone de={ICONES.formula} />
           Modifier la formule…
         </button>
       )}
@@ -173,7 +162,7 @@ function NettoyerLiens({ espace, base, cle, fermer }: { espace: DepotEspace; bas
         fermer()
       }}
     >
-      <span className="icone">⚠</span>
+      <Icone de={TriangleAlert} />
       {n === 1 ? 'Retirer le lien cassé' : `Retirer les ${n} liens cassés`}
     </button>
   )
@@ -299,7 +288,7 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
 
   return (
     <div ref={ancre} className="cellule-entete ajout" onClick={() => setOuvert(true)} title="Ajouter une colonne">
-      +
+      <Icone de={Plus} />
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={fermer} garderOuvert={etape.type === 'formule'}>
           {etape.type === 'formule' && (
@@ -328,20 +317,20 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
               />
               {TYPES_CREABLES.map((t) => (
                 <button key={t} className="option" onClick={() => creer(t)}>
-                  <span className="icone">{ICONES[t]}</span>
+                  <Icone de={ICONES[t]} />
                   {NOMS_TYPES[t]}
                 </button>
               ))}
               <button className="option" onClick={() => setEtape({ type: 'relation' })} disabled={autresBases.length === 0}>
-                <span className="icone">{ICONES.relation}</span>
+                <Icone de={ICONES.relation} />
                 Relation…
               </button>
               <button className="option" onClick={() => setEtape({ type: 'rollup-relation' })} disabled={relations.length === 0}>
-                <span className="icone">{ICONES.rollup}</span>
+                <Icone de={ICONES.rollup} />
                 Rollup…
               </button>
               <button className="option" onClick={() => setEtape({ type: 'formule' })}>
-                <span className="icone">{ICONES.formula}</span>
+                <Icone de={ICONES.formula} />
                 Formule…
               </button>
             </>
@@ -385,7 +374,7 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
                   className="option"
                   onClick={() => setEtape({ type: 'rollup-calcul', relation: etape.relation, champ: c })}
                 >
-                  <span className="icone">{ICONES[c.type]}</span>
+                  <Icone de={ICONES[c.type]} />
                   {c.nom}
                 </button>
               ))}

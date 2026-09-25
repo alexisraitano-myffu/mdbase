@@ -22,6 +22,8 @@ import { useLancer } from './actions'
 import { Carte } from './Carte'
 import { Pastille } from './cellules'
 import { titreDe, useEspace } from './contexte-espace'
+import { Plus } from 'lucide-react'
+import { Icone } from './icones'
 
 /** Colonnes qui peuvent porter les colonnes d'un kanban (spec §7). */
 export const TYPES_GROUPE_KANBAN: readonly Colonne['type'][] = ['select', 'checkbox', 'relation', 'multiselect']
@@ -165,7 +167,7 @@ function ColonneKanban({ position, creer, children }: { position: Position; cree
   return (
     <div ref={setNodeRef} className={`kanban-colonne ${isOver ? 'cible' : ''}`}>
       <button className="discret ajout-carte" onClick={() => creer(position)}>
-        + Nouvelle
+        <Icone de={Plus} /> Nouvelle
       </button>
       {children}
     </div>

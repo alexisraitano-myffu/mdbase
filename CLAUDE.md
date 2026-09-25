@@ -71,6 +71,8 @@ src/
 - TanStack Table est en **v9** (`useTable`, fonctionnalités déclarées via `tableFeatures`) : les exemples v8 (`useReactTable`, `getCoreRowModel`) ne marchent pas. Guides à jour dans `node_modules/@tanstack/*/skills/`.
 - Fichiers de configuration (`_schema.yaml`, `_espace.yaml`…) : toujours relus sur le disque juste avant d'être modifiés, jamais réécrits depuis un état en mémoire.
 - Chemins : relatifs à la racine de l'espace, séparés par `/`, racine = `""`.
+- Icônes : Lucide uniquement, via `src/ui/icones.tsx` (`Icone`, `ICONES` par type de colonne, `ICONES_VUES`) ; plus de caractères Unicode comme icônes. Couleurs : variables CSS du `:root` de `app.css`, jamais de couleur en dur ailleurs.
+- Skills de design (emilkowalski/skill) installés **dans ce projet seulement** (`.claude/skills/`, ignoré par git) : en essai avant de les rendre globaux.
 - Nommage en français, comme la spec et le format de fichiers (`lister`, `colonnes`, `champ_titre`).
 - Découper quand un module grandit vraiment, jamais par avance ; les sous-dossiers de `core/` apparaîtront avec les jalons (relations, formules…).
 - Le nettoyage structurel est un commit à part, jamais mélangé à une fonctionnalité.

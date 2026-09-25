@@ -81,7 +81,7 @@ Chaque push sur `main` passe le typage, les tests et les tests de bout en bout s
 
 ## État
 
-La V1 décrite dans la spec est complète. Le nom est provisoire. Prochaines étapes : refonte du design, import CSV et export des vues (données et image).
+La V1 décrite dans la spec est complète. Le nom est provisoire. Prochaines étapes : import CSV et export des vues (données et image), puis des animations.
 
 ## Licence
 

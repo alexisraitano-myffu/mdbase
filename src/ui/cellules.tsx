@@ -7,6 +7,8 @@ import { couleurOption } from './couleurs'
 import { Flottant } from './flottant'
 import { useLancer } from './actions'
 import { titreDe, useEspace } from './contexte-espace'
+import { Check, Plus, Square, SquareCheck } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = {
   depot: DepotBase
@@ -222,13 +224,13 @@ function CelluleChoix(p: {
           />
           {visibles.map((o) => (
             <button key={o.label} className="option" onClick={() => basculer(o.label)}>
-              <span className="coche">{choisis.includes(o.label) ? '✓' : ''}</span>
+              <span className="coche">{choisis.includes(o.label) && <Icone de={Check} taille={14} />}</span>
               <Pastille label={o.label} couleur={o.couleur} />
             </button>
           ))}
           {texte !== '' && !exacte && (
             <button className="option" onClick={() => void valider()}>
-              <span className="coche">+</span>
+              <span className="coche"><Icone de={Plus} taille={14} /></span>
               Créer <Pastille label={texte} />
             </button>
           )}
@@ -302,13 +304,13 @@ function CelluleRelation(p: { base: string; ligne: LigneChargee; colonne: Colonn
           />
           {casses.map((id) => (
             <button key={id} className="option" onClick={() => basculer(id)} title="Retirer ce lien cassé">
-              <span className="coche">✓</span>
+              <span className="coche"><Icone de={Check} taille={14} /></span>
               <span className="lien-casse">⚠ {id}</span>
             </button>
           ))}
           {candidats.map(([id, titre]) => (
             <button key={id} className="option" onClick={() => basculer(id)}>
-              <span className="coche">{ids.includes(id) ? '✓' : ''}</span>
+              <span className="coche">{ids.includes(id) && <Icone de={Check} taille={14} />}</span>
               {titre || 'Sans titre'}
             </button>
           ))}
@@ -343,7 +345,7 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
       contenu = formaterDate(String(v))
       break
     case 'case':
-      contenu = v === true ? '☑' : '☐'
+      contenu = <Icone de={v === true ? SquareCheck : Square} className={v === true ? 'case-cochee' : 'case-vide'} taille={16} />
       break
     case 'liste': {
       // Rollup « afficher » : on montre les valeurs comme dans leur colonne d'origine.
@@ -410,7 +412,7 @@ export function ValeurCompacte({ base, ligne, colonne }: { base: string; ligne: 
         </>
       )
     case 'checkbox':
-      return v === true ? <span>☑ {colonne.nom}</span> : null
+      return v === true ? <span><Icone de={SquareCheck} className="case-cochee" taille={14} /> {colonne.nom}</span> : null
     case 'date':
       return <span>{formaterDate(String(v))}</span>
     case 'number':

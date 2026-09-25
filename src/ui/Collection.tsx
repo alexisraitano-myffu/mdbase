@@ -7,6 +7,8 @@ import { colonne as colonneDe } from '../core/schema'
 import type { Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { Carte } from './Carte'
+import { Plus } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = {
   espace: DepotEspace
@@ -44,7 +46,7 @@ export function Collection({ espace, base, depot, vue, lignesVue, valeursCreatio
         />
       ))}
       <button className="carte carte-ajout discret" onClick={() => void creer()}>
-        + Nouvelle
+        <Icone de={Plus} /> Nouvelle
       </button>
     </div>
   )

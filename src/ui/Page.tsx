@@ -19,11 +19,12 @@ import { useLancer } from './actions'
 import { titreLigne } from './Calendrier'
 import { Cellule } from './cellules'
 import { useEspace } from './contexte-espace'
-import { ICONES } from './EnteteColonne'
+import { Icone, ICONES } from './icones'
 import { Flottant } from './flottant'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
 import { useLargeurPanneau } from './useLargeurPanneau'
+import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 
 type Props = {
   base: string
@@ -119,10 +120,10 @@ function EntetePage(p: Props & { children?: ReactNode }) {
   return (
     <div className="entete-page">
       <button className="discret" onClick={p.fermer} title="Fermer (Échap)">
-        ✕
+        <Icone de={X} />
       </button>
       <button className="discret" onClick={p.basculerPleinEcran} title={p.pleinEcran ? 'Panneau latéral' : 'Plein écran'}>
-        {p.pleinEcran ? '⇥' : '⤢'}
+        <Icone de={p.pleinEcran ? Minimize2 : Maximize2} />
       </button>
       <span className="discret astuce-clavier">↑ ↓ pour changer de ligne</span>
       <div className="espace-libre" />
@@ -144,7 +145,7 @@ function MenuLigne({ base, ligne, fermerPage }: { base: string; ligne: LigneChar
   return (
     <>
       <button ref={ancre} className="discret" onClick={() => setEtape('menu')} aria-label="Actions de la ligne">
-        ⋯
+        <Icone de={Ellipsis} />
       </button>
       {etape === 'menu' && (
         <Flottant ancre={ancre.current} fermer={() => setEtape('ferme')}>
@@ -211,7 +212,7 @@ function Proprietes({ depot, ligne, mep }: { depot: DepotBase; ligne: LigneCharg
   const rangee = (c: (typeof visibles)[number]) => (
     <div key={c.cle} className="propriete">
       <div className="nom-propriete">
-        <span className="icone">{ICONES[c.type]}</span>
+        <Icone de={ICONES[c.type]} />
         {c.nom}
       </div>
       <div className="valeur-propriete">
@@ -340,7 +341,7 @@ function ReglagesPage(p: {
   return (
     <>
       <button ref={ancre} className="discret" onClick={() => setOuvert(true)}>
-        {mep.nom} ▾
+        {mep.nom} <Icone de={ChevronDown} taille={12} />
       </button>
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
@@ -361,7 +362,7 @@ function ReglagesPage(p: {
                   if (id) p.choisir(id)
                 }}
               >
-                + Dupliquer
+                <Icone de={Plus} /> Dupliquer
               </button>
               {pages.length > 1 && (
                 <button
@@ -406,14 +407,14 @@ function ReglagesPage(p: {
                 <div key={c.colonne.cle} className="ligne-filtre champ-page">
                   <span className="deplacer">
                     <button className="discret" onClick={() => deplacer(i, -1)} disabled={i === 0} aria-label="Monter">
-                      ↑
+                      <Icone de={ArrowUp} />
                     </button>
                     <button className="discret" onClick={() => deplacer(i, 1)} disabled={i === champs.length - 1} aria-label="Descendre">
-                      ↓
+                      <Icone de={ArrowDown} />
                     </button>
                   </span>
                   <span className="nom-champ">
-                    <span className="icone">{ICONES[c.colonne.type]}</span>
+                    <Icone de={ICONES[c.colonne.type]} />
                     {c.colonne.nom}
                   </span>
                   <select

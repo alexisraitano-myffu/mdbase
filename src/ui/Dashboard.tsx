@@ -6,13 +6,15 @@ import { idBase } from '../core/identifiants'
 import type { ModificationVue, TypeVue, Vue } from '../core/vue'
 import { vueParDefaut } from '../core/vue'
 import { useLancer } from './actions'
-import { ICONES_VUES, OutilsVue, reglagesParDefaut, TYPES_CREABLES } from './BarreVue'
+import { OutilsVue, reglagesParDefaut, TYPES_CREABLES } from './BarreVue'
+import { Icone, ICONES_VUES } from './icones'
 import { ContenuVue, useVueAppliquee } from './ContenuVue'
 import { useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
 import { Page } from './Page'
 import { Pastilles } from './Pastilles'
 import { usePageOuverte } from './usePageOuverte'
+import { ArrowDown, ArrowUp, ChevronRight, Ellipsis, Plus } from 'lucide-react'
 
 type Props = {
   espace: DepotEspace
@@ -95,7 +97,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
             )}
             <div className="deplacer-rangee">
               <button className="discret" disabled={i === 0} onClick={() => modifier({ type: 'deplacer_rangee', de: i, vers: i - 1 })} aria-label="Monter la rangée">
-                ↑
+                <Icone de={ArrowUp} />
               </button>
               <button
                 className="discret"
@@ -103,7 +105,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
                 onClick={() => modifier({ type: 'deplacer_rangee', de: i, vers: i + 1 })}
                 aria-label="Descendre la rangée"
               >
-                ↓
+                <Icone de={ArrowDown} />
               </button>
             </div>
           </div>
@@ -168,11 +170,11 @@ function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerAB
   return (
     <section className="bloc-dashboard">
       <div className="entete-bloc">
-        <span className="icone">{ICONES_VUES[vue.type]}</span>
+        <Icone de={ICONES_VUES[vue.type]} />
         <button className="discret lien-base" onClick={() => allerABase(bloc.base)} title="Ouvrir la base">
           {depot.schema.nom}
         </button>
-        <span className="discret">›</span>
+        <Icone de={ChevronRight} className="discret" />
         {renommage ? (
           <input
             className="champ-en-ligne"
@@ -199,7 +201,7 @@ function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerAB
         <span className="espaceur" />
         <OutilsVue schema={depot.schema} vue={vue} modifier={modifierVue} />
         <button ref={ancre} className="discret" onClick={() => setMenu(true)} aria-label="Options du bloc">
-          ⋯
+          <Icone de={Ellipsis} />
         </button>
         {menu && (
           <Flottant ancre={ancre.current} fermer={() => setMenu(false)}>
@@ -258,7 +260,7 @@ function AjoutBloc({ idsPropres, ajouter, compact }: { idsPropres: string[]; ajo
   return (
     <>
       <button ref={ancre} className={`discret ajout-bloc ${compact ? 'compact' : ''}`} onClick={() => setOuvert(true)} title="Ajouter un bloc">
-        {compact ? '+' : '+ Ajouter un bloc'}
+        {compact ? <Icone de={Plus} /> : <><Icone de={Plus} /> Ajouter un bloc</>}
       </button>
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={fermer}>
@@ -283,14 +285,14 @@ function AjoutBloc({ idsPropres, ajouter, compact }: { idsPropres: string[]; ajo
                     fermer()
                   }}
                 >
-                  <span className="icone">{ICONES_VUES[v.type]}</span>
+                  <Icone de={ICONES_VUES[v.type]} />
                   {v.nom}
                 </button>
               ))}
               <div className="option discret">Ou une vue propre à ce dashboard :</div>
               {TYPES_CREABLES.map((t) => (
                 <button key={t.type} className="option" onClick={() => creerPropre(t.type, t.nom)}>
-                  <span className="icone">{t.icone}</span>
+                  <Icone de={ICONES_VUES[t.type]} />
                   {t.nom}
                 </button>
               ))}

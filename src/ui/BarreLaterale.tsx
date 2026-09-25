@@ -4,6 +4,8 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
+import { Ellipsis, Plus, RotateCw, Search, Table2 } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = {
   espace: DepotEspace
@@ -67,7 +69,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
     <nav className="barre-laterale">
       <div className="nom-espace">{nomEspace}</div>
       <button className="discret bouton-recherche" onClick={chercher}>
-        <span className="icone">⌕</span>
+        <Icone de={Search} />
         Rechercher
         <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘K' : 'Ctrl+K'}</kbd>
       </button>
@@ -76,7 +78,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         <div className="titre-groupe">
           <span>Dashboards</span>
           <button className="discret menu-groupe" onClick={() => setCreation('dashboard')} aria-label="Nouveau dashboard" title="Nouveau dashboard">
-            +
+            <Icone de={Plus} />
           </button>
         </div>
         {etat.dashboards.map((d) => (
@@ -133,10 +135,10 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
       ) : (
         <>
           <button className="discret ajout-barre" onClick={() => setCreation('base')}>
-            + Nouvelle base
+            <Icone de={Plus} /> Nouvelle base
           </button>
           <button className="discret ajout-barre" onClick={() => setCreation('groupe')}>
-            + Nouveau groupe
+            <Icone de={Plus} /> Nouveau groupe
           </button>
         </>
       )}
@@ -148,7 +150,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         disabled={relu.enCours}
         title="Relit le dossier pour voir les changements faits ailleurs (synchro, autre machine). Automatique au retour sur l'onglet."
       >
-        <span className={`icone ${relu.enCours ? 'tourne' : ''}`}>↻</span>
+        <Icone de={RotateCw} className={relu.enCours ? 'tourne' : ''} />
         {relu.enCours ? 'Relecture…' : relu.a ? `Relu à ${relu.a.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Relire le dossier'}
       </button>
       <button className="discret changer" onClick={changerDossier}>
@@ -227,7 +229,7 @@ function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void;
       }}
       title="Double-clic pour renommer, clic droit pour plus"
     >
-      <span className="icone">▦</span> {p.nom}
+      <Icone de={Table2} /> {p.nom}
       {menu && (
         <Flottant ancre={ancre.current} fermer={() => setMenu(null)}>
           {menu === 'options' ? (
@@ -277,7 +279,7 @@ function EnteteGroupe(p: { nom: string; renommer: (nom: string) => void; supprim
     <div className="titre-groupe">
       <span onDoubleClick={() => setEdition(true)}>{p.nom}</span>
       <button ref={ancre} className="discret menu-groupe" onClick={() => setMenu(true)} aria-label="Options du groupe">
-        ⋯
+        <Icone de={Ellipsis} />
       </button>
       {menu && (
         <Flottant ancre={ancre.current} fermer={() => setMenu(false)}>

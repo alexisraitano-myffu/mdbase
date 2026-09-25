@@ -15,7 +15,8 @@ import {
 } from '../core/formules/formule'
 import type { Colonne, ColonneFormule } from '../core/schema'
 import type { Cellule } from '../core/valeurs'
-import { ICONES } from './EnteteColonne'
+import { Parentheses, type LucideIcon } from 'lucide-react'
+import { Icone, ICONES } from './icones'
 import { useEspace } from './contexte-espace'
 import { useAujourdhui } from './useAujourdhui'
 
@@ -28,7 +29,7 @@ type Props = {
   annuler: () => void
 }
 
-type Suggestion = { libelle: string; detail: string; icone: string; inserer: string; /** Recul du curseur après insertion (dans les parenthèses). */ recul: number }
+type Suggestion = { libelle: string; detail: string; icone: LucideIcon; inserer: string; /** Recul du curseur après insertion (dans les parenthèses). */ recul: number }
 
 const sansAccents = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
@@ -115,7 +116,7 @@ export function EditeurFormule({ espace, base, formule, enregistrer, annuler }: 
       ([nom, f]): Suggestion => ({
         libelle: f.signature,
         detail: f.description,
-        icone: 'ƒ',
+        icone: Parentheses,
         inserer: `${nom}()`,
         recul: f.args.length === 0 ? 0 : 1,
       }),
@@ -211,7 +212,7 @@ export function EditeurFormule({ espace, base, formule, enregistrer, annuler }: 
               onClick={() => inserer(s)}
               onMouseEnter={() => setChoisie(i)}
             >
-              <span className="icone">{s.icone}</span>
+              <Icone de={s.icone} />
               <span className="libelle-suggestion">{s.libelle}</span>
               <span className="discret detail-suggestion">{s.detail}</span>
             </button>

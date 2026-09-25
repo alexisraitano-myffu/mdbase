@@ -28,6 +28,8 @@ import { dateCourte, Echelles, plageEnTexte, titreLigne } from './Calendrier'
 import { titreDe, useEspace } from './contexte-espace'
 import { glisser } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = {
   espace: DepotEspace
@@ -224,7 +226,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                 return (
                   <div key={`groupe/${g.cle}`} className="tl-ligne tl-groupe" style={{ transform: `translateY(${v.start}px)` }}>
                     <div className="tl-titre" onClick={() => basculer(g.cle)}>
-                      <span className="triangle">{el.replie ? '▸' : '▾'}</span>
+                      <Icone de={el.replie ? ChevronRight : ChevronDown} className="triangle" />
                       <span className="libelle-groupe">{g.libelle}</span>
                       <span className="discret compte-groupe">{g.lignes.length}</span>
                       {g.cle !== CLE_VIDE && (
@@ -236,7 +238,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                             void creer(g)
                           }}
                         >
-                          +
+                          <Icone de={Plus} />
                         </button>
                       )}
                     </div>
@@ -256,7 +258,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                 return (
                   <div key="ajout" className="tl-ligne" style={{ transform: `translateY(${v.start}px)` }}>
                     <button className="discret tl-titre ajout-ligne" onClick={() => void creer()}>
-                      + Nouvelle
+                      <Icone de={Plus} /> Nouvelle
                     </button>
                   </div>
                 )

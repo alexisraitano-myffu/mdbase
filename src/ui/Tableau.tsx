@@ -19,8 +19,10 @@ import type { ModificationVue, Tri, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { Cellule, Pastille } from './cellules'
 import { titreDe, useEspace } from './contexte-espace'
-import { AjoutColonne, ICONES, MenuColonne } from './EnteteColonne'
+import { AjoutColonne, MenuColonne } from './EnteteColonne'
+import { Icone, ICONES } from './icones'
 import { PiedTableau } from './PiedTableau'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 
 const HAUTEUR_LIGNE = 34
 const HAUTEUR_GROUPE = 40
@@ -199,9 +201,9 @@ export function Tableau(p: Props) {
                   onDragStart={(e) => e.dataTransfer.setData('text/colonne', c.cle)}
                   onClick={(e) => setMenu({ cle: c.cle, ancre: e.currentTarget.parentElement! })}
                 >
-                  <span className="icone">{ICONES[c.type]}</span>
+                  <Icone de={ICONES[c.type]} />
                   {c.nom}
-                  {tri && <span className="indicateur-tri">{tri.sens === 'asc' ? ' ↑' : ' ↓'}</span>}
+                  {tri && <Icone de={tri.sens === 'asc' ? ArrowUp : ArrowDown} className="indicateur-tri" taille={13} />}
                 </span>
                 <div
                   className={`poignee ${h.column.getIsResizing() ? 'active' : ''}`}
@@ -233,7 +235,7 @@ export function Tableau(p: Props) {
             if (e.type === 'groupe') {
               return (
                 <div key={`g:${e.groupe.cle}`} {...commun} className="rangee-groupe" onClick={() => basculerGroupe(e.groupe.cle)}>
-                  <span className="triangle">{e.replie ? '▸' : '▾'}</span>
+                  <Icone de={e.replie ? ChevronRight : ChevronDown} className="triangle" />
                   {colonneGroupe && (colonneGroupe.type === 'select' || colonneGroupe.type === 'multiselect') && e.groupe.cle !== '∅' ? (
                     <Pastille label={e.groupe.libelle} couleur={e.groupe.couleur} />
                   ) : (
@@ -247,7 +249,7 @@ export function Tableau(p: Props) {
               return (
                 <div key={`a:${e.groupe.cle}`} {...commun} className="rangee-ajout">
                   <button className="nouvelle-ligne" onClick={() => void nouvelleLigne(e.groupe)}>
-                    + Nouvelle ligne
+                    <Icone de={Plus} /> Nouvelle ligne
                   </button>
                 </div>
               )
@@ -297,7 +299,7 @@ export function Tableau(p: Props) {
 
         {!colonneGroupe && (
           <button className="nouvelle-ligne" onClick={() => void nouvelleLigne()}>
-            + Nouvelle ligne
+            <Icone de={Plus} /> Nouvelle ligne
           </button>
         )}
         {reglages && (

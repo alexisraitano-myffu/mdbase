@@ -2,34 +2,35 @@
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 14px;
   color: var(--texte);
-  background: var(--fond);
+  background: var(--fond-app);
 
   /* Surfaces */
+  --fond-app: #eceef1;
   --fond: #fff;
   --surface: #fff;
-  --fond-doux: #f7f7f5;
-  --survol-leger: #fafaf9;
-  --survol: #f1f1ef;
+  --fond-doux: #f4f5f7;
+  --survol-leger: #f8f9fa;
+  --survol: #eef0f3;
   --survol-piste: rgba(0, 0, 0, 0.015);
-  --selection: #ebebea;
+  --selection: #fff;
   /* Texte */
-  --texte: #37352f;
-  --texte-doux: #55534e;
-  --discret: #787774;
-  --tres-discret-texte: #b0b0ad;
+  --texte: #1f2328;
+  --texte-doux: #424a53;
+  --discret: #6b7480;
+  --tres-discret-texte: #a4acb6;
   --sur-accent: #fff;
   /* Traits */
-  --bordure: #e9e9e7;
-  --bordure-forte: #d5d5d3;
-  --trait: #f3f3f1;
-  --tres-discret: #d3d3d0;
-  --gris-moyen: #c7c7c5;
-  --ombre: 15, 15, 15;
+  --bordure: #e8eaee;
+  --bordure-forte: #d5d9df;
+  --trait: #f1f2f5;
+  --tres-discret: #cfd4da;
+  --gris-moyen: #c1c7cf;
+  --ombre: 20, 30, 45;
   /* Accent et états */
-  --accent: #2383e2;
-  --accent-rgb: 35, 131, 226;
-  --accent-fort: #1b6fc2;
-  --accent-fond: #e7f0fb;
+  --accent: #0e8a6a;
+  --accent-rgb: 14, 138, 106;
+  --accent-fort: #0a7056;
+  --accent-fond: #e1f3ed;
   --rouge: #eb5757;
   --rouge-fort: #d94848;
   --rouge-texte: #c4332b;
@@ -46,11 +47,11 @@
   --propre-bordure: #e8deee;
   --propre-fond: #f6f3f9;
   /* Timeline */
-  --barre-fond: #d3e5ef;
-  --barre-texte: #183347;
-  --barre-bordure: #b6d3e6;
-  --jalon: #f2994a;
-  --bulle: #2f3437;
+  --barre-fond: #d7f0e7;
+  --barre-texte: #0c3b2e;
+  --barre-bordure: #b4e1d1;
+  --jalon: #e0781f;
+  --bulle: #1f2328;
 }
 body { margin: 0; }
 button {
@@ -361,7 +362,13 @@ button:hover { background: var(--survol); }
 
 /* Corps */
 .corps-page { border-top: 1px solid var(--bordure); padding-top: 0.5rem; }
-.editeur-corps .milkdown { background: transparent; }
+.editeur-corps .milkdown {
+  background: transparent;
+  /* Mêmes polices que l'interface (Crepe met du Noto Serif / Noto Sans par défaut) */
+  --crepe-font-title: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --crepe-font-default: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --crepe-color-on-background: var(--texte);
+}
 .editeur-corps .milkdown .ProseMirror { padding: 8px 0 60px 48px; }
 
 /* Onglet relation */
@@ -788,3 +795,66 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .essai-demo { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.5rem; margin-top: 0.5rem; }
 .essai-demo button { padding-left: 0; }
 .essai-demo p { flex-basis: 100%; margin: 0; font-size: 0.85em; }
+
+/* Habillage « Îlots » : ce qui suit habille l'interface (contenu en panneau sur fond teinté, pilules).
+   Les animations viendront plus tard. */
+button { border-radius: 8px; }
+
+/* Mise en page : barre latérale sur le fond, contenu en panneau surélevé */
+.espace { background: var(--fond-app); padding: 8px 8px 8px 0; box-sizing: border-box; }
+.barre-laterale { background: transparent; border-right: none; padding: 0.75rem 0.6rem; }
+.entree-base { border-radius: 8px; }
+.entree-base:hover { background: rgba(var(--ombre), 0.05); }
+.entree-base.active { background: var(--surface); box-shadow: 0 1px 2px rgba(var(--ombre), 0.08), 0 0 0 1px rgba(var(--ombre), 0.04); }
+.bouton-recherche { background: var(--surface); border: 1px solid var(--bordure); }
+.contenu {
+  background: var(--fond);
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(var(--ombre), 0.05), 0 2px 10px rgba(var(--ombre), 0.05);
+  overflow: hidden;
+}
+.contenu h1, .titre-dashboard { font-size: 1.75rem; font-weight: 650; letter-spacing: -0.02em; }
+
+/* Onglets et filtres en pilules pleines */
+.onglet { border-radius: 999px; padding: 0.3rem 0.75rem; }
+.onglet.actif { background: var(--texte); color: var(--fond); box-shadow: none; border-radius: 999px; }
+.onglet.actif .icone { opacity: 0.9; }
+.outil.actif { color: var(--accent); }
+.pilule { border-radius: 999px; background: var(--fond-doux); border-color: transparent; }
+.pilule.active { background: var(--accent); }
+
+/* Tableau aéré, pastilles arrondies */
+.tableau { border-top: none; }
+.entete { border-bottom-color: var(--bordure-forte); }
+.cellule-entete, .case { border-right-color: transparent; }
+.rangee:hover { background: var(--fond-doux); }
+.pastille, .pastille-relation { border-radius: 999px; padding: 1px 8px; }
+.pastille-relation { text-decoration: none; }
+
+/* Cartes et vues */
+.carte { border-radius: 12px; box-shadow: 0 0 0 1px rgba(var(--ombre), 0.06), 0 2px 6px rgba(var(--ombre), 0.06); padding: 10px 12px; }
+.kanban-colonne { border-radius: 14px; background: var(--fond-doux); }
+.tl-barre { border-radius: 999px; padding: 0 10px; }
+.bloc-dashboard { border-radius: 14px; }
+.cal-evt { border-radius: 8px; }
+
+/* Accueil en îlot */
+.accueil { background: var(--surface); border-radius: 14px; padding: 2rem 2.25rem; box-shadow: 0 0 0 1px rgba(var(--ombre), 0.05), 0 2px 10px rgba(var(--ombre), 0.05); }
+
+@media (max-width: 36rem) { .accueil { margin: 10vh 16px; } }
+
+/* Menus et fenêtres arrondis */
+.flottant { border-radius: 12px; }
+:is(.recherche-globale, .fenetre) { border-radius: 16px; }
+
+/* Icônes (Lucide) */
+svg.icone { flex-shrink: 0; vertical-align: -0.2em; opacity: 0.75; }
+button:has(> svg.icone) { display: inline-flex; align-items: center; gap: 0.4em; }
+.entree-base { display: flex; align-items: center; gap: 0.4em; }
+.onglet { display: inline-flex; align-items: center; gap: 0.35em; }
+:not(button, .entree-base, .onglet) > svg.icone:first-child { margin-right: 0.35em; }
+svg.indicateur-tri { margin-left: 0.25em; opacity: 1; }
+svg.triangle { width: 1em; }
+svg.case-cochee { color: var(--accent); opacity: 1; }
+svg.case-vide { opacity: 0.4; }
+.coche svg.icone { opacity: 1; }

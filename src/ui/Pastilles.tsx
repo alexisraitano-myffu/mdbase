@@ -5,6 +5,8 @@ import type { FiltreRapide, Operateur } from '../core/vue'
 import { colonnesFiltrables, LIBELLES_OPERATEURS, ValeurFiltre } from './EditeurFiltres'
 import { titreDe, useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
+import { ChevronDown, Plus } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = { schema: Schema; pastilles: FiltreRapide[]; changer: (p: FiltreRapide[]) => void }
 
@@ -29,7 +31,7 @@ export function Pastilles({ schema, pastilles, changer }: Props) {
       })}
       {libres.length > 0 && (
         <button ref={ancre} className="discret ajout-pastille" onClick={() => setChoix(true)}>
-          + Filtre rapide
+          <Icone de={Plus} /> Filtre rapide
         </button>
       )}
       {choix && (
@@ -69,7 +71,7 @@ function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: FiltreR
       <button ref={ancre} className={`pilule ${actif ? 'active' : ''}`} onClick={() => setOuvert(true)}>
         {colonne.nom}
         {actif && <span className="resume">{' : '}{resumer(colonne, operateur, valeurAffichee)}</span>}
-        <span className="chevron"> ▾</span>
+        <Icone de={ChevronDown} className="chevron" taille={12} />
       </button>
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
