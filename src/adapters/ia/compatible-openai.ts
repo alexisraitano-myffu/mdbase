@@ -23,6 +23,8 @@ export function adresseComplete(adresse: string): string {
 function versOpenAI(m: MessageIA): Record<string, unknown> {
   switch (m.role) {
     case 'assistant':
+      // Une réponse passée sans appel d'outil : pas de `tool_calls` vide, que certains services refusent.
+      if (m.appels.length === 0) return { role: 'assistant', content: m.contenu }
       return {
         role: 'assistant',
         content: m.contenu || null,

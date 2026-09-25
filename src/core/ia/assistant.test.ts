@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { DepotEspace } from '../depot-espace'
 import { FICHIERS_RELATIONS } from '../fixtures/espace-relations'
 import { AdaptateurCompteur, aleatoire, minuteur } from '../fixtures/outils'
-import { proposer } from './assistant'
+import { ECHANGES_MAX, proposer } from './assistant'
 import type { AppelOutil, ModeleIA, RequeteIA, ReponseIA } from './modele'
 import { decrireEspace } from './outils'
-import { appliquerPlan, ErreurProposition, validerAppel, type Plan } from './plan'
+import { appliquerPlan, ErreurProposition, resumerPlan, validerAppel, type Plan } from './plan'
 
 const AUJOURDHUI = '2026-09-25'
 
@@ -168,6 +168,35 @@ describe('proposer', () => {
     expect(texte).toEqual({ type: 'reponse', texte: 'Quelle tâche ?' })
     const outil = await proposer(modeleScripte({ texte: '', appels: [appel('repondre', { texte: 'Laquelle des deux ?' })] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
     expect(outil).toEqual({ type: 'reponse', texte: 'Laquelle des deux ?' })
+  })
+})
+
+describe('conversation', () => {
+  it('les derniers échanges sont relus avant la nouvelle demande : une réponse à une question du modèle a son contexte', async () => {
+    const { espace } = await ouvrir()
+    const modele = modeleScripte({ texte: '', appels: [appel('modifier_lignes', { base: 'projets', lignes: ['p0000001'], valeurs: { client: ['c0000002'] } })] })
+    const historique = Array.from({ length: ECHANGES_MAX + 2 }, (_, i) => ({ demande: `demande ${i}`, reponse: `réponse ${i}` }))
+    historique.push({ demande: 'Change le client du projet', reponse: 'Quel projet ?' })
+    await proposer(modele, espace, 'Navi, pour Globex', { aujourdhui: AUJOURDHUI, baseOuverte: null, historique })
+    const messages = modele.requetes[0]!.messages
+    expect(messages).toHaveLength(1 + ECHANGES_MAX * 2 + 1)
+    expect(messages.slice(-3)).toEqual([
+      { role: 'user', contenu: 'Change le client du projet' },
+      { role: 'assistant', contenu: 'Quel projet ?', appels: [] },
+      { role: 'user', contenu: 'Navi, pour Globex' },
+    ])
+    expect(messages[1]).toEqual({ role: 'user', contenu: 'demande 3' }) // les plus anciens sont laissés de côté
+  })
+
+  it('résumé d’un plan : ce que le modèle relit et ce qui reste affiché', async () => {
+    const { espace } = await ouvrir()
+    const plan: Plan = {
+      operations: [
+        operation(espace, 'modifier_lignes', { base: 'taches', lignes: ['t0000001', 't0000003'], valeurs: { statut: 'Terminé' } }),
+        operation(espace, 'creer_lignes', { base: 'taches', lignes: [{ titre: 'D' }] }),
+      ],
+    }
+    expect(resumerPlan(plan)).toBe('Modifier 2 lignes dans Tâches : A (Statut → Terminé) ; C (Statut → Terminé)\nCréer 1 ligne dans Tâches : D')
   })
 })
 

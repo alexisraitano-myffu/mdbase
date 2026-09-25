@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
-import { proposer, type Proposition } from '../core/ia/assistant'
-import { appliquerPlan } from '../core/ia/plan'
+import { proposer, type Echange } from '../core/ia/assistant'
+import { appliquerPlan, resumerPlan, type Plan } from '../core/ia/plan'
 import { listerModeles, modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
-import type { ReglagesIA } from '../adapters/ia/reglages'
+import { enregistrerConversation, lireConversation, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
 import { aujourdhui } from '../adapters/navigateur'
 import { Fenetre } from './fenetre'
 import { Icone } from './icones'
 
 // Assistant IA (spec §12, « Module IA ») : désactivé par défaut, activé après
-// un avertissement ; chaque modification proposée est montrée avant d'être appliquée.
+// un avertissement ; une conversation où chaque modification proposée est
+// montrée avant d'être appliquée.
 
 /** Activation et réglages : l'avertissement est toujours affiché avant d'activer. `enregistrer` ferme la fenêtre. */
 /** Services préréglés : un clic remplit l'adresse. Aucun n'est imposé (spec §12). */
@@ -93,65 +94,138 @@ export function FenetreReglagesIA(p: { reglages: ReglagesIA; enregistrer: (r: Re
   )
 }
 
-type Etape =
-  | { type: 'saisie' }
+type Resultat =
   | { type: 'envoi'; depuis: number }
-  | { type: 'proposition'; proposition: Proposition; duree: number }
+  | { type: 'reponse'; texte: string; duree?: number }
+  | {
+      type: 'plan'
+      /** `null` pour un plan relu d'une session précédente : il n'est plus proposé à l'application. */
+      plan: Plan | null
+      resume: string
+      message: string
+      statut: 'attente' | 'application' | 'applique' | 'annule'
+      duree?: number
+    }
   | { type: 'erreur'; message: string }
-  | { type: 'application' }
+
+type Tour = { demande: string; resultat: Resultat }
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 const secondes = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`
 
-export function Assistant(p: { espace: DepotEspace; baseOuverte: string | null; reglages: ReglagesIA; reglerIA: () => void; fermer: () => void }) {
+/** Ce que le modèle relit d'un tour passé. */
+function echange(t: Tour): Echange | null {
+  const r = t.resultat
+  switch (r.type) {
+    case 'envoi':
+      return null
+    case 'reponse':
+      return { demande: t.demande, reponse: r.texte }
+    case 'erreur':
+      return { demande: t.demande, reponse: `Erreur : ${r.message}` }
+    case 'plan': {
+      const suite = r.statut === 'applique' ? 'Appliqué.' : r.statut === 'annule' ? 'Annulé par l’utilisateur.' : 'Pas appliqué.'
+      return { demande: t.demande, reponse: `${r.message ? `${r.message}\n` : ''}Proposé :\n${r.resume}\n${suite}` }
+    }
+  }
+}
+
+function versGarde(t: Tour): TourGarde | null {
+  const r = t.resultat
+  if (r.type === 'envoi') return null
+  if (r.type === 'reponse') return { demande: t.demande, type: 'reponse', texte: r.texte }
+  if (r.type === 'erreur') return { demande: t.demande, type: 'erreur', texte: r.message }
+  return { demande: t.demande, type: 'plan', texte: r.resume, statut: r.statut === 'applique' ? 'applique' : 'annule' }
+}
+
+function depuisGarde(g: TourGarde): Tour {
+  if (g.type === 'reponse') return { demande: g.demande, resultat: { type: 'reponse', texte: g.texte } }
+  if (g.type === 'erreur') return { demande: g.demande, resultat: { type: 'erreur', message: g.texte } }
+  return { demande: g.demande, resultat: { type: 'plan', plan: null, resume: g.texte, message: '', statut: g.statut ?? 'annule' } }
+}
+
+/**
+ * Conversation avec l'assistant : chaque demande relit les derniers échanges,
+ * si bien qu'on peut répondre à une question du modèle. Gardée par dossier
+ * dans le navigateur ; un plan n'est applicable que dans la session qui l'a reçu.
+ */
+export function Assistant(p: { espace: DepotEspace; dossier: string; baseOuverte: string | null; reglages: ReglagesIA; reglerIA: () => void; fermer: () => void }) {
   const [demande, setDemande] = useState('')
-  const [etape, setEtape] = useState<Etape>({ type: 'saisie' })
+  const [tours, setTours] = useState<Tour[]>(() => lireConversation(p.dossier).map(depuisGarde))
   const [, setTic] = useState(0)
-  const jeton = useRef(0)
+  const fil = useRef<HTMLDivElement>(null)
+  const enCours = tours.some((t) => t.resultat.type === 'envoi')
+
+  useEffect(() => {
+    enregistrerConversation(p.dossier, tours.flatMap((t) => versGarde(t) ?? []))
+    fil.current?.scrollTo({ top: fil.current.scrollHeight })
+  }, [tours, p.dossier])
 
   // Chronomètre affiché pendant l'attente : la vitesse compte.
   useEffect(() => {
-    if (etape.type !== 'envoi') return
+    if (!enCours) return
     const t = setInterval(() => setTic((x) => x + 1), 100)
     return () => clearInterval(t)
-  }, [etape.type])
+  }, [enCours])
+
+  const remplacer = (i: number, resultat: Resultat) => setTours((ts) => ts.map((t, j) => (j === i ? { ...t, resultat } : t)))
 
   const envoyer = async () => {
-    if (demande.trim() === '' || etape.type === 'envoi') return
-    const moi = ++jeton.current
+    const texte = demande.trim()
+    if (texte === '' || enCours) return
+    // Une proposition restée sans réponse est abandonnée par la nouvelle demande.
+    const passes = tours.map((t): Tour => (t.resultat.type === 'plan' && t.resultat.statut === 'attente' ? { ...t, resultat: { ...t.resultat, statut: 'annule' } } : t))
+    const i = passes.length
     const depuis = performance.now()
-    setEtape({ type: 'envoi', depuis })
+    setTours([...passes, { demande: texte, resultat: { type: 'envoi', depuis } }])
+    setDemande('')
     try {
-      const proposition = await proposer(modeleCompatibleOpenAI(p.reglages), p.espace, demande.trim(), { aujourdhui: aujourdhui(), baseOuverte: p.baseOuverte })
-      if (moi === jeton.current) setEtape({ type: 'proposition', proposition, duree: performance.now() - depuis })
+      const historique = passes.flatMap((t) => echange(t) ?? [])
+      const r = await proposer(modeleCompatibleOpenAI(p.reglages), p.espace, texte, { aujourdhui: aujourdhui(), baseOuverte: p.baseOuverte, historique })
+      const duree = performance.now() - depuis
+      remplacer(
+        i,
+        r.type === 'plan'
+          ? { type: 'plan', plan: r.plan, resume: resumerPlan(r.plan), message: r.message, statut: 'attente', duree }
+          : { type: 'reponse', texte: r.texte, duree },
+      )
     } catch (e) {
-      if (moi === jeton.current) setEtape({ type: 'erreur', message: e instanceof Error ? e.message : String(e) })
+      remplacer(i, { type: 'erreur', message: e instanceof Error ? e.message : String(e) })
     }
   }
 
-  const appliquer = async (proposition: Proposition) => {
-    if (proposition.type !== 'plan') return
-    setEtape({ type: 'application' })
+  const appliquer = async (i: number) => {
+    const r = tours[i]?.resultat
+    if (r?.type !== 'plan' || !r.plan) return
+    remplacer(i, { ...r, statut: 'application' })
     try {
-      await appliquerPlan(p.espace, proposition.plan)
-      p.fermer()
+      await appliquerPlan(p.espace, r.plan)
+      remplacer(i, { ...r, statut: 'applique' })
     } catch (e) {
-      setEtape({ type: 'erreur', message: e instanceof Error ? e.message : String(e) })
+      remplacer(i, { ...r, statut: 'annule' })
+      setTours((ts) => [...ts, { demande: '', resultat: { type: 'erreur', message: e instanceof Error ? e.message : String(e) } }])
     }
   }
-
-  const proposition = etape.type === 'proposition' ? etape.proposition : null
-  const total = proposition?.type === 'plan' ? proposition.plan.operations.reduce((n, o) => n + o.lignes.length, 0) : 0
 
   return (
     <Fenetre titre="Assistant IA" fermer={p.fermer}>
       <div className="assistant-ia">
+        <div className="fil-ia" ref={fil}>
+          {tours.length === 0 && <p className="discret">Demande une modification en français : l’assistant te montre ce qu’il ferait avant de toucher à quoi que ce soit.</p>}
+          {tours.map((t, i) => (
+            <div key={i} className="tour-ia">
+              {t.demande && <div className="bulle-ia moi">{t.demande}</div>}
+              <BulleReponse resultat={t.resultat} appliquer={() => void appliquer(i)} annuler={() => t.resultat.type === 'plan' && remplacer(i, { ...t.resultat, statut: 'annule' })} />
+            </div>
+          ))}
+        </div>
+
         <div className="demande-ia">
           <textarea
             autoFocus
             rows={2}
             value={demande}
-            placeholder="Ex. : passe les tâches en retard en « Terminé »"
+            placeholder={tours.length === 0 ? 'Ex. : passe les tâches en retard en « Terminé »' : 'Répondre…'}
             onChange={(e) => setDemande(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -160,64 +234,90 @@ export function Assistant(p: { espace: DepotEspace; baseOuverte: string | null; 
               }
             }}
           />
-          <button className="principal" onClick={() => void envoyer()} disabled={demande.trim() === '' || etape.type === 'envoi'} aria-label="Envoyer">
+          <button className="principal" onClick={() => void envoyer()} disabled={demande.trim() === '' || enCours} aria-label="Envoyer">
             <Icone de={ArrowRight} />
           </button>
         </div>
 
-        {etape.type === 'envoi' && (
-          <p className="discret etat-ia">
-            <Icone de={Sparkles} /> Réflexion… {secondes(performance.now() - etape.depuis)}
-          </p>
-        )}
-        {etape.type === 'erreur' && <p className="erreur">{etape.message}</p>}
-        {proposition?.type === 'reponse' && <p className="reponse-ia">{proposition.texte}</p>}
-        {proposition?.type === 'plan' && (
-          <div className="plan-ia">
-            {proposition.message && <p className="reponse-ia">{proposition.message}</p>}
-            {proposition.plan.operations.map((op, i) => (
-              <section key={i} className="operation-ia">
-                <h3>
-                  {op.type === 'creer' ? 'Créer' : 'Modifier'} {pluriel(op.lignes.length, 'ligne')} · {op.nomBase}
-                </h3>
-                <ul>
-                  {op.lignes.map((l, j) => (
-                    <li key={j}>
-                      <span className="titre-ia">{l.titre}</span>
-                      {l.changements.map((c, k) => (
-                        <span key={k} className="changement-ia">
-                          {c.colonne} : {op.type === 'modifier' && <del>{c.avant || 'vide'}</del>} {op.type === 'modifier' && '→'} <ins>{c.apres || 'vide'}</ins>
-                        </span>
-                      ))}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        )}
-
-        <div className="pied-ia">
-          <span className="discret">
-            {etape.type === 'proposition' ? `Proposé en ${secondes(etape.duree)} · ` : ''}
-            {p.reglages.modele}{' '}
+        <div className="pied-ia discret">
+          <span>
+            {p.reglages.modele} ·{' '}
             <button className="lien" onClick={p.reglerIA}>
               Réglages
             </button>
           </span>
-          {proposition?.type === 'plan' && (
-            <div className="boutons">
-              <button className="discret" onClick={() => setEtape({ type: 'saisie' })}>
-                Annuler
-              </button>
-              <button className="principal" onClick={() => void appliquer(proposition)}>
-                Appliquer ({pluriel(total, 'ligne')})
-              </button>
-            </div>
+          {tours.length > 0 && !enCours && (
+            <button className="lien" onClick={() => setTours([])}>
+              Nouvelle conversation
+            </button>
           )}
-          {etape.type === 'application' && <span className="discret">Application…</span>}
         </div>
       </div>
     </Fenetre>
+  )
+}
+
+function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat; appliquer: () => void; annuler: () => void }) {
+  if (r.type === 'envoi') {
+    return (
+      <div className="bulle-ia etat-ia discret">
+        <Icone de={Sparkles} /> Réflexion… {secondes(performance.now() - r.depuis)}
+      </div>
+    )
+  }
+  if (r.type === 'erreur') return <div className="bulle-ia erreur">{r.message}</div>
+  const duree = r.duree !== undefined && <div className="duree-ia discret">{secondes(r.duree)}</div>
+  if (r.type === 'reponse') {
+    return (
+      <div className="bulle-ia">
+        <p className="reponse-ia">{r.texte}</p>
+        {duree}
+      </div>
+    )
+  }
+  const total = r.plan?.operations.reduce((n, o) => n + o.lignes.length, 0) ?? 0
+  return (
+    <div className="bulle-ia plan-ia">
+      {r.message && <p className="reponse-ia">{r.message}</p>}
+      {r.plan ? (
+        r.plan.operations.map((op, i) => (
+          <section key={i} className="operation-ia">
+            <h3>
+              {op.type === 'creer' ? 'Créer' : 'Modifier'} {pluriel(op.lignes.length, 'ligne')} · {op.nomBase}
+            </h3>
+            <ul>
+              {op.lignes.map((l, j) => (
+                <li key={j}>
+                  <span className="titre-ia">{l.titre}</span>
+                  {l.changements.map((c, k) => (
+                    <span key={k} className="changement-ia">
+                      {c.colonne} : {op.type === 'modifier' && <del>{c.avant || 'vide'}</del>} {op.type === 'modifier' && '→'} <ins>{c.apres || 'vide'}</ins>
+                    </span>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      ) : (
+        <p className="reponse-ia discret">{r.resume}</p>
+      )}
+      <div className="statut-plan-ia">
+        {duree}
+        {r.statut === 'attente' && r.plan && (
+          <div className="boutons">
+            <button className="discret" onClick={annuler}>
+              Annuler
+            </button>
+            <button className="principal" onClick={appliquer}>
+              Appliquer ({pluriel(total, 'ligne')})
+            </button>
+          </div>
+        )}
+        {r.statut === 'application' && <span className="discret">Application…</span>}
+        {r.statut === 'applique' && <span className="applique-ia">Appliqué</span>}
+        {(r.statut === 'annule' || (r.statut === 'attente' && !r.plan)) && <span className="discret">Non appliqué</span>}
+      </div>
+    </div>
   )
 }

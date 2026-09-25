@@ -3,7 +3,8 @@ import type { MessageIA, ModeleIA } from './modele'
 import { CONSIGNE, decrireEspace, OUTILS } from './outils'
 import { ErreurProposition, validerAppel, type AppelValide, type Operation, type Plan } from './plan'
 
-// Une demande à l'assistant (spec §12, « Module IA ») : un appel au modèle,
+// Une demande à l'assistant (spec §12, « Module IA »), dans une conversation
+// dont les derniers échanges sont relus par le modèle : un appel au modèle,
 // validation de ses appels d'outils, et une seule relance si le cœur en refuse
 // un (le modèle reçoit l'erreur et corrige). Le plan n'est jamais appliqué ici.
 
@@ -11,7 +12,18 @@ export type Proposition =
   | { type: 'plan'; plan: Plan; /** Texte d'accompagnement éventuel (outil `repondre`). */ message: string }
   | { type: 'reponse'; texte: string }
 
-export type OptionsDemande = { aujourdhui: string; baseOuverte: string | null }
+/** Un échange passé de la conversation, tel que le modèle le relit : la demande et ce qui en est résulté. */
+export type Echange = { demande: string; reponse: string }
+
+export type OptionsDemande = {
+  aujourdhui: string
+  baseOuverte: string | null
+  /** Échanges précédents, du plus ancien au plus récent ; seuls les derniers sont renvoyés. */
+  historique?: readonly Echange[]
+}
+
+/** Échanges renvoyés au modèle : assez pour suivre une conversation, sans alourdir chaque demande. */
+export const ECHANGES_MAX = 10
 
 const RELANCES = 1
 
@@ -22,6 +34,10 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
   const contexte = decrireEspace(espace.etat(), { ...o, candidats: espace.candidats(demande) })
   const messages: MessageIA[] = [
     { role: 'system', contenu: `${CONSIGNE}\n\n${contexte}` },
+    ...(o.historique ?? []).slice(-ECHANGES_MAX).flatMap((e): MessageIA[] => [
+      { role: 'user', contenu: e.demande },
+      { role: 'assistant', contenu: e.reponse, appels: [] },
+    ]),
     { role: 'user', contenu: demande },
   ]
   for (let essai = 0; ; essai++) {

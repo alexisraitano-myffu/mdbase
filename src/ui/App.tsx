@@ -260,7 +260,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
         </main>
       </div>
       {ia === 'assistant' && (
-        <Assistant espace={espace} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setIa('reglages')} fermer={() => setIa(null)} />
+        <Assistant espace={espace} dossier={nom} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setIa('reglages')} fermer={() => setIa(null)} />
       )}
       {ia === 'reglages' && <FenetreReglagesIA reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
       {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}

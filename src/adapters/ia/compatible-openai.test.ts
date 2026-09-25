@@ -49,6 +49,12 @@ describe('connecteur compatible OpenAI', () => {
     })
   })
 
+  it('réponse passée sans appel d’outil : pas de `tool_calls` vide', async () => {
+    const f = faux(json({ choices: [{ message: { content: 'ok' } }] }))
+    await modeleCompatibleOpenAI(CONNEXION, f.envoyer)({ messages: [{ role: 'assistant', contenu: 'Quel projet ?', appels: [] }], outils: [] })
+    expect(JSON.parse(f.requetes[0]!.init.body as string).messages).toEqual([{ role: 'assistant', content: 'Quel projet ?' }])
+  })
+
   it('sans clé : pas d’en-tête Authorization (serveur local)', async () => {
     const f = faux(json({ choices: [{ message: { content: 'bonjour' } }] }))
     expect(await modeleCompatibleOpenAI({ ...CONNEXION, cle: '' }, f.envoyer)({ messages: [], outils: [] })).toEqual({ texte: 'bonjour', appels: [] })

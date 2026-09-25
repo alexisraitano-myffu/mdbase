@@ -205,6 +205,23 @@ export function validerAppel(etat: EtatEspace, appel: AppelOutil, ctx: Contexte)
   }
 }
 
+const LIGNES_RESUMEES = 15
+
+/** Résumé texte d'un plan : ce que le modèle relit de la conversation, et ce qui en reste affiché après coup. */
+export function resumerPlan(plan: Plan): string {
+  return plan.operations
+    .map((op) => {
+      const n = op.lignes.length
+      const lignes = op.lignes.slice(0, LIGNES_RESUMEES).map((l) => {
+        const c = l.changements.map((x) => `${x.colonne} → ${x.apres || 'vide'}`).join(', ')
+        return c ? `${l.titre} (${c})` : l.titre
+      })
+      const reste = n > LIGNES_RESUMEES ? ` ; et ${n - LIGNES_RESUMEES} autres` : ''
+      return `${op.type === 'creer' ? 'Créer' : 'Modifier'} ${n} ligne${n > 1 ? 's' : ''} dans ${op.nomBase} : ${lignes.join(' ; ')}${reste}`
+    })
+    .join('\n')
+}
+
 /**
  * Applique un plan confirmé. Une ligne supprimée entre l'aperçu et la
  * confirmation est ignorée ; renvoie le nombre de lignes écrites.

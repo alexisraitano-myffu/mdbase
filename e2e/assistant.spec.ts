@@ -72,20 +72,54 @@ test('une demande : aperçu avant → après, rien d’écrit avant « Appliquer
   expect(corps.messages[0]!.content).toContain('Base ouverte : projets')
 
   await page.getByRole('button', { name: 'Appliquer (1 ligne)' }).click()
-  await expect(page.getByRole('dialog', { name: 'Assistant IA' })).toHaveCount(0)
+  await expect(page.locator('.applique-ia')).toHaveText('Appliqué')
   await expect.poll(() => espace.lire(SITE)).toContain('statut: Terminé\n')
 })
 
-test('question du modèle affichée ; réglages gardés à la réouverture', async ({ espace, page }) => {
-  await simulerService(page, appel('repondre', { texte: 'Quel projet ?' }))
+test('conversation : on répond à la question du modèle, qui relit l’échange ; gardée à la réouverture', async ({ espace, page }) => {
+  const recues = await simulerService(
+    page,
+    appel('repondre', { texte: 'Quel projet ?' }),
+    appel('modifier_lignes', { base: 'projets', lignes: ['psite001'], valeurs: { statut: 'Terminé' } }),
+  )
   await activer(page)
   await page.getByPlaceholder(/passe les tâches en retard/).fill('Termine le projet')
   await page.keyboard.press('Enter')
   await expect(page.locator('.reponse-ia')).toHaveText('Quel projet ?')
   await expect(page.getByRole('button', { name: /Appliquer/ })).toHaveCount(0)
 
+  await page.getByPlaceholder('Répondre…').fill('Le site vitrine')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.changement-ia')).toHaveText('Statut : En cours → Terminé')
+  const messages = (recues[1]!.postDataJSON() as { messages: { role: string; content: string }[] }).messages
+  expect(messages.slice(1)).toEqual([
+    { role: 'user', content: 'Termine le projet' },
+    { role: 'assistant', content: 'Quel projet ?' },
+    { role: 'user', content: 'Le site vitrine' },
+  ])
+
+  // Fermée puis rouverte : la conversation est là, mais un plan non confirmé ne s'applique plus.
   await page.keyboard.press('Escape')
   await page.keyboard.press('Control+j')
-  await expect(page.getByPlaceholder(/passe les tâches en retard/)).toBeVisible()
+  await expect(page.locator('.bulle-ia.moi')).toHaveText(['Termine le projet', 'Le site vitrine'])
+  const garde = await page.evaluate(() => localStorage.getItem('mdbase.ia.conversation.espace'))
+  expect(JSON.parse(garde!)).toEqual([
+    { demande: 'Termine le projet', type: 'reponse', texte: 'Quel projet ?' },
+    { demande: 'Le site vitrine', type: 'plan', texte: 'Modifier 1 ligne dans Projets : Site vitrine (Statut → Terminé)', statut: 'annule' },
+  ])
+  expect(await espace.lire(SITE)).toContain('statut: En cours\n')
+})
+
+test('nouvelle conversation : le fil est vidé', async ({ espace, page }) => {
+  await simulerService(page, appel('repondre', { texte: 'Bonjour' }))
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Salut')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.reponse-ia')).toHaveText('Bonjour')
+  await page.getByRole('button', { name: 'Nouvelle conversation' }).click()
+  await expect(page.locator('.tour-ia')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Control+j')
+  await expect(page.locator('.tour-ia')).toHaveCount(0)
   expect(espace).toBeTruthy()
 })
