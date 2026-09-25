@@ -150,6 +150,7 @@ describe('proposer', () => {
       'supprimer_vue',
       'creer_dashboard',
       'supprimer_dashboard',
+      'supprimer_base',
       'retenir',
       'oublier',
       'creer_skill',

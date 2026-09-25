@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react'
-import type { DepotEspace, EtatEspace } from '../core/depot-espace'
+import type { DepotEspace, EtatEspace, PorteeSuppressionBase } from '../core/depot-espace'
 import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
@@ -64,6 +64,11 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         cible={cible === `base:${id}`}
         choisir={() => choisir(id)}
         renommer={(nom) => void lancer(espace.renommerBase(id, nom))}
+        portee={() => espace.porteeSuppressionBase(id)}
+        supprimer={() => {
+          const autre = [...etat.groupes.flatMap((g) => g.bases), ...etat.horsGroupe].find((x) => x !== id)
+          void lancer(espace.supprimerBase(id)).then(() => !espace.etat().bases.has(id) && id === choisie && autre && choisir(autre))
+        }}
         glisser={(e) => e.dataTransfer.setData('text/base', id)}
         {...deposable(`base:${id}`, groupe, index)}
       />
@@ -179,12 +184,16 @@ function EntreeBase(p: {
   cible: boolean
   choisir: () => void
   renommer: (nom: string) => void
+  portee: () => PorteeSuppressionBase
+  supprimer: () => void
   glisser: (e: DragEvent) => void
   onDragOver: (e: DragEvent) => void
   onDragLeave: () => void
   onDrop: (e: DragEvent) => void
 }) {
   const [edition, setEdition] = useState(false)
+  const [menu, setMenu] = useState<'options' | PorteeSuppressionBase | null>(null)
+  const ancre = useRef<HTMLDivElement>(null)
   if (edition) {
     return (
       <ChampEnLigne
@@ -199,6 +208,7 @@ function EntreeBase(p: {
   }
   return (
     <div
+      ref={ancre}
       className={`entree-base ${p.active ? 'active' : ''} ${p.cible ? 'cible' : ''}`}
       draggable
       onDragStart={p.glisser}
@@ -207,9 +217,52 @@ function EntreeBase(p: {
       onDrop={p.onDrop}
       onClick={p.choisir}
       onDoubleClick={() => setEdition(true)}
-      title="Double-clic pour renommer"
+      onContextMenu={(e) => {
+        e.preventDefault()
+        setMenu('options')
+      }}
+      title="Double-clic pour renommer, clic droit pour plus"
     >
       {p.nom}
+      {menu && (
+        <Flottant ancre={ancre.current} fermer={() => setMenu(null)}>
+          {menu === 'options' ? (
+            <>
+              <button className="option" onClick={() => (setMenu(null), setEdition(true))}>
+                Renommer
+              </button>
+              <button className="option danger-texte" onClick={() => setMenu(p.portee())}>
+                Supprimer la base…
+              </button>
+            </>
+          ) : (
+            <ConfirmerSuppressionBase nom={p.nom} portee={menu} annuler={() => setMenu(null)} supprimer={() => (setMenu(null), p.supprimer())} />
+          )}
+        </Flottant>
+      )}
+    </div>
+  )
+}
+
+/** Confirmation de suppression d'une base, avec tout ce qu'elle touche (spec §5). */
+function ConfirmerSuppressionBase(p: { nom: string; portee: PorteeSuppressionBase; annuler: () => void; supprimer: () => void }) {
+  const { lignes, relations, dependants, blocs } = p.portee
+  return (
+    <div className="confirmation" onClick={(e) => e.stopPropagation()}>
+      <strong>Supprimer « {p.nom} » ?</strong>
+      <p>
+        Le dossier de la base est effacé avec {lignes > 1 ? `ses ${lignes} lignes` : lignes === 1 ? 'sa ligne' : 'ses réglages'}, ses vues et ses pages. Ça ne
+        s’annule pas.
+      </p>
+      {relations.length > 0 && <p>Ces relations deviennent du texte avec les titres liés, sans rien perdre : {relations.join(', ')}.</p>}
+      {dependants.length > 0 && <p>Ces colonnes en dépendent et passeront en erreur : {dependants.join(', ')}.</p>}
+      {blocs > 0 && <p>{blocs > 1 ? `${blocs} blocs de dashboard l’affichaient et sont retirés.` : 'Un bloc de dashboard l’affichait et est retiré.'}</p>}
+      <div className="boutons">
+        <button onClick={p.annuler}>Annuler</button>
+        <button className="danger" onClick={p.supprimer}>
+          Supprimer la base
+        </button>
+      </div>
     </div>
   )
 }

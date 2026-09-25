@@ -17,6 +17,8 @@ export type OperationEspace =
   | { type: 'supprimer_groupe'; nom: string }
   | { type: 'ajouter_dashboard'; id: string }
   | { type: 'retirer_dashboard'; id: string }
+  /** Retire une base supprimée de tous les groupes. */
+  | { type: 'retirer_base'; base: string }
 
 export class ErreurEspace extends Error {
   constructor(message: string) {
@@ -108,6 +110,11 @@ export function modifierEspace(texte: string | null, op: OperationEspace): strin
       for (const b of bases) horsGroupe.items.push(doc.createNode(b))
       break
     }
+    case 'retirer_base':
+      for (const liste of [horsGroupe, ...groupes.items.flatMap((g) => (isMap(g) && isSeq(g.get('bases')) ? [g.get('bases') as YAMLSeq] : []))]) {
+        liste.items = liste.items.filter((n) => valeur(n) !== op.base)
+      }
+      break
     case 'placer_base': {
       const cible = op.groupe === null ? horsGroupe : assurerListe(doc, groupeNomme(op.groupe) ?? introuvable(op.groupe), 'bases')
       for (const liste of [horsGroupe, ...groupes.items.flatMap((g) => (isMap(g) && isSeq(g.get('bases')) ? [g.get('bases') as YAMLSeq] : []))]) {

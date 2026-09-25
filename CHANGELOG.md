@@ -74,11 +74,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Assistant IA : outils de structure (créer une base, ajouter, renommer ou supprimer des colonnes, créer, régler ou supprimer des vues avec filtres et tris, créer ou supprimer des dashboards), suppression de lignes et écriture du contenu des pages. Une colonne créée peut être remplie dans la même proposition ; les suppressions sont en rouge dans l'aperçu.
 - Recopie d'une cellule : sa poignée, tirée vers le haut ou le bas, donne sa valeur aux lignes survolées.
 - Logo « db » en mauve pastel (glyphes Geist Mono) : la flèche de Markdown prolonge la hampe du d. Icône d’onglet, icône iPhone et image de partage des liens.
+- Supprimer une base (clic droit dans la barre latérale, et outil de l'assistant) : confirmation qui montre ce qui est touché ; les relations vers elle deviennent du texte avec les titres liés, les blocs de dashboard qui l'affichaient sont retirés.
+
 ### Changed
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
 - Icônes Lucide (embarquées dans le build) à la place des caractères Unicode : types de colonnes, vues, menus, fermer, chevrons, coches, cases à cocher.
 - Contenu des pages dans la police de l'interface (l'éditeur imposait Noto Serif / Noto Sans).
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
+- Couleur d'accent : le vert laisse place au noir et aux gris déjà utilisés (boutons principaux, sélection, cases cochées, barres de timeline).
+
 ### Fixed
 - Accueil : « Essayer avec la démo » devient l'action principale ; avec un dossier mémorisé, l'écran « Rouvrir » garde la démo et « Ouvrir un autre dossier », et explique un refus d'autorisation du navigateur (auparavant le clic ne faisait rien).
 - La démo est mémorisée par une marque et non par son dossier OPFS : relire ce dossier depuis IndexedDB faisait planter Chromium en navigation privée au rechargement.

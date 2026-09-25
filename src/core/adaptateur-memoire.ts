@@ -50,7 +50,14 @@ export class AdaptateurMemoire implements AdaptateurFichiers {
     this.fichiers.set(joindre(nouveau), fichier)
   }
 
+  /** Un fichier, ou un dossier vide (comme `removeEntry` du navigateur). */
   async supprimer(chemin: string): Promise<void> {
+    const d = joindre(chemin)
+    if (d !== '' && this.dossiers.has(d)) {
+      if ([...this.dossiers, ...this.fichiers.keys()].some((x) => x !== d && parent(x) === d)) throw new Error(`Dossier non vide : ${d}`)
+      this.dossiers.delete(d)
+      return
+    }
     this.trouver(chemin)
     this.fichiers.delete(joindre(chemin))
   }

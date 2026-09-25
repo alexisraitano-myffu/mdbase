@@ -90,6 +90,8 @@ export type ActionStructure =
   | { type: 'supprimer_vue'; base: string; nomBase: string; vue: string; nomVue: string }
   | { type: 'creer_dashboard'; id: string; nom: string; blocs: { base: string; vue: string }[] }
   | { type: 'supprimer_dashboard'; id: string; nom: string }
+  /** `relations` : « Base › Colonne » des relations qui deviendront du texte. */
+  | { type: 'supprimer_base'; base: string; nom: string; lignes: number; relations: string[] }
 
 /** Actions sur les lignes appliquées après les données : suppressions, contenu des pages. */
 export type ActionSuite =
@@ -287,6 +289,21 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       b.dashboards.splice(b.dashboards.indexOf(d), 1)
       return { structure: [{ type: 'supprimer_dashboard', id: d.id, nom: d.nom }] }
     }
+    case 'supprimer_base': {
+      const bb = b.base(args.base)
+      const relations: string[] = []
+      for (const autre of b.bases.values()) {
+        if (autre.id === bb.id || !autre.schema.colonnes.some((c) => c.type === 'relation' && c.cible === bb.id)) continue
+        const colonnes = autre.schema.colonnes.map((c): Colonne => {
+          if (c.type !== 'relation' || c.cible !== bb.id) return c
+          relations.push(`${autre.schema.nom} › ${c.nom}`)
+          return { cle: c.cle, nom: c.nom, type: 'text' }
+        })
+        b.remplacerSchema(autre.id, { ...autre.schema, colonnes })
+      }
+      b.bases.delete(bb.id)
+      return { structure: [{ type: 'supprimer_base', base: bb.id, nom: bb.schema.nom, lignes: bb.lignes.length, relations }] }
+    }
     case 'supprimer_lignes': {
       const etat = b.etat()
       const base = trouverBase(etat, args.base)
@@ -381,6 +398,10 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
       return { texte: `Créer le dashboard « ${a.nom} »${a.blocs.length > 0 ? ` avec ${pluriel(a.blocs.length, 'bloc')}` : ''}`, danger: false }
     case 'supprimer_dashboard':
       return { texte: `Supprimer le dashboard « ${a.nom} » (définitif)`, danger: true }
+    case 'supprimer_base': {
+      const relations = a.relations.length > 0 ? ` ; relations devenues texte : ${a.relations.join(', ')}` : ''
+      return { texte: `Supprimer la base « ${a.nom} » et ${pluriel(a.lignes, 'ligne')} (définitif)${relations}`, danger: true }
+    }
     case 'supprimer_lignes': {
       const titres = a.lignes.slice(0, 10).map((l) => l.titre).join(', ')
       const reste = a.lignes.length > 10 ? ` et ${a.lignes.length - 10} autres` : ''
@@ -464,6 +485,9 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
       }
       case 'supprimer_dashboard':
         await espace.supprimerDashboard(a.id)
+        break
+      case 'supprimer_base':
+        await espace.supprimerBase(corr.base(a.base))
         break
     }
   }

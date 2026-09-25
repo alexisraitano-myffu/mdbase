@@ -233,6 +233,8 @@ C'est la fonctionnalité prioritaire. Elle doit être solide et parfaitement int
 - **Supprimer une colonne saisie** supprime son contenu : la clé est retirée de tous les fichiers de la base. Exception assumée au principe « le moins de fichiers touchés », comme le renommage d'une option de `select`.
 - **Supprimer une relation** supprime seulement la relation : la colonne et sa colonne miroir disparaissent, les ids sont retirés des fichiers du côté propriétaire. Les lignes des deux bases restent intactes.
 - **Supprimer une base** vers laquelle pointaient des relations : dans chaque base qui pointait vers elle, la colonne relation est convertie en colonne `text` contenant les titres des lignes liées (séparés par des virgules). Aucune donnée perdue.
+  - Depuis le clic droit sur la base dans la barre latérale. La confirmation dit tout ce qui est touché : nombre de lignes, relations converties, colonnes calculées qui passeront en erreur, blocs de dashboard retirés. Ne s'annule pas (hors Ctrl+Z, comme le schéma).
+  - Ordre : relations converties, blocs de dashboard retirés, puis le dossier effacé en commençant par `_schema.yaml`. Une coupure laisse un dossier qui n'est plus une base, jamais une base à moitié vide.
 - **Colonnes dépendantes** (rollups, formules qui utilisent ce qu'on supprime) : la liste est affichée au moment de la confirmation, et ces colonnes passent en erreur. Pas de suppression en cascade.
 
 ### Rollups
@@ -519,7 +521,7 @@ Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, a
 - **Mémoire** (`_assistant/memoire.md`, §3) : le modèle retient un fait quand l'utilisateur le demande ou exprime une préférence durable ; écrit aussitôt, avec une mention « Retenu : … » annulable. Jamais une valeur de ligne.
 - **Skills** (`_assistant/skills/`, §3) : procédures nommées créées à la demande de l'utilisateur, avec confirmation comme une modification de données. Les skills et la mémoire sont envoyés au modèle avec la structure de l'espace, et l'avertissement d'activation le dit.
 - **Structure** : le modèle peut aussi créer une base, ajouter, renommer ou supprimer des colonnes (tous les types, relations avec leur miroir, rollups, formules), créer, régler ou supprimer des vues (filtres, tris, groupement, colonnes affichées), créer ou supprimer des dashboards, supprimer des lignes et écrire le contenu d'une page. Les appels d'une même réponse sont validés dans l'ordre sur un brouillon de l'espace : une colonne ou une base créée peut être remplie aussitôt. Application dans l'ordre structure, puis données, puis suppressions de lignes et contenu.
-- **Suppressions** : toujours dans l'aperçu, en rouge, avec leur portée (lignes touchées, liens retirés). Supprimer une base n'est pas proposé à l'assistant. Les données s'annulent d'un Ctrl+Z comme une action de l'utilisateur ; une colonne, une vue ou un dashboard supprimé ne revient pas, et l'aperçu le dit (« définitif »).
+- **Suppressions** : toujours dans l'aperçu, en rouge, avec leur portée (lignes touchées, liens retirés). Supprimer une base est possible, seulement à la demande explicite de l'utilisateur. Les données s'annulent d'un Ctrl+Z comme une action de l'utilisateur ; une base, une colonne, une vue ou un dashboard supprimé ne revient pas, et l'aperçu le dit (« définitif »).
 
 ---
 

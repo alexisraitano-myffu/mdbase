@@ -65,6 +65,9 @@ export type EtatBase = {
 /** Un dashboard (spec §10) ; `dashboard` null si son fichier est illisible. */
 export type EtatDashboard = { id: string; dashboard: Dashboard | null; avertissements: string[] }
 
+/** Ce que la suppression d'une base toucherait (spec §5). */
+export type PorteeSuppressionBase = { lignes: number; relations: string[]; dependants: string[]; blocs: number }
+
 export type EtatEspace = {
   /** Dans l'ordre de la barre latérale. */
   dashboards: EtatDashboard[]
@@ -316,6 +319,89 @@ export class DepotEspace {
 
   supprimerGroupe(nom: string): Promise<void> {
     return this.enFile(() => this.modifierEspace({ type: 'supprimer_groupe', nom }))
+  }
+
+  /** Ce que supprimer une base toucherait, à montrer avant de confirmer (spec §5). */
+  porteeSuppressionBase(id: string): PorteeSuppressionBase {
+    const lignes = this.bases.get(id)?.depot?.lignes().length ?? 0
+    const relations: string[] = []
+    const dependants: string[] = []
+    for (const [b, c] of this.relationsVers(id)) {
+      relations.push(`${this.schema(b).nom} › ${c.nom}`)
+      dependants.push(...this.dependants(b, c.cle).filter((d) => !d.startsWith(`${this.schema(id).nom} › `)))
+    }
+    const blocs = [...this.dashboards.values()].flatMap((d) => d.dashboard?.rangees.flatMap((r) => r.blocs) ?? []).filter((b) => b.base === id).length
+    return { lignes, relations, dependants: [...new Set(dependants)], blocs }
+  }
+
+  /**
+   * Supprime une base (spec §5). Chaque relation qui pointait vers elle devient
+   * une colonne texte avec les titres des lignes liées, les blocs de dashboard
+   * qui l'affichaient sont retirés, puis le dossier est effacé, schéma en
+   * premier : une coupure laisse un dossier qui n'est plus une base, jamais une
+   * base à moitié vide. Ne s'annule pas.
+   */
+  supprimerBase(id: string): Promise<void> {
+    return this.enFile(async () => {
+      this.schema(id)
+      const titres = this.instantane.titres.get(id) ?? new Map<string, string>()
+      for (const [b, c] of this.relationsVers(id)) {
+        const valeurs = new Map<string, Valeur>()
+        for (const l of this.depot(b).lignes()) {
+          const cellule = l.cellules[c.cle]
+          const ids = !c.proprietaire ? this.idsCalcules(b, l.id, c.cle) : cellule?.etat === 'ok' && Array.isArray(cellule.valeur) ? cellule.valeur : []
+          const liees = ids.map((x) => titres.get(x) || x)
+          if (liees.length > 0) valeurs.set(l.id, liees.join(', '))
+        }
+        await this.modifierSchema(b, { type: 'relation_en_texte', cle: c.cle })
+        await this.depot(b).reecrireColonne(c.cle, valeurs)
+      }
+      for (const [idDash, d] of this.dashboards) {
+        const places = (d.dashboard?.rangees ?? []).flatMap((r, rangee) => r.blocs.map((bloc, i) => ({ rangee, bloc: i, base: bloc.base })))
+        const retirees = places.filter((p) => p.base === id).reverse()
+        if (retirees.length === 0) continue
+        const chemin = cheminDashboard(idDash)
+        let texte = await this.adaptateur.lire(chemin)
+        let dashboard = d.dashboard!
+        for (const { rangee, bloc } of retirees) {
+          const op: OperationDashboard = { type: 'retirer_bloc', place: { rangee, bloc } }
+          texte = modifierDashboard(texte, op)
+          dashboard = appliquerEnMemoire(dashboard, op)
+        }
+        await this.adaptateur.ecrire(chemin, texte)
+        this.dashboards.set(idDash, { ...d, dashboard })
+      }
+      await this.bases.get(id)?.depot?.vider()
+      await this.adaptateur.supprimer(joindre(id, FICHIER_SCHEMA))
+      await this.effacerDossier(id)
+      this.bases.delete(id)
+      await this.modifierEspace({ type: 'retirer_base', base: id })
+      this.publier()
+    })
+  }
+
+  /** Relations d'autres bases qui pointent vers `id`, des deux côtés. */
+  private relationsVers(id: string): [string, ColonneRelation][] {
+    return [...this.bases.values()].flatMap((b) =>
+      b.id !== id && b.chargement.ok ? b.chargement.base.schema.colonnes.flatMap((c): [string, ColonneRelation][] => (c.type === 'relation' && c.cible === id ? [[b.id, c]] : [])) : [],
+    )
+  }
+
+  /** Efface un dossier et tout ce qu'il contient, fichiers d'abord. */
+  private async effacerDossier(dossier: string): Promise<void> {
+    let entrees
+    try {
+      entrees = await this.adaptateur.lister(dossier)
+    } catch (e) {
+      if (e instanceof FichierIntrouvable) return
+      throw e
+    }
+    for (const e of entrees) {
+      const chemin = joindre(dossier, e.nom)
+      if (e.type === 'dossier') await this.effacerDossier(chemin)
+      else await this.adaptateur.supprimer(chemin)
+    }
+    await this.adaptateur.supprimer(dossier)
   }
 
   // ── Dashboards ───────────────────────────────────────────────────

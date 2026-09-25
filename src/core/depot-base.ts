@@ -253,13 +253,23 @@ export class DepotBase {
    * Renvoie le nombre de fichiers réécrits.
    */
   async effacerColonne(cle: string): Promise<number> {
+    return this.reecrireColonne(cle, new Map())
+  }
+
+  /**
+   * Réécrit une colonne dans toute la base : la valeur de chaque ligne est lue
+   * dans `valeurs` (par id), une ligne absente est vidée. Hors historique : sert
+   * aux changements de schéma. Renvoie le nombre de fichiers réécrits.
+   */
+  async reecrireColonne(cle: string, valeurs: ReadonlyMap<string, Valeur>): Promise<number> {
     await this.vider()
     let n = 0
     for (const e of this.entrees) {
-      if (!(cle in e.persistee.cellules) && !contientCle(e.persistee.source, cle)) continue
+      const valeur = valeurs.get(e.persistee.id)
+      if (valeur === undefined && !(cle in e.persistee.cellules) && !contientCle(e.persistee.source, cle)) continue
       n++
       void this.enchainer(e, async () => {
-        e.persistee = await enregistrerLigne(this.adaptateur, this.schema, e.persistee, { [cle]: undefined })
+        e.persistee = await enregistrerLigne(this.adaptateur, this.schema, e.persistee, { [cle]: valeur })
         e.affichee = afficher(e, this.schema)
       })
     }

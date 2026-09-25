@@ -16,6 +16,8 @@ export type OperationSchema =
   | { type: 'ordre_vues'; ids: string[] }
   /** Remplace des propriétés d'une colonne (config d'un rollup…) ; `undefined` retire la propriété. */
   | { type: 'modifier_colonne'; cle: string; proprietes: Record<string, unknown> }
+  /** Une relation devient une colonne texte (sa base cible est supprimée, spec §5). */
+  | { type: 'relation_en_texte'; cle: string }
 
 export class ErreurSchema extends Error {
   constructor(message: string) {
@@ -72,6 +74,12 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
         if (v === undefined) c.delete(k)
         else c.set(k, doc.createNode(v, { flow: true }))
       }
+      break
+    }
+    case 'relation_en_texte': {
+      const c = trouverColonne(doc, op.cle)
+      c.set('type', 'text')
+      for (const k of ['cible', 'proprietaire', 'inverse']) c.delete(k)
       break
     }
     case 'supprimer_colonne': {

@@ -161,6 +161,12 @@ export const OUTILS: DefinitionOutil[] = [
     parametres: { type: 'object', properties: { dashboard: { type: 'string' } }, required: ['dashboard'] },
   },
   {
+    nom: 'supprimer_base',
+    description:
+      "Supprime une base entière (id ou nom) : son dossier, ses lignes, ses vues. Les relations d'autres bases vers elle deviennent du texte avec les titres liés. Seulement si l'utilisateur le demande explicitement.",
+    parametres: { type: 'object', properties: { base: { type: 'string' } }, required: ['base'] },
+  },
+  {
     nom: 'retenir',
     description: "Retient un fait durable pour les prochaines conversations (préférence, vocabulaire, habitude). Jamais une valeur de ligne : elle est déjà dans les données.",
     parametres: { type: 'object', properties: { fait: { type: 'string', description: 'une phrase courte' } }, required: ['fait'] },
@@ -200,7 +206,7 @@ Règles :
 - Les colonnes calculées sont en lecture seule.
 - Pour modifier toutes les lignes qui répondent à un critère, utilise \`filtres\` plutôt qu'une liste d'ids.
 - Structure : pour créer ou modifier des bases, colonnes, vues et dashboards, utilise leurs outils. Tu peux enchaîner dans les mêmes appels : créer une colonne puis la remplir (désigne-la par son nom), créer des lignes puis écrire le contenu de leurs pages.
-- Suppressions (lignes, colonnes, vues, dashboards) : seulement quand l'utilisateur les demande explicitement ; l'utilisateur confirme toujours avant qu'elles soient faites. Une base ne se supprime pas depuis l'assistant.
+- Suppressions (lignes, colonnes, vues, dashboards, bases) : seulement quand l'utilisateur les demande explicitement, jamais pour « faire de la place » ou réorganiser ; l'utilisateur confirme toujours avant qu'elles soient faites.
 - Si la demande est ambiguë ou impossible, appelle \`repondre\` avec une question courte, sans rien modifier.
 - Mémoire : quand l'utilisateur te demande de retenir quelque chose, ou exprime une préférence durable, appelle \`retenir\` (en plus des autres appels). \`oublier\` quand il le demande. Tiens compte de la section Mémoire.
 - Skills : si la demande correspond à un skill (par son nom ou sa description), suis ses instructions. N'appelle \`creer_skill\` que si l'utilisateur demande de créer ou modifier un skill.`

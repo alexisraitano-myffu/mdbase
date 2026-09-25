@@ -133,6 +133,23 @@ describe('assistant : structure', () => {
     expect(await a.lire('taches/a--t0000001.md')).not.toContain('echeance')
   })
 
+  it('supprimer une base : aperçu avec les relations converties, puis elle n’existe plus pour les appels suivants', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(espace, appel('supprimer_base', { base: 'Projets' }))
+    expect(resumerPlan(p)).toBe('Supprimer la base « Projets » et 3 lignes (définitif) ; relations devenues texte : Clients › Projets, Tâches › Projet')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await a.lire('taches/a--t0000001.md')).toContain('projet: Navi\n')
+    const refus = await proposer(obstine(appel('supprimer_base', { base: 'projets' }), appel('creer_lignes', { base: 'projets', lignes: [{ titre: 'X' }] })), espace, 'x', {
+      aujourdhui: AUJOURDHUI,
+      baseOuverte: null,
+    }).then(
+      () => '',
+      (e: Error) => e.message,
+    )
+    expect(refus).toContain('base inconnue')
+  })
+
   it('refus explicites renvoyés au modèle', async () => {
     const { espace } = await ouvrir()
     const refus = async (...appels: AppelOutil[]) =>

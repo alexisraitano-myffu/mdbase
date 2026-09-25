@@ -57,6 +57,23 @@ test.describe('bases, groupes et colonnes', () => {
   })
 })
 
+test('supprimer une base : portée montrée, relations converties en texte, dossier effacé', async ({ espace, page }) => {
+  await espace.base('Clients')
+  await page.locator('.entree-base', { hasText: 'Clients' }).click({ button: 'right' })
+  await page.getByRole('button', { name: 'Supprimer la base…' }).click()
+  const confirmation = page.locator('.confirmation')
+  await expect(confirmation).toContainText('ses 3 lignes')
+  await expect(confirmation).toContainText('Projets › Client')
+  await expect(confirmation).toContainText('Un bloc de dashboard')
+  await confirmation.getByRole('button', { name: 'Supprimer la base' }).click()
+
+  await expect(page.locator('.entree-base', { hasText: 'Clients' })).toHaveCount(0)
+  await expect(page.locator('h1')).not.toHaveText('Clients')
+  await expect.poll(() => espace.lister('')).not.toContain('clients')
+  expect(await espace.lire('projets/site-vitrine--psite001.md')).toContain('client: Acme\n')
+  expect(await espace.lire('_dashboards/pilotage.yaml')).not.toContain('base: clients')
+})
+
 test.describe('filtres et tris', () => {
   test('filtre rapide « parmi » : lignes filtrées, pastille active, valeur enregistrée dans la vue', async ({ espace, page }) => {
     await espace.base('Projets')

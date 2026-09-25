@@ -14,6 +14,7 @@ export interface AdaptateurFichiers {
   ecrire(chemin: string, contenu: string): Promise<void>
   /** Renomme ou déplace un fichier. */
   renommer(ancien: string, nouveau: string): Promise<void>
+  /** Supprime un fichier, ou un dossier vide. */
   supprimer(chemin: string): Promise<void>
   /** Date de dernière modification, en millisecondes depuis l'epoch. */
   dateModification(chemin: string): Promise<number>
