@@ -228,7 +228,7 @@ function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerAB
           vue={vue}
           modifierVue={modifierVue}
           appliquee={appliquee}
-          ouvrir={(l) => ouvrir(bloc.base, l.id)}
+          ouvrir={ouvrir}
         />
       </div>
     </section>

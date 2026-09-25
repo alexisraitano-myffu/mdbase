@@ -1,0 +1,13 @@
+id: feuille-de-route
+nom: Feuille de route
+type: timeline
+champ_debut: debut
+champ_fin: echeance
+champs_jalons: [ revue ]
+echelle: mois
+tris:
+  - { colonne: debut, sens: asc }
+deplier:
+  - relation: taches
+    champ_debut: debut
+    champ_fin: echeance

@@ -42,6 +42,20 @@ export type FiltreRapide = { colonne: string; operateur?: Operateur; valeur?: un
 export type TypeVue = 'tableau' | 'kanban' | 'collection' | 'calendrier' | 'timeline'
 export type EchelleVue = 'semaine' | 'mois' | 'trimestre'
 
+/**
+ * Timeline : sous-niveau déplié sous chaque ligne en suivant une relation
+ * (spec §7). Ses champs de dates et ses filtres sont ceux de la base liée.
+ */
+export type Niveau = {
+  /** Colonne relation de la base du niveau parent. */
+  relation: string
+  champDebut?: string
+  champFin?: string
+  champsJalons?: string[]
+  filtres: Filtre[]
+  deplier: Niveau[]
+}
+
 export type Vue = {
   id: string
   nom: string
@@ -76,6 +90,8 @@ export type Vue = {
   champsJalons?: string[]
   /** Calendrier : `mois` ou `semaine` ; timeline : `semaine`, `mois` ou `trimestre`. */
   echelle?: EchelleVue
+  /** Timeline : relations dépliées sous chaque ligne, niveau par niveau. */
+  deplier?: Niveau[]
   /** Vue par défaut d'une base sans `_vues/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
@@ -105,7 +121,10 @@ const REGLAGES = {
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
 /** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
-export const CHAMPS_MODIFIABLES = [...Object.keys(REGLAGES), 'filtres', 'tris', 'filtresRapides'] as (keyof ModificationVue)[]
+export const CHAMPS_MODIFIABLES = [...Object.keys(REGLAGES), 'filtres', 'tris', 'filtresRapides', 'deplier'] as (keyof ModificationVue)[]
+
+/** Profondeur maximale des niveaux dépliés : au-delà, le fichier est ignoré (et une boucle de relations, bornée). */
+export const PROFONDEUR_MAX = 5
 
 export function vueParDefaut(): Vue {
   return { id: 'tableau', nom: 'Tableau', type: 'tableau', filtres: [], tris: [], filtresRapides: [], implicite: true }
@@ -191,6 +210,28 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
     return [{ colonne: r.colonne, ...(operateur && { operateur }), ...(r.valeur !== undefined && { valeur: r.valeur }) }]
   })
 
+  const niveaux = (liste: unknown, profondeur: number): Niveau[] =>
+    profondeur > PROFONDEUR_MAX
+      ? []
+      : (Array.isArray(liste) ? liste : []).flatMap((n): Niveau[] => {
+          if (!estObjet(n) || typeof n.relation !== 'string') {
+            avertissements.push(`Vue ${id} : niveau déplié ignoré (relation manquante)`)
+            return []
+          }
+          const r = lireReglages(n)
+          return [
+            {
+              relation: n.relation,
+              ...(r.champDebut && { champDebut: r.champDebut }),
+              ...(r.champFin && { champFin: r.champFin }),
+              ...(r.champsJalons && { champsJalons: r.champsJalons }),
+              filtres: filtres(n.filtres, `niveau ${n.relation}`),
+              deplier: niveaux(n.deplier, profondeur + 1),
+            },
+          ]
+        })
+  const deplier = niveaux(brut.deplier, 1)
+
   return {
     vue: {
       id,
@@ -200,6 +241,7 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
       tris,
       filtresRapides,
       ...lireReglages(brut),
+      ...(deplier.length > 0 && { deplier }),
     },
     avertissements,
   }
@@ -245,6 +287,10 @@ export function appliquerModificationsVue(doc: Document, cible: YAMLMap, modifs:
       })),
     ],
   ]
+  if ('deplier' in modifs) {
+    if (!modifs.deplier?.length) cible.delete('deplier')
+    else cible.set('deplier', noeudNiveaux(doc, modifs.deplier))
+  }
   for (const [, cle, valeur] of listes) {
     if (valeur === undefined) continue
     if (valeur.length === 0) {
@@ -256,6 +302,25 @@ export function appliquerModificationsVue(doc: Document, cible: YAMLMap, modifs:
     for (const item of noeud.items) if (isMap(item)) item.flow = true
     cible.set(cle, noeud)
   }
+}
+
+/** Niveaux dépliés en YAML : un niveau par bloc, ses filtres et ses jalons sur une ligne. */
+function noeudNiveaux(doc: Document, niveaux: readonly Niveau[]): YAMLSeq {
+  const seq = doc.createNode([]) as YAMLSeq
+  for (const n of niveaux) {
+    const m = doc.createNode({ relation: n.relation }) as YAMLMap
+    if (n.champDebut) m.set('champ_debut', n.champDebut)
+    if (n.champFin) m.set('champ_fin', n.champFin)
+    if (n.champsJalons?.length) m.set('champs_jalons', doc.createNode(n.champsJalons, { flow: true }))
+    if (n.filtres.length > 0) {
+      const f = doc.createNode(n.filtres.map(ecrireFiltre)) as YAMLSeq
+      for (const item of f.items) if (isMap(item)) item.flow = true
+      m.set('filtres', f)
+    }
+    if (n.deplier.length > 0) m.set('deplier', noeudNiveaux(doc, n.deplier))
+    seq.items.push(m)
+  }
+  return seq
 }
 
 function ecrireFiltre(f: Filtre) {

@@ -65,12 +65,13 @@ type Props = {
   vue: Vue
   modifierVue: (m: ModificationVue) => void
   appliquee: VueAppliquee
-  ouvrir: (ligne: LigneChargee) => void
+  /** Ouvre la page d'une ligne : de cette base, ou d'une autre (niveaux dépliés de la timeline). */
+  ouvrir: (base: string, id: string) => void
 }
 
 /** Le contenu d'une vue selon son type : tableau, kanban, collection, calendrier ou timeline (spec §7). */
 export function ContenuVue({ espace, base, depot, vue, modifierVue, appliquee, ouvrir }: Props) {
-  const communs = { espace, base, depot, lignesVue: appliquee.lignesVue, valeursCreation: appliquee.valeursCreation, retenir: appliquee.retenir, ouvrir }
+  const communs = { espace, base, depot, lignesVue: appliquee.lignesVue, valeursCreation: appliquee.valeursCreation, retenir: appliquee.retenir, ouvrir: (l: LigneChargee) => ouvrir(base, l.id) }
   switch (vue.type) {
     case 'tableau':
       return <Tableau key={vue.id} {...communs} reglages={{ vue, modifier: modifierVue }} tris={vue.tris} />
@@ -81,6 +82,6 @@ export function ContenuVue({ espace, base, depot, vue, modifierVue, appliquee, o
     case 'calendrier':
       return <Calendrier key={vue.id} {...communs} vue={vue} modifierVue={modifierVue} />
     case 'timeline':
-      return <Timeline key={vue.id} {...communs} vue={vue} modifierVue={modifierVue} />
+      return <Timeline key={vue.id} {...communs} vue={vue} modifierVue={modifierVue} ouvrirPage={ouvrir} />
   }
 }

@@ -323,6 +323,12 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 - **Collection** : cartes affichant les champs choisis et, en option, les premières lignes du corps.
 - **Calendrier** : champ date utilisé, champ de fin optionnel pour les plages, vue mois / semaine, champs affichés sous le titre, glisser-déposer pour changer la date (la ligne suit le pointeur et s'accroche au jour le plus proche au relâcher).
 - **Timeline** : champ de début, champ de fin, **champs jalons** (zéro ou plusieurs colonnes date affichées comme des points sur la ligne), zoom semaine / mois / trimestre, champs affichés sur la barre, groupement optionnel (repliable ; l'en-tête d'un groupe porte une barre calculée qui couvre ses lignes, non déplaçable), date exacte affichée pendant un glisser, redimensionnement et déplacement des barres à la souris (au pixel, accroché au jour au relâcher).
+- **Timeline en arbre** [DÉCIDÉ, validé par Alex le 25/09/2026] : sous chaque ligne, les lignes liées par les relations cochées dans « Options » (« Déplier par »), niveau par niveau (un projet, ses versions, leurs jalons). Plusieurs relations peuvent être cochées au même niveau.
+  - Chaque niveau a ses propres champs de début, de fin et de jalons (ceux de la base liée), et ses propres filtres. Les filtres de la vue ne portent que sur les lignes de premier niveau.
+  - Un niveau sans champ de fin s'affiche en losanges ◆ (un jalon est une date, pas une plage), qui se glissent comme une barre.
+  - Une ligne sans dates à elle porte une barre calculée qui couvre ses descendants (non déplaçable). Les lignes des niveaux inférieurs sont de vraies lignes de leur base : glisser et étirer écrivent dans leur fichier, un clic ouvre leur page.
+  - Une ligne liée à deux parents apparaît sous chacun. Une ligne déjà présente sur le chemin n'est pas redescendue (boucle de relations), et la profondeur est bornée à 5 niveaux.
+  - Tout est déplié par défaut ; ▸ / ▾ replie une ligne, et ce choix est gardé dans le navigateur (pas dans le dossier).
 - Calendrier et timeline : une ligne sans date n'apparaît pas au calendrier (compteur « sans date ») ; dans la timeline elle garde sa rangée, et un clic sur la rangée la place à cette date. Une fin absente ou antérieure au début donne une plage d'un jour. Déplacer ou étirer garde l'heure d'une date qui en a une. Les colonnes calculées (rollup de date) s'affichent mais ne se glissent pas.
 
 ### Exemple `_vues/planning.yaml`
@@ -336,6 +342,15 @@ champ_fin: echeance     # optionnel
 champs_jalons: [revue]  # timeline seulement
 champs_carte: [client]  # champs affichés, comme pour le kanban
 echelle: mois           # calendrier : mois | semaine ; timeline : semaine | mois | trimestre
+deplier:                # timeline seulement : relations dépliées sous chaque ligne
+  - relation: versions  # colonne relation de cette base
+    champ_debut: debut  # colonnes de la base liée
+    champ_fin: fin
+    filtres:
+      - { colonne: statut, operateur: different_de, valeur: Abandonnée }
+    deplier:
+      - relation: jalons
+        champ_debut: date # sans champ_fin : des losanges
 ```
 
 ### Exemple `_vues/kanban-statut.yaml`

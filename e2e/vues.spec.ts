@@ -115,6 +115,52 @@ test.describe('vues temporelles', () => {
   })
 })
 
+test.describe('timeline en arbre', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-09-25T10:00:00'))
+  })
+  const rangee = (page: Page, titre: string) => page.locator('.tl-ligne', { has: page.locator('.tl-titre', { hasText: titre }) })
+
+  test('les tâches se déplient sous leur projet, se replient, et se glissent comme une barre', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    await expect(page.locator('.tl-enfant', { hasText: 'Intégration' })).toBeVisible()
+    await expect(page.locator('.tl-enfant', { hasText: 'Maquettes' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Replier Site vitrine' }).click()
+    await expect(page.locator('.tl-enfant', { hasText: 'Intégration' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Déplier Site vitrine' }).click()
+
+    const semaines = page.locator('.tl-bas .tl-graduation')
+    const [a, b] = await Promise.all([semaines.nth(1).boundingBox(), semaines.nth(2).boundingBox()])
+    const avant = await espace.lire('taches/integration--tinte002.md')
+    await glisser(page, rangee(page, 'Intégration').locator('.tl-barre'), b!.x - a!.x)
+    await expect.poll(() => espace.lire('taches/integration--tinte002.md')).not.toBe(avant)
+  })
+
+  test('réglages d’un niveau : sans fin, des losanges ; ses filtres ne touchent que lui', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    await page.getByRole('button', { name: 'Options' }).click()
+    const reglages = page.locator('.reglages-niveau').first()
+    await reglages.getByRole('combobox').nth(1).selectOption('')
+    await expect(page.locator('.tl-enfant .tl-point').first()).toBeVisible()
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('    champ_fin')
+
+    await reglages.getByText('Filtrer les lignes de Tâches').click()
+    await reglages.getByRole('button', { name: 'Ajouter un filtre' }).click()
+    const ligne = reglages.locator('.ligne-filtre').first()
+    await ligne.locator('select').nth(1).selectOption('contient')
+    await ligne.locator('input').fill('mise')
+    await ligne.locator('input').press('Enter')
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.tl-enfant .tl-titre')).toHaveText(['Mise en ligne'])
+    // Les projets, eux, restent tous là.
+    await expect(page.locator('.tl-ligne:not(.tl-enfant) .tl-titre:not(.ajout-ligne)')).toHaveCount(4)
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).toContain('      - { colonne: titre, operateur: contient, valeur: mise }')
+  })
+})
+
 test.describe('dashboards et recherche', () => {
   test('nouveau dashboard : fichier créé, bloc ajouté depuis une vue de base', async ({ espace, page }) => {
     await page.getByRole('button', { name: 'Nouveau dashboard' }).click()

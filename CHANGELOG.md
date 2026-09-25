@@ -76,6 +76,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Logo « db » en mauve pastel (glyphes Geist Mono) : la flèche de Markdown prolonge la hampe du d. Icône d’onglet, icône iPhone et image de partage des liens.
 - Supprimer une base (bouton ⋯ ou clic droit dans la barre latérale, et outil de l'assistant) : confirmation qui montre ce qui est touché ; les relations vers elle deviennent du texte avec les titres liés, les blocs de dashboard qui l'affichaient sont retirés.
 - Tableau : pointillé qui défile autour de ce qui vient d'être copié, dès la copie (jusqu'à Échap), et reflet bref sur les cases touchées par un collage, une recopie, une action en lot, un Ctrl+Z ou l'assistant.
+- Timeline en arbre : dans « Options », « Déplier par » coche les relations dont les lignes liées s'affichent sous chaque ligne, niveau par niveau (un projet, ses versions, leurs jalons). Chaque niveau a ses dates et ses filtres ; sans fin, des losanges ; une ligne sans dates prend une barre qui couvre ses descendants. Vue « Feuille de route » dans la démo.
 
 ### Changed
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).

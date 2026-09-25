@@ -132,3 +132,42 @@ describe('réglages de la vue', () => {
     expect(vue?.retourLigne).toBeUndefined()
   })
 })
+
+describe('niveaux dépliés de la timeline', () => {
+  const NIVEAUX = [
+    {
+      relation: 'versions',
+      champDebut: 'debut',
+      champFin: 'fin',
+      filtres: [{ colonne: 'fait', operateur: 'egal' as const, valeur: false }],
+      deplier: [{ relation: 'jalons', champDebut: 'date', champsJalons: ['revue'], filtres: [], deplier: [] }],
+    },
+  ]
+
+  it('s’écrivent un niveau par bloc et se relisent à l’identique', () => {
+    const vue = lireVue('nom: Feuille de route\ntype: timeline\nchamp_debut: debut\n', 'feuille').vue!
+    const texte = modifierVue('nom: Feuille de route\ntype: timeline\nchamp_debut: debut\n', vue, { deplier: NIVEAUX })
+    expect(texte).toContain(
+      [
+        'deplier:',
+        '  - relation: versions',
+        '    champ_debut: debut',
+        '    champ_fin: fin',
+        '    filtres:',
+        '      - { colonne: fait, operateur: egal, valeur: false }',
+        '    deplier:',
+        '      - relation: jalons',
+        '        champ_debut: date',
+        '        champs_jalons: [ revue ]',
+      ].join('\n'),
+    )
+    expect(lireVue(texte, 'feuille').vue!.deplier).toEqual(NIVEAUX)
+    expect(modifierVue(texte, vue, { deplier: [] })).not.toContain('deplier')
+  })
+
+  it('un niveau sans relation est écarté avec un avertissement', () => {
+    const lu = lireVue('type: timeline\ndeplier:\n  - { champ_debut: debut }\n  - { relation: versions }\n', 'v')
+    expect(lu.vue!.deplier).toEqual([{ relation: 'versions', filtres: [], deplier: [] }])
+    expect(lu.avertissements).toEqual(['Vue v : niveau déplié ignoré (relation manquante)'])
+  })
+})

@@ -71,7 +71,7 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
           vue={vue}
           modifierVue={reglages.modifier}
           appliquee={appliquee}
-          ouvrir={(l) => ouvrir(etat.id, l.id)}
+          ouvrir={ouvrir}
         />
       </div>
       {page && (

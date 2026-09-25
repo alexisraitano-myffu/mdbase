@@ -641,6 +641,20 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
 .tl-groupe .tl-titre:hover .ajout-groupe { visibility: visible; }
 .tl-enveloppe { position: absolute; top: 14px; height: 8px; border-radius: 4px; background: var(--gris-moyen); }
 
+/* Timeline en arbre : niveaux dépliés par relation */
+.reglages-niveau { margin: 0 0 6px 11px; padding: 2px 0 2px 12px; border-left: 2px solid var(--bordure); }
+.titre-niveau { font-size: 0.85em; color: var(--discret); margin: 6px 0 2px; }
+.aide-reglage { font-size: 0.85em; margin-bottom: 4px; }
+.filtres-niveau summary { cursor: pointer; font-size: 0.9em; color: var(--texte-doux); padding: 3px 0; }
+.filtres-niveau[open] summary { margin-bottom: 4px; }
+.tl-deplier { position: absolute; top: 9px; width: 18px; height: 18px; padding: 0; border: none; background: none; display: flex; align-items: center; justify-content: center; }
+.tl-deplier:hover { background: var(--survol); }
+.tl-enfant .tl-titre { color: var(--texte-doux); }
+.tl-etiquette { margin-left: 6px; font-size: 0.8em; }
+.tl-point.deplacable { cursor: grab; }
+.tl-point.glisse { z-index: 3; cursor: grabbing; }
+.tl-bulle-point { position: absolute; top: 12px; width: 0; pointer-events: none; }
+
 /* Éditeur de formules */
 .titre-panneau { font-weight: 600; padding: 4px 6px 6px; }
 .editeur-formule { width: 480px; max-width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 0 6px 6px; }

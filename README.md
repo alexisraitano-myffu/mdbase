@@ -17,7 +17,7 @@ Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules
 - **Bases et colonnes** : texte, nombre, date, case à cocher, choix simple ou multiple, lien, relation, rollup, formule. Création, renommage, réordonnancement et suppression depuis l'interface ; une base supprimée ne casse rien, les relations vers elle deviennent du texte.
 - **Relations** entre bases, toujours bidirectionnelles, et **rollups** (somme, moyenne, comptes, pourcentages, dates…), y compris des rollups de rollups.
 - **Formules** avec autocomplétion, erreurs en français et aperçu du résultat. Un interpréteur maison, qui n'exécute jamais de code venu des données.
-- **Vues** enregistrées : tableau (groupement, calculs en pied de colonne), kanban, collection, calendrier, timeline avec jalons. Filtres, tris et filtres rapides en pastilles.
+- **Vues** enregistrées : tableau (groupement, calculs en pied de colonne), kanban, collection, calendrier, timeline avec jalons, qui peut se déplier le long des relations (un projet, ses versions, leurs jalons). Filtres, tris et filtres rapides en pastilles.
 - **Pages** : chaque ligne s'ouvre en panneau ou en plein écran, avec ses propriétés, ses onglets de relations et un contenu en Markdown.
 - **Dashboards** qui rassemblent des vues de plusieurs bases, et une **recherche globale** (`Ctrl+K` ou `⌘K`).
 - **Import et export** : une vue en tableau Markdown, en CSV ou en image PNG (la timeline entière, par exemple) ; un CSV en nouvelle base ou en lignes ajoutées.

@@ -1,13 +1,14 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
-import { natureDe, type Schema } from '../core/schema'
+import { natureDe, type Colonne, type ColonneRelation, type Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
-import type { ModificationVue, Tri, TypeVue, Vue } from '../core/vue'
+import { PROFONDEUR_MAX, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
 import { MenuExporter } from './Echange'
 import { Flottant } from './flottant'
+import { useEspace } from './contexte-espace'
 import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
@@ -429,7 +430,139 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
             ))}
         </>
       )}
+      {timeline && (
+        <>
+          <div className="titre-section">Déplier par</div>
+          <div className="discret aide-reglage">Sous chaque ligne, les lignes liées par les relations cochées.</div>
+          <OptionsDeplier schema={schema} niveaux={vue.deplier ?? []} changer={(deplier) => modifier({ deplier })} profondeur={1} />
+        </>
+      )}
       <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre={timeline ? 'Champs sur la barre' : 'Champs affichés'} />
+    </div>
+  )
+}
+
+/** Premières dates d'un niveau coché : un début, et une fin si une colonne s'y prête par son nom. */
+function niveauParDefaut(relation: string, schema: Schema): Niveau {
+  const dates = colonnesDates(schema)
+  const estFin = (c: Colonne) => /fin|[ée]ch[ée]ance|end|livraison/i.test(`${c.cle} ${c.nom}`)
+  const debut = dates.find((c) => !estFin(c)) ?? dates[0]
+  const fin = dates.find((c) => c !== debut && estFin(c))
+  return { relation, ...(debut && { champDebut: debut.cle }), ...(fin && { champFin: fin.cle }), filtres: [], deplier: [] }
+}
+
+/**
+ * Timeline : relations à déplier sous chaque ligne (spec §7). Une relation
+ * cochée ouvre ses réglages : dates de la base liée, filtres, niveau suivant.
+ * `retour` : la relation qui ramène au niveau parent, jamais proposée.
+ */
+function OptionsDeplier(p: { schema: Schema; niveaux: Niveau[]; changer: (n: Niveau[]) => void; retour?: string; profondeur: number }) {
+  const { etat } = useEspace()
+  const relations = p.schema.colonnes.filter((c): c is ColonneRelation => c.type === 'relation' && c.cle !== p.retour)
+  if (relations.length === 0) {
+    return p.profondeur === 1 ? <div className="discret">Aucune relation dans cette base.</div> : null
+  }
+  return (
+    <div className="options-deplier">
+      {p.profondeur > 1 && <div className="titre-niveau">Puis déplier par</div>}
+      {relations.map((c) => {
+        const niveau = p.niveaux.find((n) => n.relation === c.cle)
+        const cible = etat.bases.get(c.cible)?.depot?.schema
+        return (
+          <div key={c.cle}>
+            <label className="case-reglage">
+              <input
+                type="checkbox"
+                checked={niveau !== undefined}
+                disabled={!cible}
+                onChange={(e) =>
+                  p.changer(e.target.checked && cible ? [...p.niveaux, niveauParDefaut(c.cle, cible)] : p.niveaux.filter((n) => n.relation !== c.cle))
+                }
+              />
+              <Icone de={ICONES.relation} />
+              {c.nom}
+              {cible && cible.nom !== c.nom && <span className="discret">({cible.nom})</span>}
+            </label>
+            {niveau && cible && (
+              <ReglagesNiveau
+                schema={cible}
+                niveau={niveau}
+                changer={(m) => p.changer(p.niveaux.map((n) => (n === niveau ? { ...n, ...m } : n)))}
+                retour={c.inverse}
+                profondeur={p.profondeur}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partial<Niveau>) => void; retour: string; profondeur: number }) {
+  const { schema, niveau } = p
+  const dates = colonnesDates(schema)
+  const jalons = new Set(niveau.champsJalons ?? [])
+  const choisir = (valeur: string, vide: string, exclure?: string) => (
+    <>
+      <option value="">{vide}</option>
+      {dates
+        .filter((c) => c.cle !== exclure)
+        .map((c) => (
+          <option key={c.cle} value={c.cle}>
+            {c.nom}
+          </option>
+        ))}
+      {valeur && !dates.some((c) => c.cle === valeur) && <option value={valeur}>{valeur} (disparue)</option>}
+    </>
+  )
+  return (
+    <div className="reglages-niveau">
+      {dates.length === 0 ? (
+        <div className="discret">{schema.nom} n'a pas de colonne date : ses lignes s'affichent sans barre.</div>
+      ) : (
+        <>
+          <label className="case-reglage">
+            Début
+            <select value={niveau.champDebut ?? ''} onChange={(e) => p.changer({ champDebut: e.target.value || undefined })}>
+              {choisir(niveau.champDebut ?? '', 'aucune date')}
+            </select>
+          </label>
+          <label className="case-reglage">
+            Fin
+            <select value={niveau.champFin ?? ''} onChange={(e) => p.changer({ champFin: e.target.value || undefined })}>
+              {choisir(niveau.champFin ?? '', 'pas de fin (losanges)', niveau.champDebut)}
+            </select>
+          </label>
+          {dates
+            .filter((c) => c.cle !== niveau.champDebut && c.cle !== niveau.champFin)
+            .map((c) => (
+              <label key={c.cle} className="case-reglage">
+                <input
+                  type="checkbox"
+                  checked={jalons.has(c.cle)}
+                  onChange={(e) => {
+                    const suivants = new Set(jalons)
+                    if (e.target.checked) suivants.add(c.cle)
+                    else suivants.delete(c.cle)
+                    p.changer({ champsJalons: dates.map((x) => x.cle).filter((x) => suivants.has(x)) })
+                  }}
+                />
+                Jalon : {c.nom}
+              </label>
+            ))}
+        </>
+      )}
+      <details className="filtres-niveau" open={niveau.filtres.length > 0 || undefined}>
+        <summary>
+          Filtrer les lignes de {schema.nom}
+          {niveau.filtres.length > 0 && ` (${niveau.filtres.length})`}
+        </summary>
+        <EditeurFiltres schema={schema} filtres={niveau.filtres} changer={(filtres) => p.changer({ filtres })} />
+      </details>
+      {p.profondeur < PROFONDEUR_MAX && (
+        <OptionsDeplier schema={schema} niveaux={niveau.deplier} changer={(deplier) => p.changer({ deplier })} retour={p.retour} profondeur={p.profondeur + 1} />
+      )}
     </div>
   )
 }
