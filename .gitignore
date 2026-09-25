@@ -4,3 +4,7 @@ dist
 .DS_Store
 # Graphe de code local (graphify), régénéré à chaque commit
 graphify-out/
+
+# Skills tiers en essai (npx skills add emilkowalski/skill), locaux au projet
+.claude/skills/
+skills-lock.json
