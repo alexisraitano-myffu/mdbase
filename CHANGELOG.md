@@ -58,9 +58,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Supprimer une ligne (menu ⋯ de la page), avec la proposition de retirer aussi les liens qui pointaient vers elle ; sinon ils restent, affichés comme liens cassés.
 - « Retirer les liens cassés » dans le menu d'une colonne relation.
 - Tests de bout en bout (Playwright, `npm run test:e2e`) : l'app dans Chrome sans fenêtre sur une copie neuve de la démo ; premiers tests sur la robustesse synchro (relecture, ids en double, copies de conflit, suppression et liens cassés).
+- « Essayer avec la démo » sur l'accueil : la démo copiée dans le stockage du navigateur, sans rien installer ni choisir de dossier ; « Repartir d'une démo neuve » pour tout effacer.
+- Publication open source (licence MIT, README) et version en ligne sur GitHub Pages, déployée après typage, tests et tests de bout en bout sur le build.
 
 ### Changed
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
 ### Fixed
+- Une ligne créée par « + Nouvelle ligne » n'ouvrait pas toujours son titre en édition (la ligne s'affichait avant la demande d'édition).
 - Les menus flottants restent dans la fenêtre (les panneaux Filtrer / Trier débordaient à droite).
 - Les menus flottants (select, en-têtes) sont rendus hors du tableau : ils pouvaient apparaître décalés ou coupés dans les lignes.

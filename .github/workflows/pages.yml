@@ -1,0 +1,57 @@
+# Vérifie tout puis publie l'app sur GitHub Pages, à chaque push sur main.
+name: Tests et publication
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # Build tel que publié (sous-chemin du dépôt), puis tests de bout en bout sur ce build.
+      - run: npm run build
+        env:
+          BASE: /${{ github.event.repository.name }}/
+      - run: npx playwright install --with-deps chromium-headless-shell
+      - name: Tests de bout en bout sur le build
+        run: |
+          npx vite preview --base "/${{ github.event.repository.name }}/" --port 4173 --strictPort &
+          for i in $(seq 30); do curl -sf "$E2E_URL" > /dev/null && break; sleep 1; done
+          npm run test:e2e
+        env:
+          E2E_URL: http://localhost:4173/${{ github.event.repository.name }}/
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: dist
+
+  publier:
+    if: github.event_name != 'pull_request'
+    needs: verifier
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

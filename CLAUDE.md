@@ -12,10 +12,11 @@ npm test            # Vitest, une passe (tests du cœur, dans Node)
 npm run test:watch
 npm run test:e2e    # Playwright : l'interface dans Chrome sans fenêtre (e2e/), réutilise le `npm run dev` lancé
 npm run typecheck   # tsc -b sur les trois projets (core, app, test)
-npm run build       # typecheck + build statique dans dist/
+npm run build       # typecheck + build statique dans dist/ (BASE=/mdbase/ pour le sous-chemin de GitHub Pages)
+CAPTURES=1 npx playwright test captures   # refait les captures du README (docs/captures/)
 ```
 
-Pour tester à la main : `npm run dev`, puis ouvrir **une copie** de la démo (`cp -r exemples/espace-demo ~/mdbase-essai`). `exemples/espace-demo/` est une référence (Clients → Projets → Tâches, rollups de rollups) vérifiée par `src/exemples.test.ts` : ne pas y laisser de données d'essai.
+Pour tester à la main : `npm run dev`, puis « Essayer avec la démo » (copie dans le stockage du navigateur, OPFS) ou ouvrir **une copie** de la démo (`cp -r exemples/espace-demo ~/mdbase-essai`). `exemples/espace-demo/` est une référence (Clients → Projets → Tâches, rollups de rollups) vérifiée par `src/exemples.test.ts` : ne pas y laisser de données d'essai.
 
 ## Architecture et conventions (refacti)
 
@@ -52,6 +53,7 @@ src/
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
+                 + démo sans installation (demo.ts : la démo copiée dans l'OPFS)
     navigateur.ts  services injectés dans le cœur (aléatoire, minuteur)
   ui/            React
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
@@ -82,6 +84,7 @@ Trois projets TypeScript (`tsconfig.core.json`, `tsconfig.app.json`, `tsconfig.t
 - **Règle stricte : aucune fonctionnalité sans test.** Unitaire par défaut ; les 9 invariants de la spec (§13) deviennent des tests dès qu'ils sont atteignables, et ne se retirent jamais.
 - Chemins critiques (perte de données : écriture, réécriture préservant les champs inconnus, suppressions, renommages) : `npm test` avant tout commit qui les touche.
 - Bout en bout : Playwright dans `e2e/` (`*.spec.ts`, hors Vitest). La fixture `e2e/espace.ts` ouvre une copie neuve de la démo par test : `showDirectoryPicker` y est remplacé par un dossier OPFS (même API de fichiers, sans sélecteur à cliquer), et `espace.ecrire/lire/supprimer` simulent les changements faits ailleurs. Toute erreur de console fait échouer le test. `@playwright/test` est figé sur la version dont le navigateur est déjà en cache (pas de téléchargement) ; le monter implique `npx playwright install chromium-headless-shell`.
+- `E2E_URL` vise une autre adresse que le serveur de dev : la CI joue les e2e sur le build publié (`vite preview` sous `/mdbase/`). Les tests naviguent en relatif (`page.goto('./')`) pour supporter ce sous-chemin.
 - Une fonctionnalité d'interface livrée reçoit son test de bout en bout ; la validation d'Alexis dans Chrome reste le dernier mot sur le ressenti.
 
 ## Jalons
@@ -117,6 +120,10 @@ Rules:
 **Cadence : en fin de session, pas à chaque commit.** Mettre à jour à la fin d'une session de travail, ou dès qu'un gros lot de changements s'est accumulé ; Claude le propose quand il voit que beaucoup a changé depuis la dernière mise à jour. L'entrée décrit ce qui est désormais sur `main`.
 
 Changelog = `CHANGELOG.md` (Keep a Changelog), entrées sous `[Unreleased]`. Pas de projet Linear pour l'instant : relancer `/init-repo` une fois créé pour basculer.
+
+## Publication
+
+Dépôt public `alexisraitano-myffu/mdbase` (licence MIT). `.github/workflows/pages.yml` : à chaque push sur `main`, typage, tests, build sous `/mdbase/`, e2e sur ce build, puis publication sur GitHub Pages (https://alexisraitano-myffu.github.io/mdbase/). Dépôt public : aucun identifiant de ticket Linear ni donnée personnelle dans le code, les fichiers ou les messages de commit. `graphify-out/` reste local (ignoré par git).
 
 ## Environnement
 
