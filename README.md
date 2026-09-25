@@ -1,3 +1,5 @@
+<img src="public/logo.svg" alt="" width="120">
+
 # mdbase
 
 **Des bases de données comme dans Notion, rangées dans un dossier de fichiers Markdown que tu gardes.**

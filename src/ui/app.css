@@ -910,3 +910,4 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .memoire-ia h3 { font-size: 0.9rem; margin: 0 0 0.25rem; }
 .memoire-ia ul { list-style: none; margin: 0; padding: 0; }
 .memoire-ia li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.9em; padding: 2px 0; }
+.titre-accueil { display: flex; align-items: center; gap: 12px; }

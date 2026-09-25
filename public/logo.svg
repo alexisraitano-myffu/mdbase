@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 208 128" fill="none" stroke="#0e8a6a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+  <title>mdbase</title>
+  <!-- La marque Markdown (cadre, M, flèche vers le bas) : la flèche est la hampe du d de « db ». -->
+  <rect x="5" y="5" width="198" height="118" rx="20"/>
+  <g transform="translate(2 1)"><path d="M30 84V32l22 27 22-27v52"/><circle cx="109" cy="67" r="17"/><path d="M126 18v88M116 96l10 10 10-10"/><path d="M144 18v66"/><circle cx="161" cy="67" r="17"/></g>
+</svg>

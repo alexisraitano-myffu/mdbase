@@ -113,9 +113,12 @@ export function App() {
       )}
       {(etat.type === 'aucun' || etat.type === 'permission') && (
         <>
-          <h1>mdbase</h1>
+          <h1 className="titre-accueil">
+            <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width={52} height={32} />
+            mdbase
+          </h1>
           <p>
-            Des bases de données comme dans Notion, rangées dans un dossier de fichiers Markdown que tu gardes. Rien n'est envoyé nulle part.
+            Des bases de données comme dans Notion, rangées dans un dossier de fichiers Markdown que tu gardes. Rien n'est envoyé nulle part, sauf si tu actives l'assistant IA.
           </p>
           <div className="choix-accueil">
             {etat.type === 'permission' && (
