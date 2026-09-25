@@ -197,6 +197,46 @@ test.describe('dashboards et recherche', () => {
     await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toContain('filtres_rapides:\n  - { base: projets, valeur: [ psite001 ] }\n')
   })
 
+  test('consultation : lecture seule, seuls les onglets et les filtres rapides restent ; Ctrl+E revient en édition', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.getByRole('button', { name: 'Passer en consultation (Ctrl+E)' }).click()
+    expect(await page.evaluate(() => localStorage.getItem('mdbase.mode'))).toBe('consultation')
+
+    // Plus d'outils : ni Filtrer, ni nouvelle ligne, ni vue, ni colonne, ni assistant.
+    for (const nom of ['Filtrer', 'Options', 'Nouvelle ligne', 'Nouvelle vue', 'Filtre rapide', 'Assistant IA', 'Nouvelle base']) {
+      await expect(page.getByRole('button', { name: nom })).toHaveCount(0)
+    }
+    await expect(page.locator('.gouttiere, .cellule-entete.ajout, .poignee-recopie')).toHaveCount(0)
+    // Une cellule ne s'ouvre plus au clic.
+    await page.locator('.rangee', { hasText: 'Site vitrine' }).locator('.cellule', { hasText: 'En cours' }).click()
+    await expect(page.locator('.flottant')).toHaveCount(0)
+
+    // Les filtres rapides restent utilisables.
+    await page.locator('.pilule', { hasText: 'Statut' }).click()
+    await page.locator('.choix-parmi label', { hasText: 'En cours' }).locator('input').check()
+    await expect(page.getByRole('button', { name: 'Retirer la pastille' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.rangee')).toHaveCount(2)
+    // Les onglets servent encore à changer de vue.
+    await page.locator('.onglet', { hasText: 'Par statut' }).click()
+    await expect(page.locator('.ajout-carte')).toHaveCount(0)
+
+    // Une page s'ouvre en lecture : titre en texte, sans menu.
+    await page.locator('.carte', { hasText: 'Site vitrine' }).click()
+    await expect(page.locator('h2.titre-page')).toHaveText('Site vitrine')
+    await expect(page.getByRole('button', { name: 'Actions de la ligne' })).toHaveCount(0)
+
+    // Le dashboard aussi : plus d'ajout de bloc.
+    await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
+    await expect(page.locator('.bloc-dashboard').first()).toBeVisible()
+    await expect(page.locator('.ajout-bloc, .deplacer-rangee')).toHaveCount(0)
+
+    await page.locator('body').press('Control+e')
+    await expect(page.getByRole('button', { name: 'Passer en consultation (Ctrl+E)' })).toBeVisible()
+    await expect(page.locator('.ajout-bloc').first()).toBeVisible()
+    expect(await page.evaluate(() => localStorage.getItem('mdbase.mode'))).toBe('edition')
+  })
+
   test('Ctrl+K : chercher dans le contenu des pages, Entrée ouvre la ligne', async ({ espace, page }) => {
     await page.keyboard.press('Control+k')
     await page.locator('.champ-recherche').fill('salon')

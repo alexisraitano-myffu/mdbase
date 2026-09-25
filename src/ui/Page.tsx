@@ -24,6 +24,7 @@ import { Flottant } from './flottant'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
 import { useLargeurPanneau } from './useLargeurPanneau'
+import { useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 
 type Props = {
@@ -60,6 +61,7 @@ export function Page(p: Props) {
   const ligne = brute && (calcule ? { ...brute, cellules: { ...brute.cellules, ...calcule } } : brute)
   const mep = eb?.pages.find((m) => m.id === idPage) ?? choisirMiseEnPage(eb?.pages ?? [])
   const [onglet, setOnglet] = useState(0)
+  const lecture = useConsultation()
 
   if (!eb || !depot || !ligne) {
     return (
@@ -77,8 +79,12 @@ export function Page(p: Props) {
   return (
     <Cadre pleinEcran={p.pleinEcran}>
       <EntetePage {...p}>
-        <MenuLigne base={p.base} ligne={ligne} fermerPage={p.fermer} />
-        <ReglagesPage base={p.base} schema={depot.schema} mep={mep} choisir={setIdPage} vue={p.vue} />
+        {!lecture && (
+          <>
+            <MenuLigne base={p.base} ligne={ligne} fermerPage={p.fermer} />
+            <ReglagesPage base={p.base} schema={depot.schema} mep={mep} choisir={setIdPage} vue={p.vue} />
+          </>
+        )}
       </EntetePage>
       <div className="contenu-page">
         <Titre depot={depot} ligne={ligne} />
@@ -99,7 +105,7 @@ export function Page(p: Props) {
           <OngletRelation key={actif.relation} base={p.base} schema={depot.schema} ligne={ligne} onglet={actif} ouvrir={p.ouvrir} />
         )}
         {/* Sans onglet dédié, le corps reste sous les onglets, quel que soit l'onglet actif. */}
-        {!corpsSeul && <Corps depot={depot} ligne={ligne} />}
+        {!corpsSeul && !(lecture && ligne.corps.trim() === '') && <Corps depot={depot} ligne={ligne} />}
       </div>
     </Cadre>
   )
@@ -191,6 +197,8 @@ function Titre({ depot, ligne }: { depot: DepotBase; ligne: LigneChargee }) {
   const cle = depot.schema.champTitre
   const c = ligne.cellules[cle]
   const valeur = c?.etat === 'ok' ? String(c.valeur) : ''
+  const lecture = useConsultation()
+  if (lecture) return <h2 className="titre-page">{valeur || 'Sans titre'}</h2>
   return (
     <input
       className="titre-page"
@@ -240,6 +248,7 @@ function Corps({ depot, ligne }: { depot: DepotBase; ligne: LigneChargee }) {
   // il garderait l'ancien texte et le réécrirait à la frappe suivante.
   const emis = useRef(ligne.corps)
   const [suivi, setSuivi] = useState({ corps: ligne.corps, version: 0 })
+  const lecture = useConsultation()
   if (ligne.corps !== suivi.corps) setSuivi({ corps: ligne.corps, version: suivi.version + (ligne.corps === emis.current ? 0 : 1) })
   return (
     <div className="corps-page">
@@ -247,6 +256,7 @@ function Corps({ depot, ligne }: { depot: DepotBase; ligne: LigneChargee }) {
         <EditeurCorps
           key={`${idLigne}:${suivi.version}`}
           initial={ligne.corps}
+          lecture={lecture}
           changer={(md) => {
             emis.current = md
             const actuelle = depot.lignes().find((l) => l.id === idLigne)

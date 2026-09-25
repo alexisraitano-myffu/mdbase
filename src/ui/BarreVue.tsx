@@ -13,6 +13,7 @@ import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
 import { Plus } from 'lucide-react'
+import { useConsultation } from './mode'
 
 type Props = {
   espace: DepotEspace
@@ -29,6 +30,8 @@ type Props = {
 export function BarreVue({ espace, base, schema, vues, vue, choisirVue, lignesVue }: Props) {
   const lancer = useLancer()
   const modifier = (m: Parameters<DepotEspace['modifierVue']>[2]) => void lancer(espace.modifierVue(base, vue.id, m))
+  // Consultation : les onglets servent à changer de vue, et seuls les filtres rapides restent.
+  const lecture = useConsultation()
 
   return (
     <div className="barre-vue">
@@ -39,6 +42,7 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue, lignesVu
             vue={v}
             active={v.id === vue.id}
             choisir={() => choisirVue(v.id)}
+            lecture={lecture}
             renommer={(nom) => void lancer(espace.modifierVue(base, v.id, { nom }))}
             supprimer={vues.length > 1 ? () => void lancer(espace.supprimerVue(base, v.id)) : undefined}
             deposer={(glissee) => {
@@ -49,10 +53,13 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue, lignesVu
             }}
           />
         ))}
-        <AjoutVue espace={espace} base={base} schema={schema} vues={vues} choisirVue={choisirVue} />
-
-        <OutilsVue schema={schema} vue={vue} modifier={modifier} />
-        <MenuExporter espace={espace} base={base} schema={schema} vue={vue} lignesVue={lignesVue} />
+        {!lecture && (
+          <>
+            <AjoutVue espace={espace} base={base} schema={schema} vues={vues} choisirVue={choisirVue} />
+            <OutilsVue schema={schema} vue={vue} modifier={modifier} />
+            <MenuExporter espace={espace} base={base} schema={schema} vue={vue} lignesVue={lignesVue} />
+          </>
+        )}
       </div>
 
       <Pastilles schema={schema} pastilles={vue.filtresRapides} changer={(filtresRapides) => modifier({ filtresRapides })} />
@@ -139,6 +146,7 @@ function Onglet(p: {
   vue: Vue
   active: boolean
   choisir: () => void
+  lecture: boolean
   renommer: (nom: string) => void
   supprimer?: (() => void) | undefined
   /** Une vue glissée est déposée sur cet onglet : elle prend sa place. */
@@ -148,6 +156,14 @@ function Onglet(p: {
   const [cible, setCible] = useState(false)
   const [menu, setMenu] = useState(false)
   const ancre = useRef<HTMLDivElement>(null)
+  if (p.lecture) {
+    return (
+      <div className={`onglet ${p.active ? 'actif' : ''}`} onClick={p.choisir}>
+        <Icone de={ICONES_VUES[p.vue.type]} />
+        {p.vue.nom}
+      </div>
+    )
+  }
   if (edition) {
     return (
       <input

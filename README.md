@@ -19,7 +19,8 @@ Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules
 - **Formules** avec autocomplétion, erreurs en français et aperçu du résultat. Un interpréteur maison, qui n'exécute jamais de code venu des données.
 - **Vues** enregistrées : tableau (groupement, calculs en pied de colonne), kanban, collection, calendrier, timeline avec jalons, qui peut se déplier le long des relations (un projet, ses versions, leurs jalons). Filtres, tris et filtres rapides en pastilles.
 - **Pages** : chaque ligne s'ouvre en panneau ou en plein écran, avec ses propriétés, ses onglets de relations et un contenu en Markdown.
-- **Dashboards** qui rassemblent des vues de plusieurs bases, et une **recherche globale** (`Ctrl+K` ou `⌘K`).
+- **Dashboards** qui rassemblent des vues de plusieurs bases, avec des filtres qui valent pour tous leurs blocs (un projet choisi filtre aussi ses tâches, par les relations), et une **recherche globale** (`Ctrl+K` ou `⌘K`).
+- **Mode consultation** (`Ctrl+E` ou `⌘E`, ou l'icône en haut à droite) : tout passe en lecture seule, il ne reste que tes données, les onglets de vues et les filtres rapides.
 - **Import et export** : une vue en tableau Markdown, en CSV ou en image PNG (la timeline entière, par exemple) ; un CSV en nouvelle base ou en lignes ajoutées.
 - **Tableau comme dans un tableur** : sélection de lignes pour agir en lot (modifier, dupliquer, supprimer), plage de cellules tracée à la souris, copier-coller avec Excel ou du Markdown (en remplaçant ou en lignes nouvelles), poignée pour recopier une valeur, et annuler / rétablir (`Ctrl+Z`, `Ctrl+Maj+Z`).
 - **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut. Tu lui demandes en français, il propose, tu confirmes :

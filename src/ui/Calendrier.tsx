@@ -29,6 +29,7 @@ import { glisser } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 type Props = {
   espace: DepotEspace
@@ -60,6 +61,7 @@ type EnCours = {
  * sa date, étirer son bord droit change sa fin.
  */
 export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, valeursCreation, retenir, ouvrir }: Props) {
+  const lecture = useConsultation()
   const lancer = useLancer()
   const aujourdhui = useAujourdhui()
   const [curseur, setCurseur] = useState(aujourdhui)
@@ -80,8 +82,8 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
 
   if (!colDebut) return <p className="discret">Choisis le champ de date du calendrier dans « Options ».</p>
 
-  const modifiable = estSaisie(colDebut)
-  const finModifiable = colFin !== undefined && estSaisie(colFin)
+  const modifiable = !lecture && estSaisie(colDebut)
+  const finModifiable = !lecture && colFin !== undefined && estSaisie(colFin)
   const semaines = semaine ? [Array.from({ length: 7 }, (_, i) => decaler(lundiDe(curseur), i))] : grilleMois(curseur)
   // Étirer : la barre suit jour par jour. Déplacer : elle reste en place, les jours d'arrivée s'éclairent.
   const glissee = enCours ? elements.find((e) => e.element.ligne.chemin === enCours.chemin) : undefined

@@ -7,6 +7,7 @@ import { Flottant } from './flottant'
 import { Ellipsis, Plus, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 type Props = {
   espace: DepotEspace
@@ -32,6 +33,8 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
   const choisie = selection?.type === 'base' ? selection.id : null
   const [cible, setCible] = useState<string | null>(null)
   const [importCsv, setImport] = useState(false)
+  // Consultation : on navigue, on cherche, rien ne se crée ni ne se range.
+  const lecture = useConsultation()
 
   const nomBase = (id: string) => {
     const c = etat.bases.get(id)?.chargement
@@ -41,6 +44,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
   /** Zone de dépôt : un groupe (null = hors groupe), à une position donnée. */
   const deposable = (cleCible: string, groupe: string | null, index?: number) => ({
     onDragOver: (e: DragEvent) => {
+      if (lecture) return
       e.preventDefault()
       e.stopPropagation()
       setCible(cleCible)
@@ -82,18 +86,22 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         Rechercher
         <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘K' : 'Ctrl+K'}</kbd>
       </button>
-      <button className="discret bouton-recherche" onClick={assistant}>
-        <Icone de={Sparkles} />
-        Assistant IA
-        <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘J' : 'Ctrl+J'}</kbd>
-      </button>
+      {!lecture && (
+        <button className="discret bouton-recherche" onClick={assistant}>
+          <Icone de={Sparkles} />
+          Assistant IA
+          <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘J' : 'Ctrl+J'}</kbd>
+        </button>
+      )}
 
       <section className="groupe dashboards">
         <div className="titre-groupe">
           <span>Dashboards</span>
-          <button className="discret menu-groupe" onClick={() => setCreation('dashboard')} aria-label="Nouveau dashboard" title="Nouveau dashboard">
-            <Icone de={Plus} />
-          </button>
+          {!lecture && (
+            <button className="discret menu-groupe" onClick={() => setCreation('dashboard')} aria-label="Nouveau dashboard" title="Nouveau dashboard">
+              <Icone de={Plus} />
+            </button>
+          )}
         </div>
         {etat.dashboards.map((d) => (
           <EntreeDashboard
@@ -126,12 +134,12 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
             supprimer={() => void lancer(espace.supprimerGroupe(g.nom))}
           />
           {entrees(g.bases, g.nom)}
-          {g.bases.length === 0 && <div className="vide">Glisse une base ici</div>}
+          {g.bases.length === 0 && !lecture && <div className="vide">Glisse une base ici</div>}
         </section>
       ))}
 
       <section className={`groupe ${cible === 'hors' ? 'cible' : ''}`} {...deposable('hors', null)}>
-        {etat.groupes.length > 0 && <div className="titre-groupe discret">Hors groupe</div>}
+        {etat.groupes.length > 0 && !(lecture && etat.horsGroupe.length === 0) && <div className="titre-groupe discret">Hors groupe</div>}
         {entrees(etat.horsGroupe, null)}
       </section>
 
@@ -147,17 +155,19 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
           annuler={() => setCreation(null)}
         />
       ) : (
-        <>
-          <button className="discret ajout-barre" onClick={() => setCreation('base')}>
-            <Icone de={Plus} /> Nouvelle base
-          </button>
-          <button className="discret ajout-barre" onClick={() => setCreation('groupe')}>
-            <Icone de={Plus} /> Nouveau groupe
-          </button>
-          <button className="discret ajout-barre" onClick={() => setImport(true)}>
-            <Icone de={Upload} /> Importer un CSV
-          </button>
-        </>
+        !lecture && (
+          <>
+            <button className="discret ajout-barre" onClick={() => setCreation('base')}>
+              <Icone de={Plus} /> Nouvelle base
+            </button>
+            <button className="discret ajout-barre" onClick={() => setCreation('groupe')}>
+              <Icone de={Plus} /> Nouveau groupe
+            </button>
+            <button className="discret ajout-barre" onClick={() => setImport(true)}>
+              <Icone de={Upload} /> Importer un CSV
+            </button>
+          </>
+        )
       )}
 
       <AlerteCopies espace={espace} copies={etat.copiesConflit} />
@@ -194,6 +204,14 @@ function EntreeBase(p: {
   const [edition, setEdition] = useState(false)
   const [menu, setMenu] = useState<'options' | PorteeSuppressionBase | null>(null)
   const ancre = useRef<HTMLDivElement>(null)
+  const lecture = useConsultation()
+  if (lecture) {
+    return (
+      <div className={`entree-base ${p.active ? 'active' : ''}`} onClick={p.choisir}>
+        <span className="nom-entree">{p.nom}</span>
+      </div>
+    )
+  }
   if (edition) {
     return (
       <ChampEnLigne
@@ -291,6 +309,15 @@ function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void;
   const [edition, setEdition] = useState(false)
   const [menu, setMenu] = useState<'options' | 'confirmer' | null>(null)
   const ancre = useRef<HTMLDivElement>(null)
+  const lecture = useConsultation()
+  if (lecture) {
+    return (
+      <div className={`entree-base ${p.active ? 'active' : ''}`} onClick={p.choisir}>
+        <Icone de={Table2} />
+        <span className="nom-entree">{p.nom}</span>
+      </div>
+    )
+  }
   if (edition) {
     return (
       <ChampEnLigne
@@ -351,6 +378,14 @@ function EnteteGroupe(p: { nom: string; renommer: (nom: string) => void; supprim
   const [edition, setEdition] = useState(false)
   const [menu, setMenu] = useState(false)
   const ancre = useRef<HTMLButtonElement>(null)
+  const lecture = useConsultation()
+  if (lecture) {
+    return (
+      <div className="titre-groupe">
+        <span>{p.nom}</span>
+      </div>
+    )
+  }
   if (edition) {
     return (
       <ChampEnLigne

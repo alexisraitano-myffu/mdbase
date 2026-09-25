@@ -31,6 +31,7 @@ import { glisser } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 type Props = {
   espace: DepotEspace
@@ -142,6 +143,7 @@ function useReplis(cle: string): [ReadonlySet<string>, (c: string) => void] {
  * ligne, les relations cochées se déplient niveau par niveau.
  */
 export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, valeursCreation, retenir, ouvrir, ouvrirPage }: Props) {
+  const lecture = useConsultation()
   const lancer = useLancer()
   const aujourdhui = useAujourdhui()
   const [enCours, setEnCours] = useState<EnCours | null>(null)
@@ -251,7 +253,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
       }
       return [el, ...(replie ? [] : deroule(enfants, groupe, deplier?.length ?? 0))]
     }
-    if (!colGroupe) return [...rangees.flatMap((r) => premierNiveau(r)), { type: 'ajout' }]
+    const ajout: Element[] = lecture ? [] : [{ type: 'ajout' }]
+    if (!colGroupe) return [...rangees.flatMap((r) => premierNiveau(r)), ...ajout]
     const parChemin = new Map(rangees.map((r) => [r.ligne.chemin, r]))
     const cible = colGroupe.type === 'relation' ? colGroupe.cible : null
     return [
@@ -261,9 +264,9 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
         const entete: Element = { type: 'groupe', groupe: g, plage: enveloppe(siennes.map((r) => r.plage)), replie }
         return replie ? [entete] : [entete, ...siennes.flatMap((rangee) => premierNiveau(rangee, g.cle))]
       }),
-      { type: 'ajout' },
+      ...ajout,
     ]
-  }, [rangees, lignesVue, colGroupe, replies, etat, arbres, rangeesNoeuds, lignesRepliees, base, axe, deplier])
+  }, [rangees, lignesVue, colGroupe, replies, etat, arbres, rangeesNoeuds, lignesRepliees, base, axe, deplier, lecture])
   const largeur = (ecartJours(e.debut, e.fin) + 1) * px
   const x = (jour: string) => ecartJours(e.debut, jour) * px
   const enArbre = (deplier?.length ?? 0) > 0
@@ -377,7 +380,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                       <Icone de={el.replie ? ChevronRight : ChevronDown} className="triangle" />
                       <span className="libelle-groupe">{g.libelle}</span>
                       <span className="discret compte-groupe">{g.lignes.length}</span>
-                      {g.cle !== CLE_VIDE && (
+                      {g.cle !== CLE_VIDE && !lecture && (
                         <button
                           className="discret ajout-groupe"
                           title="Nouvelle ligne dans ce groupe"
@@ -415,7 +418,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
               const { ligne, sortira } = r
               const geste = enCours?.chemin === ligne.chemin ? enCours : undefined
               const plage = r.plage
-              const modifiable = r.axe.debut !== undefined && estSaisie(r.axe.debut)
+              const modifiable = !lecture && r.axe.debut !== undefined && estSaisie(r.axe.debut)
               const titre = titreLigne(ligne, r.axe.schema.champTitre)
               const retrait = (el.groupe !== undefined ? 26 : 8) + el.profondeur * RETRAIT + (enArbre ? RETRAIT : 0)
               return (

@@ -9,6 +9,7 @@ import { useLancer } from './actions'
 import { Carte } from './Carte'
 import { Plus } from 'lucide-react'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 type Props = {
   espace: DepotEspace
@@ -24,6 +25,7 @@ type Props = {
 /** Collection (spec §7) : une carte par ligne, avec les champs choisis et, en option, le début du corps. */
 export function Collection({ espace, base, depot, vue, lignesVue, valeursCreation, retenir, ouvrir }: Props) {
   const lancer = useLancer()
+  const lecture = useConsultation()
   const champs = (vue.champsCarte ?? []).flatMap((c) => colonneDe(depot.schema, c) ?? [])
   const creer = async () => {
     const ligne = await lancer(espace.creerLigne(base, valeursCreation()))
@@ -45,9 +47,11 @@ export function Collection({ espace, base, depot, vue, lignesVue, valeursCreatio
           ouvrir={() => ouvrir(lv.ligne)}
         />
       ))}
-      <button className="carte carte-ajout discret" onClick={() => void creer()}>
-        <Icone de={Plus} /> Nouvelle
-      </button>
+      {!lecture && (
+        <button className="carte carte-ajout discret" onClick={() => void creer()}>
+          <Icone de={Plus} /> Nouvelle
+        </button>
+      )}
     </div>
   )
 }

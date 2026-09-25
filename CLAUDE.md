@@ -87,6 +87,7 @@ src/
 - Chemins : relatifs à la racine de l'espace, séparés par `/`, racine = `""`.
 - Icônes : Lucide uniquement, via `src/ui/icones.tsx` (`Icone`, `ICONES` par type de colonne, `ICONES_VUES`) ; plus de caractères Unicode comme icônes. Couleurs : variables CSS du `:root` de `app.css`, jamais de couleur en dur ailleurs.
 - Skills de design (emilkowalski/skill) installés **dans ce projet seulement** (`.claude/skills/`, ignoré par git) : en essai avant de les rendre globaux.
+- Mode consultation (`src/ui/mode.tsx`, `useConsultation()`) : lecture seule dans tout l'espace. Tout nouveau contrôle qui modifie quelque chose (bouton, menu, glisser, double-clic, raccourci) se masque ou se désactive quand il est vrai ; seuls les filtres rapides restent réglables.
 - Assistant IA : le modèle ne touche jamais aux fichiers. Il propose des appels d'outils que `ia/plan.ts` valide contre l'état de l'espace, et rien n'est écrit avant « Appliquer ». Toute nouvelle capacité passe par un outil validé de la même façon, jamais par du texte interprété.
 - Annulation : toute action qui touche plusieurs fichiers de données passe par `DepotEspace.enUneEtape` (un seul Ctrl+Z). Une nouvelle écriture de données doit passer par `DepotBase.modifier/creer/supprimer`, sinon elle échappe au journal.
 - Nommage en français, comme la spec et le format de fichiers (`lister`, `colonnes`, `champ_titre`).

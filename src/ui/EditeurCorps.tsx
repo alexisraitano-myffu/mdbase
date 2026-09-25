@@ -11,10 +11,13 @@ import { useEffect, useRef } from 'react'
  * jamais réécrire un fichier qu'on s'est contenté d'ouvrir, les changements ne
  * remontent qu'après une action de l'utilisateur dans l'éditeur.
  */
-export function EditeurCorps({ initial, changer }: { initial: string; changer: (markdown: string) => void }) {
+export function EditeurCorps({ initial, changer, lecture = false }: { initial: string; changer: (markdown: string) => void; lecture?: boolean }) {
   const racine = useRef<HTMLDivElement>(null)
   const changerCourant = useRef(changer)
   changerCourant.current = changer
+  const editeur = useRef<Crepe | null>(null)
+  const lectureCourante = useRef(lecture)
+  lectureCourante.current = lecture
 
   useEffect(() => {
     const el = racine.current!
@@ -45,8 +48,15 @@ export function EditeurCorps({ initial, changer }: { initial: string; changer: (
         if (touche && markdown !== precedent) changerCourant.current(markdown)
       }),
     )
-    const pret = crepe.create()
+    let monte = true
+    const pret = crepe.create().then(() => {
+      if (!monte) return
+      editeur.current = crepe
+      crepe.setReadonly(lectureCourante.current)
+    })
     return () => {
+      monte = false
+      editeur.current = null
       el.removeEventListener('keydown', marquer)
       el.removeEventListener('pointerdown', marquer)
       el.removeEventListener('paste', marquer)
@@ -55,6 +65,11 @@ export function EditeurCorps({ initial, changer }: { initial: string; changer: (
     }
     // `initial` volontairement lu une seule fois : le parent remonte l'éditeur à chaque changement de ligne.
   }, [])
+
+  // Mode consultation : le texte reste affiché, rien ne s'y tape.
+  useEffect(() => {
+    editeur.current?.setReadonly(lecture)
+  }, [lecture])
 
   return <div className="editeur-corps" ref={racine} />
 }

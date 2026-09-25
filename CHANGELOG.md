@@ -78,6 +78,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Tableau : pointillé qui défile autour de ce qui vient d'être copié, dès la copie (jusqu'à Échap), et reflet bref sur les cases touchées par un collage, une recopie, une action en lot, un Ctrl+Z ou l'assistant.
 - Timeline en arbre : dans « Options », « Déplier par » coche les relations dont les lignes liées s'affichent sous chaque ligne, niveau par niveau (un projet, ses versions, leurs jalons). Chaque niveau a ses dates et ses filtres ; sans fin, des losanges ; une ligne sans dates prend une barre qui couvre ses descendants. Vue « Feuille de route » dans la démo.
 - Dashboards : filtres et filtres rapides globaux, sur la base de son choix. Les blocs de cette base sont filtrés, ceux des autres bases suivent leurs relations (les tâches du projet choisi) ; une pastille « Projets » permet de cocher des projets.
+- Mode consultation : une icône en haut à droite (ou Ctrl+E) passe l'espace en lecture seule, épuré : ne restent que la navigation, les onglets de vues, les filtres rapides et les pages en lecture. Le mode est gardé par le navigateur.
 
 ### Changed
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).

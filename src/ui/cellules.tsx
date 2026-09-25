@@ -9,6 +9,7 @@ import { useLancer } from './actions'
 import { titreDe, useEspace } from './contexte-espace'
 import { Check, Plus, Square, SquareCheck } from 'lucide-react'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 type Props = {
   depot: DepotBase
@@ -28,6 +29,7 @@ type Props = {
 
 /** Une cellule du tableau : affichage, et édition au clic selon le type. */
 export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerOption, surModification, lot }: Props) {
+  const lecture = useConsultation()
   const [edition, setEdition] = useState(editionInitiale)
   // La ligne créée s'affiche avant que le tableau ne demande l'édition de son titre : on suit la demande.
   useEffect(() => {
@@ -40,6 +42,25 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
     surModification()
     if (enLot) enLot(colonne.cle, v)
     else depot.modifier(ligne.chemin, colonne.cle, v)
+  }
+
+  // Consultation : la valeur telle qu'elle s'affiche, sans rien qui s'ouvre au clic.
+  if (lecture && (colonne.type === 'relation' || estSaisie(colonne))) {
+    return (
+      <div className={`cellule lecture ${estTitre ? 'titre' : ''}`}>
+        {cellule?.etat === 'invalide' ? (
+          <Avertissement cellule={cellule} />
+        ) : colonne.type === 'checkbox' ? (
+          <Icone de={cellule?.valeur === true ? SquareCheck : Square} className={cellule?.valeur === true ? 'case-cochee' : 'case-vide'} taille={16} />
+        ) : cellule && colonne.type === 'url' ? (
+          <a href={String(cellule.valeur)} target="_blank" rel="noreferrer">
+            {String(cellule.valeur)}
+          </a>
+        ) : (
+          <ValeurCompacte base={depot.schema.id} ligne={ligne} colonne={colonne} />
+        )}
+      </div>
+    )
   }
 
   if (colonne.type === 'relation') {

@@ -11,6 +11,7 @@ import { PastilleFiltre } from './Pastilles'
 import { useAujourdhui } from './useAujourdhui'
 import { ChevronDown, Plus } from 'lucide-react'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 // Filtres globaux d'un dashboard (spec §10) : bouton « Filtrer » et pastilles
 // qui valent pour tous les blocs.
@@ -40,12 +41,15 @@ type Props = {
 export function FiltresDashboard({ dashboard: d, changerFiltres, changerPastilles }: Props) {
   const { etat } = useEspace()
   const nomBase = (id: string) => etat.bases.get(id)?.depot?.schema.nom ?? id
+  const lecture = useConsultation()
+  // Consultation sans pastille : rien à montrer, pas même une rangée vide.
+  if (lecture && d.filtresRapides.length === 0) return null
   const remplacer = (i: number, p: PastilleGlobale | null) =>
     changerPastilles(p === null ? d.filtresRapides.filter((_, j) => j !== i) : d.filtresRapides.map((x, j) => (j === i ? p : x)))
 
   return (
     <div className="filtres-dashboard">
-      <PanneauFiltres dashboard={d} changer={changerFiltres} />
+      {!lecture && <PanneauFiltres dashboard={d} changer={changerFiltres} />}
       <div className="filtres-rapides">
         {d.filtresRapides.map((p, i) => {
           const schema = etat.bases.get(p.base)?.depot?.schema
@@ -64,7 +68,7 @@ export function FiltresDashboard({ dashboard: d, changerFiltres, changerPastille
             />
           )
         })}
-        <AjoutPastille pastilles={d.filtresRapides} ajouter={(p) => changerPastilles([...d.filtresRapides, p])} />
+        {!lecture && <AjoutPastille pastilles={d.filtresRapides} ajouter={(p) => changerPastilles([...d.filtresRapides, p])} />}
       </div>
     </div>
   )
@@ -173,6 +177,7 @@ function PastilleLignes({ pastille, nom, changer }: { pastille: PastilleGlobale;
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
   const [recherche, setRecherche] = useState('')
+  const lecture = useConsultation()
   const choisies = Array.isArray(pastille.valeur) ? pastille.valeur.filter((x): x is string => typeof x === 'string') : []
   const titres = [...(etat.titres.get(pastille.base) ?? new Map<string, string>())]
   const normal = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -213,9 +218,11 @@ function PastilleLignes({ pastille, nom, changer }: { pastille: PastilleGlobale;
                   Effacer
                 </button>
               )}
-              <button className="discret danger-texte" onClick={() => changer(null)}>
-                Retirer la pastille
-              </button>
+              {!lecture && (
+                <button className="discret danger-texte" onClick={() => changer(null)}>
+                  Retirer la pastille
+                </button>
+              )}
             </div>
           </div>
         </Flottant>

@@ -20,6 +20,7 @@ import { RechercheGlobale } from './RechercheGlobale'
 import { Assistant, FenetreReglagesIA } from './Assistant'
 import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/ia/reglages'
 import { estChampDeSaisie } from './clavier'
+import { BasculeMode, ContexteMode, useModeMemorise } from './mode'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string }
 
@@ -212,8 +213,10 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
     }
   }, [rafraichir])
   const [pageDemandee, setPageDemandee] = useState<{ base: string; id: string; jeton: number } | null>(null)
+  const [consultation, basculerMode] = useModeMemorise()
 
-  // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11) ; Ctrl+J / ⌘J, l'assistant IA.
+  // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11) ; Ctrl+J / ⌘J, l'assistant IA
+  // (pas en consultation) ; Ctrl+E / ⌘E bascule entre consultation et édition, comme Obsidian.
   useEffect(() => {
     const clavier = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return
@@ -221,21 +224,28 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
       if (touche === 'k') {
         e.preventDefault()
         setRecherche(true)
-      } else if (touche === 'j') {
+      } else if (touche === 'j' && !consultation) {
         e.preventDefault()
         ouvrirAssistant()
+      } else if (touche === 'e' && !estChampDeSaisie(e.target)) {
+        e.preventDefault()
+        basculerMode()
       }
     }
     document.addEventListener('keydown', clavier)
     return () => document.removeEventListener('keydown', clavier)
-  }, [ouvrirAssistant])
+  }, [ouvrirAssistant, consultation, basculerMode])
+  // En consultation, l'assistant se referme : il n'a rien à y faire.
+  useEffect(() => {
+    if (consultation) setIa(null)
+  }, [consultation])
   // Ctrl+Z / ⌘Z annule la dernière modification des données, Ctrl+Maj+Z (ou Ctrl+Y) la rétablit.
   // Dans un champ en cours de saisie, c'est l'annulation native du champ qui joue.
   const [annonce, setAnnonce] = useState<string | null>(null)
   useEffect(() => {
     let minuterie: ReturnType<typeof setTimeout> | undefined
     const clavier = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || estChampDeSaisie(e.target)) return
+      if (consultation || !(e.metaKey || e.ctrlKey) || e.altKey || estChampDeSaisie(e.target)) return
       const touche = e.key.toLowerCase()
       const retablir = touche === 'y' || (touche === 'z' && e.shiftKey)
       if (touche !== 'z' && !retablir) return
@@ -251,7 +261,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
       document.removeEventListener('keydown', clavier)
       clearTimeout(minuterie)
     }
-  }, [espace, lancer])
+  }, [espace, lancer, consultation])
   const ouvrirResultat = (base: string, id: string) => {
     setSelection({ type: 'base', id: base })
     setPageDemandee((d) => ({ base, id, jeton: (d?.jeton ?? 0) + 1 }))
@@ -259,43 +269,46 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
 
   return (
     <ContexteEspace.Provider value={{ espace, etat }}>
-      <div className="espace">
-        <BarreLaterale
-          espace={espace}
-          etat={etat}
-          nomEspace={nom}
-          selection={selection}
-          choisir={choisir}
-          choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
-          changerDossier={changer}
-          chercher={() => setRecherche(true)}
-          assistant={ouvrirAssistant}
-          relire={rafraichir}
-          relu={relu}
-        />
-        <main className="contenu">
-          {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}
-          {!base && !dashboard && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
-          {base && !base.chargement.ok && (
-            <p className="erreur">
-              « {base.id} » n'est pas une base : {base.chargement.raison}
-            </p>
-          )}
-          {base?.chargement.ok && base.depot && (
-            <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} pageDemandee={pageDemandee?.base === base.id ? pageDemandee : null} />
-          )}
-        </main>
-      </div>
-      {ia === 'assistant' && (
-        <Assistant espace={espace} dossier={nom} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setIa('reglages')} fermer={() => setIa(null)} />
-      )}
-      {ia === 'reglages' && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
-      {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
-      {annonce && (
-        <div className="bandeau-info" role="status">
-          {annonce}
+      <ContexteMode.Provider value={consultation}>
+        <div className={`espace ${consultation ? 'consultation' : ''}`}>
+          <BarreLaterale
+            espace={espace}
+            etat={etat}
+            nomEspace={nom}
+            selection={selection}
+            choisir={choisir}
+            choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
+            changerDossier={changer}
+            chercher={() => setRecherche(true)}
+            assistant={ouvrirAssistant}
+            relire={rafraichir}
+            relu={relu}
+          />
+          <main className="contenu">
+            <BasculeMode consultation={consultation} basculer={basculerMode} />
+            {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}
+            {!base && !dashboard && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
+            {base && !base.chargement.ok && (
+              <p className="erreur">
+                « {base.id} » n'est pas une base : {base.chargement.raison}
+              </p>
+            )}
+            {base?.chargement.ok && base.depot && (
+              <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} pageDemandee={pageDemandee?.base === base.id ? pageDemandee : null} />
+            )}
+          </main>
         </div>
-      )}
+        {ia === 'assistant' && (
+          <Assistant espace={espace} dossier={nom} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setIa('reglages')} fermer={() => setIa(null)} />
+        )}
+        {ia === 'reglages' && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
+        {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
+        {annonce && (
+          <div className="bandeau-info" role="status">
+            {annonce}
+          </div>
+        )}
+      </ContexteMode.Provider>
     </ContexteEspace.Provider>
   )
 }

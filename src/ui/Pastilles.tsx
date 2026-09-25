@@ -7,6 +7,7 @@ import { titreDe, useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
 import { ChevronDown, Plus } from 'lucide-react'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 type Props = { schema: Schema; pastilles: FiltreRapide[]; changer: (p: FiltreRapide[]) => void }
 
@@ -17,6 +18,7 @@ type Props = { schema: Schema; pastilles: FiltreRapide[]; changer: (p: FiltreRap
 export function Pastilles({ schema, pastilles, changer }: Props) {
   const ancre = useRef<HTMLButtonElement>(null)
   const [choix, setChoix] = useState(false)
+  const lecture = useConsultation()
   const libres = colonnesFiltrables(schema).filter((c) => !pastilles.some((p) => p.colonne === c.cle))
   const remplacer = (i: number, p: FiltreRapide | null) =>
     changer(p === null ? pastilles.filter((_, j) => j !== i) : pastilles.map((x, j) => (j === i ? p : x)))
@@ -29,7 +31,7 @@ export function Pastilles({ schema, pastilles, changer }: Props) {
           <PastilleFiltre key={p.colonne} schema={schema} colonne={c} pastille={p} changer={(n) => remplacer(i, n)} />
         ) : null
       })}
-      {libres.length > 0 && (
+      {libres.length > 0 && !lecture && (
         <button ref={ancre} className="discret ajout-pastille" onClick={() => setChoix(true)}>
           <Icone de={Plus} /> Filtre rapide
         </button>
@@ -58,6 +60,7 @@ export function Pastilles({ schema, pastilles, changer }: Props) {
 export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: FiltreRapide; changer: (p: FiltreRapide | null) => void; libelle?: string }) {
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
+  const lecture = useConsultation()
   const { colonne, pastille } = p
   const operateur = pastille.operateur ?? operateurParDefaut(colonne)
   const actif = filtreDePastille(p.schema, pastille) !== null
@@ -101,9 +104,11 @@ export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: 
                   Effacer
                 </button>
               )}
-              <button className="discret danger-texte" onClick={() => p.changer(null)}>
-                Retirer la pastille
-              </button>
+              {!lecture && (
+                <button className="discret danger-texte" onClick={() => p.changer(null)}>
+                  Retirer la pastille
+                </button>
+              )}
             </div>
           </div>
         </Flottant>

@@ -16,6 +16,7 @@ import { Pastilles } from './Pastilles'
 import { FiltresDashboard, useRetenues } from './FiltresDashboard'
 import { filtrerBloc } from '../core/filtre-global'
 import { usePageOuverte } from './usePageOuverte'
+import { useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronRight, Ellipsis, Plus } from 'lucide-react'
 
 const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [] }
@@ -35,6 +36,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
   const lancer = useLancer()
   const { page, ouvrir, pleinEcran, basculerPleinEcran, fermer } = usePageOuverte(null)
   const [edition, setEdition] = useState(false)
+  const lecture = useConsultation()
   const d = etat.dashboard
   const modifier = (op: Parameters<DepotEspace['modifierDashboard']>[1]) => void lancer(espace.modifierDashboard(etat.id, op))
   const retenues = useRetenues(d ?? SANS_FILTRES)
@@ -68,7 +70,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
             }}
           />
         ) : (
-          <h1 onDoubleClick={() => setEdition(true)} title="Double-clic pour renommer">
+          <h1 onDoubleClick={() => !lecture && setEdition(true)} title={lecture ? undefined : 'Double-clic pour renommer'}>
             {d.nom}
           </h1>
         )}
@@ -103,25 +105,27 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
                 retirer={() => modifier({ type: 'retirer_bloc', place: { rangee: i, bloc: j } })}
               />
             ))}
-            {r.blocs.length < BLOCS_PAR_RANGEE && (
+            {r.blocs.length < BLOCS_PAR_RANGEE && !lecture && (
               <AjoutBloc idsPropres={idsPropres} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: i, bloc })} compact />
             )}
-            <div className="deplacer-rangee">
-              <button className="discret" disabled={i === 0} onClick={() => modifier({ type: 'deplacer_rangee', de: i, vers: i - 1 })} aria-label="Monter la rangée">
-                <Icone de={ArrowUp} />
-              </button>
-              <button
-                className="discret"
-                disabled={i === d.rangees.length - 1}
-                onClick={() => modifier({ type: 'deplacer_rangee', de: i, vers: i + 1 })}
-                aria-label="Descendre la rangée"
-              >
-                <Icone de={ArrowDown} />
-              </button>
-            </div>
+            {!lecture && (
+              <div className="deplacer-rangee">
+                <button className="discret" disabled={i === 0} onClick={() => modifier({ type: 'deplacer_rangee', de: i, vers: i - 1 })} aria-label="Monter la rangée">
+                  <Icone de={ArrowUp} />
+                </button>
+                <button
+                  className="discret"
+                  disabled={i === d.rangees.length - 1}
+                  onClick={() => modifier({ type: 'deplacer_rangee', de: i, vers: i + 1 })}
+                  aria-label="Descendre la rangée"
+                >
+                  <Icone de={ArrowDown} />
+                </button>
+              </div>
+            )}
           </div>
         ))}
-        <AjoutBloc idsPropres={idsPropres} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: null, bloc })} />
+        {!lecture && <AjoutBloc idsPropres={idsPropres} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: null, bloc })} />}
       </div>
       {page && (
         <Page
@@ -153,6 +157,7 @@ type PropsBloc = {
 /** Un bloc : sa base et sa vue doivent exister, sinon il le dit et peut être retiré. */
 function BlocDashboard(p: PropsBloc) {
   const { etat } = useEspace()
+  const lecture = useConsultation()
   const etatBase = etat.bases.get(p.bloc.base)
   const depot = etatBase?.depot
   const vue = estPropre(p.bloc) ? p.bloc.vue : etatBase?.vues.find((v) => v.id === p.bloc.vue)
@@ -162,7 +167,7 @@ function BlocDashboard(p: PropsBloc) {
         <p className="erreur">
           {!depot ? `Base « ${p.bloc.base} » introuvable` : `Vue « ${String(p.bloc.vue)} » introuvable dans ${depot.schema.nom}`}
         </p>
-        <button onClick={p.retirer}>Retirer le bloc</button>
+        {!lecture && <button onClick={p.retirer}>Retirer le bloc</button>}
       </section>
     )
   }
@@ -180,6 +185,7 @@ function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerAB
   const [menu, setMenu] = useState(false)
   const [renommage, setRenommage] = useState(false)
   const ancre = useRef<HTMLButtonElement>(null)
+  const lecture = useConsultation()
   const propre = estPropre(bloc)
   // Vue propre : écrite dans le dashboard. Référence : dans le fichier de la vue, partagé avec la base.
   const modifierVue = (m: ModificationVue) =>
@@ -209,24 +215,30 @@ function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerAB
             }}
           />
         ) : (
-          <span className="nom-vue-bloc" onDoubleClick={() => propre && setRenommage(true)} title={propre ? 'Double-clic pour renommer' : undefined}>
+          <span className="nom-vue-bloc" onDoubleClick={() => propre && !lecture && setRenommage(true)} title={propre && !lecture ? 'Double-clic pour renommer' : undefined}>
             {vue.nom}
           </span>
         )}
-        <span className={`etiquette-bloc ${propre ? 'propre' : ''}`} title={propre ? 'Vue écrite dans ce dashboard' : 'Vue de la base : la modifier ici la modifie aussi dans la base'}>
-          {propre ? 'vue propre' : 'vue de la base'}
-        </span>
+        {!lecture && (
+          <span className={`etiquette-bloc ${propre ? 'propre' : ''}`} title={propre ? 'Vue écrite dans ce dashboard' : 'Vue de la base : la modifier ici la modifie aussi dans la base'}>
+            {propre ? 'vue propre' : 'vue de la base'}
+          </span>
+        )}
         {libres.length > 0 && (
           <span className="discret non-filtre" title={`Ce bloc n'a pas de relation vers ${libres.join(', ')} : les filtres du dashboard sur cette base ne le touchent pas`}>
             non filtré par {libres.join(', ')}
           </span>
         )}
         <span className="espaceur" />
-        <OutilsVue schema={depot.schema} vue={vue} modifier={modifierVue} />
-        <button ref={ancre} className="discret" onClick={() => setMenu(true)} aria-label="Options du bloc">
-          <Icone de={Ellipsis} />
-        </button>
-        {menu && (
+        {!lecture && (
+          <>
+            <OutilsVue schema={depot.schema} vue={vue} modifier={modifierVue} />
+            <button ref={ancre} className="discret" onClick={() => setMenu(true)} aria-label="Options du bloc">
+              <Icone de={Ellipsis} />
+            </button>
+          </>
+        )}
+        {menu && !lecture && (
           <Flottant ancre={ancre.current} fermer={() => setMenu(false)}>
             <button className="option" onClick={() => (setMenu(false), allerABase(bloc.base))}>
               Ouvrir la base {depot.schema.nom}

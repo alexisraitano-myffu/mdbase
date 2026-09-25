@@ -27,6 +27,7 @@ import { AjoutColonne, MenuColonne } from './EnteteColonne'
 import { FenetreImport } from './Echange'
 import { Icone, ICONES } from './icones'
 import { PiedTableau } from './PiedTableau'
+import { useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 
 const HAUTEUR_LIGNE = 34
@@ -85,8 +86,10 @@ export function Tableau(p: Props) {
   const creerOption = async (cle: string, label: string) => (await espace.ajouterOption(base, cle, label)).label
   const defilement = useRef<HTMLDivElement>(null)
   const vue = reglages?.vue
+  // Consultation : rien ne se modifie, ni cellules, ni colonnes, ni lignes.
+  const lecture = useConsultation()
   // Sélection de lignes (vue principale seulement) : cases dans la gouttière, barre d'actions.
-  const selectionnable = !!reglages
+  const selectionnable = !!reglages && !lecture
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
   const ancreSelection = useRef<string | null>(null)
   const [confirmer, setConfirmer] = useState(false)
@@ -146,11 +149,11 @@ export function Tableau(p: Props) {
       return [
         { type: 'groupe', groupe: g, replie },
         ...g.lignes.map((lv): Element => ({ type: 'ligne', lv, groupe: g.cle })),
-        { type: 'ajout', groupe: g },
+        ...(lecture ? [] : [{ type: 'ajout', groupe: g } as Element]),
         ...(aDesCalculs ? [{ type: 'pied', groupe: g } as Element] : []),
       ]
     })
-  }, [lignesVue, colonneGroupe, replies, aDesCalculs, etat])
+  }, [lignesVue, colonneGroupe, replies, aDesCalculs, etat, lecture])
 
   const retourLigne = vue?.retourLigne === true
   const virtuel = useVirtualizer({
@@ -522,7 +525,7 @@ export function Tableau(p: Props) {
                 className={`cellule-entete ${survol === c.cle ? 'cible' : ''}`}
                 style={{ width: h.getSize() }}
                 onDragOver={(e) => {
-                  if (!reglages) return
+                  if (!reglages || lecture) return
                   e.preventDefault()
                   setSurvol(c.cle)
                 }}
@@ -534,23 +537,25 @@ export function Tableau(p: Props) {
               >
                 <span
                   className="libelle-entete"
-                  draggable={!!reglages}
+                  draggable={!!reglages && !lecture}
                   onDragStart={(e) => e.dataTransfer.setData('text/colonne', c.cle)}
-                  onClick={(e) => setMenu({ cle: c.cle, ancre: e.currentTarget.parentElement! })}
+                  onClick={(e) => !lecture && setMenu({ cle: c.cle, ancre: e.currentTarget.parentElement! })}
                 >
                   <Icone de={ICONES[c.type]} />
                   {c.nom}
                   {tri && <Icone de={tri.sens === 'asc' ? ArrowUp : ArrowDown} className="indicateur-tri" taille={13} />}
                 </span>
-                <div
-                  className={`poignee ${h.column.getIsResizing() ? 'active' : ''}`}
-                  onMouseDown={h.getResizeHandler()}
-                  onDoubleClick={() => h.column.resetSize()}
-                />
+                {!lecture && (
+                  <div
+                    className={`poignee ${h.column.getIsResizing() ? 'active' : ''}`}
+                    onMouseDown={h.getResizeHandler()}
+                    onDoubleClick={() => h.column.resetSize()}
+                  />
+                )}
               </div>
             )
           })}
-          <AjoutColonne espace={espace} base={base} />
+          {!lecture && <AjoutColonne espace={espace} base={base} />}
         </div>
         {menu && colonneDuSchema(depot.schema, menu.cle) && (
           <MenuColonne
@@ -646,7 +651,7 @@ export function Tableau(p: Props) {
                       surModification={() => retenir(ligne.id)}
                       lot={lot(ligne)}
                     />
-                    {recopiable(colonne) && (
+                    {!lecture && recopiable(colonne) && (
                       <span
                         className="poignee-recopie"
                         title="Tirer vers le haut ou le bas pour recopier cette valeur"
@@ -660,17 +665,17 @@ export function Tableau(p: Props) {
           })}
         </div>
 
-        {!colonneGroupe && (
+        {!colonneGroupe && !lecture && (
           <button className="nouvelle-ligne" onClick={() => void nouvelleLigne()}>
             <Icone de={Plus} /> Nouvelle ligne
           </button>
         )}
-        {reglages && (
+        {reglages && !(lecture && !aDesCalculs) && (
           <PiedTableau
             colonnes={tailles}
             lignes={lignes}
             calculs={calculs}
-            changer={(cle, calcul?: Calcul) => {
+            changer={lecture ? undefined : (cle, calcul?: Calcul) => {
               const suivants = { ...calculs }
               if (calcul) suivants[cle] = calcul
               else delete suivants[cle]

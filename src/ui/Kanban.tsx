@@ -24,6 +24,7 @@ import { Pastille } from './cellules'
 import { titreDe, useEspace } from './contexte-espace'
 import { Plus } from 'lucide-react'
 import { Icone } from './icones'
+import { useConsultation } from './mode'
 
 /** Colonnes qui peuvent porter les colonnes d'un kanban (spec §7). */
 export const TYPES_GROUPE_KANBAN: readonly Colonne['type'][] = ['select', 'checkbox', 'relation', 'multiselect']
@@ -47,6 +48,7 @@ type Position = { couloir: Groupe; groupe: Groupe }
  * d'une colonne crée une ligne qui en porte la valeur (§8).
  */
 export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, retenir, ouvrir }: Props) {
+  const lecture = useConsultation()
   const { etat } = useEspace()
   const lancer = useLancer()
   const schema = depot.schema
@@ -138,9 +140,9 @@ export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, r
                 const ids = idsParCouloir.get(couloir.cle)!
                 const lignes = groupe.lignes.filter((l) => ids.has(l.ligne.id))
                 return (
-                  <ColonneKanban key={groupe.cle} position={{ couloir, groupe }} creer={creer}>
+                  <ColonneKanban key={groupe.cle} position={{ couloir, groupe }} creer={lecture ? undefined : creer}>
                     {lignes.map((lv) => (
-                      <CarteGlissable key={lv.ligne.chemin} position={{ couloir, groupe }} ligne={lv.ligne}>
+                      <CarteGlissable key={lv.ligne.chemin} position={{ couloir, groupe }} ligne={lv.ligne} fixe={lecture}>
                         <Carte base={base} schema={schema} ligne={lv.ligne} champs={champs} sortira={lv.sortira} ouvrir={() => ouvrir(lv.ligne)} />
                       </CarteGlissable>
                     ))}
@@ -162,25 +164,30 @@ export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, r
   )
 }
 
-function ColonneKanban({ position, creer, children }: { position: Position; creer: (p: Position) => void; children: ReactNode }) {
+function ColonneKanban({ position, creer, children }: { position: Position; creer: ((p: Position) => void) | undefined; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: `${position.couloir.cle}|${position.groupe.cle}`, data: position })
   return (
     <div ref={setNodeRef} className={`kanban-colonne ${isOver ? 'cible' : ''}`}>
-      <button className="discret ajout-carte" onClick={() => creer(position)}>
-        <Icone de={Plus} /> Nouvelle
-      </button>
+      {creer && (
+        <button className="discret ajout-carte" onClick={() => creer(position)}>
+          <Icone de={Plus} /> Nouvelle
+        </button>
+      )}
       {children}
     </div>
   )
 }
 
-function CarteGlissable({ position, ligne, children }: { position: Position; ligne: LigneChargee; children: ReactNode }) {
+/** Carte qui se glisse d'une colonne à l'autre ; `fixe` en consultation. */
+function CarteGlissable({ position, ligne, fixe, children }: { position: Position; ligne: LigneChargee; fixe: boolean; children: ReactNode }) {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `${position.couloir.cle}|${position.groupe.cle}|${ligne.chemin}`,
     data: { ...position, ligne },
+    disabled: fixe,
   })
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'carte-fantome' : undefined}>
+    // Fixe : sans les attributs de dnd-kit, qui la marqueraient « désactivée » pour les lecteurs d'écran.
+    <div ref={setNodeRef} {...(!fixe && { ...listeners, ...attributes })} className={isDragging ? 'carte-fantome' : undefined}>
       {children}
     </div>
   )
