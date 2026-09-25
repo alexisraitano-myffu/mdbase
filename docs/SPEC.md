@@ -56,6 +56,10 @@ MonEspace/
   _espace.yaml
   _dashboards/
     pilotage.yaml
+  _assistant/            (module IA, §12 ; absent tant qu'il ne sert pas)
+    memoire.md
+    skills/
+      revue-du-lundi.md
   projets/
     _schema.yaml
     _vues/
@@ -77,6 +81,9 @@ Règles :
 - **Toutes les bases sont à plat** à la racine de l'espace. Les groupes n'existent que dans `_espace.yaml`. Déplacer une base d'un groupe à un autre ne déplace aucun fichier.
 - Tout fichier ou dossier préfixé par `_` est de la configuration.
 - **Un fichier par vue, un fichier par mise en page, un fichier par dashboard**, pour que deux modifications de configuration distinctes ne touchent jamais le même fichier.
+- `_assistant/` (module IA, §12) : jamais affiché comme une base.
+  - `memoire.md` : ce que l'assistant retient, un fait par ligne de liste (`- …`) ; le reste du fichier est préservé.
+  - `skills/<slug>.md` : une procédure nommée, frontmatter `nom` et `description`, corps en Markdown = les instructions.
 
 ### Identifiants
 - Chaque ligne, base, vue, mise en page, dashboard et colonne possède un identifiant stable.
@@ -496,6 +503,9 @@ Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, a
 - **Périmètre** : le modèle ne voit et ne modifie que l'espace ouvert. Il ne touche jamais aux fichiers : il propose des opérations typées (outils), que le cœur valide comme une saisie de l'interface (colonnes, types, options, lignes existantes).
 - **Aperçu obligatoire** : toute écriture proposée est montrée (lignes, colonnes, avant → après) et n'est appliquée qu'après confirmation. Une proposition invalide est refusée en entier, jamais appliquée à moitié.
 - Le cœur définit l'interface du modèle et les outils ; l'appel réseau vit dans un adaptateur.
+- **Conversation** : les derniers échanges sont renvoyés au modèle ; le fil est gardé dans le navigateur (brouillon, pas dans le dossier).
+- **Mémoire** (`_assistant/memoire.md`, §3) : le modèle retient un fait quand l'utilisateur le demande ou exprime une préférence durable ; écrit aussitôt, avec une mention « Retenu : … » annulable. Jamais une valeur de ligne.
+- **Skills** (`_assistant/skills/`, §3) : procédures nommées créées à la demande de l'utilisateur, avec confirmation comme une modification de données. Les skills et la mémoire sont envoyés au modèle avec la structure de l'espace, et l'avertissement d'activation le dit.
 
 ---
 
