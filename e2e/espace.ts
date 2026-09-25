@@ -62,7 +62,15 @@ function preparerPage(nomDossier: string) {
     },
     async lire(chemin) {
       const [ds, nom] = decouper(chemin)
-      return (await (await (await dossier(ds, false)).getFileHandle(nom)).getFile()).text()
+      // Un fichier que l'app est en train d'écrire est illisible un instant (NotReadableError) : on réessaie.
+      for (let essai = 0; ; essai++) {
+        try {
+          return await (await (await dossier(ds, false)).getFileHandle(nom)).getFile().then((f) => f.text())
+        } catch (e) {
+          if (!(e instanceof DOMException && e.name === 'NotReadableError') || essai >= 20) throw e
+          await new Promise((r) => setTimeout(r, 25))
+        }
+      }
     },
     async supprimer(chemin) {
       const [ds, nom] = decouper(chemin)

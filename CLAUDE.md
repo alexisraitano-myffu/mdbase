@@ -88,6 +88,7 @@ Trois projets TypeScript (`tsconfig.core.json`, `tsconfig.app.json`, `tsconfig.t
 - Chemins critiques (perte de données : écriture, réécriture préservant les champs inconnus, suppressions, renommages) : `npm test` avant tout commit qui les touche.
 - Bout en bout : Playwright dans `e2e/` (`*.spec.ts`, hors Vitest). La fixture `e2e/espace.ts` ouvre une copie neuve de la démo par test : `showDirectoryPicker` y est remplacé par un dossier OPFS (même API de fichiers, sans sélecteur à cliquer), et `espace.ecrire/lire/supprimer` simulent les changements faits ailleurs. Toute erreur de console fait échouer le test. `@playwright/test` est figé sur la version dont le navigateur est déjà en cache (pas de téléchargement) ; le monter implique `npx playwright install chromium-headless-shell`.
 - `E2E_URL` vise une autre adresse que le serveur de dev : la CI joue les e2e sur le build publié (`vite preview` sous `/mdbase/`). Les tests naviguent en relatif (`page.goto('./')`) pour supporter ce sous-chemin.
+- Fichiers e2e par domaine : `tableau` (édition, relations), `schema` (colonnes, filtres, formules), `vues` (pages, kanban, temps, dashboards, recherche, socle), `echange` (import/export), `synchro`, `accueil`. Vues temporelles : `page.clock.setFixedTime` avant d'ouvrir la base (la démo est datée de l'automne 2026).
 - Une fonctionnalité d'interface livrée reçoit son test de bout en bout ; la validation d'Alexis dans Chrome reste le dernier mot sur le ressenti.
 
 ## Jalons
