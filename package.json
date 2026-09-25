@@ -8,7 +8,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "banc": "vitest run --config vitest.banc.config.ts"
   },
   "license": "MIT",
   "description": "Bases de données façon Notion, stockées dans un dossier de fichiers Markdown + YAML.",

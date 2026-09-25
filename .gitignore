@@ -8,3 +8,6 @@ graphify-out/
 # Skills tiers en essai (npx skills add emilkowalski/skill), locaux au projet
 .claude/skills/
 skills-lock.json
+
+# Résultats du banc de l'assistant IA (npm run banc)
+banc/resultats/

@@ -5,5 +5,5 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["src/**/*.test.ts", "vite.config.ts"]
+  "include": ["src/**/*.test.ts", "banc/**/*.ts", "vite.config.ts", "vitest.banc.config.ts"]
 }
