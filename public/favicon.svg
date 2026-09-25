@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <title>mdbase</title>
   <rect width="128" height="128" rx="28" fill="#bca9dd"/>
-  <g fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" transform="translate(9 12) scale(0.72)"><path d="M18 130V98l16 18 16-18v32"/><path d="M84 16v61"/><circle cx="67" cy="62" r="17"/><path d="M84 93v35M72 116l12 12 12-12"/><path d="M110 58v72"/><circle cx="127" cy="113" r="17"/></g>
+  <g fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" transform="translate(-8 1) scale(0.8)"><path d="M36 130V107l11 13 11-13v23" stroke-width="9"/><path d="M84 28v58"/><circle cx="67" cy="74" r="17"/><path d="M84 104v24M75 119l9 9 9-9" stroke-width="9"/><path d="M110 58v72"/><circle cx="127" cy="113" r="17"/></g>
 </svg>
