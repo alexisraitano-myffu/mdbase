@@ -71,6 +71,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Copier-coller dans un tableau : les lignes sélectionnées se copient en tableau Markdown et HTML ; un tableau Markdown, CSV ou copié d'un tableur se colle avec un aperçu, en-têtes reconnus ou valeurs rangées dans l'ordre des colonnes affichées.
 - Plage de cellules tracée à la souris (ou Maj+clic), surlignée : la copier donne ses cases, Suppr les vide, coller un tableau dessus (ou dans une case en édition) remplace les valeurs après une confirmation qui dit ce qui sera écrasé.
 - Annuler / rétablir (Ctrl+Z, Ctrl+Maj+Z) sur les données : cellules, lignes créées ou supprimées, actions en lot, collages, plans de l'assistant.
+- Assistant IA : outils de structure (créer une base, ajouter, renommer ou supprimer des colonnes, créer, régler ou supprimer des vues avec filtres et tris, créer ou supprimer des dashboards), suppression de lignes et écriture du contenu des pages. Une colonne créée peut être remplie dans la même proposition ; les suppressions sont en rouge dans l'aperçu.
 - Recopie d'une cellule : sa poignée, tirée vers le haut ou le bas, donne sa valeur aux lignes survolées.
 - Logo « db » en mauve pastel (glyphes Geist Mono) : la flèche de Markdown prolonge la hampe du d. Icône d’onglet, icône iPhone et image de partage des liens.
 ### Changed

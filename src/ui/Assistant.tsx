@@ -4,6 +4,7 @@ import type { DepotEspace } from '../core/depot-espace'
 import { proposer, type Echange } from '../core/ia/assistant'
 import type { Assistant as MemoireEtSkills } from '../core/ia/memoire'
 import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../core/ia/plan'
+import { decrireAction } from '../core/ia/structure'
 import { listerModeles, modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
 import { enregistrerConversation, lireConversation, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
 import { aujourdhui } from '../adapters/navigateur'
@@ -335,10 +336,16 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
   }
   const total = r.plan?.operations.reduce((n, o) => n + o.lignes.length, 0) ?? 0
   const skills = r.plan?.skills ?? []
-  const quoi = [total > 0 ? pluriel(total, 'ligne') : '', skills.length > 0 ? pluriel(skills.length, 'skill') : ''].filter(Boolean).join(' et ')
+  const structure = (r.plan?.structure ?? []).map(decrireAction)
+  const suite = (r.plan?.suite ?? []).map(decrireAction)
+  const reglages = structure.length + suite.length
+  const quoi = [reglages > 0 ? pluriel(reglages, 'action') : '', total > 0 ? pluriel(total, 'ligne') : '', skills.length > 0 ? pluriel(skills.length, 'skill') : '']
+    .filter(Boolean)
+    .join(' et ')
   return (
     <div className="bulle-ia plan-ia">
       {r.message && <p className="reponse-ia">{r.message}</p>}
+      {structure.length > 0 && <ActionsIA titre="Structure" actions={structure} />}
       {r.plan ? (
         r.plan.operations.map((op, i) => (
           <section key={i} className="operation-ia">
@@ -362,6 +369,7 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
       ) : (
         <p className="reponse-ia discret">{r.resume}</p>
       )}
+      {suite.length > 0 && <ActionsIA titre="Ensuite" actions={suite} />}
       {skills.map((sk, i) => (
         <section key={`skill${i}`} className="operation-ia skill-ia">
           <h3>
@@ -388,6 +396,22 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
         {(r.statut === 'annule' || (r.statut === 'attente' && !r.plan)) && <span className="discret">Non appliqué</span>}
       </div>
     </div>
+  )
+}
+
+/** Actions de structure ou de suite du plan ; une suppression est signalée. */
+function ActionsIA({ titre, actions }: { titre: string; actions: { texte: string; danger: boolean }[] }) {
+  return (
+    <section className="operation-ia">
+      <h3>{titre}</h3>
+      <ul>
+        {actions.map((a, i) => (
+          <li key={i} className={a.danger ? 'danger-ia' : undefined}>
+            {a.texte}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

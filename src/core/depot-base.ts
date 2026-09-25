@@ -95,6 +95,7 @@ export class DepotBase {
   /** Modifie le corps Markdown : même regroupement des écritures que les cellules. */
   modifierCorps(chemin: string, corps: string): void {
     const entree = this.trouver(chemin)
+    this.options.journal({ type: 'corps', base: this.schema.id, id: entree.persistee.id, avant: entree.affichee.corps, apres: corps })
     entree.corpsEnAttente = corps
     entree.affichee = afficher(entree, this.schema)
     this.planifierEcriture(entree)

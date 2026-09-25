@@ -6,6 +6,8 @@ import type { Cellule } from '../valeurs'
 import { OPERATEURS } from '../vue'
 import type { Skill } from './memoire'
 import type { DefinitionOutil } from './modele'
+import { TYPES_COLONNE, TYPES_VUE } from './structure'
+import { CALCULS } from '../schema'
 
 // Ce que voit le modèle (spec §12, « Module IA ») : la consigne, les outils,
 // et une description compacte de l'espace ouvert. Rien d'autre ne quitte la machine.
@@ -24,6 +26,38 @@ const VALEURS = {
   type: 'object',
   description: 'clé de colonne → valeur ; null vide le champ',
   additionalProperties: true,
+}
+
+const COLONNE = {
+  type: 'object',
+  properties: {
+    nom: { type: 'string' },
+    type: { type: 'string', enum: [...TYPES_COLONNE] },
+    options: { type: 'array', items: { type: 'string' }, description: 'select / multiselect : libellés des options' },
+    cible: { type: 'string', description: 'relation : id de la base liée' },
+    relation: { type: 'string', description: 'rollup : clé de la colonne relation de cette base' },
+    champ: { type: 'string', description: 'rollup : clé de la colonne remontée depuis la base liée' },
+    calcul: { type: 'string', enum: [...CALCULS], description: 'rollup' },
+    expression: { type: 'string', description: 'formula : expression, colonnes en prop("cle")' },
+  },
+  required: ['nom', 'type'],
+}
+
+const REGLAGES_VUE = {
+  groupe: { type: ['string', 'null'], description: 'clé de la colonne de groupement (tableau, kanban) ; null le retire' },
+  filtres: { type: 'array', items: FILTRE, description: 'remplacent les filtres de la vue' },
+  tris: {
+    type: 'array',
+    items: { type: 'object', properties: { colonne: { type: 'string' }, sens: { type: 'string', enum: ['asc', 'desc'] } }, required: ['colonne'] },
+  },
+  colonnes_masquees: { type: 'array', items: { type: 'string' } },
+  champ_debut: { type: 'string', description: 'calendrier, timeline : colonne date' },
+  champ_fin: { type: 'string', description: 'calendrier, timeline : colonne date de fin (facultative)' },
+}
+
+const LIGNES_VISEES = {
+  lignes: { type: 'array', items: { type: 'string' }, description: 'ids des lignes' },
+  filtres: { type: 'array', items: FILTRE },
 }
 
 export const OUTILS: DefinitionOutil[] = [
@@ -53,6 +87,78 @@ export const OUTILS: DefinitionOutil[] = [
       },
       required: ['base', 'lignes'],
     },
+  },
+  {
+    nom: 'supprimer_lignes',
+    description: "Supprime des lignes (leurs fichiers). Désigne-les par ids ou par filtres. Seulement si l'utilisateur demande une suppression.",
+    parametres: { type: 'object', properties: { base: { type: 'string' }, ...LIGNES_VISEES }, required: ['base'] },
+  },
+  {
+    nom: 'ecrire_contenu',
+    description:
+      "Écrit le contenu (corps Markdown) de la page d'une ligne : ligne existante (id), ou ligne créée plus haut dans les mêmes appels (son titre). `mode` : remplacer (défaut) ou ajouter à la suite.",
+    parametres: {
+      type: 'object',
+      properties: { base: { type: 'string' }, ligne: { type: 'string' }, contenu: { type: 'string' }, mode: { type: 'string', enum: ['remplacer', 'ajouter'] } },
+      required: ['base', 'ligne', 'contenu'],
+    },
+  },
+  {
+    nom: 'creer_base',
+    description: 'Crée une base (sa colonne titre « Titre » est créée d’office), avec ses colonnes éventuelles.',
+    parametres: { type: 'object', properties: { nom: { type: 'string' }, colonnes: { type: 'array', items: COLONNE } }, required: ['nom'] },
+  },
+  {
+    nom: 'ajouter_colonnes',
+    description:
+      'Ajoute des colonnes à une base. Relation : `cible` (crée aussi la colonne miroir). Rollup : `relation`, `champ`, `calcul`. Formule : `expression`. Les appels suivants peuvent remplir une colonne créée : désigne-la par son nom.',
+    parametres: { type: 'object', properties: { base: { type: 'string' }, colonnes: { type: 'array', items: COLONNE } }, required: ['base', 'colonnes'] },
+  },
+  {
+    nom: 'renommer_colonne',
+    description: 'Renomme une colonne (sa clé ne change pas).',
+    parametres: { type: 'object', properties: { base: { type: 'string' }, colonne: { type: 'string' }, nom: { type: 'string' } }, required: ['base', 'colonne', 'nom'] },
+  },
+  {
+    nom: 'supprimer_colonne',
+    description: "Supprime une colonne et son contenu dans toutes les lignes. Seulement si l'utilisateur le demande.",
+    parametres: { type: 'object', properties: { base: { type: 'string' }, colonne: { type: 'string' } }, required: ['base', 'colonne'] },
+  },
+  {
+    nom: 'creer_vue',
+    description: 'Crée une vue dans une base : type, groupement, filtres, tris, colonnes masquées, colonne date (calendrier, timeline).',
+    parametres: {
+      type: 'object',
+      properties: { base: { type: 'string' }, nom: { type: 'string' }, type: { type: 'string', enum: [...TYPES_VUE] }, ...REGLAGES_VUE },
+      required: ['base', 'nom'],
+    },
+  },
+  {
+    nom: 'modifier_vue',
+    description: 'Modifie une vue existante (id ou nom) : nom, groupement, filtres, tris, colonnes masquées, colonnes date.',
+    parametres: { type: 'object', properties: { base: { type: 'string' }, vue: { type: 'string' }, nom: { type: 'string' }, ...REGLAGES_VUE }, required: ['base', 'vue'] },
+  },
+  {
+    nom: 'supprimer_vue',
+    description: "Supprime une vue (les lignes restent). Seulement si l'utilisateur le demande.",
+    parametres: { type: 'object', properties: { base: { type: 'string' }, vue: { type: 'string' } }, required: ['base', 'vue'] },
+  },
+  {
+    nom: 'creer_dashboard',
+    description: 'Crée un dashboard ; chaque bloc affiche une vue existante (ou créée plus haut) d’une base, un bloc par rangée.',
+    parametres: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string' },
+        blocs: { type: 'array', items: { type: 'object', properties: { base: { type: 'string' }, vue: { type: 'string' } }, required: ['base'] } },
+      },
+      required: ['nom'],
+    },
+  },
+  {
+    nom: 'supprimer_dashboard',
+    description: "Supprime un dashboard (id ou nom). Seulement si l'utilisateur le demande.",
+    parametres: { type: 'object', properties: { dashboard: { type: 'string' } }, required: ['dashboard'] },
   },
   {
     nom: 'retenir',
@@ -93,6 +199,8 @@ Règles :
 - Dates au format AAAA-MM-JJ. Nombres en chiffres. Case à cocher : true ou false. null vide un champ.
 - Les colonnes calculées sont en lecture seule.
 - Pour modifier toutes les lignes qui répondent à un critère, utilise \`filtres\` plutôt qu'une liste d'ids.
+- Structure : pour créer ou modifier des bases, colonnes, vues et dashboards, utilise leurs outils. Tu peux enchaîner dans les mêmes appels : créer une colonne puis la remplir (désigne-la par son nom), créer des lignes puis écrire le contenu de leurs pages.
+- Suppressions (lignes, colonnes, vues, dashboards) : seulement quand l'utilisateur les demande explicitement ; l'utilisateur confirme toujours avant qu'elles soient faites. Une base ne se supprime pas depuis l'assistant.
 - Si la demande est ambiguë ou impossible, appelle \`repondre\` avec une question courte, sans rien modifier.
 - Mémoire : quand l'utilisateur te demande de retenir quelque chose, ou exprime une préférence durable, appelle \`retenir\` (en plus des autres appels). \`oublier\` quand il le demande. Tiens compte de la section Mémoire.
 - Skills : si la demande correspond à un skill (par son nom ou sa description), suis ses instructions. N'appelle \`creer_skill\` que si l'utilisateur demande de créer ou modifier un skill.`
@@ -159,6 +267,11 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
   for (const { id, schema } of bases) {
     parties.push(`${id} « ${schema.nom} »`)
     for (const c of schema.colonnes) parties.push(`- ${c.cle} « ${c.nom} » : ${typeLisible(c)}${c.cle === schema.champTitre ? ' (titre de la ligne)' : ''}`)
+    const vues = etat.bases.get(id)?.vues ?? []
+    parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type})`).join(', ')}`)
+  }
+  if (etat.dashboards.length > 0) {
+    parties.push('', '## Dashboards', ...etat.dashboards.map((d) => `${d.id} « ${d.dashboard?.nom ?? d.id} »`))
   }
   // Mémoire et skills avant ce qui change à chaque demande : le début du message reste identique d'une demande à l'autre.
   if (o.memoire?.length) parties.push('', '## Mémoire', ...o.memoire.map((f) => `- ${f}`))

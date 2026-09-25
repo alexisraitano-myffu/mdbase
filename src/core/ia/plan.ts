@@ -1,20 +1,21 @@
 import type { LigneChargee } from '../base'
 import type { DepotEspace, EtatEspace } from '../depot-espace'
 import { lireDate } from '../echange'
-import { correspond, operateursPour, type Contexte } from '../filtres'
+import { correspond, type Contexte } from '../filtres'
 import type { Modifications } from '../ligne'
-import { estSaisie, estObjet, type Colonne, type Schema } from '../schema'
+import { estSaisie, estObjet, type Colonne } from '../schema'
 import { lireNombre, type Cellule, type Valeur } from '../valeurs'
-import type { Filtre, Operateur } from '../vue'
 import type { Assistant, Skill } from './memoire'
+import { appliquerStructure, appliquerSuite, Brouillon, Correspondances, decrireAction, validerStructure, type ActionStructure, type ActionSuite } from './structure'
+import { erreur, ErreurProposition, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne, type BaseOuverte } from './references'
 import type { AppelOutil } from './modele'
 
 // Validation des appels d'outils du modèle (spec §12, « Module IA ») : chaque
 // valeur passe les mêmes contrôles qu'une saisie dans l'interface. Un appel
 // invalide est refusé en entier ; rien n'est écrit avant la confirmation.
 
-/** Une proposition refusée ; le message est renvoyé au modèle, puis montré à l'utilisateur. */
-export class ErreurProposition extends Error {}
+export { ErreurProposition }
+
 
 export type Changement = { colonne: string; avant: string; apres: string }
 export type LignePlan = {
@@ -27,58 +28,27 @@ export type LignePlan = {
 export type Operation = { type: 'modifier' | 'creer'; base: string; nomBase: string; lignes: LignePlan[] }
 /** Skill proposé : écrit seulement après confirmation, comme une modification de données (spec §12). */
 export type SkillPropose = Skill & { remplace: boolean }
-export type Plan = { operations: Operation[]; skills?: SkillPropose[] }
+export type Plan = {
+  /** Bases, colonnes, vues, dashboards : appliqués d'abord, dans l'ordre des appels. */
+  structure?: ActionStructure[]
+  operations: Operation[]
+  /** Suppressions de lignes et contenu des pages : appliqués après les données. */
+  suite?: ActionSuite[]
+  skills?: SkillPropose[]
+}
 
 /** Retenir ou oublier : écrit aussitôt, avec une mention annulable (spec §12). */
 export type ActionMemoire = { type: 'retenir' | 'oublier'; fait: string }
 
 export type AppelValide =
   | { type: 'operation'; operation: Operation }
+  | { type: 'structure'; actions: ActionStructure[] }
+  | { type: 'suite'; action: ActionSuite }
   | { type: 'reponse'; texte: string }
   | { type: 'memoire'; action: ActionMemoire }
   | { type: 'skill'; skill: SkillPropose }
 
-const normaliser = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
-const erreur = (message: string): never => {
-  throw new ErreurProposition(message)
-}
 
-type BaseOuverte = { id: string; schema: Schema; lignes: LigneChargee[] }
-
-/** Base désignée par son id, ou à défaut par son nom. */
-function trouverBase(etat: EtatEspace, ref: unknown): BaseOuverte {
-  if (typeof ref !== 'string') return erreur('`base` manquante')
-  const bases = [...etat.bases.values()]
-  const b = bases.find((x) => x.id === ref) ?? bases.find((x) => x.depot && normaliser(x.depot.schema.nom) === normaliser(ref))
-  if (!b?.depot) return erreur(`base inconnue : « ${ref} » (bases : ${bases.map((x) => x.id).join(', ')})`)
-  // Lignes avec leurs colonnes calculées, comme dans les vues : les filtres portent aussi sur elles.
-  const calculs = etat.calculs.get(b.id)
-  const lignes = b.depot.lignes().map((l) => {
-    const c = calculs?.get(l.id)
-    return c ? { ...l, cellules: { ...l.cellules, ...c } } : l
-  })
-  return { id: b.id, schema: b.depot.schema, lignes }
-}
-
-function trouverColonne(schema: Schema, ref: unknown): Colonne {
-  if (typeof ref !== 'string') return erreur('colonne manquante')
-  const c = schema.colonnes.find((x) => x.cle === ref) ?? schema.colonnes.find((x) => normaliser(x.nom) === normaliser(ref))
-  return c ?? erreur(`colonne inconnue dans ${schema.id} : « ${ref} » (colonnes : ${schema.colonnes.map((x) => x.cle).join(', ')})`)
-}
-
-function titreDe(etat: EtatEspace, base: string, id: string): string {
-  return etat.titres.get(base)?.get(id) || 'Sans titre'
-}
-
-/** Ligne désignée par son id, ou à défaut par un titre qui ne désigne qu'elle. */
-function trouverLigne(etat: EtatEspace, base: string, ref: unknown): string {
-  if (typeof ref !== 'string') return erreur('id de ligne attendu')
-  const titres = etat.titres.get(base) ?? new Map<string, string>()
-  if (titres.has(ref)) return ref
-  const memes = [...titres].filter(([, t]) => normaliser(t) === normaliser(ref))
-  if (memes.length === 1) return memes[0]![0]
-  return erreur(memes.length > 1 ? `plusieurs lignes s'appellent « ${ref} » dans ${base} : donner l'id` : `ligne inconnue dans ${base} : « ${ref} »`)
-}
 
 /** Valeur proposée par le modèle, convertie comme une saisie ; `undefined` vide le champ. */
 function convertir(etat: EtatEspace, c: Colonne, brut: unknown): Valeur | undefined {
@@ -136,16 +106,6 @@ function lireValeurs(etat: EtatEspace, base: BaseOuverte, brut: unknown): [Colon
   })
 }
 
-function lireFiltres(base: BaseOuverte, brut: unknown): Filtre[] {
-  if (!Array.isArray(brut)) return erreur('`filtres` : liste attendue')
-  return brut.map((f) => {
-    if (!estObjet(f)) return erreur('filtre : objet { colonne, operateur, valeur } attendu')
-    const c = trouverColonne(base.schema, f.colonne)
-    const operateurs = operateursPour(c)
-    if (!operateurs.includes(f.operateur as Operateur)) erreur(`opérateur « ${String(f.operateur)} » impossible sur ${c.cle} (possibles : ${operateurs.join(', ')})`)
-    return { colonne: c.cle, operateur: f.operateur as Operateur, ...(f.valeur !== undefined ? { valeur: f.valeur } : {}) }
-  })
-}
 
 function modifier(etat: EtatEspace, args: Record<string, unknown>, ctx: Contexte): Operation {
   const base = trouverBase(etat, args.base)
@@ -194,13 +154,15 @@ function creer(etat: EtatEspace, args: Record<string, unknown>): Operation {
   return { type: 'creer', base: base.id, nomBase: base.schema.nom, lignes }
 }
 
-const texteRequis = (args: Record<string, unknown>, cle: string): string => {
-  const v = args[cle]
-  return typeof v === 'string' && v.trim() !== '' ? v.trim() : erreur(`\`${cle}\` : texte attendu`)
-}
 
-/** Valide un appel d'outil contre l'état de l'espace ; lève `ErreurProposition` s'il est refusé. */
-export function validerAppel(etat: EtatEspace, appel: AppelOutil, ctx: Contexte, assistant: Assistant = { memoire: [], skills: [] }): AppelValide {
+/**
+ * Valide un appel d'outil ; lève `ErreurProposition` s'il est refusé. Avec un
+ * `Brouillon`, les appels d'un même plan se valident dans l'ordre : chacun voit
+ * les bases et colonnes que les précédents créent.
+ */
+export function validerAppel(espace: EtatEspace | Brouillon, appel: AppelOutil, ctx: Contexte, assistant: Assistant = { memoire: [], skills: [] }): AppelValide {
+  const brouillon = espace instanceof Brouillon ? espace : new Brouillon(espace)
+  const etat = brouillon.etat()
   let args: unknown
   try {
     args = JSON.parse(appel.arguments || '{}')
@@ -211,8 +173,11 @@ export function validerAppel(etat: EtatEspace, appel: AppelOutil, ctx: Contexte,
   switch (appel.nom) {
     case 'modifier_lignes':
       return { type: 'operation', operation: modifier(etat, args, ctx) }
-    case 'creer_lignes':
-      return { type: 'operation', operation: creer(etat, args) }
+    case 'creer_lignes': {
+      const operation = creer(etat, args)
+      brouillon.noterCreees(operation.base, operation.lignes.map((l) => l.titre))
+      return { type: 'operation', operation }
+    }
     case 'repondre':
       return { type: 'reponse', texte: typeof args.texte === 'string' ? args.texte : '' }
     case 'retenir':
@@ -227,8 +192,11 @@ export function validerAppel(etat: EtatEspace, appel: AppelOutil, ctx: Contexte,
       const skill = { nom, description: texteRequis(args, 'description'), instructions: texteRequis(args, 'instructions') }
       return { type: 'skill', skill: { ...skill, remplace: assistant.skills.some((x) => normaliser(x.nom) === normaliser(nom)) } }
     }
-    default:
-      return erreur(`outil inconnu : ${appel.nom}`)
+    default: {
+      const r = validerStructure(brouillon, appel.nom, args, ctx)
+      if (!r) return erreur(`outil inconnu : ${appel.nom}`)
+      return 'structure' in r ? { type: 'structure', actions: r.structure } : { type: 'suite', action: r.suite }
+    }
   }
 }
 
@@ -237,6 +205,8 @@ const LIGNES_RESUMEES = 15
 /** Résumé texte d'un plan : ce que le modèle relit de la conversation, et ce qui en reste affiché après coup. */
 export function resumerPlan(plan: Plan): string {
   const skills = (plan.skills ?? []).map((s) => `${s.remplace ? 'Remplacer' : 'Créer'} le skill « ${s.nom} » : ${s.description}`)
+  const structure = (plan.structure ?? []).map((a) => decrireAction(a).texte)
+  const suite = (plan.suite ?? []).map((a) => decrireAction(a).texte)
   const operations = plan.operations
     .map((op) => {
       const n = op.lignes.length
@@ -247,7 +217,7 @@ export function resumerPlan(plan: Plan): string {
       const reste = n > LIGNES_RESUMEES ? ` ; et ${n - LIGNES_RESUMEES} autres` : ''
       return `${op.type === 'creer' ? 'Créer' : 'Modifier'} ${n} ligne${n > 1 ? 's' : ''} dans ${op.nomBase} : ${lignes.join(' ; ')}${reste}`
     })
-  return [...operations, ...skills].join('\n')
+  return [...structure, ...operations, ...suite, ...skills].join('\n')
 }
 
 /**
@@ -255,27 +225,33 @@ export function resumerPlan(plan: Plan): string {
  * l'aperçu et la confirmation est ignorée ; renvoie le nombre de lignes écrites.
  */
 export async function appliquerPlan(espace: DepotEspace, plan: Plan): Promise<number> {
+  const corr = new Correspondances()
+  await appliquerStructure(espace, plan.structure ?? [], corr)
   let n = 0
   for (const op of plan.operations) {
-    const depot = espace.etat().bases.get(op.base)?.depot
+    const base = corr.base(op.base)
+    const depot = espace.etat().bases.get(base)?.depot
     if (!depot) continue
     for (const l of op.lignes) {
+      // Les clés prévues à la validation suivent celles obtenues pour les colonnes créées par le plan.
+      const valeurs = Object.fromEntries(Object.entries(l.valeurs).map(([cle, v]) => [corr.cle(op.base, cle), v]))
       if (op.type === 'creer') {
-        await espace.creerLigne(op.base, l.valeurs)
+        await espace.creerLigne(base, valeurs)
         n++
         continue
       }
       const ligne = depot.lignes().find((x) => x.id === l.id)
       if (!ligne) continue
-      for (const [cle, v] of Object.entries(l.valeurs)) {
+      for (const [cle, v] of Object.entries(valeurs)) {
         const c = depot.schema.colonnes.find((x) => x.cle === cle)
-        if (c?.type === 'relation') espace.modifierRelation(op.base, ligne.id, cle, Array.isArray(v) ? v : [])
+        if (c?.type === 'relation') espace.modifierRelation(base, ligne.id, cle, Array.isArray(v) ? v : [])
         else depot.modifier(ligne.chemin, cle, v)
       }
-      if (depot.schema.champTitre in l.valeurs) await depot.renommerSelonTitre(ligne.chemin)
+      if (depot.schema.champTitre in valeurs) await depot.renommerSelonTitre(ligne.chemin)
       n++
     }
   }
+  await appliquerSuite(espace, plan.suite ?? [], corr)
   for (const { remplace: _, ...skill } of plan.skills ?? []) await espace.assistant.enregistrerSkill(skill)
   return n
 }

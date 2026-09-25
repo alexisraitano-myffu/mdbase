@@ -170,3 +170,32 @@ test('skill : aperçu, écrit seulement après « Appliquer », listé dans les 
   // Le dossier `_assistant/` n'apparaît jamais comme une base.
   await expect(page.locator('.entree-base', { hasText: '_assistant' })).toHaveCount(0)
 })
+
+test('structure : colonne créée puis remplie, vue ajoutée ; une suppression est signalée en rouge', async ({ espace, page }) => {
+  const outil = (id: string, nom: string, args: object) => ({ id, type: 'function', function: { name: nom, arguments: JSON.stringify(args) } })
+  await simulerService(page, {
+    content: null,
+    tool_calls: [
+      outil('c1', 'ajouter_colonnes', { base: 'projets', colonnes: [{ nom: 'Priorité', type: 'select', options: ['Haute', 'Basse'] }] }),
+      outil('c2', 'modifier_lignes', { base: 'projets', lignes: ['psite001'], valeurs: { Priorité: 'Haute' } }),
+      outil('c3', 'creer_vue', { base: 'projets', nom: 'Prioritaires', type: 'tableau', filtres: [{ colonne: 'Priorité', operateur: 'egal', valeur: 'Haute' }] }),
+      outil('c4', 'supprimer_colonne', { base: 'projets', colonne: 'revue' }),
+    ],
+  })
+  await espace.base('Projets')
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Ajoute une priorité')
+  await page.keyboard.press('Enter')
+
+  const structure = page.locator('.operation-ia').filter({ has: page.getByRole('heading', { name: 'Structure' }) })
+  await expect(structure).toContainText('Ajouter la colonne « Priorité »')
+  await expect(structure).toContainText('Créer la vue tableau « Prioritaires »')
+  await expect(structure.locator('.danger-ia')).toContainText('Supprimer la colonne « Revue client »')
+  await expect(page.locator('.changement-ia')).toHaveText('Priorité : vide → Haute')
+  expect(await espace.lire('projets/_schema.yaml')).not.toContain('Priorité')
+
+  await page.getByRole('button', { name: 'Appliquer (3 actions et 1 ligne)' }).click()
+  await expect(page.locator('.applique-ia')).toHaveText('Appliqué')
+  await expect.poll(() => espace.lire(SITE)).toContain('priorite: Haute\n')
+  expect(await espace.lire('projets/_schema.yaml')).not.toContain('cle: revue')
+})

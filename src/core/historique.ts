@@ -1,12 +1,13 @@
 import type { Modifications } from './ligne'
 import type { Valeur } from './valeurs'
 
-// Annuler / rétablir (Ctrl+Z) sur les données : cellules, lignes créées,
-// lignes supprimées. Le schéma, les vues et les dashboards n'y sont pas.
+// Annuler / rétablir (Ctrl+Z) sur les données : cellules, corps des pages,
+// lignes créées, lignes supprimées. Le schéma, les vues et les dashboards n'y sont pas.
 
 /** Un changement élémentaire, noté par `DepotBase` au moment où il a lieu. */
 export type Changement =
   | { type: 'cellule'; base: string; id: string; cle: string; avant: Valeur | undefined; apres: Valeur | undefined }
+  | { type: 'corps'; base: string; id: string; avant: string; apres: string }
   | { type: 'creee'; base: string; id: string }
   /** `source` : le fichier tel qu'écrit ; `enAttente` : les modifications pas encore écrites. */
   | { type: 'supprimee'; base: string; id: string; chemin: string; source: string; enAttente: Modifications }
@@ -39,7 +40,11 @@ export class Historique {
       d.apres = c.apres
       return
     }
-    this.empiler({ changements: [c], ouverte: c.type === 'cellule' })
+    if (c.type === 'corps' && d?.type === 'corps' && d.base === c.base && d.id === c.id) {
+      d.apres = c.apres
+      return
+    }
+    this.empiler({ changements: [c], ouverte: c.type === 'cellule' || c.type === 'corps' })
   }
 
   /** Termine l'étape en cours de frappe : la prochaine modification en ouvrira une autre. */

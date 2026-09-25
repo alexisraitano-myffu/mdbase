@@ -886,6 +886,7 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .operation-ia h3 { font-size: 0.95rem; margin: 0 0 0.4rem; }
 .operation-ia ul { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; }
 .operation-ia li { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0.35rem 0; border-top: 1px solid var(--bordure); font-size: 0.9em; }
+.operation-ia li.danger-ia { color: var(--rouge-texte); }
 .titre-ia { font-weight: 600; }
 .changement-ia del { color: var(--discret); }
 .changement-ia ins { text-decoration: none; color: var(--accent); font-weight: 500; }

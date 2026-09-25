@@ -963,7 +963,7 @@ export class DepotEspace {
 
   private noter(c: Changement) {
     this.historique.noter(c)
-    if (c.type !== 'cellule') return
+    if (c.type !== 'cellule' && c.type !== 'corps') return
     this.arreterFrappe?.()
     this.arreterFrappe = this.options.planifier(() => this.historique.fermer(), PAUSE_FRAPPE)
   }
@@ -999,6 +999,8 @@ export class DepotEspace {
         if (!ligne || !col || !estSaisie(col)) return
         depot.modifier(ligne.chemin, c.cle, c.avant)
         if (c.cle === depot.schema.champTitre) await depot.renommerSelonTitre(ligne.chemin)
+      } else if (c.type === 'corps') {
+        if (ligne) depot.modifierCorps(ligne.chemin, c.avant)
       } else if (c.type === 'creee') {
         if (ligne) await depot.supprimer(ligne.chemin)
       } else if (!ligne) {

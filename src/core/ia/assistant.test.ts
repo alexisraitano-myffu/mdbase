@@ -136,7 +136,25 @@ describe('proposer', () => {
     const p = await proposer(modele, espace, 'Termine la tâche C', { aujourdhui: AUJOURDHUI, baseOuverte: 'taches' })
     expect(p.type).toBe('plan')
     expect(modele.requetes).toHaveLength(1)
-    expect(modele.requetes[0]!.outils.map((o) => o.nom)).toEqual(['modifier_lignes', 'creer_lignes', 'retenir', 'oublier', 'creer_skill', 'repondre'])
+    expect(modele.requetes[0]!.outils.map((o) => o.nom)).toEqual([
+      'modifier_lignes',
+      'creer_lignes',
+      'supprimer_lignes',
+      'ecrire_contenu',
+      'creer_base',
+      'ajouter_colonnes',
+      'renommer_colonne',
+      'supprimer_colonne',
+      'creer_vue',
+      'modifier_vue',
+      'supprimer_vue',
+      'creer_dashboard',
+      'supprimer_dashboard',
+      'retenir',
+      'oublier',
+      'creer_skill',
+      'repondre',
+    ])
     expect(modele.requetes[0]!.messages[1]).toEqual({ role: 'user', contenu: 'Termine la tâche C' })
     await ecrire()
     expect(a.ecritures).toEqual([])
