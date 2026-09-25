@@ -123,3 +123,50 @@ test('nouvelle conversation : le fil est vidé', async ({ espace, page }) => {
   await expect(page.locator('.tour-ia')).toHaveCount(0)
   expect(espace).toBeTruthy()
 })
+
+test('mémoire : retenue aussitôt avec une mention annulable', async ({ espace, page }) => {
+  await simulerService(page, appel('retenir', { fait: 'Mes semaines commencent le mardi' }))
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Retiens que mes semaines commencent le mardi')
+  await page.keyboard.press('Enter')
+  const mention = page.locator('.mention-ia')
+  await expect(mention).toContainText('Retenu : Mes semaines commencent le mardi')
+  await expect.poll(() => espace.lire('_assistant/memoire.md')).toContain('- Mes semaines commencent le mardi\n')
+
+  await mention.getByRole('button', { name: 'Annuler' }).click()
+  await expect(mention).toContainText('annulé')
+  await expect.poll(() => espace.lire('_assistant/memoire.md')).not.toContain('mardi')
+})
+
+test('skill : aperçu, écrit seulement après « Appliquer », listé dans les réglages et supprimable', async ({ espace, page }) => {
+  const recues = await simulerService(
+    page,
+    appel('creer_skill', { nom: 'Revue du lundi', description: 'le lundi matin', instructions: 'Tâches en retard en priorité haute.' }),
+    { content: 'ok' },
+  )
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Crée un skill revue du lundi')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.skill-ia h3')).toHaveText('Nouveau skill « Revue du lundi »')
+  await expect(page.locator('.skill-ia pre')).toHaveText('Tâches en retard en priorité haute.')
+  expect(await espace.lister('')).not.toContain('_assistant')
+
+  await page.getByRole('button', { name: 'Appliquer (1 skill)' }).click()
+  await expect(page.locator('.applique-ia')).toBeVisible()
+  await expect.poll(() => espace.lire('_assistant/skills/revue-du-lundi.md')).toContain('nom: Revue du lundi')
+
+  // La demande suivante envoie le skill au modèle.
+  await page.getByPlaceholder('Répondre…').fill('merci')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.reponse-ia').last()).toHaveText('ok')
+  expect((recues[1]!.postDataJSON() as { messages: { content: string }[] }).messages[0]!.content).toContain('### Revue du lundi')
+
+  await page.getByRole('button', { name: 'Réglages' }).click()
+  const reglages = page.getByRole('dialog', { name: 'Assistant IA' })
+  await expect(reglages.locator('.memoire-ia')).toContainText('Revue du lundi')
+  await reglages.getByRole('button', { name: 'Supprimer le skill « Revue du lundi »' }).click()
+  await expect(reglages.locator('.memoire-ia')).toHaveCount(0)
+  await expect.poll(async () => (await espace.lister('_assistant/skills')).length).toBe(0)
+  // Le dossier `_assistant/` n'apparaît jamais comme une base.
+  await expect(page.locator('.entree-base', { hasText: '_assistant' })).toHaveCount(0)
+})

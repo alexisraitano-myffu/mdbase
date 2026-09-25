@@ -902,3 +902,11 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .applique-ia { color: var(--accent); font-weight: 500; margin-left: auto; }
 .services-ia { display: flex; flex-wrap: wrap; gap: 6px; }
 .note-ia { margin: 0; font-size: 0.85em; }
+.mention-ia { font-size: 0.85em; padding-left: 0.75rem; }
+.mention-ia.annulee { text-decoration: line-through; }
+.skill-ia pre { background: var(--fond); border-radius: 6px; padding: 0.5rem; margin: 0.4rem 0 0; white-space: pre-wrap; font-size: 0.85em; }
+.skill-ia p { margin: 0; }
+.memoire-ia { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--bordure); padding-top: 0.5rem; }
+.memoire-ia h3 { font-size: 0.9rem; margin: 0 0 0.25rem; }
+.memoire-ia ul { list-style: none; margin: 0; padding: 0; }
+.memoire-ia li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.9em; padding: 2px 0; }

@@ -262,7 +262,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
       {ia === 'assistant' && (
         <Assistant espace={espace} dossier={nom} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setIa('reglages')} fermer={() => setIa(null)} />
       )}
-      {ia === 'reglages' && <FenetreReglagesIA reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
+      {ia === 'reglages' && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
       {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
     </ContexteEspace.Provider>
   )

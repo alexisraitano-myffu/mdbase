@@ -54,7 +54,9 @@ src/
     ia/                    assistant IA (spec §12, « Module IA ») : modele.ts (interface ModeleIA,
                            indépendante du fournisseur), outils.ts (outils, consigne, description de
                            l'espace envoyée), plan.ts (validation des appels comme une saisie, application
-                           après confirmation), assistant.ts (un appel, une relance si refus)
+                           après confirmation), assistant.ts (un appel, une relance si refus, historique de
+                           conversation), memoire.ts (`_assistant/` : mémoire écrite aussitôt, skills
+                           écrits après confirmation)
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)

@@ -19,7 +19,7 @@ Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules
 - **Pages** : chaque ligne s'ouvre en panneau ou en plein écran, avec ses propriétés, ses onglets de relations et un contenu en Markdown.
 - **Dashboards** qui rassemblent des vues de plusieurs bases, et une **recherche globale** (`Ctrl+K` ou `⌘K`).
 - **Import et export** : une vue en tableau Markdown, en CSV ou en image PNG (la timeline entière, par exemple) ; un CSV en nouvelle base ou en lignes ajoutées.
-- **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut : une demande en français (« passe les tâches en retard en priorité haute »), un aperçu des lignes et des valeurs avant → après, et rien n'est écrit avant « Appliquer ». Il se branche sur n'importe quel service compatible OpenAI, distant ou local (Ollama, LM Studio) : tu fournis l'adresse, ta clé et le modèle.
+- **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut : une demande en français (« passe les tâches en retard en priorité haute »), un aperçu des lignes et des valeurs avant → après, et rien n'est écrit avant « Appliquer ». C'est une conversation : il pose une question quand c'est ambigu, retient tes préférences et peut enregistrer des procédures nommées (skills) dans le dossier. Il se branche sur n'importe quel service compatible OpenAI, distant ou local (Ollama, LM Studio) : tu fournis l'adresse, ta clé et le modèle.
 - **Pensé pour la synchro** : relecture du dossier au retour sur l'onglet, écriture sûre quand un fichier a changé ailleurs, détection des copies de conflit OneDrive et des identifiants en double.
 
 ![Timeline groupée par projet](docs/captures/timeline.png)

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, Sparkles, X } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
 import { proposer, type Echange } from '../core/ia/assistant'
-import { appliquerPlan, resumerPlan, type Plan } from '../core/ia/plan'
+import type { Assistant as MemoireEtSkills } from '../core/ia/memoire'
+import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../core/ia/plan'
 import { listerModeles, modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
 import { enregistrerConversation, lireConversation, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
 import { aujourdhui } from '../adapters/navigateur'
@@ -13,7 +14,6 @@ import { Icone } from './icones'
 // un avertissement ; une conversation où chaque modification proposée est
 // montrée avant d'être appliquée.
 
-/** Activation et réglages : l'avertissement est toujours affiché avant d'activer. `enregistrer` ferme la fenêtre. */
 /** Services préréglés : un clic remplit l'adresse. Aucun n'est imposé (spec §12). */
 const SERVICES = [
   { nom: 'OVH (Europe)', adresse: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1' },
@@ -22,7 +22,8 @@ const SERVICES = [
   { nom: 'LM Studio (local)', adresse: 'http://localhost:1234/v1' },
 ]
 
-export function FenetreReglagesIA(p: { reglages: ReglagesIA; enregistrer: (r: ReglagesIA) => void; fermer: () => void }) {
+/** Activation et réglages : l'avertissement est toujours affiché avant d'activer. `enregistrer` ferme la fenêtre. */
+export function FenetreReglagesIA(p: { espace: DepotEspace; reglages: ReglagesIA; enregistrer: (r: ReglagesIA) => void; fermer: () => void }) {
   const [r, setR] = useState(p.reglages)
   const [modeles, setModeles] = useState<string[]>([])
   // Liste des modèles demandée au service dès que l'adresse (ou la clé) change.
@@ -48,7 +49,8 @@ export function FenetreReglagesIA(p: { reglages: ReglagesIA; enregistrer: (r: Re
         <div className="avertissement-ia">
           <p>
             <strong>À chaque demande, l’assistant envoie au service choisi ci-dessous</strong> : ta demande, la structure des bases de ce dossier (noms,
-            colonnes, options) et des lignes (titres et valeurs, pas le contenu des pages).
+            colonnes, options), des lignes (titres et valeurs, pas le contenu des pages), la mémoire et les skills de l’assistant, et les derniers
+            échanges de la conversation.
           </p>
           <p>
             Aucune donnée n’est envoyée tant qu’il n’est pas activé (la liste des modèles est seulement demandée au service). Il ne peut modifier que ce dossier, et chaque modification t’est montrée avant d’être
@@ -72,6 +74,7 @@ export function FenetreReglagesIA(p: { reglages: ReglagesIA; enregistrer: (r: Re
           ))}
         </datalist>
         <p className="discret note-ia">Gardés dans ce navigateur : à remplir une seule fois.</p>
+        <MemoireEtSkillsIA espace={p.espace} />
         <div className="boutons">
           {p.reglages.actif && (
             <button
@@ -108,13 +111,25 @@ type Resultat =
     }
   | { type: 'erreur'; message: string }
 
-type Tour = { demande: string; resultat: Resultat }
+/** Fait retenu ou oublié pendant un tour : écrit aussitôt, annulable dans la session ; `garde` = relu d'une session précédente. */
+type MentionMemoire = { action: ActionMemoire; etat: 'fait' | 'annule' | 'garde' }
+
+type Tour = { demande: string; resultat: Resultat; memoire?: MentionMemoire[] }
+
+const texteMention = (a: ActionMemoire) => `${a.type === 'retenir' ? 'Retenu' : 'Oublié'} : ${a.fait}`
+const mentionsFaites = (t: Tour) => (t.memoire ?? []).filter((m) => m.etat !== 'annule').map((m) => texteMention(m.action))
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 const secondes = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`
 
-/** Ce que le modèle relit d'un tour passé. */
+/** Ce que le modèle relit d'un tour passé, mentions de mémoire comprises. */
 function echange(t: Tour): Echange | null {
+  const e = echangeSansMemoire(t)
+  const mentions = mentionsFaites(t)
+  return e && mentions.length > 0 ? { ...e, reponse: [e.reponse, ...mentions].filter(Boolean).join('\n') } : e
+}
+
+function echangeSansMemoire(t: Tour): Echange | null {
   const r = t.resultat
   switch (r.type) {
     case 'envoi':
@@ -133,15 +148,22 @@ function echange(t: Tour): Echange | null {
 function versGarde(t: Tour): TourGarde | null {
   const r = t.resultat
   if (r.type === 'envoi') return null
-  if (r.type === 'reponse') return { demande: t.demande, type: 'reponse', texte: r.texte }
+  const mentions = mentionsFaites(t)
+  const memoire = mentions.length > 0 ? { memoire: mentions } : {}
+  if (r.type === 'reponse') return { demande: t.demande, type: 'reponse', texte: r.texte, ...memoire }
   if (r.type === 'erreur') return { demande: t.demande, type: 'erreur', texte: r.message }
-  return { demande: t.demande, type: 'plan', texte: r.resume, statut: r.statut === 'applique' ? 'applique' : 'annule' }
+  return { demande: t.demande, type: 'plan', texte: r.resume, statut: r.statut === 'applique' ? 'applique' : 'annule', ...memoire }
 }
 
 function depuisGarde(g: TourGarde): Tour {
-  if (g.type === 'reponse') return { demande: g.demande, resultat: { type: 'reponse', texte: g.texte } }
+  // Une mention relue n'est plus annulable : elle n'est gardée que comme texte.
+  const memoire = (g.memoire ?? []).map((texte): MentionMemoire => {
+    const [type, ...reste] = texte.split(' : ')
+    return { action: { type: type === 'Oublié' ? 'oublier' : 'retenir', fait: reste.join(' : ') }, etat: 'garde' }
+  })
+  if (g.type === 'reponse') return { demande: g.demande, resultat: { type: 'reponse', texte: g.texte }, memoire }
   if (g.type === 'erreur') return { demande: g.demande, resultat: { type: 'erreur', message: g.texte } }
-  return { demande: g.demande, resultat: { type: 'plan', plan: null, resume: g.texte, message: '', statut: g.statut ?? 'annule' } }
+  return { demande: g.demande, resultat: { type: 'plan', plan: null, resume: g.texte, message: '', statut: g.statut ?? 'annule' }, memoire }
 }
 
 /**
@@ -183,15 +205,34 @@ export function Assistant(p: { espace: DepotEspace; dossier: string; baseOuverte
       const historique = passes.flatMap((t) => echange(t) ?? [])
       const r = await proposer(modeleCompatibleOpenAI(p.reglages), p.espace, texte, { aujourdhui: aujourdhui(), baseOuverte: p.baseOuverte, historique })
       const duree = performance.now() - depuis
-      remplacer(
-        i,
-        r.type === 'plan'
-          ? { type: 'plan', plan: r.plan, resume: resumerPlan(r.plan), message: r.message, statut: 'attente', duree }
-          : { type: 'reponse', texte: r.texte, duree },
+      // Mémoire : écrite aussitôt, sans confirmation, avec une mention annulable (spec §12).
+      for (const a of r.memoire) await (a.type === 'retenir' ? p.espace.assistant.retenir(a.fait) : p.espace.assistant.oublier(a.fait))
+      const memoire = r.memoire.map((action): MentionMemoire => ({ action, etat: 'fait' }))
+      setTours((ts) =>
+        ts.map((t, j): Tour =>
+          j !== i
+            ? t
+            : {
+                ...t,
+                memoire,
+                resultat:
+                  r.type === 'plan'
+                    ? { type: 'plan', plan: r.plan, resume: resumerPlan(r.plan), message: r.message, statut: 'attente', duree }
+                    : { type: 'reponse', texte: r.texte, duree },
+              },
+        ),
       )
     } catch (e) {
       remplacer(i, { type: 'erreur', message: e instanceof Error ? e.message : String(e) })
     }
+  }
+
+  /** Annule un fait retenu ou oublié : l'action inverse est écrite. */
+  const annulerMemoire = async (i: number, k: number) => {
+    const m = tours[i]?.memoire?.[k]
+    if (!m || m.etat !== 'fait') return
+    await (m.action.type === 'retenir' ? p.espace.assistant.oublier(m.action.fait) : p.espace.assistant.retenir(m.action.fait))
+    setTours((ts) => ts.map((t, j) => (j === i ? { ...t, memoire: t.memoire?.map((x, l) => (l === k ? { ...x, etat: 'annule' } : x)) } : t)))
   }
 
   const appliquer = async (i: number) => {
@@ -216,6 +257,20 @@ export function Assistant(p: { espace: DepotEspace; dossier: string; baseOuverte
             <div key={i} className="tour-ia">
               {t.demande && <div className="bulle-ia moi">{t.demande}</div>}
               <BulleReponse resultat={t.resultat} appliquer={() => void appliquer(i)} annuler={() => t.resultat.type === 'plan' && remplacer(i, { ...t.resultat, statut: 'annule' })} />
+              {t.memoire?.map((m, k) => (
+                <div key={k} className={`mention-ia discret${m.etat === 'annule' ? ' annulee' : ''}`}>
+                  {texteMention(m.action)}
+                  {m.etat === 'fait' && (
+                    <>
+                      {' · '}
+                      <button className="lien" onClick={() => void annulerMemoire(i, k)}>
+                        Annuler
+                      </button>
+                    </>
+                  )}
+                  {m.etat === 'annule' && ' · annulé'}
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -268,6 +323,7 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
   if (r.type === 'erreur') return <div className="bulle-ia erreur">{r.message}</div>
   const duree = r.duree !== undefined && <div className="duree-ia discret">{secondes(r.duree)}</div>
   if (r.type === 'reponse') {
+    if (!r.texte) return null
     return (
       <div className="bulle-ia">
         <p className="reponse-ia">{r.texte}</p>
@@ -276,6 +332,8 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
     )
   }
   const total = r.plan?.operations.reduce((n, o) => n + o.lignes.length, 0) ?? 0
+  const skills = r.plan?.skills ?? []
+  const quoi = [total > 0 ? pluriel(total, 'ligne') : '', skills.length > 0 ? pluriel(skills.length, 'skill') : ''].filter(Boolean).join(' et ')
   return (
     <div className="bulle-ia plan-ia">
       {r.message && <p className="reponse-ia">{r.message}</p>}
@@ -302,6 +360,15 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
       ) : (
         <p className="reponse-ia discret">{r.resume}</p>
       )}
+      {skills.map((sk, i) => (
+        <section key={`skill${i}`} className="operation-ia skill-ia">
+          <h3>
+            {sk.remplace ? 'Remplacer le skill' : 'Nouveau skill'} « {sk.nom} »
+          </h3>
+          <p className="discret">{sk.description}</p>
+          <pre>{sk.instructions}</pre>
+        </section>
+      ))}
       <div className="statut-plan-ia">
         {duree}
         {r.statut === 'attente' && r.plan && (
@@ -310,7 +377,7 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
               Annuler
             </button>
             <button className="principal" onClick={appliquer}>
-              Appliquer ({pluriel(total, 'ligne')})
+              Appliquer ({quoi})
             </button>
           </div>
         )}
@@ -318,6 +385,51 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
         {r.statut === 'applique' && <span className="applique-ia">Appliqué</span>}
         {(r.statut === 'annule' || (r.statut === 'attente' && !r.plan)) && <span className="discret">Non appliqué</span>}
       </div>
+    </div>
+  )
+}
+
+/** Ce que l'assistant a retenu et ses skills, lus dans `_assistant/` : on peut en retirer. */
+function MemoireEtSkillsIA({ espace }: { espace: DepotEspace }) {
+  const [contenu, setContenu] = useState<MemoireEtSkills | null>(null)
+  const relire = () => void espace.assistant.lire().then(setContenu, () => setContenu(null))
+  useEffect(relire, [espace])
+  if (!contenu || (contenu.memoire.length === 0 && contenu.skills.length === 0)) return null
+  const retirer = (action: Promise<void>) => void action.then(relire)
+  return (
+    <div className="memoire-ia">
+      {contenu.memoire.length > 0 && (
+        <section>
+          <h3>Mémoire</h3>
+          <ul>
+            {contenu.memoire.map((f) => (
+              <li key={f}>
+                {f}
+                <button className="discret" aria-label={`Oublier « ${f} »`} onClick={() => retirer(espace.assistant.oublier(f))}>
+                  <Icone de={X} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {contenu.skills.length > 0 && (
+        <section>
+          <h3>Skills</h3>
+          <ul>
+            {contenu.skills.map((sk) => (
+              <li key={sk.nom} title={sk.instructions}>
+                <span>
+                  <strong>{sk.nom}</strong> <span className="discret">{sk.description}</span>
+                </span>
+                <button className="discret" aria-label={`Supprimer le skill « ${sk.nom} »`} onClick={() => retirer(espace.assistant.supprimerSkill(sk.nom))}>
+                  <Icone de={X} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

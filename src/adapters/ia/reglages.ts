@@ -34,6 +34,8 @@ export type TourGarde = {
   /** Réponse, résumé du plan ou message d'erreur. */
   texte: string
   statut?: 'applique' | 'annule'
+  /** Mentions « Retenu : … » / « Oublié : … » du tour. */
+  memoire?: string[]
 }
 
 /** Tours gardés par dossier : assez pour reprendre une conversation, peu de place. */
