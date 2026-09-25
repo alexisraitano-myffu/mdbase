@@ -90,9 +90,11 @@ Pour tester sur de vraies données sans risque, ouvre une copie de la démo : `c
 
 Chaque push sur `main` passe le typage, les tests et les tests de bout en bout sur le build, puis publie l'app sur GitHub Pages.
 
+Pour contribuer, en particulier pour brancher un outil tiers (autre hôte pour le dossier, fournisseur d'IA, format d'échange, service externe) : [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## État
 
-La V1 décrite dans la spec est complète. Le nom est provisoire. Prochaines étapes : des animations, et d'autres tests de bout en bout.
+La V1 décrite dans la spec est complète et la structure du produit est stable. Le nom est provisoire. La suite porte surtout sur les intégrations d'outils tiers.
 
 ## Licence
 
