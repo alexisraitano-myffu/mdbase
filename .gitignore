@@ -2,5 +2,5 @@ node_modules
 dist
 *.tsbuildinfo
 .DS_Store
-graphify-out/cache/
-graphify-out/.rebuild.lock
+# Graphe de code local (graphify), régénéré à chaque commit
+graphify-out/
