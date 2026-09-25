@@ -85,6 +85,22 @@ export class IndexRecherche {
         return { base: doc.base, ligne: doc.ligne, titre: doc.titre, score: r.score, ...extrait(doc, r.terms) }
       })
   }
+
+  /**
+   * Lignes qui partagent au moins un mot avec un texte libre (une demande à
+   * l'assistant, pas une recherche) : mots courts ignorés, meilleurs scores d'abord.
+   */
+  candidats(texte: string, limite = 20): { base: string; ligne: string }[] {
+    const mots = texte.split(/[^\p{L}\p{N}]+/u).filter((m) => m.length >= 3)
+    if (mots.length === 0) return []
+    return this.index
+      .search(mots.join(' '), { combineWith: 'OR' })
+      .slice(0, limite)
+      .map((r) => {
+        const doc = this.documents.get(String(r.id))!
+        return { base: doc.base, ligne: doc.ligne }
+      })
+  }
 }
 
 /** Premier passage (titre exclu : il est déjà affiché) où apparaît un des termes trouvés. */

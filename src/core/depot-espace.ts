@@ -586,12 +586,17 @@ export class DepotEspace {
     return null
   }
 
-  /** Recalcule les colonnes calculées : au changement de jour, pour `aujourdhui()` (spec §6). */
   /** Recherche globale (spec §11) : titres, champs texte et corps de toutes les bases. */
   chercher(requete: string, limite?: number): Resultat[] {
     return this.recherche.chercher(requete, limite)
   }
 
+  /** Lignes proches d'une demande en langage libre (assistant IA). */
+  candidats(texte: string, limite?: number): { base: string; ligne: string }[] {
+    return this.recherche.candidats(texte, limite)
+  }
+
+  /** Recalcule les colonnes calculées : au changement de jour, pour `aujourdhui()` (spec §6). */
   recalculer(): void {
     this.publier()
   }
