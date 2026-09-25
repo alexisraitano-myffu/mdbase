@@ -19,6 +19,7 @@ Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules
 - **Pages** : chaque ligne s'ouvre en panneau ou en plein écran, avec ses propriétés, ses onglets de relations et un contenu en Markdown.
 - **Dashboards** qui rassemblent des vues de plusieurs bases, et une **recherche globale** (`Ctrl+K` ou `⌘K`).
 - **Import et export** : une vue en tableau Markdown, en CSV ou en image PNG (la timeline entière, par exemple) ; un CSV en nouvelle base ou en lignes ajoutées.
+- **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut : une demande en français (« passe les tâches en retard en priorité haute »), un aperçu des lignes et des valeurs avant → après, et rien n'est écrit avant « Appliquer ». Il se branche sur n'importe quel service compatible OpenAI, distant ou local (Ollama, LM Studio) : tu fournis l'adresse, ta clé et le modèle.
 - **Pensé pour la synchro** : relecture du dossier au retour sur l'onglet, écriture sûre quand un fichier a changé ailleurs, détection des copies de conflit OneDrive et des identifiants en double.
 
 ![Timeline groupée par projet](docs/captures/timeline.png)
@@ -58,7 +59,7 @@ Les valeurs calculées (relations inverses, rollups, formules) ne sont jamais é
 
 ## Navigateurs
 
-Chrome et Edge sur ordinateur : ce sont les seuls navigateurs qui donnent à une page web l'accès à un dossier local (File System Access API). Firefox et Safari affichent un message d'incompatibilité. L'app est 100 % statique : aucun appel réseau, aucune télémétrie.
+Chrome et Edge sur ordinateur : ce sont les seuls navigateurs qui donnent à une page web l'accès à un dossier local (File System Access API). Firefox et Safari affichent un message d'incompatibilité. L'app est 100 % statique : aucune télémétrie, et aucun appel réseau tant que l'assistant IA n'est pas activé (il n'appelle alors que le service que tu as choisi).
 
 ## Développer
 

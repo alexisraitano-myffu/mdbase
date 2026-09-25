@@ -51,10 +51,15 @@ src/
     recherche.ts           index plein texte (MiniSearch) de toutes les bases, extraits surlignés
     echange.ts             import/export : grille d'une vue, CSV (écriture, lecture), Markdown, types devinés d'un CSV
     conflits.ts            ids en double, copies de conflit de synchro (suffixe de machine OneDrive)
+    ia/                    assistant IA (spec §12, « Module IA ») : modele.ts (interface ModeleIA,
+                           indépendante du fournisseur), outils.ts (outils, consigne, description de
+                           l'espace envoyée), plan.ts (validation des appels comme une saisie, application
+                           après confirmation), assistant.ts (un appel, une relance si refus)
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
                  + démo sans installation (demo.ts : la démo copiée dans l'OPFS)
+    ia/          connecteur compatible OpenAI (seul appel réseau de l'app) et réglages (localStorage)
     navigateur.ts  services injectés dans le cœur (aléatoire, minuteur)
   ui/            React
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
@@ -74,6 +79,7 @@ src/
 - Chemins : relatifs à la racine de l'espace, séparés par `/`, racine = `""`.
 - Icônes : Lucide uniquement, via `src/ui/icones.tsx` (`Icone`, `ICONES` par type de colonne, `ICONES_VUES`) ; plus de caractères Unicode comme icônes. Couleurs : variables CSS du `:root` de `app.css`, jamais de couleur en dur ailleurs.
 - Skills de design (emilkowalski/skill) installés **dans ce projet seulement** (`.claude/skills/`, ignoré par git) : en essai avant de les rendre globaux.
+- Assistant IA : le modèle ne touche jamais aux fichiers. Il propose des appels d'outils que `ia/plan.ts` valide contre l'état de l'espace, et rien n'est écrit avant « Appliquer ». Toute nouvelle capacité passe par un outil validé de la même façon, jamais par du texte interprété.
 - Nommage en français, comme la spec et le format de fichiers (`lister`, `colonnes`, `champ_titre`).
 - Découper quand un module grandit vraiment, jamais par avance ; les sous-dossiers de `core/` apparaîtront avec les jalons (relations, formules…).
 - Le nettoyage structurel est un commit à part, jamais mélangé à une fonctionnalité.
@@ -88,7 +94,7 @@ Trois projets TypeScript (`tsconfig.core.json`, `tsconfig.app.json`, `tsconfig.t
 - Chemins critiques (perte de données : écriture, réécriture préservant les champs inconnus, suppressions, renommages) : `npm test` avant tout commit qui les touche.
 - Bout en bout : Playwright dans `e2e/` (`*.spec.ts`, hors Vitest). La fixture `e2e/espace.ts` ouvre une copie neuve de la démo par test : `showDirectoryPicker` y est remplacé par un dossier OPFS (même API de fichiers, sans sélecteur à cliquer), et `espace.ecrire/lire/supprimer` simulent les changements faits ailleurs. Toute erreur de console fait échouer le test. `@playwright/test` est figé sur la version dont le navigateur est déjà en cache (pas de téléchargement) ; le monter implique `npx playwright install chromium-headless-shell`.
 - `E2E_URL` vise une autre adresse que le serveur de dev : la CI joue les e2e sur le build publié (`vite preview` sous `/mdbase/`). Les tests naviguent en relatif (`page.goto('./')`) pour supporter ce sous-chemin.
-- Fichiers e2e par domaine : `tableau` (édition, relations), `schema` (colonnes, filtres, formules), `vues` (pages, kanban, temps, dashboards, recherche, socle), `echange` (import/export), `synchro`, `accueil`. Vues temporelles : `page.clock.setFixedTime` avant d'ouvrir la base (la démo est datée de l'automne 2026).
+- Fichiers e2e par domaine : `tableau` (édition, relations), `schema` (colonnes, filtres, formules), `vues` (pages, kanban, temps, dashboards, recherche, socle), `echange` (import/export), `synchro`, `accueil`, `assistant` (service IA simulé par `page.route`). Vues temporelles : `page.clock.setFixedTime` avant d'ouvrir la base (la démo est datée de l'automne 2026).
 - Une fonctionnalité d'interface livrée reçoit son test de bout en bout ; la validation d'Alexis dans Chrome reste le dernier mot sur le ressenti.
 
 ## Jalons
