@@ -32,6 +32,8 @@ import { useAujourdhui } from './useAujourdhui'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { Icone } from './icones'
 import { useConsultation } from './mode'
+import { couleurDeLigne, type ReglageCouleur } from '../core/couleurs'
+import { styleCouleur } from './couleurs'
 
 type Props = {
   espace: DepotEspace
@@ -58,8 +60,8 @@ const RETRAIT = 18
 type EnCours = { chemin: string; geste: Geste; jours: number; dx: number }
 
 /** Ce qui place une ligne dans le temps : sa base et les colonnes de dates de son niveau. */
-type Axe = { base: string; depot: DepotBase; schema: Schema; debut?: Colonne; fin?: Colonne; jalons: Colonne[]; /** Niveau déplié sans fin : des losanges. */ point: boolean }
-type Rangee = { ligne: LigneChargee; sortira: boolean; axe: Axe; plage: Plage | null; jalons: { colonne: Colonne; jour: string }[] }
+type Axe = { base: string; depot: DepotBase; schema: Schema; debut?: Colonne; fin?: Colonne; jalons: Colonne[]; /** Niveau déplié sans fin : des losanges. */ point: boolean; couleur: ReglageCouleur }
+type Rangee = { ligne: LigneChargee; sortira: boolean; axe: Axe; plage: Plage | null; jalons: { colonne: Colonne; jour: string }[]; /** Couleur nommée de la barre, ou neutre. */ couleur: string | undefined }
 /** Rangées affichées : en-têtes de groupe (repliables), lignes (et leurs niveaux dépliés), et la rangée « + Nouvelle ». */
 type Element =
   | { type: 'groupe'; groupe: Groupe; plage: Plage | null; replie: boolean }
@@ -80,7 +82,7 @@ type Element =
     }
   | { type: 'ajout' }
 
-function axeDe(depot: DepotBase, base: string, debut?: string, fin?: string, jalons: readonly string[] = [], niveau = false): Axe {
+function axeDe(depot: DepotBase, base: string, couleur: ReglageCouleur, debut?: string, fin?: string, jalons: readonly string[] = [], niveau = false): Axe {
   const schema = depot.schema
   const colFin = fin ? colonneDe(schema, fin) : undefined
   return {
@@ -91,6 +93,7 @@ function axeDe(depot: DepotBase, base: string, debut?: string, fin?: string, jal
     fin: colFin,
     jalons: jalons.flatMap((c) => colonneDe(schema, c) ?? []),
     point: niveau && !colFin,
+    couleur,
   }
 }
 
@@ -105,6 +108,7 @@ function rangeeDe(ligne: LigneChargee, sortira: boolean, axe: Axe): Rangee {
       const jour = cellule?.etat === 'ok' ? jourDe(cellule.valeur) : null
       return jour ? [{ colonne: c, jour }] : []
     }),
+    couleur: couleurDeLigne(ligne, axe.schema, axe.couleur),
   }
 }
 
@@ -158,8 +162,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   const clesJalons = (vue.champsJalons ?? []).join('|')
   const champs = (vue.champsCarte ?? []).flatMap((c) => colonneDe(schema, c) ?? [])
   const axe = useMemo(
-    () => axeDe(depot, base, vue.champDebut, vue.champFin, clesJalons ? clesJalons.split('|') : []),
-    [depot, base, vue.champDebut, vue.champFin, clesJalons, schema], // eslint-disable-line react-hooks/exhaustive-deps -- le schéma change sans que le dépôt change
+    () => axeDe(depot, base, { couleur: vue.couleur, couleurPar: vue.couleurPar }, vue.champDebut, vue.champFin, clesJalons ? clesJalons.split('|') : []),
+    [depot, base, vue.champDebut, vue.champFin, clesJalons, schema, vue.couleur, vue.couleurPar], // eslint-disable-line react-hooks/exhaustive-deps -- le schéma change sans que le dépôt change
   )
   const colDebut = axe.debut
   const colGroupe = vue.groupe ? groupables(schema).find((c) => c.cle === vue.groupe) : undefined
@@ -181,7 +185,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     const axeNiveau = (n: Noeud) => {
       if (!axes.has(n.niveau)) {
         const d = etat.bases.get(n.base)?.depot
-        axes.set(n.niveau, d ? axeDe(d, n.base, n.niveau.champDebut, n.niveau.champFin, n.niveau.champsJalons, true) : null)
+        axes.set(n.niveau, d ? axeDe(d, n.base, n.niveau, n.niveau.champDebut, n.niveau.champFin, n.niveau.champsJalons, true) : null)
       }
       return axes.get(n.niveau)!
     }
@@ -466,6 +470,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                     {plage && geste && !r.axe.point && <Cadre plage={plageApresGeste(plage, geste.geste, geste.jours)} x={x} px={px} />}
                     {plage && r.axe.point && (
                       <Point
+                        couleur={r.couleur}
                         jour={plage.debut}
                         titre={titre}
                         left={x(plage.debut) + px / 2}
@@ -476,6 +481,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                     )}
                     {plage && !r.axe.point && (
                       <Barre
+                        couleur={r.couleur}
                         plage={plage}
                         titre={titre}
                         champs={
@@ -532,6 +538,7 @@ function Cadre({ plage, x, px }: { plage: Plage; x: (j: string) => number; px: n
 }
 
 function Barre(p: {
+  couleur: string | undefined
   plage: Plage
   titre: string
   champs: ReactNode
@@ -560,8 +567,8 @@ function Barre(p: {
   return (
     <>
       <div
-        className={`tl-barre ${p.geste ? 'glisse' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''}`}
-        style={{ left, width: Math.max(largeur, 6) }}
+        className={`tl-barre ${p.geste ? 'glisse' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''} ${p.couleur ? 'coloree' : ''}`}
+        style={{ left, width: Math.max(largeur, 6), ...styleCouleur(p.couleur) }}
         title={`${p.titre} · ${plageEnTexte(p.plage)}`}
         onPointerDown={p.commencer ? (e) => p.commencer!(e, 'deplacer') : undefined}
         onClick={p.commencer ? undefined : p.ouvrir}
@@ -586,13 +593,13 @@ function Barre(p: {
 }
 
 /** Ligne d'un niveau déplié sans fin : un losange à sa date, qui se glisse. */
-function Point(p: { jour: string; titre: string; left: number; geste: EnCours | undefined; commencer: ((e: PointerReact) => void) | undefined; ouvrir: () => void }) {
+function Point(p: { couleur: string | undefined; jour: string; titre: string; left: number; geste: EnCours | undefined; commencer: ((e: PointerReact) => void) | undefined; ouvrir: () => void }) {
   const dx = p.geste?.dx ?? 0
   return (
     <>
       <span
-        className={`tl-jalon tl-point ${p.commencer ? 'deplacable' : ''} ${p.geste ? 'glisse' : ''}`}
-        style={{ left: p.left + dx }}
+        className={`tl-jalon tl-point ${p.commencer ? 'deplacable' : ''} ${p.geste ? 'glisse' : ''} ${p.couleur ? 'coloree' : ''}`}
+        style={{ left: p.left + dx, ...styleCouleur(p.couleur) }}
         title={`${p.titre} · ${dateCourte(p.jour)}`}
         onPointerDown={p.commencer}
         onClick={(e) => {

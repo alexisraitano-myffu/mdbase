@@ -4,6 +4,7 @@ type: timeline
 champ_debut: debut
 champ_fin: echeance
 champs_jalons: [ revue ]
+couleur_par: statut
 echelle: mois
 tris:
   - { colonne: debut, sens: asc }
@@ -11,3 +12,4 @@ deplier:
   - relation: taches
     champ_debut: debut
     champ_fin: echeance
+    couleur_par: priorite

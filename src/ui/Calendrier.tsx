@@ -30,6 +30,8 @@ import { useAujourdhui } from './useAujourdhui'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Icone } from './icones'
 import { useConsultation } from './mode'
+import { couleurDeLigne } from '../core/couleurs'
+import { styleCouleur } from './couleurs'
 
 type Props = {
   espace: DepotEspace
@@ -169,6 +171,7 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
             aujourdhui={aujourdhui}
             segments={placerSemaine(avecApercu, jours[0]!)}
             cible={cible}
+            couleur={(l) => couleurDeLigne(l, schema, vue)}
             contenu={(l) => <ContenuEvt base={base} ligne={l} titre={titreLigne(l, schema.champTitre)} champs={champs} />}
             enCours={enCours?.chemin}
             modifiable={modifiable}
@@ -215,6 +218,8 @@ function Semaine(p: {
   mois: string | null
   aujourdhui: string
   segments: ReturnType<typeof placerSemaine<LigneVue>>
+  /** Couleur nommée d'une ligne (réglage « Couleur » de la vue), ou neutre. */
+  couleur: (ligne: LigneChargee) => string | undefined
   /** Jours d'arrivée de la ligne en cours de déplacement. */
   cible: Plage | null
   contenu: (l: LigneChargee) => ReactNode
@@ -251,6 +256,7 @@ function Semaine(p: {
       ))}
       {p.segments.map((s) => {
         const { ligne, sortira } = s.element
+        const couleur = p.couleur(ligne)
         return (
           <div
             key={ligne.chemin}
@@ -261,10 +267,11 @@ function Semaine(p: {
               sortira && 'sortira',
               p.enCours === ligne.chemin && (p.cible ? 'origine' : 'glisse'),
               p.modifiable && 'deplacable',
+              couleur && 'coloree',
             ]
               .filter(Boolean)
               .join(' ')}
-            style={{ gridColumn: `${s.colonne + 1} / span ${s.largeur}`, gridRow: s.rang + 2 }}
+            style={{ gridColumn: `${s.colonne + 1} / span ${s.largeur}`, gridRow: s.rang + 2, ...styleCouleur(couleur) }}
             title={plageEnTexte(s.plage)}
             onPointerDown={p.modifiable ? (e) => p.commencer(e, ligne, 'deplacer') : undefined}
             onClick={p.modifiable ? undefined : () => p.ouvrir(ligne)}

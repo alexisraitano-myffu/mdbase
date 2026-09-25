@@ -14,6 +14,7 @@ import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
 import { Plus } from 'lucide-react'
 import { useConsultation } from './mode'
+import { COULEURS, type ReglageCouleur } from '../core/couleurs'
 
 type Props = {
   espace: DepotEspace
@@ -411,6 +412,7 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
             ))}
         </select>
       </label>
+      <ChoixCouleur schema={schema} reglage={vue} changer={modifier} />
       {timeline && (
         <label className="case-reglage">
           Grouper par
@@ -515,6 +517,54 @@ function OptionsDeplier(p: { schema: Schema; niveaux: Niveau[]; changer: (n: Niv
   )
 }
 
+const NOMS_COULEURS: Record<(typeof COULEURS)[number], string> = {
+  gris: 'Gris',
+  bleu: 'Bleu',
+  vert: 'Vert',
+  orange: 'Orange',
+  violet: 'Violet',
+  rose: 'Rose',
+  jaune: 'Jaune',
+  rouge: 'Rouge',
+  marron: 'Marron',
+}
+
+/** « Couleur » des barres : selon une colonne select (la couleur de son option), ou une couleur fixe. */
+function ChoixCouleur(p: { schema: Schema; reglage: ReglageCouleur; changer: (m: ReglageCouleur) => void }) {
+  const choix = p.schema.colonnes.filter((c) => c.type === 'select' || c.type === 'multiselect')
+  const valeur = p.reglage.couleurPar ? `par:${p.reglage.couleurPar}` : p.reglage.couleur ? `fixe:${p.reglage.couleur}` : ''
+  const changer = (v: string) =>
+    p.changer({
+      couleur: v.startsWith('fixe:') ? v.slice(5) : undefined,
+      couleurPar: v.startsWith('par:') ? v.slice(4) : undefined,
+    })
+  return (
+    <label className="case-reglage">
+      Couleur
+      <select value={valeur} onChange={(e) => changer(e.target.value)}>
+        <option value="">neutre</option>
+        {choix.length > 0 && (
+          <optgroup label="Selon une colonne">
+            {choix.map((c) => (
+              <option key={c.cle} value={`par:${c.cle}`}>
+                selon {c.nom}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label="Couleur fixe">
+          {COULEURS.map((c) => (
+            <option key={c} value={`fixe:${c}`}>
+              {NOMS_COULEURS[c]}
+            </option>
+          ))}
+        </optgroup>
+        {p.reglage.couleurPar && !choix.some((c) => c.cle === p.reglage.couleurPar) && <option value={valeur}>{p.reglage.couleurPar} (disparue)</option>}
+      </select>
+    </label>
+  )
+}
+
 function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partial<Niveau>) => void; retour: string; profondeur: number }) {
   const { schema, niveau } = p
   const dates = colonnesDates(schema)
@@ -569,6 +619,7 @@ function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partia
             ))}
         </>
       )}
+      <ChoixCouleur schema={schema} reglage={niveau} changer={p.changer} />
       <details className="filtres-niveau" open={niveau.filtres.length > 0 || undefined}>
         <summary>
           Filtrer les lignes de {schema.nom}

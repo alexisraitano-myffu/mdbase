@@ -1,3 +1,4 @@
+import { COULEURS } from './couleurs'
 import { chargerBase, type ChargementBase, type LigneChargee } from './base'
 import { calculer, type BaseACalculer, type Calculs } from './calcul'
 import { DepotBase, type OptionsDepot } from './depot-base'
@@ -49,8 +50,6 @@ const PAUSE_FRAPPE = 1000
 
 export const TYPES_CREABLES = ['text', 'number', 'date', 'checkbox', 'select', 'multiselect', 'url'] as const
 export type TypeCreable = (typeof TYPES_CREABLES)[number]
-
-const COULEURS = ['gris', 'bleu', 'vert', 'orange', 'violet', 'rose', 'jaune', 'rouge', 'marron']
 
 export type EtatBase = {
   id: string

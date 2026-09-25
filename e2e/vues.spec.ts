@@ -138,6 +138,22 @@ test.describe('timeline en arbre', () => {
     await expect.poll(() => espace.lire('taches/integration--tinte002.md')).not.toBe(avant)
   })
 
+  test('couleurs : les barres prennent la couleur de l’option (projets selon leur statut, tâches selon leur priorité), réglable en Options', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    // Maquettes : priorité Haute, rouge dans la démo.
+    await expect(rangee(page, 'Maquettes').locator('.tl-barre')).toHaveClass(/coloree/)
+    await expect(rangee(page, 'Maquettes').locator('.tl-barre')).toHaveCSS('background-color', 'rgb(255, 226, 221)')
+
+    await page.getByRole('button', { name: 'Options' }).click()
+    await page.locator('.flottant .case-reglage', { hasText: 'Couleur' }).first().locator('select').selectOption('fixe:violet')
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).toContain('couleur: violet\n')
+    expect(await espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('couleur_par: statut')
+    await page.locator('.reglages-niveau').first().locator('.case-reglage', { hasText: 'Couleur' }).locator('select').selectOption('')
+    await expect(rangee(page, 'Maquettes').locator('.tl-barre')).not.toHaveClass(/coloree/)
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('couleur_par: priorite')
+  })
+
   test('réglages d’un niveau : sans fin, des losanges ; ses filtres ne touchent que lui', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()

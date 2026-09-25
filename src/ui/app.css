@@ -1051,3 +1051,11 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 /* L'en-tête de la page ouverte laisse la place à l'icône quand il touche le bord droit. */
 .cadre-page.plein-ecran .entete-page { padding-right: 44px; }
 .cellule.lecture { cursor: default; }
+
+/* Barres colorées des vues temporelles : `styleCouleur` pose --barre-fond et --barre-texte. */
+.tl-barre.coloree, .cal-evt.coloree {
+  background: var(--barre-fond);
+  color: var(--barre-texte);
+  border-color: color-mix(in srgb, var(--barre-texte) 22%, var(--barre-fond));
+}
+.tl-point.coloree { background: color-mix(in srgb, var(--barre-texte) 55%, var(--barre-fond)); }

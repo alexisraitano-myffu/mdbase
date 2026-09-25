@@ -125,6 +125,15 @@ describe('réglages de la vue', () => {
     expect(lireVue('type: calendrier\nechelle: annee\n', 'c').vue?.echelle).toBeUndefined()
   })
 
+  it('couleur des barres : fixe ou selon une colonne, retirée quand on revient au neutre', () => {
+    const vue = lireVue('type: timeline\n', 'planning').vue!
+    const texte = modifierVue('type: timeline\n', vue, { couleurPar: 'statut' })
+    expect(texte).toBe('type: timeline\ncouleur_par: statut\n')
+    expect(lireVue(texte, 'planning').vue).toMatchObject({ couleurPar: 'statut' })
+    expect(modifierVue(texte, vue, { couleur: undefined, couleurPar: undefined })).toBe('type: timeline\n')
+    expect(lireVue('couleur: bleu\n', 'v').vue?.couleur).toBe('bleu')
+  })
+
   it('ignore un réglage mal formé', () => {
     const { vue } = lireVue('largeurs: { titre: large, statut: 90 }\ncolonnes: oui\nretour_ligne: peut-être\n', 'v')
     expect(vue?.largeurs).toEqual({ statut: 90 })
@@ -140,7 +149,7 @@ describe('niveaux dépliés de la timeline', () => {
       champDebut: 'debut',
       champFin: 'fin',
       filtres: [{ colonne: 'fait', operateur: 'egal' as const, valeur: false }],
-      deplier: [{ relation: 'jalons', champDebut: 'date', champsJalons: ['revue'], filtres: [], deplier: [] }],
+      deplier: [{ relation: 'jalons', champDebut: 'date', champsJalons: ['revue'], couleur: 'orange', filtres: [], deplier: [] }],
     },
   ]
 
@@ -159,6 +168,7 @@ describe('niveaux dépliés de la timeline', () => {
         '      - relation: jalons',
         '        champ_debut: date',
         '        champs_jalons: [ revue ]',
+        '        couleur: orange',
       ].join('\n'),
     )
     expect(lireVue(texte, 'feuille').vue!.deplier).toEqual(NIVEAUX)

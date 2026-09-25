@@ -52,6 +52,9 @@ export type Niveau = {
   champDebut?: string
   champFin?: string
   champsJalons?: string[]
+  /** Couleur des barres de ce niveau : fixe, ou selon une colonne select de la base liée. */
+  couleur?: string
+  couleurPar?: string
   filtres: Filtre[]
   deplier: Niveau[]
 }
@@ -88,6 +91,10 @@ export type Vue = {
   champFin?: string
   /** Timeline : colonnes de date affichées comme des points sur la barre. */
   champsJalons?: string[]
+  /** Calendrier et timeline : couleur fixe des barres (une des couleurs nommées). */
+  couleur?: string
+  /** Calendrier et timeline : colonne select dont l'option colore chaque barre ; l'emporte sur `couleur`. */
+  couleurPar?: string
   /** Calendrier : `mois` ou `semaine` ; timeline : `semaine`, `mois` ou `trimestre`. */
   echelle?: EchelleVue
   /** Timeline : relations dépliées sous chaque ligne, niveau par niveau. */
@@ -117,6 +124,8 @@ const REGLAGES = {
   champDebut: 'champ_debut',
   champFin: 'champ_fin',
   champsJalons: 'champs_jalons',
+  couleur: 'couleur',
+  couleurPar: 'couleur_par',
   echelle: 'echelle',
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
@@ -166,6 +175,10 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   if (champFin) r.champFin = champFin
   const champsJalons = chaines(brut.champs_jalons)
   if (champsJalons) r.champsJalons = champsJalons
+  const couleur = texte(brut.couleur)
+  if (couleur) r.couleur = couleur
+  const couleurPar = texte(brut.couleur_par)
+  if (couleurPar) r.couleurPar = couleurPar
   if (brut.echelle === 'semaine' || brut.echelle === 'mois' || brut.echelle === 'trimestre') r.echelle = brut.echelle
   return r
 }
@@ -225,6 +238,8 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
               ...(r.champDebut && { champDebut: r.champDebut }),
               ...(r.champFin && { champFin: r.champFin }),
               ...(r.champsJalons && { champsJalons: r.champsJalons }),
+              ...(r.couleur && { couleur: r.couleur }),
+              ...(r.couleurPar && { couleurPar: r.couleurPar }),
               filtres: filtres(n.filtres, `niveau ${n.relation}`),
               deplier: niveaux(n.deplier, profondeur + 1),
             },
@@ -312,6 +327,8 @@ function noeudNiveaux(doc: Document, niveaux: readonly Niveau[]): YAMLSeq {
     if (n.champDebut) m.set('champ_debut', n.champDebut)
     if (n.champFin) m.set('champ_fin', n.champFin)
     if (n.champsJalons?.length) m.set('champs_jalons', doc.createNode(n.champsJalons, { flow: true }))
+    if (n.couleur) m.set('couleur', n.couleur)
+    if (n.couleurPar) m.set('couleur_par', n.couleurPar)
     if (n.filtres.length > 0) {
       const f = doc.createNode(n.filtres.map(ecrireFiltre)) as YAMLSeq
       for (const item of f.items) if (isMap(item)) item.flow = true

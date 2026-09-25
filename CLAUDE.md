@@ -47,6 +47,7 @@ src/
                            formule.ts (typage, évaluation, noms ↔ clés pour l'éditeur) ;
                            jamais d'eval (invariant 8, testé sur les sources)
     arbre-temps.ts         timeline en arbre : lignes liées par les relations cochées, niveau par niveau (filtres, boucles)
+    couleurs.ts            couleurs nommées de l'espace, couleur d'une ligne selon le réglage d'une vue temporelle (fixe ou selon une colonne select)
     temps.ts               jours ISO en UTC pur, grille du calendrier, placement des plages,
                            gestes (déplacer, étirer), étendue et graduations de la timeline
     dashboard.ts           lecture/réécriture des `_dashboards/*.yaml`, même opération en mémoire
