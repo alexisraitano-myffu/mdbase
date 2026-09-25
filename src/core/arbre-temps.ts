@@ -1,15 +1,12 @@
 import type { LigneChargee } from './base'
 import type { Calculs } from './calcul'
-import { correspond, type Contexte } from './filtres'
+import { correspond, SANS_VALEUR, type Contexte } from './filtres'
 import { colonne, type Schema } from './schema'
 import { jourDe } from './temps'
-import { PROFONDEUR_MAX, type Filtre, type Niveau, type Operateur } from './vue'
+import { PROFONDEUR_MAX, type Filtre, type Niveau } from './vue'
 
 // Timeline en arbre (spec §7) : sous chaque ligne, les lignes liées par les
 // relations cochées, niveau par niveau (un projet, ses versions, leurs jalons).
-
-/** Opérateurs qui se suffisent : les autres attendent une valeur. */
-const SANS_VALEUR: readonly Operateur[] = ['vide', 'non_vide', 'aujourdhui', 'cette_semaine', 'ce_mois']
 
 /** Un filtre en cours de saisie (valeur pas encore tapée) ne filtre rien. */
 const complet = (f: Filtre) => SANS_VALEUR.includes(f.operateur) || (f.valeur !== undefined && f.valeur !== '' && !(Array.isArray(f.valeur) && f.valeur.length === 0))

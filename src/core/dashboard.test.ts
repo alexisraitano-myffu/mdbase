@@ -44,6 +44,8 @@ describe('lireDashboard', () => {
           ],
         },
       ],
+      filtres: [],
+      filtresRapides: [],
     })
   })
 
@@ -115,5 +117,27 @@ rangees:
       texte = modifierDashboard(texte, op)
       expect(memoire).toEqual(lireDashboard(texte, 'pilotage').dashboard)
     }
+  })
+})
+
+describe('filtres globaux', () => {
+  it('s’écrivent un par ligne, se relisent, et disparaissent quand on les vide', () => {
+    let texte = modifierDashboard(PILOTAGE, { type: 'filtres', filtres: [{ base: 'projets', colonne: 'statut', operateur: 'egal', valeur: 'En cours' }] })
+    texte = modifierDashboard(texte, { type: 'filtres_rapides', pastilles: [{ base: 'projets', valeur: ['psite001'] }, { base: 'taches', colonne: 'priorite', operateur: 'parmi' }] })
+    expect(texte).toContain('filtres:\n  - { base: projets, colonne: statut, operateur: egal, valeur: En cours }\n')
+    expect(texte).toContain('filtres_rapides:\n  - { base: projets, valeur: [ psite001 ] }\n  - { base: taches, colonne: priorite, operateur: parmi }\n')
+    const lu = lireDashboard(texte, 'pilotage')
+    expect(lu.avertissements).toEqual([])
+    expect(lu.dashboard).toMatchObject({
+      filtres: [{ base: 'projets', colonne: 'statut', operateur: 'egal', valeur: 'En cours' }],
+      filtresRapides: [{ base: 'projets', valeur: ['psite001'] }, { base: 'taches', colonne: 'priorite', operateur: 'parmi' }],
+    })
+    expect(modifierDashboard(texte, { type: 'filtres', filtres: [] })).not.toContain('\nfiltres:')
+  })
+
+  it('un filtre global sans base est écarté avec un avertissement', () => {
+    const lu = lireDashboard('nom: X\nfiltres:\n  - { colonne: statut, operateur: egal }\n', 'x')
+    expect(lu.dashboard!.filtres).toEqual([])
+    expect(lu.avertissements).toEqual(['Dashboard x : filtre global ignoré (base, colonne ou opérateur manquant)'])
   })
 })

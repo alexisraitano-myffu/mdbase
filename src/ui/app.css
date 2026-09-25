@@ -288,6 +288,9 @@ button:hover { background: var(--survol); }
 .pilule .resume { font-weight: 500; }
 .pilule .chevron { opacity: 0.6; font-size: 0.8em; }
 .ajout-pastille { padding: 0.2rem 0.5rem; font-size: 0.9em; }
+.filtres-dashboard { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.liste-lignes-pastille { max-height: 40vh; overflow-y: auto; margin: 6px 0; min-width: 220px; }
+.non-filtre { font-size: 0.8em; white-space: nowrap; }
 .panneau-pastille { padding: 6px; display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
 .pastille-relation {
   padding: 1px 6px;

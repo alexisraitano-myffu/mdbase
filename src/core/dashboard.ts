@@ -1,7 +1,7 @@
 import { Document, isMap, isSeq, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
-import { appliquerModificationsVue, lireVueDepuis, type ModificationVue, type Vue } from './vue'
+import { appliquerModificationsVue, lireVueDepuis, OPERATEURS, type Filtre, type ModificationVue, type Operateur, type Vue } from './vue'
 
 // Dashboards `_dashboards/<id>.yaml` (spec §10) : des rangées empilées d'un ou
 // deux blocs. Un bloc montre une vue d'une base : une référence à une vue de
@@ -11,7 +11,14 @@ export type BlocReference = { base: string; vue: string }
 export type BlocPropre = { base: string; vue: Vue }
 export type Bloc = BlocReference | BlocPropre
 export type Rangee = { blocs: Bloc[] }
-export type Dashboard = { id: string; nom: string; rangees: Rangee[] }
+/** Filtre global (spec §10) : sur une base ; les blocs des autres bases suivent leurs relations vers elle. */
+export type FiltreGlobal = Filtre & { base: string }
+/**
+ * Filtre rapide global : une colonne d'une base, réglée comme une pastille de
+ * vue ; sans colonne, `valeur` est la liste des lignes choisies de la base.
+ */
+export type PastilleGlobale = { base: string; colonne?: string; operateur?: Operateur; valeur?: unknown }
+export type Dashboard = { id: string; nom: string; rangees: Rangee[]; filtres: FiltreGlobal[]; filtresRapides: PastilleGlobale[] }
 
 /** Deux blocs côte à côte au plus (spec §10). */
 export const BLOCS_PAR_RANGEE = 2
@@ -31,6 +38,8 @@ export type OperationDashboard =
   | { type: 'deplacer_rangee'; de: number; vers: number }
   /** Modifie la vue propre d'un bloc (une référence se modifie dans le fichier de sa vue). */
   | { type: 'modifier_vue'; place: PlaceBloc; modifs: ModificationVue }
+  | { type: 'filtres'; filtres: FiltreGlobal[] }
+  | { type: 'filtres_rapides'; pastilles: PastilleGlobale[] }
 
 export class ErreurDashboard extends Error {
   constructor(message: string) {
@@ -68,7 +77,22 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
     for (let k = 0; k < blocs.length; k += BLOCS_PAR_RANGEE) coupees.push({ blocs: blocs.slice(k, k + BLOCS_PAR_RANGEE) })
     return coupees
   })
-  return { dashboard: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, rangees }, avertissements }
+  const filtres = (Array.isArray(brut.filtres) ? brut.filtres : []).flatMap((f): FiltreGlobal[] => {
+    if (estObjet(f) && typeof f.base === 'string' && typeof f.colonne === 'string' && (OPERATEURS as readonly string[]).includes(String(f.operateur))) {
+      return [{ base: f.base, colonne: f.colonne, operateur: f.operateur as Operateur, ...(f.valeur !== undefined && { valeur: f.valeur }) }]
+    }
+    avertissements.push(`Dashboard ${id} : filtre global ignoré (base, colonne ou opérateur manquant)`)
+    return []
+  })
+  const filtresRapides = (Array.isArray(brut.filtres_rapides) ? brut.filtres_rapides : []).flatMap((p): PastilleGlobale[] => {
+    if (!estObjet(p) || typeof p.base !== 'string') {
+      avertissements.push(`Dashboard ${id} : filtre rapide global ignoré (base manquante)`)
+      return []
+    }
+    const operateur = (OPERATEURS as readonly string[]).includes(String(p.operateur)) ? (p.operateur as Operateur) : undefined
+    return [{ base: p.base, ...(typeof p.colonne === 'string' && { colonne: p.colonne }), ...(operateur && { operateur }), ...(p.valeur !== undefined && { valeur: p.valeur }) }]
+  })
+  return { dashboard: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, rangees, filtres, filtresRapides }, avertissements }
 }
 
 export function nouveauDashboard(id: string, nom: string): string {
@@ -116,6 +140,21 @@ export function modifierDashboard(texte: string, op: OperationDashboard): string
       appliquerModificationsVue(doc, vue, op.modifs)
       break
     }
+    case 'filtres':
+      ecrireListe(doc, 'filtres', op.filtres.map((f) => ({ base: f.base, colonne: f.colonne, operateur: f.operateur, ...(f.valeur !== undefined && { valeur: f.valeur }) })))
+      break
+    case 'filtres_rapides':
+      ecrireListe(
+        doc,
+        'filtres_rapides',
+        op.pastilles.map((p) => ({
+          base: p.base,
+          ...(p.colonne !== undefined && { colonne: p.colonne }),
+          ...(p.operateur && { operateur: p.operateur }),
+          ...(p.valeur !== undefined && { valeur: p.valeur }),
+        })),
+      )
+      break
   }
   return doc.toString(OPTIONS_SORTIE_CONFIG)
 }
@@ -150,8 +189,23 @@ export function appliquerEnMemoire(d: Dashboard, op: OperationDashboard): Dashbo
       if (r && b && estPropre(b)) r.blocs[op.place.bloc] = { ...b, vue: { ...b.vue, ...op.modifs } }
       break
     }
+    case 'filtres':
+      return { ...d, filtres: op.filtres }
+    case 'filtres_rapides':
+      return { ...d, filtresRapides: op.pastilles }
   }
   return { ...d, rangees }
+}
+
+/** Une liste de filtres à la racine, un par ligne ; vide, la clé disparaît. */
+function ecrireListe(doc: Document, cle: string, items: object[]) {
+  if (items.length === 0) {
+    doc.delete(cle)
+    return
+  }
+  const seq = doc.createNode(items) as YAMLSeq
+  for (const item of seq.items) if (isMap(item)) item.flow = true
+  doc.set(cle, seq)
 }
 
 function noeudBloc(doc: Document, b: Bloc) {

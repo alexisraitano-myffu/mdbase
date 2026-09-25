@@ -54,7 +54,8 @@ export function Pastilles({ schema, pastilles, changer }: Props) {
   )
 }
 
-function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: FiltreRapide; changer: (p: FiltreRapide | null) => void }) {
+/** Une pastille réglée depuis son menu ; `libelle` remplace le nom de la colonne (filtres globaux : « Base › Colonne »). */
+export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: FiltreRapide; changer: (p: FiltreRapide | null) => void; libelle?: string }) {
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
   const { colonne, pastille } = p
@@ -69,7 +70,7 @@ function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: FiltreR
   return (
     <>
       <button ref={ancre} className={`pilule ${actif ? 'active' : ''}`} onClick={() => setOuvert(true)}>
-        {colonne.nom}
+        {p.libelle ?? colonne.nom}
         {actif && <span className="resume">{' : '}{resumer(colonne, operateur, valeurAffichee)}</span>}
         <Icone de={ChevronDown} className="chevron" taille={12} />
       </button>

@@ -24,6 +24,7 @@ Pour tester à la main : `npm run dev`, puis « Essayer avec la démo » (copie 
 src/
   core/          TypeScript pur, zéro dépendance UI : parsing, schéma, index,
                  graphe de dépendances, rollups, formules, filtres, écriture
+    filtre-global.ts       filtres globaux d'un dashboard : lignes retenues par base, blocs qui suivent leurs relations
     fichiers.ts            interface AdaptateurFichiers (lister, lire, ecrire,
                            renommer, supprimer, dateModification) + helpers de chemins
     adaptateur-memoire.ts  implémentation en mémoire, double des tests

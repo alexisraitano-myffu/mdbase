@@ -467,7 +467,17 @@ rangees:
           filtres:
             - { colonne: echeance, operateur: avant, valeur: aujourdhui }
       - { base: clients, vue: tableau-principal }
+filtres:                                             # filtres globaux (optionnels)
+  - { base: projets, colonne: statut, operateur: egal, valeur: En cours }
+filtres_rapides:                                     # pastilles globales
+  - { base: projets, valeur: [psite001] }            # sans colonne : des lignes choisies
+  - { base: taches, colonne: priorite, operateur: parmi }
 ```
+
+- **Filtres globaux** [DÉCIDÉ, validé par Alex le 25/09/2026] : un dashboard peut porter des filtres et des filtres rapides qui valent pour tous ses blocs. Chacun porte sur une base (« Projets › Statut = En cours »), qu'elle ait un bloc ou non.
+  - Un bloc de cette base est filtré directement. Un bloc d'une autre base suit ses relations vers elle : il garde les lignes liées à au moins une ligne retenue (les tâches des projets en cours). Un bloc sans relation vers la base filtrée n'est pas filtré, et son en-tête le dit.
+  - Plusieurs bases filtrées se combinent en ET. Ces filtres s'ajoutent à ceux de la vue du bloc, sans les modifier.
+  - Pastille globale sans colonne : le choix de lignes de la base (« Projets : Site vitrine, Boutique »), par cases à cocher. Comme toute pastille, non réglée elle ne filtre rien.
 
 ---
 

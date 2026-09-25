@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { BLOCS_PAR_RANGEE, estPropre, type Bloc, type PlaceBloc } from '../core/dashboard'
+import { useMemo, useRef, useState } from 'react'
+import { BLOCS_PAR_RANGEE, estPropre, type Bloc, type Dashboard, type PlaceBloc } from '../core/dashboard'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatDashboard } from '../core/depot-espace'
 import { idBase } from '../core/identifiants'
@@ -13,8 +13,12 @@ import { useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
 import { Page } from './Page'
 import { Pastilles } from './Pastilles'
+import { FiltresDashboard, useRetenues } from './FiltresDashboard'
+import { filtrerBloc } from '../core/filtre-global'
 import { usePageOuverte } from './usePageOuverte'
 import { ArrowDown, ArrowUp, ChevronRight, Ellipsis, Plus } from 'lucide-react'
+
+const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [] }
 
 type Props = {
   espace: DepotEspace
@@ -33,6 +37,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
   const [edition, setEdition] = useState(false)
   const d = etat.dashboard
   const modifier = (op: Parameters<DepotEspace['modifierDashboard']>[1]) => void lancer(espace.modifierDashboard(etat.id, op))
+  const retenues = useRetenues(d ?? SANS_FILTRES)
 
   if (!d) {
     return (
@@ -77,6 +82,11 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
             </ul>
           </details>
         )}
+        <FiltresDashboard
+          dashboard={d}
+          changerFiltres={(filtres) => modifier({ type: 'filtres', filtres })}
+          changerPastilles={(pastilles) => modifier({ type: 'filtres_rapides', pastilles })}
+        />
         {d.rangees.length === 0 && <p className="discret">Dashboard vide : ajoute un premier bloc, une vue d'une de tes bases.</p>}
         {d.rangees.map((r, i) => (
           <div key={i} className="rangee-dashboard">
@@ -89,6 +99,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
                 bloc={b}
                 ouvrir={ouvrir}
                 allerABase={allerABase}
+                retenues={retenues}
                 retirer={() => modifier({ type: 'retirer_bloc', place: { rangee: i, bloc: j } })}
               />
             ))}
@@ -134,6 +145,8 @@ type PropsBloc = {
   bloc: Bloc
   ouvrir: (base: string, id: string) => void
   allerABase: (base: string) => void
+  /** Lignes retenues par les filtres globaux, par base filtrée. */
+  retenues: ReadonlyMap<string, ReadonlySet<string>>
   retirer: () => void
 }
 
@@ -156,9 +169,14 @@ function BlocDashboard(p: PropsBloc) {
   return <BlocVue {...p} depot={depot} vue={vue} />
 }
 
-function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerABase, retirer }: PropsBloc & { depot: DepotBase; vue: Vue }) {
+function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerABase, retenues, retirer }: PropsBloc & { depot: DepotBase; vue: Vue }) {
   const lancer = useLancer()
-  const appliquee = useVueAppliquee(bloc.base, depot, vue)
+  const { etat } = useEspace()
+  const deLaVue = useVueAppliquee(bloc.base, depot, vue)
+  // Filtres globaux du dashboard, par-dessus ceux de la vue.
+  const filtre = useMemo(() => filtrerBloc(bloc.base, depot.schema, deLaVue.lignesVue, retenues), [bloc.base, depot.schema, deLaVue.lignesVue, retenues])
+  const appliquee = { ...deLaVue, lignesVue: filtre.lignes }
+  const libres = filtre.libres.map((b) => etat.bases.get(b)?.depot?.schema.nom ?? b)
   const [menu, setMenu] = useState(false)
   const [renommage, setRenommage] = useState(false)
   const ancre = useRef<HTMLButtonElement>(null)
@@ -198,6 +216,11 @@ function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerAB
         <span className={`etiquette-bloc ${propre ? 'propre' : ''}`} title={propre ? 'Vue écrite dans ce dashboard' : 'Vue de la base : la modifier ici la modifie aussi dans la base'}>
           {propre ? 'vue propre' : 'vue de la base'}
         </span>
+        {libres.length > 0 && (
+          <span className="discret non-filtre" title={`Ce bloc n'a pas de relation vers ${libres.join(', ')} : les filtres du dashboard sur cette base ne le touchent pas`}>
+            non filtré par {libres.join(', ')}
+          </span>
+        )}
         <span className="espaceur" />
         <OutilsVue schema={depot.schema} vue={vue} modifier={modifierVue} />
         <button ref={ancre} className="discret" onClick={() => setMenu(true)} aria-label="Options du bloc">

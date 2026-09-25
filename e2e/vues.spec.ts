@@ -175,6 +175,28 @@ test.describe('dashboards et recherche', () => {
     await expect.poll(() => espace.lire('_dashboards/suivi.yaml')).toContain('projets')
   })
 
+  test('filtre rapide global : un projet choisi filtre ses blocs et ceux qui lui sont liés', async ({ espace, page }) => {
+    await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
+    const blocs = page.locator('.bloc-dashboard')
+    await expect(blocs.nth(0)).toContainText('Boutique en ligne')
+    await expect(blocs.nth(2)).toContainText('Globex')
+
+    await page.getByRole('button', { name: 'Filtre rapide' }).first().click()
+    await page.locator('.flottant .option', { hasText: 'Projets' }).click()
+    await page.locator('.flottant .option', { hasText: 'Choisir des lignes de Projets' }).click()
+    await page.locator('.filtres-dashboard .pilule', { hasText: 'Projets' }).click()
+    await page.locator('.flottant .case-reglage', { hasText: 'Site vitrine' }).locator('input').check()
+    await page.keyboard.press('Escape')
+
+    await expect(page.locator('.filtres-dashboard .pilule.active')).toHaveText(/Projets : Site vitrine/)
+    await expect(blocs.nth(0)).toContainText('Site vitrine')
+    await expect(blocs.nth(0)).not.toContainText('Boutique en ligne')
+    // Les clients suivent leur relation vers les projets : seul Acme, client du site vitrine.
+    await expect(blocs.nth(2)).toContainText('Acme')
+    await expect(blocs.nth(2)).not.toContainText('Globex')
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toContain('filtres_rapides:\n  - { base: projets, valeur: [ psite001 ] }\n')
+  })
+
   test('Ctrl+K : chercher dans le contenu des pages, Entrée ouvre la ligne', async ({ espace, page }) => {
     await page.keyboard.press('Control+k')
     await page.locator('.champ-recherche').fill('salon')
