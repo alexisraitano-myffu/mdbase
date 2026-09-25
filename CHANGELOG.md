@@ -74,8 +74,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Assistant IA : outils de structure (créer une base, ajouter, renommer ou supprimer des colonnes, créer, régler ou supprimer des vues avec filtres et tris, créer ou supprimer des dashboards), suppression de lignes et écriture du contenu des pages. Une colonne créée peut être remplie dans la même proposition ; les suppressions sont en rouge dans l'aperçu.
 - Recopie d'une cellule : sa poignée, tirée vers le haut ou le bas, donne sa valeur aux lignes survolées.
 - Logo « db » en mauve pastel (glyphes Geist Mono) : la flèche de Markdown prolonge la hampe du d. Icône d’onglet, icône iPhone et image de partage des liens.
-- Supprimer une base (clic droit dans la barre latérale, et outil de l'assistant) : confirmation qui montre ce qui est touché ; les relations vers elle deviennent du texte avec les titres liés, les blocs de dashboard qui l'affichaient sont retirés.
-- Tableau : pointillé qui défile autour de ce qui vient d'être copié (jusqu'à Échap), et reflet bref sur les cases touchées par un collage, une recopie, une action en lot, un Ctrl+Z ou l'assistant.
+- Supprimer une base (bouton ⋯ ou clic droit dans la barre latérale, et outil de l'assistant) : confirmation qui montre ce qui est touché ; les relations vers elle deviennent du texte avec les titres liés, les blocs de dashboard qui l'affichaient sont retirés.
+- Tableau : pointillé qui défile autour de ce qui vient d'être copié, dès la copie (jusqu'à Échap), et reflet bref sur les cases touchées par un collage, une recopie, une action en lot, un Ctrl+Z ou l'assistant.
 
 ### Changed
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).

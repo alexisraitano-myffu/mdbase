@@ -223,7 +223,8 @@ function EntreeBase(p: {
       }}
       title="Double-clic pour renommer, clic droit pour plus"
     >
-      {p.nom}
+      <span className="nom-entree">{p.nom}</span>
+      <BoutonMenuEntree ouvert={menu !== null} ouvrir={() => setMenu('options')} libelle={`Options de la base ${p.nom}`} />
       {menu && (
         <Flottant ancre={ancre.current} fermer={() => setMenu(null)}>
           {menu === 'options' ? (
@@ -267,6 +268,25 @@ function ConfirmerSuppressionBase(p: { nom: string; portee: PorteeSuppressionBas
   )
 }
 
+/** Bouton ⋯ d'une entrée de la barre latérale : le même menu que le clic droit. */
+function BoutonMenuEntree(p: { ouvert: boolean; ouvrir: () => void; libelle: string }) {
+  return (
+    <button
+      className="discret menu-entree"
+      aria-label={p.libelle}
+      aria-expanded={p.ouvert}
+      title="Renommer, supprimer"
+      onClick={(e) => {
+        e.stopPropagation()
+        p.ouvrir()
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
+    >
+      <Icone de={Ellipsis} />
+    </button>
+  )
+}
+
 function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void; renommer: (nom: string) => void; supprimer: () => void }) {
   const [edition, setEdition] = useState(false)
   const [menu, setMenu] = useState<'options' | 'confirmer' | null>(null)
@@ -295,7 +315,9 @@ function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void;
       }}
       title="Double-clic pour renommer, clic droit pour plus"
     >
-      <Icone de={Table2} /> {p.nom}
+      <Icone de={Table2} />
+      <span className="nom-entree">{p.nom}</span>
+      <BoutonMenuEntree ouvert={menu !== null} ouvrir={() => setMenu('options')} libelle={`Options du dashboard ${p.nom}`} />
       {menu && (
         <Flottant ancre={ancre.current} fermer={() => setMenu(null)}>
           {menu === 'options' ? (

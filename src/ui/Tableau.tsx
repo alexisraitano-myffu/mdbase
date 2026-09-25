@@ -214,6 +214,8 @@ export function Tableau(p: Props) {
   const bordPlage = (chemin: string, c: number): string | undefined => {
     const l = rangs.get(chemin)
     if (!bornes || l === undefined || l < bornes.l1 || l > bornes.l2 || c < bornes.c1 || c > bornes.c2) return undefined
+    // Case copiée : le pointillé tient lieu de bord, un trait plein le cacherait.
+    if (copie?.chemins.has(chemin) && c >= copie.c1 && c <= copie.c2) return 'inset 0 0 0 1000px var(--accent-fond)'
     const bords = ['inset 0 0 0 1000px var(--accent-fond)']
     if (l === bornes.l1) bords.unshift('inset 0 2px 0 var(--accent)')
     if (l === bornes.l2) bords.unshift('inset 0 -2px 0 var(--accent)')

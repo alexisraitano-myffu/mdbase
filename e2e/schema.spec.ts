@@ -59,7 +59,9 @@ test.describe('bases, groupes et colonnes', () => {
 
 test('supprimer une base : portée montrée, relations converties en texte, dossier effacé', async ({ espace, page }) => {
   await espace.base('Clients')
-  await page.locator('.entree-base', { hasText: 'Clients' }).click({ button: 'right' })
+  // Le bouton ⋯ (au survol) ouvre le même menu que le clic droit.
+  await page.locator('.entree-base', { hasText: 'Clients' }).hover()
+  await page.getByRole('button', { name: 'Options de la base Clients' }).click()
   await page.getByRole('button', { name: 'Supprimer la base…' }).click()
   const confirmation = page.locator('.confirmation')
   await expect(confirmation).toContainText('ses 3 lignes')
