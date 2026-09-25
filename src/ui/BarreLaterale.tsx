@@ -4,7 +4,7 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Ellipsis, Plus, RotateCw, Search, Table2, Upload } from 'lucide-react'
+import { Ellipsis, Plus, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 
@@ -16,6 +16,8 @@ type Props = {
   choisir: (id: string) => void
   choisirDashboard: (id: string) => void
   changerDossier: () => void
+  /** Ouvre l'assistant IA (ou son activation s'il est désactivé). */
+  assistant: () => void
   /** Ouvre la recherche globale. */
   chercher: () => void
   /** Relit le dossier (changements faits ailleurs), et l'état de la dernière relecture. */
@@ -24,7 +26,7 @@ type Props = {
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, relire, relu }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, assistant, relire, relu }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -74,6 +76,11 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         <Icone de={Search} />
         Rechercher
         <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘K' : 'Ctrl+K'}</kbd>
+      </button>
+      <button className="discret bouton-recherche" onClick={assistant}>
+        <Icone de={Sparkles} />
+        Assistant IA
+        <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘J' : 'Ctrl+J'}</kbd>
       </button>
 
       <section className="groupe dashboards">

@@ -17,6 +17,8 @@ import { ContexteEspace } from './contexte-espace'
 import { VueBase } from './VueBase'
 import { VueDashboard } from './Dashboard'
 import { RechercheGlobale } from './RechercheGlobale'
+import { Assistant, FenetreReglagesIA } from './Assistant'
+import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/ia/reglages'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string }
 
@@ -170,6 +172,15 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
     setPageDemandee(null) // une demande de page ne survit pas à un changement de base
   }
   const [recherche, setRecherche] = useState(false)
+  // Assistant IA : désactivé par défaut, la première ouverture montre l'avertissement (spec §12).
+  const [reglagesIA, setReglagesIA] = useState(lireReglages)
+  const [ia, setIa] = useState<'assistant' | 'reglages' | null>(null)
+  const ouvrirAssistant = useCallback(() => setIa(lireReglages().actif ? 'assistant' : 'reglages'), [])
+  const enregistrerIA = (r: ReglagesIA) => {
+    enregistrerReglages(r)
+    setReglagesIA(r)
+    setIa(r.actif ? 'assistant' : null)
+  }
 
   // Changements faits ailleurs (synchro, autre machine) : le navigateur ne voit
   // pas le dossier changer, on le relit au retour sur l'onglet (spec §12).
@@ -198,17 +209,22 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   }, [rafraichir])
   const [pageDemandee, setPageDemandee] = useState<{ base: string; id: string; jeton: number } | null>(null)
 
-  // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11).
+  // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11) ; Ctrl+J / ⌘J, l'assistant IA.
   useEffect(() => {
     const clavier = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return
+      const touche = e.key.toLowerCase()
+      if (touche === 'k') {
         e.preventDefault()
         setRecherche(true)
+      } else if (touche === 'j') {
+        e.preventDefault()
+        ouvrirAssistant()
       }
     }
     document.addEventListener('keydown', clavier)
     return () => document.removeEventListener('keydown', clavier)
-  }, [])
+  }, [ouvrirAssistant])
   const ouvrirResultat = (base: string, id: string) => {
     setSelection({ type: 'base', id: base })
     setPageDemandee((d) => ({ base, id, jeton: (d?.jeton ?? 0) + 1 }))
@@ -226,6 +242,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
           changerDossier={changer}
           chercher={() => setRecherche(true)}
+          assistant={ouvrirAssistant}
           relire={rafraichir}
           relu={relu}
         />
@@ -242,6 +259,10 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           )}
         </main>
       </div>
+      {ia === 'assistant' && (
+        <Assistant espace={espace} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setIa('reglages')} fermer={() => setIa(null)} />
+      )}
+      {ia === 'reglages' && <FenetreReglagesIA reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
       {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
     </ContexteEspace.Provider>
   )
