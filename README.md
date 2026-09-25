@@ -1,4 +1,4 @@
-<img src="public/logo.svg" alt="" width="120">
+<img src="public/logo.svg" alt="" width="90">
 
 # mdbase
 
