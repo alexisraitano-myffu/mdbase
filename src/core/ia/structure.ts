@@ -265,6 +265,10 @@ function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, u
   if (args.champ_fin === null) r.champFin = undefined
   else if (args.champ_fin !== undefined) r.champFin = col(args.champ_fin)
   if (Array.isArray(args.champs_jalons)) r.champsJalons = args.champs_jalons.map((j) => colonneDate(bb.schema, j))
+  if (typeof args.noms_jalons === 'boolean') {
+    if (genre !== 'timeline') erreur('noms_jalons : seulement pour une vue timeline')
+    r.nomsJalons = args.noms_jalons
+  }
   if (args.echelle !== undefined) {
     const echelles = genre === 'calendrier' ? ['mois', 'semaine'] : ['semaine', 'mois', 'trimestre']
     if (!echelles.includes(String(args.echelle))) erreur(`echelle : ${echelles.join(', ')} pour une vue ${genre}`)

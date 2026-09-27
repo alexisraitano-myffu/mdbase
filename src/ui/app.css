@@ -601,7 +601,6 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
   border: 1px solid var(--barre-bordure);
   border-radius: 5px;
   cursor: pointer;
-  z-index: 1;
 }
 .tl-barre.deplacable { cursor: grab; }
 .tl-barre .titre-evt, .tl-titre-dehors { display: flex; align-items: center; gap: 8px; }
@@ -617,7 +616,7 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
   background: var(--jalon);
   border: 1px solid var(--fond);
   transform: rotate(45deg);
-  z-index: 2;
+  z-index: 1;
   cursor: pointer;
 }
 
@@ -1262,3 +1261,28 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
 .tl-barre .titre-evt { overflow: visible; text-overflow: clip; flex-shrink: 0; }
 /* Une barre qui commence hors de l'écran garde son titre visible, contre la colonne des titres (240 px, `.tl-coin`). */
 .tl-barre .titre-evt { position: sticky; left: 250px; }
+
+/* Ordre d'empilement d'une rangée : la barre, puis ses jalons, puis les textes (titre, dates, noms de jalons) */
+.tl-barre .titre-evt, .tl-titre-dehors, .champs-bord { z-index: 2; } /* sous la colonne des titres (3) */
+.contenu-barre { display: flex; flex-shrink: 0; min-width: 100%; }
+.champs-bord { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--discret); font-size: 0.95em; }
+.champs-bord .champ-carte { color: inherit; }
+.champs-bord.avant { position: absolute; right: calc(100% + 6px); }
+/* Après la barre : son bord droit (padding compris) plus un petit écart. */
+.champs-bord.apres { position: relative; flex-shrink: 0; margin-left: 16px; }
+.tl-nom-jalon {
+  position: absolute;
+  top: 10px;
+  height: 16px;
+  line-height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--fond);
+  box-shadow: 0 0 0 1px var(--bordure);
+  color: var(--jalon);
+  font-size: 0.75em;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1;
+  pointer-events: none;
+}

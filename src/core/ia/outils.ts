@@ -78,6 +78,7 @@ const REGLAGES_VUE = {
   champ_fin: { type: ['string', 'null'], description: 'calendrier, timeline : colonne date de fin (facultative) ; null la retire' },
   ...COULEUR,
   champs_jalons: { type: 'array', items: { type: 'string' }, description: 'timeline : colonnes date affichées en losanges sur la barre' },
+  noms_jalons: { type: 'boolean', description: 'timeline : afficher le nom de la colonne à côté de chaque losange' },
   echelle: { type: 'string', enum: ['semaine', 'mois', 'trimestre'], description: 'calendrier : mois ou semaine ; timeline : semaine, mois ou trimestre' },
   deplier: {
     type: ['array', 'null'],
@@ -316,6 +317,7 @@ function detailTemps(v: Vue): string {
     v.champDebut && `début ${v.champDebut}`,
     v.champFin && `fin ${v.champFin}`,
     v.champsJalons?.length && `jalons ${v.champsJalons.join(', ')}`,
+    v.nomsJalons && 'noms des jalons affichés',
     v.couleurPar && `couleur selon ${v.couleurPar}`,
     v.couleur && `couleur ${v.couleur}`,
     v.deplier?.length && `déplie [${v.deplier.map(niveau).join(' | ')}]`,

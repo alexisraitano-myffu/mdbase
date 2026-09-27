@@ -12,7 +12,7 @@ import { useEspace } from './contexte-espace'
 import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
-import { ArrowDown, ArrowUp, ChevronRight, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, Plus, Tag, X } from 'lucide-react'
 import { Choix, type EntreeChoix } from './Choix'
 import { Interrupteur, Reglage, Section, Visibilite } from './reglages'
 import { useConsultation } from './mode'
@@ -429,6 +429,9 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
               changer={(v) => modifier({ champsJalons: basculerCle(dates, jalons, c.cle, v) })}
             />
           ))}
+          {jalons.size > 0 && (
+            <Interrupteur libelle="Afficher le nom des jalons" icone={Tag} coche={vue.nomsJalons === true} changer={(v) => modifier({ nomsJalons: v })} />
+          )}
         </Section>
       )}
       {timeline && (

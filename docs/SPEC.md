@@ -343,7 +343,8 @@ type: timeline          # ou calendrier
 champ_debut: debut      # calendrier : le champ date utilisé
 champ_fin: echeance     # optionnel
 champs_jalons: [revue]  # timeline seulement
-champs_carte: [client]  # champs affichés, comme pour le kanban
+noms_jalons: true       # timeline : le nom de la colonne à côté de chaque losange
+champs_carte: [client]  # champs affichés, comme pour le kanban ; dans la timeline, le début se lit avant la barre et la fin après
 echelle: mois           # calendrier : mois | semaine ; timeline : semaine | mois | trimestre
 deplier:                # timeline seulement : relations dépliées sous chaque ligne
   - relation: versions  # colonne relation de cette base

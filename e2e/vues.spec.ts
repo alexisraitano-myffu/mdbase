@@ -154,6 +154,27 @@ test.describe('timeline en arbre', () => {
     await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('couleur_par: priorite')
   })
 
+  test('dates de début et de fin de part et d’autre de la barre, nom des jalons en option', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await page.getByRole('checkbox', { name: 'Afficher Début' }).check()
+    await page.getByRole('checkbox', { name: 'Afficher Échéance' }).check()
+    await page.getByRole('switch', { name: 'Afficher le nom des jalons' }).check()
+    await page.keyboard.press('Escape')
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).toContain('noms_jalons: true')
+
+    const site = rangee(page, 'Site vitrine')
+    const barre = (await site.locator('.tl-barre').boundingBox())!
+    const avant = (await site.locator('.champs-bord.avant').boundingBox())!
+    const apres = (await site.locator('.champs-bord.apres').boundingBox())!
+    expect(avant.x + avant.width).toBeLessThanOrEqual(barre.x)
+    expect(apres.x).toBeGreaterThanOrEqual(barre.x + barre.width)
+    await expect(site.locator('.champs-bord.avant')).toHaveText('01/09/2026')
+    await expect(site.locator('.champs-bord.apres')).toHaveText('15/10/2026')
+    await expect(site.locator('.tl-nom-jalon')).toHaveText('Revue client')
+  })
+
   test('réglages d’un niveau : sans fin, des losanges ; ses filtres ne touchent que lui', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()

@@ -333,6 +333,16 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     r.axe.depot.modifier(r.ligne.chemin, r.axe.debut.cle, jour)
   }
 
+  /** Champs affichés d'une ligne, en valeurs compactes ; rien quand aucun n'a de valeur à montrer. */
+  const afficher = (ligne: LigneChargee, cols: Colonne[]) =>
+    cols.length === 0
+      ? null
+      : cols.map((c) => (
+          <span key={c.cle} className="champ-carte">
+            <ValeurCompacte base={base} ligne={ligne} colonne={c} />
+          </span>
+        ))
+
   const basculer = (cle: string) => {
     const s = new Set(replies)
     if (s.has(cle)) s.delete(cle)
@@ -487,15 +497,10 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         couleur={r.couleur}
                         plage={plage}
                         titre={titre}
-                        champs={
-                          premier(r)
-                            ? champs.map((c) => (
-                                <span key={c.cle} className="champ-carte">
-                                  <ValeurCompacte base={base} ligne={ligne} colonne={c} />
-                                </span>
-                              ))
-                            : null
-                        }
+                        champs={premier(r) ? afficher(ligne, champs.filter((c) => c.cle !== vue.champDebut && c.cle !== vue.champFin)) : null}
+                        // Les dates de début et de fin se lisent de part et d'autre de la barre.
+                        avant={premier(r) ? afficher(ligne, champs.filter((c) => c.cle === vue.champDebut)) : null}
+                        apres={premier(r) ? afficher(ligne, champs.filter((c) => c.cle === vue.champFin)) : null}
                         x={x}
                         px={px}
                         geste={geste}
@@ -507,7 +512,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                       />
                     )}
                     {r.jalons.map((j) => (
-                      <Jalon key={j.colonne.cle} colonne={j.colonne} jour={j.jour} left={x(j.jour) + px / 2} ouvrir={() => ouvrirRangee(r)} />
+                      <Jalon key={j.colonne.cle} colonne={j.colonne} jour={j.jour} left={x(j.jour) + px / 2} nom={vue.nomsJalons === true} ouvrir={() => ouvrirRangee(r)} />
                     ))}
                   </div>
                 </div>
@@ -546,6 +551,9 @@ function Barre(p: {
   plage: Plage
   titre: string
   champs: ReactNode
+  /** Champs posés juste avant la barre (sa date de début) et juste après (sa date de fin). */
+  avant: ReactNode
+  apres: ReactNode
   x: (j: string) => number
   px: number
   geste: EnCours | undefined
@@ -581,16 +589,24 @@ function Barre(p: {
         onClick={p.commencer ? undefined : p.ouvrir}
       >
         {p.commencer && p.finModifiable && <span className="poignee poignee-debut" onPointerDown={(e) => p.commencer!(e, 'debut')} />}
+        {p.avant && <span className="champs-bord avant">{p.avant}</span>}
         {dedans && (
-          <span className="titre-evt">
-            {p.titre}
-            {p.champs}
-          </span>
+          <>
+            {/* Au moins la largeur de la barre : la date de fin se pose après la barre, ou après le titre s'il déborde. */}
+            <span className="contenu-barre">
+              <span className="titre-evt">
+                {p.titre}
+                {p.champs}
+              </span>
+            </span>
+            {p.apres && <span className="champs-bord apres">{p.apres}</span>}
+          </>
         )}
         {p.commencer && p.finModifiable && <span className="poignee poignee-fin" onPointerDown={(e) => p.commencer!(e, 'fin')} />}
       </div>
       {!dedans && (
         <span className="tl-titre-dehors" style={{ left: left + Math.max(largeur, 6) + 6 }}>
+          {p.apres}
           {p.titre}
           {p.champs}
         </span>
@@ -626,16 +642,23 @@ function Point(p: { couleur: string | undefined; jour: string; titre: string; le
   )
 }
 
-function Jalon({ colonne, jour, left, ouvrir }: { colonne: Colonne; jour: string; left: number; ouvrir: () => void }) {
+function Jalon({ colonne, jour, left, nom, ouvrir }: { colonne: Colonne; jour: string; left: number; nom: boolean; ouvrir: () => void }) {
   return (
-    <span
-      className="tl-jalon"
-      style={{ left }}
-      title={`${colonne.nom} · ${dateCourte(jour)}`}
-      onClick={(e) => {
-        e.stopPropagation()
-        ouvrir()
-      }}
-    />
+    <>
+      <span
+        className="tl-jalon"
+        style={{ left }}
+        title={`${colonne.nom} · ${dateCourte(jour)}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          ouvrir()
+        }}
+      />
+      {nom && (
+        <span className="tl-nom-jalon" style={{ left: left + 9 }}>
+          {colonne.nom}
+        </span>
+      )}
+    </>
   )
 }

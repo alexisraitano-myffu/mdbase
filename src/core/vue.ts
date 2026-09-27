@@ -91,6 +91,8 @@ export type Vue = {
   champFin?: string
   /** Timeline : colonnes de date affichées comme des points sur la barre. */
   champsJalons?: string[]
+  /** Timeline : le nom de la colonne à côté de chaque jalon. */
+  nomsJalons?: boolean
   /** Calendrier et timeline : couleur fixe des barres (une des couleurs nommées). */
   couleur?: string
   /** Calendrier et timeline : colonne select dont l'option colore chaque barre ; l'emporte sur `couleur`. */
@@ -124,6 +126,7 @@ const REGLAGES = {
   champDebut: 'champ_debut',
   champFin: 'champ_fin',
   champsJalons: 'champs_jalons',
+  nomsJalons: 'noms_jalons',
   couleur: 'couleur',
   couleurPar: 'couleur_par',
   echelle: 'echelle',
@@ -169,6 +172,7 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   const champsCarte = chaines(brut.champs_carte)
   if (champsCarte) r.champsCarte = champsCarte
   if (brut.apercu_corps === true) r.apercuCorps = true
+  if (brut.noms_jalons === true) r.nomsJalons = true
   const champDebut = texte(brut.champ_debut)
   if (champDebut) r.champDebut = champDebut
   const champFin = texte(brut.champ_fin)

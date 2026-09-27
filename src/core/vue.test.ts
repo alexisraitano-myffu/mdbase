@@ -109,6 +109,15 @@ describe('réglages de la vue', () => {
     })
   })
 
+  it('timeline : noms des jalons écrits, relus, retirés quand désactivés', () => {
+    const vue: Vue = { ...vueParDefaut(), id: 'frise', type: 'timeline', implicite: false }
+    const texte = modifierVue(null, vue, { champsJalons: ['revue'], nomsJalons: true })
+    expect(texte).toContain('noms_jalons: true\n')
+    expect(lireVue(texte, 'frise').vue?.nomsJalons).toBe(true)
+    expect(modifierVue(texte, vue, { nomsJalons: false })).not.toContain('noms_jalons')
+    expect(lireVue('type: timeline\nnoms_jalons: oui\n', 'frise').vue?.nomsJalons).toBeUndefined()
+  })
+
   it('retire une clé vidée ou désactivée', () => {
     const avec = modifierVue(null, vueParDefaut(), { retourLigne: true, groupe: 'statut', masquees: ['a'] })
     const sans = modifierVue(avec, vueParDefaut(), { retourLigne: false, groupe: undefined, masquees: [] })
