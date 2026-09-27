@@ -9,8 +9,10 @@ import { titreDe, useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
 import { PastilleFiltre } from './Pastilles'
 import { useAujourdhui } from './useAujourdhui'
-import { ChevronDown, Plus } from 'lucide-react'
-import { Icone } from './icones'
+import { ChevronDown, Plus, Search, TriangleAlert } from 'lucide-react'
+import { Icone, ICONES } from './icones'
+import { Choix } from './Choix'
+import { Reglage } from './reglages'
 import { useConsultation } from './mode'
 
 // Filtres globaux d'un dashboard (spec §10) : bouton « Filtrer » et pastilles
@@ -91,19 +93,16 @@ function PanneauFiltres({ dashboard: d, changer }: { dashboard: Dashboard; chang
       </button>
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
-          <div className="panneau">
+          <div className="panneau large">
             <div className="discret aide-reglage">Pour tous les blocs : ceux d’une autre base suivent leurs relations vers celle-ci.</div>
-            <label className="case-reglage">
-              Base
-              <select value={base ?? ''} onChange={(e) => setBase(e.target.value)}>
-                {bases.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.depot!.schema.nom}
-                    {compte(b.id) > 0 && ` (${compte(b.id)})`}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Reglage libelle="Base">
+              <Choix
+                valeur={base ?? ''}
+                entrees={bases.map((b) => ({ valeur: b.id, libelle: b.depot!.schema.nom + (compte(b.id) > 0 ? ` (${compte(b.id)})` : '') }))}
+                libelle="Base"
+                changer={setBase}
+              />
+            </Reglage>
             {schema && base && (
               <EditeurFiltres
                 schema={schema}
@@ -160,6 +159,7 @@ function AjoutPastille({ pastilles, ajouter }: { pastilles: PastilleGlobale[]; a
                 .filter((c) => !prise(c.cle))
                 .map((c) => (
                   <button key={c.cle} className="option" onClick={() => (ajouter({ base, colonne: c.cle, operateur: operateurParDefaut(c) }), fermer())}>
+                    <Icone de={ICONES[c.type]} />
                     {c.nom}
                   </button>
                 ))}
@@ -182,7 +182,8 @@ function PastilleLignes({ pastille, nom, changer }: { pastille: PastilleGlobale;
   const titres = [...(etat.titres.get(pastille.base) ?? new Map<string, string>())]
   const normal = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const visibles = titres.filter(([, t]) => normal(t).includes(normal(recherche))).sort((a, b) => a[1].localeCompare(b[1]))
-  const resume = choisies.map((id) => titreDe(etat, pastille.base, id) ?? `⚠ ${id}`)
+  const resume = choisies.map((id) => titreDe(etat, pastille.base, id) ?? id)
+  const disparues = choisies.some((id) => titreDe(etat, pastille.base, id) === undefined)
   const basculer = (id: string) => {
     const suivantes = choisies.includes(id) ? choisies.filter((x) => x !== id) : [...choisies, id]
     changer({ base: pastille.base, ...(suivantes.length > 0 && { valeur: suivantes }) })
@@ -194,6 +195,7 @@ function PastilleLignes({ pastille, nom, changer }: { pastille: PastilleGlobale;
         {choisies.length > 0 && (
           <span className="resume">
             {' : '}
+            {disparues && <Icone de={TriangleAlert} className="alerte" taille={13} />}
             {resume.length > 2 ? `${resume.slice(0, 2).join(', ')} +${resume.length - 2}` : resume.join(', ')}
           </span>
         )}
@@ -202,7 +204,10 @@ function PastilleLignes({ pastille, nom, changer }: { pastille: PastilleGlobale;
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
           <div className="panneau-pastille">
-            <input className="recherche-option" autoFocus placeholder={`Chercher dans ${nom}`} value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+            <label className="recherche-choix">
+              <Icone de={Search} taille={14} />
+              <input autoFocus placeholder={`Chercher dans ${nom}`} value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+            </label>
             <div className="liste-lignes-pastille">
               {visibles.map(([id, t]) => (
                 <label key={id} className="case-reglage">

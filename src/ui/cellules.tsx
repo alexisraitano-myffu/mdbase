@@ -7,7 +7,7 @@ import { couleurOption } from './couleurs'
 import { Flottant } from './flottant'
 import { useLancer } from './actions'
 import { titreDe, useEspace } from './contexte-espace'
-import { Check, Plus, Square, SquareCheck } from 'lucide-react'
+import { Check, Plus, Square, SquareCheck, TriangleAlert } from 'lucide-react'
 import { Icone } from './icones'
 import { useConsultation } from './mode'
 
@@ -130,10 +130,20 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
   )
 }
 
+/** Id d'une ligne liée introuvable, signalé. */
+function LienCasse({ id }: { id: string }) {
+  return (
+    <span className="lien-casse" title="Lien cassé : aucune ligne ne porte cet id">
+      <Icone de={TriangleAlert} className="alerte" />
+      {id}
+    </span>
+  )
+}
+
 function Avertissement({ cellule }: { cellule: Extract<ValeurCellule, { etat: 'invalide' }> }) {
   return (
     <span className="invalide" title={cellule.raison}>
-      ⚠{' '}
+      <Icone de={TriangleAlert} className="alerte" />
       {cellule.brut === undefined
         ? 'erreur'
         : typeof cellule.brut === 'object'
@@ -313,7 +323,8 @@ function CelluleRelation(p: {
           const titre = titreDe(etat, colonne.cible, id)
           return titre === null ? (
             <span key={id} className="lien-casse" title="Lien cassé : aucune ligne ne porte cet id">
-              ⚠ {id}
+              <Icone de={TriangleAlert} className="alerte" />
+              {id}
             </span>
           ) : (
             <span key={id} className="pastille-relation">
@@ -340,7 +351,10 @@ function CelluleRelation(p: {
           {casses.map((id) => (
             <button key={id} className="option" onClick={() => basculer(id)} title="Retirer ce lien cassé">
               <span className="coche"><Icone de={Check} taille={14} /></span>
-              <span className="lien-casse">⚠ {id}</span>
+              <span className="lien-casse">
+                <Icone de={TriangleAlert} className="alerte" />
+                {id}
+              </span>
             </button>
           ))}
           {candidats.map(([id, titre]) => (
@@ -389,7 +403,7 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
       contenu = valeurs.map((x, i) =>
         champ?.type === 'relation' ? (
           <span key={i} className="pastille-relation">
-            {titreDe(etat, champ.cible, x) ?? `⚠ ${x}`}
+            {titreDe(etat, champ.cible, x) ?? <LienCasse id={x} />}
           </span>
         ) : champ?.type === 'select' || champ?.type === 'multiselect' ? (
           <Pastille key={i} label={x} couleur={champ.options.find((o) => o.label === x)?.couleur} />
@@ -441,7 +455,7 @@ export function ValeurCompacte({ base, ligne, colonne }: { base: string; ligne: 
         <>
           {(Array.isArray(v) ? v : []).map((id) => (
             <span key={id} className="pastille-relation">
-              {titreDe(etat, colonne.cible, id) ?? `⚠ ${id}`}
+              {titreDe(etat, colonne.cible, id) ?? <LienCasse id={id} />}
             </span>
           ))}
         </>

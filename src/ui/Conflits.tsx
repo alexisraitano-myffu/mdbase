@@ -8,6 +8,8 @@ import { colonne as colonneDe } from '../core/schema'
 import { useLancer } from './actions'
 import { ValeurCompacte } from './cellules'
 import { Fenetre } from './fenetre'
+import { TriangleAlert } from 'lucide-react'
+import { Icone } from './icones'
 
 // Conflits de synchronisation (spec §4) : rien n'est tranché à la place de
 // l'utilisateur. On montre les versions côte à côte, il choisit.
@@ -25,7 +27,8 @@ export function BandeauDoublons({ depot, doublons }: { depot: DepotBase; doublon
   return (
     <>
       <div className="bandeau-conflit">
-        ⚠ {n === 1 ? 'Une ligne existe' : `${n} lignes existent`} en plusieurs exemplaires (même identifiant) : copie de fichier ou conflit de synchro.
+        <Icone de={TriangleAlert} className="alerte" />
+        {n === 1 ? 'Une ligne existe' : `${n} lignes existent`} en plusieurs exemplaires (même identifiant) : copie de fichier ou conflit de synchro.
         <button onClick={() => setOuvert(true)}>Comparer et choisir</button>
       </div>
       {ouvert && (
@@ -120,7 +123,8 @@ export function AlerteCopies({ espace, copies }: { espace: DepotEspace; copies: 
   return (
     <>
       <button className="discret alerte-copies" onClick={() => setOuvert(true)}>
-        ⚠ {copies.length === 1 ? '1 copie de conflit' : `${copies.length} copies de conflit`}
+        <Icone de={TriangleAlert} className="alerte" />
+        {copies.length === 1 ? '1 copie de conflit' : `${copies.length} copies de conflit`}
       </button>
       {ouvert && (
         <Fenetre titre="Copies de conflit de synchro" fermer={() => setOuvert(false)}>

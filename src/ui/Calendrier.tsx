@@ -322,7 +322,7 @@ export function dateCourte(iso: string): string {
 }
 
 export function plageEnTexte(p: Plage): string {
-  return p.debut === p.fin ? dateCourte(p.debut) : `${dateCourte(p.debut)} → ${dateCourte(p.fin)}`
+  return p.debut === p.fin ? dateCourte(p.debut) : `du ${dateCourte(p.debut)} au ${dateCourte(p.fin)}`
 }
 
 function libelleSemaine(jours: string[]): string {

@@ -88,6 +88,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Contenu des pages dans la police de l'interface (l'éditeur imposait Noto Serif / Noto Sans).
 - Glisser un en-tête de colonne réordonne la vue, plus le schéma (l'ordre du schéma sert aux nouvelles vues et aux pages).
 - Couleur d'accent : le vert laisse place au noir et aux gris déjà utilisés (boutons principaux, sélection, cases cochées, barres de timeline).
+- Interface uniformisée : toutes les listes déroulantes natives deviennent une même liste de choix (bouton pilule, icône du type de colonne, pastilles de couleur, coche sur la valeur choisie, recherche au-delà de huit entrées, flèches et Entrée au clavier) ; une valeur disparue reste affichée, signalée.
+- Filtres et tris sur une seule ligne (« Où / Et », colonne, opérateur, valeur, retirer), valeurs de relation choisies dans une liste avec recherche.
+- Panneaux de réglages (Options, page, rollup, filtres d'un dashboard) en sections séparées d'un trait fin : libellé à gauche, réglage à droite, interrupteurs pour les réglages oui / non, œil pour les colonnes et champs affichés.
+- Champs de saisie des menus et fenêtres à la même hauteur, avec le même bord et le même anneau de focus.
+- Derniers symboles Unicode (avertissement, croix, flèches) remplacés par des icônes Lucide ; une plage de dates s'écrit « du … au … ».
 
 ### Fixed
 - Assistant IA : une vue proposée entrait dans l'état de l'espace dès la proposition (un onglet sans fichier pouvait apparaître, même en annulant), et la vraie était ensuite créée avec un suffixe « -2 ».
@@ -96,3 +101,5 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Une ligne créée par « + Nouvelle ligne » n'ouvrait pas toujours son titre en édition (la ligne s'affichait avant la demande d'édition).
 - Les menus flottants restent dans la fenêtre (les panneaux Filtrer / Trier débordaient à droite).
 - Les menus flottants (select, en-têtes) sont rendus hors du tableau : ils pouvaient apparaître décalés ou coupés dans les lignes.
+- Un menu ouvert dans un panneau ou une fenêtre (liste de choix dans « Filtrer », dans l'import CSV) ne ferme plus ce panneau, et Échap ne ferme que le dernier ouvert.
+- Les outils d'un bloc de dashboard étroit ne passent plus sur deux lignes.

@@ -4,6 +4,16 @@ import { createPortal } from 'react-dom'
 const MARGE = 8
 
 /**
+ * Panneaux ouverts, du plus ancien au plus récent. Un menu peut s'ouvrir dans
+ * un panneau (une liste de choix dans « Filtrer ») : cliquer dans le menu ne
+ * ferme pas le panneau, et Échap ne ferme que le dernier ouvert.
+ */
+const pile: HTMLElement[] = []
+
+/** Vrai quand un panneau flottant est ouvert (Échap lui revient, pas à la fenêtre dessous). */
+export const flottantOuvert = () => pile.length > 0
+
+/**
  * Panneau flottant sous une ancre, fermé par un clic extérieur ou Échap.
  * Rendu dans `document.body` : les lignes du tableau sont positionnées par
  * `transform`, ce qui piégerait un `position: fixed` à l'intérieur.
@@ -21,13 +31,22 @@ export function Flottant(p: {
   const { fermer, ancre, garderOuvert } = p
 
   useEffect(() => {
+    const el = panneau.current
+    if (el) pile.push(el)
+    // Ce panneau et ceux ouverts depuis lui (plus haut dans la pile).
+    const dedans = (cible: Node) => el !== null && pile.slice(pile.indexOf(el)).some((x) => x.contains(cible))
     const clic = (e: MouseEvent) => {
-      if (!garderOuvert && !panneau.current?.contains(e.target as Node)) fermer()
+      if (!garderOuvert && !dedans(e.target as Node)) fermer()
     }
-    const touche = (e: KeyboardEvent) => e.key === 'Escape' && fermer()
+    const touche = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || pile.at(-1) !== el) return
+      e.preventDefault()
+      fermer()
+    }
     document.addEventListener('mousedown', clic)
     document.addEventListener('keydown', touche)
     return () => {
+      if (el) pile.splice(pile.indexOf(el), 1)
       document.removeEventListener('mousedown', clic)
       document.removeEventListener('keydown', touche)
     }

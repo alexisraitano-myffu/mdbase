@@ -7,8 +7,10 @@ import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { EditeurFormule } from './EditeurFormule'
 import { Flottant } from './flottant'
-import { Plus, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Plus, TriangleAlert } from 'lucide-react'
 import { Icone, ICONES } from './icones'
+import { Choix } from './Choix'
+import { Reglage } from './reglages'
 
 export const NOMS_TYPES: Record<TypeCreable, string> = {
   text: 'Texte',
@@ -181,56 +183,42 @@ function ReglagesRollup({ espace, base, colonne }: { espace: DepotEspace; base: 
 
   return (
     <div className="reglages-rollup">
-      <label>
-        Relation
-        <select
-          value={colonne.relation}
-          onChange={(e) => {
-            const r = relations.find((x) => x.cle === e.target.value)!
+      <Reglage libelle="Relation">
+        <Choix
+          valeur={colonne.relation}
+          entrees={relations.map((r) => ({ valeur: r.cle, libelle: r.nom, icone: ICONES.relation }))}
+          libelle="Relation"
+          changer={(v) => {
+            const r = relations.find((x) => x.cle === v)!
             const s = etat.bases.get(r.cible)?.depot?.schema
             const c = s && (s.colonnes.find((x) => x.cle === colonne.champ) ?? s.colonnes.find((x) => x.cle === s.champTitre))
             if (!c) return
             const calcul = calculsPour(c).includes(colonne.calcul as Calcul) ? (colonne.calcul as Calcul) : 'afficher'
             modifier({ relation: r.cle, champ: c.cle, calcul })
           }}
-        >
-          {!relation && <option value={colonne.relation}>⚠ {colonne.relation}</option>}
-          {relations.map((r) => (
-            <option key={r.cle} value={r.cle}>
-              {r.nom}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Colonne
-        <select
-          value={colonne.champ}
-          onChange={(e) => {
-            const c = cible?.colonnes.find((x) => x.cle === e.target.value)
+        />
+      </Reglage>
+      <Reglage libelle="Colonne">
+        <Choix
+          valeur={colonne.champ}
+          entrees={(cible?.colonnes ?? []).map((c) => ({ valeur: c.cle, libelle: c.nom, icone: ICONES[c.type] }))}
+          libelle="Colonne"
+          changer={(v) => {
+            const c = cible?.colonnes.find((x) => x.cle === v)
             if (!c) return
             const calcul = calculsPour(c).includes(colonne.calcul as Calcul) ? (colonne.calcul as Calcul) : 'afficher'
             modifier({ champ: c.cle, calcul })
           }}
-        >
-          {!champ && <option value={colonne.champ}>⚠ {colonne.champ}</option>}
-          {(cible?.colonnes ?? []).map((c) => (
-            <option key={c.cle} value={c.cle}>
-              {c.nom}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Calcul
-        <select value={colonne.calcul} onChange={(e) => modifier({ calcul: e.target.value as Calcul })}>
-          {(champ ? calculsPour(champ) : CALCULS).map((c) => (
-            <option key={c} value={c}>
-              {LIBELLES_CALCULS[c]}
-            </option>
-          ))}
-        </select>
-      </label>
+        />
+      </Reglage>
+      <Reglage libelle="Calcul">
+        <Choix
+          valeur={colonne.calcul}
+          entrees={(champ ? calculsPour(champ) : CALCULS).map((c) => ({ valeur: c, libelle: LIBELLES_CALCULS[c] }))}
+          libelle="Calcul"
+          changer={(v) => modifier({ calcul: v as Calcul })}
+        />
+      </Reglage>
     </div>
   )
 }
@@ -359,7 +347,11 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
               <div className="option discret">Via la relation :</div>
               {relations.map((r) => (
                 <button key={r.cle} className="option" onClick={() => setEtape({ type: 'rollup-champ', relation: r })}>
-                  {r.nom} <span className="discret">→ {schemaDe(r.cible)?.nom ?? r.cible}</span>
+                  {r.nom}
+                  <span className="discret vers">
+                    <Icone de={ArrowRight} taille={13} />
+                    {schemaDe(r.cible)?.nom ?? r.cible}
+                  </span>
                 </button>
               ))}
             </>

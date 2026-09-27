@@ -105,7 +105,7 @@ Les écritures passent par `DepotEspace` et `DepotBase` (`creerLigne`, `modifier
 
 - **Nommage en français**, comme la spec et le format des fichiers (`lister`, `colonnes`, `champ_titre`).
 - TypeScript `strict` avec `noUncheckedIndexedAccess`, sur les trois projets (`core`, `app`, `test`).
-- Icônes : Lucide seulement, via `src/ui/icones.tsx`. Couleurs : variables CSS du `:root` de `src/ui/app.css`, pas de couleur en dur.
+- Icônes : Lucide seulement, via `src/ui/icones.tsx`, jamais d'emoji ni de symbole Unicode. Listes de choix : le composant `Choix`, pas de `<select>` natif ; réglages : les briques de `src/ui/reglages.tsx`. Couleurs : variables CSS du `:root` de `src/ui/app.css`, pas de couleur en dur.
 - Découpe un module quand il grandit vraiment, pas par avance. Un nettoyage structurel est un commit à part, jamais mélangé à une fonctionnalité.
 - Mode consultation : tout nouveau contrôle qui modifie quelque chose se masque ou se désactive quand `useConsultation()` est vrai.
 

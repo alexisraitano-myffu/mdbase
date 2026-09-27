@@ -5,7 +5,7 @@ import { natureDe, type Calcul, type Colonne } from '../core/schema'
 import type { Cellule } from '../core/valeurs'
 import { LIBELLES_CALCULS } from './EnteteColonne'
 import { Flottant } from './flottant'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, TriangleAlert } from 'lucide-react'
 import { Icone } from './icones'
 
 // Calculs en pied de colonne (spec §7), sur les lignes affichées : les mêmes
@@ -45,7 +45,7 @@ function CaseCalcul(p: { colonne: Colonne; largeur: number; lignes: readonly Lig
     >
       {calcul ? (
         <>
-          <span className="libelle-calcul">{LIBELLES_CALCULS[calcul as Calcul] ?? calcul}</span> {formater(calcul, colonne, resultat)}
+          <span className="libelle-calcul">{LIBELLES_CALCULS[calcul as Calcul] ?? calcul}</span> {resultat?.etat === 'invalide' ? <Icone de={TriangleAlert} className="alerte" /> : formater(calcul, colonne, resultat)}
         </>
       ) : (
         p.changer && <span className="invite-calcul">Calculer <Icone de={ChevronDown} taille={12} /></span>
@@ -69,7 +69,7 @@ function CaseCalcul(p: { colonne: Colonne; largeur: number; lignes: readonly Lig
 
 function formater(calcul: string, colonne: Colonne, c: Cellule | undefined): string {
   if (!c) return '—'
-  if (c.etat === 'invalide') return '⚠'
+  if (c.etat === 'invalide') return ''
   const v = c.valeur
   if (typeof v === 'number') {
     const n = v.toLocaleString('fr-FR', { maximumFractionDigits: 2 })

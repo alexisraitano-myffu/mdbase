@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, test } from './espace'
+import { expect, test, choisir } from './espace'
 
 // Jalons 4, 5 et 10 : bases, groupes et colonnes depuis l'interface ; filtres,
 // tris et filtres rapides ; formules.
@@ -93,8 +93,8 @@ test.describe('filtres et tris', () => {
     await page.getByRole('button', { name: 'Filtrer' }).click()
     await page.getByRole('button', { name: 'Ajouter un filtre' }).click()
     const ligne = page.locator('.flottant .ligne-filtre').first()
-    await expect(ligne.locator('select').first()).toHaveValue('titre')
-    await ligne.locator('select').nth(1).selectOption('contient')
+    await expect(ligne.getByRole('button', { name: 'Colonne du filtre' })).toHaveText('Titre')
+    await choisir(ligne.getByRole('button', { name: 'Opérateur' }), 'contient')
     await ligne.locator('input').fill('site')
     await ligne.locator('input').press('Enter')
     await page.keyboard.press('Escape')
@@ -102,11 +102,43 @@ test.describe('filtres et tris', () => {
     await expect(page.getByRole('button', { name: 'Filtrer (1)' })).toBeVisible()
   })
 
+  test('liste de choix : flèches et Entrée, recherche au-delà de huit entrées, Échap ne ferme que la liste', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.getByRole('button', { name: 'Filtrer' }).click()
+    await page.getByRole('button', { name: 'Ajouter un filtre' }).click()
+    const ligne = page.locator('.flottant .ligne-filtre').first()
+
+    // Opérateur au clavier : la liste s'ouvre sur la valeur choisie, ↓ puis Entrée prend la suivante.
+    const operateur = ligne.getByRole('button', { name: 'Opérateur' })
+    await operateur.click()
+    await expect(page.getByRole('option', { name: 'est', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await expect(operateur).toHaveText("n'est pas")
+    await expect(page.getByRole('listbox')).toHaveCount(0)
+
+    // Plus de huit colonnes : une recherche filtre la liste.
+    await ligne.getByRole('button', { name: 'Colonne du filtre' }).click()
+    await page.getByRole('textbox', { name: 'Rechercher' }).fill('éch')
+    await expect(page.getByRole('option')).toHaveText(['Échéance'])
+    await page.keyboard.press('Enter')
+    await expect(ligne.getByRole('button', { name: 'Colonne du filtre' })).toHaveText('Échéance')
+
+    // Échap ferme la liste ouverte, puis le panneau.
+    await ligne.getByRole('button', { name: 'Opérateur' }).click()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('listbox')).toHaveCount(0)
+    await expect(ligne).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.flottant')).toHaveCount(0)
+    await expect.poll(() => espace.lire('projets/_vues/tableau.yaml')).toContain('colonne: echeance')
+  })
+
   test('tri décroissant sur l’échéance', async ({ espace, page }) => {
     await espace.base('Projets')
     await expect(titres(page)).toHaveText(['Audit sécurité', 'Boutique en ligne', 'Site vitrine', 'Application mobile'])
     await page.getByRole('button', { name: 'Trier (1)' }).click()
-    await page.locator('.flottant .ligne-filtre select').nth(1).selectOption('desc')
+    await choisir(page.locator('.flottant .ligne-filtre').getByRole('button', { name: 'Sens du tri' }), 'décroissant')
     await page.keyboard.press('Escape')
     await expect(titres(page)).toHaveText(['Application mobile', 'Site vitrine', 'Boutique en ligne', 'Audit sécurité'])
     await expect.poll(() => espace.lire('projets/_vues/tableau.yaml')).toContain('desc')

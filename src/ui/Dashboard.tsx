@@ -17,7 +17,7 @@ import { FiltresDashboard, useRetenues } from './FiltresDashboard'
 import { filtrerBloc } from '../core/filtre-global'
 import { usePageOuverte } from './usePageOuverte'
 import { useConsultation } from './mode'
-import { ArrowDown, ArrowUp, ChevronRight, Ellipsis, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, Ellipsis, Plus, TriangleAlert } from 'lucide-react'
 
 const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [] }
 
@@ -76,7 +76,10 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
         )}
         {etat.avertissements.length > 0 && (
           <details className="avertissements">
-            <summary>⚠ {etat.avertissements.length} signalement(s)</summary>
+            <summary>
+              <Icone de={TriangleAlert} className="alerte" />
+              {etat.avertissements.length} signalement(s)
+            </summary>
             <ul>
               {etat.avertissements.map((a) => (
                 <li key={a}>{a}</li>

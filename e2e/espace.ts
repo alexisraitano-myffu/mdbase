@@ -120,6 +120,12 @@ export class Espace {
   }
 }
 
+/** Choisit une entrée d'une liste de choix (`Choix`) : ouvre le bouton, clique l'option par son libellé exact. */
+export async function choisir(bouton: Locator, libelle: string) {
+  await bouton.click()
+  await bouton.page().getByRole('option', { name: libelle, exact: true }).click()
+}
+
 export const test = base.extend<{ espace: Espace }>({
   espace: async ({ page }, use) => {
     const erreurs: string[] = []

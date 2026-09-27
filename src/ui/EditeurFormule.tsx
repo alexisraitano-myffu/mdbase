@@ -15,7 +15,7 @@ import {
 } from '../core/formules/formule'
 import type { Colonne, ColonneFormule } from '../core/schema'
 import type { Cellule } from '../core/valeurs'
-import { Parentheses, type LucideIcon } from 'lucide-react'
+import { Parentheses, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { Icone, ICONES } from './icones'
 import { useEspace } from './contexte-espace'
 import { useAujourdhui } from './useAujourdhui'
@@ -241,7 +241,15 @@ export function EditeurFormule({ espace, base, formule, enregistrer, annuler }: 
           <span className="discret">
             {type && `Résultat : ${NOMS_TYPES[type]}. `}Sur « {titreLigne(ligne.cellules[schema.champTitre])} »
           </span>
-          <strong className={apercu && 'erreur' in apercu ? 'invalide' : ''}>{apercu && ('erreur' in apercu ? `⚠ ${apercu.erreur}` : apercu.valeur)}</strong>
+          <strong className={apercu && 'erreur' in apercu ? 'invalide' : ''}>{apercu &&
+              ('erreur' in apercu ? (
+                <>
+                  <Icone de={TriangleAlert} className="alerte" />
+                  {apercu.erreur}
+                </>
+              ) : (
+                apercu.valeur
+              ))}</strong>
           {lignes.length > 1 && (
             <span className="navigation-apercu">
               <button className="discret" onClick={() => setILigne((i) => (i + lignes.length - 1) % lignes.length)} aria-label="Ligne précédente">

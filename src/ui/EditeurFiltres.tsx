@@ -3,8 +3,10 @@ import { operateursPour } from '../core/filtres'
 import { useEspace } from './contexte-espace'
 import { natureDe, type Colonne, type Schema } from '../core/schema'
 import type { Filtre, Operateur } from '../core/vue'
-import { Plus } from 'lucide-react'
-import { Icone } from './icones'
+import { Plus, X } from 'lucide-react'
+import { Icone, ICONES } from './icones'
+import { Choix, type EntreeChoix } from './Choix'
+import { couleurOption } from './couleurs'
 
 export const LIBELLES_OPERATEURS: Record<Operateur, string> = {
   vide: 'est vide',
@@ -36,7 +38,14 @@ export function colonnesFiltrables(schema: Schema): Colonne[] {
   return schema.colonnes.filter((c) => c.type !== 'formula' || c.resultat !== undefined)
 }
 
-/** Liste de filtres combinés en ET, éditable. Chaque changement est remonté aussitôt. */
+/** Entrées d'une liste de colonnes, avec l'icône de leur type. */
+export function entreesColonnes(colonnes: Colonne[]): EntreeChoix[] {
+  return colonnes.map((c) => ({ valeur: c.cle, libelle: c.nom, icone: ICONES[c.type] }))
+}
+
+export const entreesOperateurs = (c: Colonne): EntreeChoix[] => operateursPour(c).map((o) => ({ valeur: o, libelle: LIBELLES_OPERATEURS[o] }))
+
+/** Liste de filtres combinés en ET, éditable, une ligne par filtre. Chaque changement est remonté aussitôt. */
 export function EditeurFiltres({ schema, filtres, changer }: { schema: Schema; filtres: Filtre[]; changer: (f: Filtre[]) => void }) {
   const colonnes = colonnesFiltrables(schema)
   const remplacer = (i: number, f: Filtre) => changer(filtres.map((x, j) => (j === i ? f : x)))
@@ -47,35 +56,30 @@ export function EditeurFiltres({ schema, filtres, changer }: { schema: Schema; f
         const c = colonnes.find((x) => x.cle === f.colonne)
         return (
           <div key={i} className="ligne-filtre">
-            <select
-              value={f.colonne}
-              onChange={(e) => {
-                const nc = colonnes.find((x) => x.cle === e.target.value)!
+            <span className="liaison-filtre">{i === 0 ? 'Où' : 'Et'}</span>
+            <Choix
+              valeur={f.colonne}
+              entrees={entreesColonnes(colonnes)}
+              libelle="Colonne du filtre"
+              inconnue={`${f.colonne} (supprimée)`}
+              changer={(v) => {
+                const nc = colonnes.find((x) => x.cle === v)!
                 remplacer(i, { colonne: nc.cle, operateur: operateursPour(nc)[0]! })
               }}
-            >
-              {!c && <option value={f.colonne}>{f.colonne} (supprimée)</option>}
-              {colonnes.map((x) => (
-                <option key={x.cle} value={x.cle}>
-                  {x.nom}
-                </option>
-              ))}
-            </select>
+            />
             {c && (
-              <select
-                value={f.operateur}
-                onChange={(e) => remplacer(i, { colonne: f.colonne, operateur: e.target.value as Operateur })}
-              >
-                {operateursPour(c).map((o) => (
-                  <option key={o} value={o}>
-                    {LIBELLES_OPERATEURS[o]}
-                  </option>
-                ))}
-              </select>
+              <Choix
+                valeur={f.operateur}
+                entrees={entreesOperateurs(c)}
+                libelle="Opérateur"
+                changer={(v) => remplacer(i, { colonne: f.colonne, operateur: v as Operateur })}
+              />
             )}
-            {c && <ValeurFiltre colonne={c} filtre={f} changer={(valeur) => remplacer(i, { ...f, valeur })} />}
-            <button className="discret" onClick={() => changer(filtres.filter((_, j) => j !== i))} aria-label="Retirer le filtre">
-              ×
+            <span className="valeur-filtre">
+              {c && <ValeurFiltre colonne={c} filtre={f} changer={(valeur) => remplacer(i, { ...f, valeur })} />}
+            </span>
+            <button className="discret retirer" onClick={() => changer(filtres.filter((_, j) => j !== i))} aria-label="Retirer le filtre" title="Retirer le filtre">
+              <Icone de={X} taille={14} />
             </button>
           </div>
         )
@@ -100,23 +104,27 @@ export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; f
 
   if (natureDe(colonne) === 'case') {
     return (
-      <select value={String(filtre.valeur === true || filtre.valeur === 'true')} onChange={(e) => changer(e.target.value === 'true')}>
-        <option value="true">coché</option>
-        <option value="false">non coché</option>
-      </select>
+      <Choix
+        valeur={String(filtre.valeur === true || filtre.valeur === 'true')}
+        entrees={[
+          { valeur: 'true', libelle: 'coché' },
+          { valeur: 'false', libelle: 'non coché' },
+        ]}
+        libelle="Valeur"
+        changer={(v) => changer(v === 'true')}
+      />
     )
   }
 
   if ((colonne.type === 'select' || colonne.type === 'multiselect') && op !== 'parmi') {
     return (
-      <select value={String(filtre.valeur ?? '')} onChange={(e) => changer(e.target.value)}>
-        <option value="" disabled>
-          choisir…
-        </option>
-        {colonne.options.map((o) => (
-          <option key={o.label}>{o.label}</option>
-        ))}
-      </select>
+      <Choix
+        valeur={String(filtre.valeur ?? '')}
+        entrees={colonne.options.map((o) => ({ valeur: o.label, libelle: o.label, couleur: o.couleur ?? 'gris' }))}
+        libelle="Valeur"
+        vide="Choisir"
+        changer={changer}
+      />
     )
   }
 
@@ -131,7 +139,9 @@ export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; f
               checked={choisis.includes(o.label)}
               onChange={(e) => changer(e.target.checked ? [...choisis, o.label] : choisis.filter((x) => x !== o.label))}
             />
-            {o.label}
+            <span className="pastille" style={{ background: couleurOption(o.couleur).fond, color: couleurOption(o.couleur).texte }}>
+              {o.label}
+            </span>
           </label>
         ))}
       </span>
@@ -145,20 +155,26 @@ export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; f
     if (op === 'entre') {
       const [a, b] = Array.isArray(filtre.valeur) ? filtre.valeur.map(String) : ['', '']
       return (
-        <span>
-          <input type="date" value={a ?? ''} onChange={(e) => changer([e.target.value, b ?? ''])} /> et{' '}
-          <input type="date" value={b ?? ''} onChange={(e) => changer([a ?? '', e.target.value])} />
+        <span className="valeurs-filtre">
+          <input type="date" value={a ?? ''} aria-label="Du" onChange={(e) => changer([e.target.value, b ?? ''])} />
+          <span className="discret">et</span>
+          <input type="date" value={b ?? ''} aria-label="Au" onChange={(e) => changer([a ?? '', e.target.value])} />
         </span>
       )
     }
     const estAujourdhui = filtre.valeur === 'aujourdhui'
     return (
-      <span>
-        <select value={estAujourdhui ? 'aujourdhui' : 'date'} onChange={(e) => changer(e.target.value === 'aujourdhui' ? 'aujourdhui' : '')}>
-          <option value="date">date précise</option>
-          <option value="aujourdhui">aujourd'hui</option>
-        </select>
-        {!estAujourdhui && <input type="date" value={String(filtre.valeur ?? '')} onChange={(e) => changer(e.target.value)} />}
+      <span className="valeurs-filtre">
+        <Choix
+          valeur={estAujourdhui ? 'aujourdhui' : 'date'}
+          entrees={[
+            { valeur: 'date', libelle: 'date précise' },
+            { valeur: 'aujourdhui', libelle: "aujourd'hui" },
+          ]}
+          libelle="Type de date"
+          changer={(v) => changer(v === 'aujourdhui' ? 'aujourdhui' : '')}
+        />
+        {!estAujourdhui && <input type="date" value={String(filtre.valeur ?? '')} aria-label="Date" onChange={(e) => changer(e.target.value)} />}
       </span>
     )
   }
@@ -200,7 +216,7 @@ export function ChampTexte(p: {
     p.changer(saisie)
   }
   return (
-    <span>
+    <span className="valeurs-filtre">
       <input
         type={p.type ?? 'text'}
         value={saisie}
@@ -209,26 +225,22 @@ export function ChampTexte(p: {
         onBlur={valider}
         onKeyDown={(e) => e.key === 'Enter' && valider()}
       />
-      {p.suffixe && ` ${p.suffixe}`}
+      {p.suffixe && <span className="discret">{p.suffixe}</span>}
     </span>
   )
 }
 
-/** Choix d'une ligne de la base liée, par son titre (filtre sur une relation). */
+/** Choix d'une ligne de la base liée, par son titre (filtre sur une relation) ; recherche au-delà de huit lignes. */
 function ChoixLigne({ cible, valeur, changer }: { cible: string; valeur: string; changer: (v: unknown) => void }) {
   const { etat } = useEspace()
   const lignes = [...(etat.titres.get(cible) ?? new Map<string, string>())].sort(([, a], [, b]) => a.localeCompare(b, 'fr'))
   return (
-    <select value={valeur} onChange={(e) => changer(e.target.value)}>
-      <option value="" disabled>
-        choisir…
-      </option>
-      {valeur && !lignes.some(([id]) => id === valeur) && <option value={valeur}>⚠ {valeur}</option>}
-      {lignes.map(([id, titre]) => (
-        <option key={id} value={id}>
-          {titre || 'Sans titre'}
-        </option>
-      ))}
-    </select>
+    <Choix
+      valeur={valeur}
+      entrees={lignes.map(([id, titre]) => ({ valeur: id, libelle: titre || 'Sans titre' }))}
+      libelle="Ligne liée"
+      vide="Choisir une ligne"
+      changer={changer}
+    />
   )
 }

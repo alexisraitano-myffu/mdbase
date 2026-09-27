@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
-import { filtreDePastille, operateurParDefaut, operateursPour, SANS_VALEUR } from '../core/filtres'
+import { filtreDePastille, operateurParDefaut, SANS_VALEUR } from '../core/filtres'
 import { colonne as colonneDe, type Colonne, type Schema } from '../core/schema'
 import type { FiltreRapide, Operateur } from '../core/vue'
-import { colonnesFiltrables, LIBELLES_OPERATEURS, ValeurFiltre } from './EditeurFiltres'
+import { colonnesFiltrables, entreesOperateurs, LIBELLES_OPERATEURS, ValeurFiltre } from './EditeurFiltres'
 import { titreDe, useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
-import { ChevronDown, Plus } from 'lucide-react'
-import { Icone } from './icones'
+import { ChevronDown, Plus, TriangleAlert } from 'lucide-react'
+import { Icone, ICONES } from './icones'
+import { Choix } from './Choix'
 import { useConsultation } from './mode'
 
 type Props = { schema: Schema; pastilles: FiltreRapide[]; changer: (p: FiltreRapide[]) => void }
@@ -47,6 +48,7 @@ export function Pastilles({ schema, pastilles, changer }: Props) {
                 changer([...pastilles, { colonne: c.cle, operateur: operateurParDefaut(c) }])
               }}
             >
+              <Icone de={ICONES[c.type]} />
               {c.nom}
             </button>
           ))}
@@ -65,16 +67,22 @@ export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: 
   const operateur = pastille.operateur ?? operateurParDefaut(colonne)
   const actif = filtreDePastille(p.schema, pastille) !== null
   const { etat } = useEspace()
-  const valeurAffichee =
-    colonne.type === 'relation' && typeof pastille.valeur === 'string'
-      ? (titreDe(etat, colonne.cible, pastille.valeur) ?? `⚠ ${pastille.valeur}`)
-      : pastille.valeur
+  const titre = colonne.type === 'relation' && typeof pastille.valeur === 'string' ? titreDe(etat, colonne.cible, pastille.valeur) : undefined
+  // Une ligne liée disparue garde son id, signalé.
+  const disparue = colonne.type === 'relation' && typeof pastille.valeur === 'string' && titre === undefined
+  const valeurAffichee = titre ?? pastille.valeur
 
   return (
     <>
       <button ref={ancre} className={`pilule ${actif ? 'active' : ''}`} onClick={() => setOuvert(true)}>
         {p.libelle ?? colonne.nom}
-        {actif && <span className="resume">{' : '}{resumer(colonne, operateur, valeurAffichee)}</span>}
+        {actif && (
+          <span className="resume">
+            {' : '}
+            {disparue && <Icone de={TriangleAlert} className="alerte" taille={13} />}
+            {resumer(colonne, operateur, valeurAffichee)}
+          </span>
+        )}
         <Icone de={ChevronDown} className="chevron" taille={12} />
       </button>
       {ouvert && (
@@ -82,22 +90,20 @@ export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: 
           <div className="panneau-pastille">
             <div className="ligne-filtre">
               <strong>{colonne.nom}</strong>
-              <select
-                value={operateur}
-                onChange={(e) => p.changer({ colonne: colonne.cle, operateur: e.target.value as Operateur })}
-              >
-                {operateursPour(colonne).map((o) => (
-                  <option key={o} value={o}>
-                    {LIBELLES_OPERATEURS[o]}
-                  </option>
-                ))}
-              </select>
+              <Choix
+                valeur={operateur}
+                entrees={entreesOperateurs(colonne)}
+                libelle="Opérateur"
+                changer={(v) => p.changer({ colonne: colonne.cle, operateur: v as Operateur })}
+              />
             </div>
-            <ValeurFiltre
-              colonne={colonne}
-              filtre={{ colonne: colonne.cle, operateur, ...(pastille.valeur !== undefined && { valeur: pastille.valeur }) }}
-              changer={(valeur) => p.changer({ ...pastille, operateur, valeur })}
-            />
+            <div className="valeur-filtre">
+              <ValeurFiltre
+                colonne={colonne}
+                filtre={{ colonne: colonne.cle, operateur, ...(pastille.valeur !== undefined && { valeur: pastille.valeur }) }}
+                changer={(valeur) => p.changer({ ...pastille, operateur, valeur })}
+              />
+            </div>
             <div className="boutons">
               {actif && (
                 <button className="discret" onClick={() => p.changer({ colonne: colonne.cle, operateur })}>
@@ -129,7 +135,7 @@ function resumer(c: Colonne, operateur: Operateur, valeur: unknown): string {
           : String(v)
   if (Array.isArray(valeur)) {
     const liste = valeur.map(texte)
-    if (operateur === 'entre') return `${liste[0]} → ${liste[1]}`
+    if (operateur === 'entre') return `du ${liste[0]} au ${liste[1]}`
     return liste.length > 2 ? `${liste.slice(0, 2).join(', ')} +${liste.length - 2}` : liste.join(', ')
   }
   const prefixes: Partial<Record<Operateur, string>> = {

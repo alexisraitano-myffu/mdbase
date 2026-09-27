@@ -11,6 +11,8 @@ import { ContenuVue, useVueAppliquee } from './ContenuVue'
 import { Page } from './Page'
 import { useErreurDepot } from './useDepot'
 import { usePageOuverte } from './usePageOuverte'
+import { TriangleAlert } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = {
   espace: DepotEspace
@@ -53,7 +55,8 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
         {signalements.length > 0 && (
           <details className="avertissements">
             <summary>
-              ⚠ {signalements.length} signalement{signalements.length > 1 ? 's' : ''}
+              <Icone de={TriangleAlert} className="alerte" />
+              {signalements.length} signalement{signalements.length > 1 ? 's' : ''}
             </summary>
             <ul>
               {signalements.map((s) => (

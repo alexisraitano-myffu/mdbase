@@ -84,7 +84,7 @@ export function grouper(
         else ajouter(vide, l)
         break
       case 'relation':
-        if (Array.isArray(v) && v.length > 0) for (const id of v) ajouter({ cle: id, libelle: titre(id) ?? `⚠ ${id}`, valeur: [id] }, l)
+        if (Array.isArray(v) && v.length > 0) for (const id of v) ajouter({ cle: id, libelle: titre(id) ?? `${id} (lien cassé)`, valeur: [id] }, l)
         else ajouter(vide, l)
         break
       default:

@@ -25,7 +25,9 @@ import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
 import { useLargeurPanneau } from './useLargeurPanneau'
 import { useConsultation } from './mode'
-import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Maximize2, Minimize2, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Maximize2, Minimize2, Plus, TriangleAlert, X } from 'lucide-react'
+import { Choix } from './Choix'
+import { Interrupteur, Reglage, Section } from './reglages'
 
 type Props = {
   base: string
@@ -93,7 +95,18 @@ export function Page(p: Props) {
           <div className="onglets onglets-page">
             {onglets.map((o, i) => (
               <div key={i} className={`onglet ${o === actif ? 'actif' : ''}`} onClick={() => setOnglet(i)}>
-                {o.type === 'proprietes' ? 'Propriétés' : o.type === 'corps' ? 'Contenu' : (colonneDe(depot.schema, o.relation)?.nom ?? `⚠ ${o.relation}`)}
+                {o.type === 'proprietes' ? (
+                  'Propriétés'
+                ) : o.type === 'corps' ? (
+                  'Contenu'
+                ) : (
+                  colonneDe(depot.schema, o.relation)?.nom ?? (
+                    <>
+                      <Icone de={TriangleAlert} className="alerte" />
+                      {o.relation}
+                    </>
+                  )
+                )}
               </div>
             ))}
           </div>
@@ -131,7 +144,7 @@ function EntetePage(p: Props & { children?: ReactNode }) {
       <button className="discret" onClick={p.basculerPleinEcran} title={p.pleinEcran ? 'Panneau latéral' : 'Plein écran'}>
         <Icone de={p.pleinEcran ? Minimize2 : Maximize2} />
       </button>
-      <span className="discret astuce-clavier">↑ ↓ pour changer de ligne</span>
+      <span className="discret astuce-clavier"><kbd className="touches"><Icone de={ArrowUp} taille={12} /><Icone de={ArrowDown} taille={12} /></kbd> pour changer de ligne</span>
       <div className="espace-libre" />
       {p.children}
     </div>
@@ -297,7 +310,12 @@ function OngletRelation(p: { base: string; schema: Schema; ligne: LigneChargee; 
   }, [depotCible, calculs, filtre, aujourdhui, persistantes, etat])
 
   if (relation?.type !== 'relation' || !cible || !depotCible || !filtre) {
-    return <p className="invalide">⚠ Relation « {p.onglet.relation} » introuvable</p>
+    return (
+      <p className="invalide">
+        <Icone de={TriangleAlert} className="alerte" />
+        Relation « {p.onglet.relation} » introuvable
+      </p>
+    )
   }
   // Par défaut, toutes les colonnes sauf celle qui pointe vers cette page (toujours la même valeur).
   const colonnes = p.onglet.colonnes.length > 0 ? p.onglet.colonnes : depotCible.schema.colonnes.map((c) => c.cle).filter((c) => c !== relation.inverse)
@@ -357,14 +375,12 @@ function ReglagesPage(p: {
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
           <div className="panneau reglages-page">
             <div className="ligne-filtre">
-              <select value={mep.id} onChange={(e) => p.choisir(e.target.value)}>
-                {pages.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nom}
-                    {m.defaut ? ' (par défaut)' : ''}
-                  </option>
-                ))}
-              </select>
+              <Choix
+                valeur={mep.id}
+                entrees={pages.map((m) => ({ valeur: m.id, libelle: m.nom + (m.defaut ? ' (par défaut)' : '') }))}
+                libelle="Mise en page"
+                changer={p.choisir}
+              />
               <button
                 className="discret"
                 onClick={async () => {
@@ -387,30 +403,26 @@ function ReglagesPage(p: {
                 </button>
               )}
             </div>
-            <label className="case-reglage">
-              Nom
-              <input
-                key={mep.id}
-                defaultValue={mep.nom}
-                onBlur={(e) => e.target.value.trim() && e.target.value !== mep.nom && modifier({ nom: e.target.value.trim() })}
-              />
-            </label>
-            <label className="case-reglage">
-              <input type="checkbox" checked={mep.defaut} disabled={mep.defaut} onChange={() => modifier({ defaut: true })} />
-              Mise en page par défaut de la base
-            </label>
-            {p.vue && p.vue.base === p.base && (
-              <label className="case-reglage">
+            <Section>
+              <Reglage libelle="Nom">
                 <input
-                  type="checkbox"
-                  checked={vueUtilise}
-                  onChange={(e) => void lancer(espace.modifierVue(p.base, p.vue!.id, { miseEnPage: e.target.checked ? mep.id : undefined }))}
+                  key={mep.id}
+                  aria-label="Nom de la mise en page"
+                  defaultValue={mep.nom}
+                  onBlur={(e) => e.target.value.trim() && e.target.value !== mep.nom && modifier({ nom: e.target.value.trim() })}
                 />
-                Utiliser pour ouvrir les lignes de la vue « {p.vue.nom} »
-              </label>
-            )}
+              </Reglage>
+              <Interrupteur libelle="Mise en page par défaut de la base" coche={mep.defaut} desactive={mep.defaut} changer={() => modifier({ defaut: true })} />
+              {p.vue && p.vue.base === p.base && (
+                <Interrupteur
+                  libelle={`Utiliser pour ouvrir les lignes de la vue « ${p.vue.nom} »`}
+                  coche={vueUtilise === true}
+                  changer={(v) => void lancer(espace.modifierVue(p.base, p.vue!.id, { miseEnPage: v ? mep.id : undefined }))}
+                />
+              )}
+            </Section>
 
-            <div className="titre-section">Champs</div>
+            <Section titre="Champs">
             {champs.map((c, i) => {
               const enOnglet = relationsOnglet.some((r) => r.relation === c.colonne.cle)
               return (
@@ -427,21 +439,19 @@ function ReglagesPage(p: {
                     <Icone de={ICONES[c.colonne.type]} />
                     {c.colonne.nom}
                   </span>
-                  <select
-                    value={c.affichage}
-                    disabled={enOnglet}
-                    onChange={(e) => ecrireChamps(champs.map((x) => (x === c ? { ...x, affichage: e.target.value as Affichage } : x)))}
-                  >
-                    {AFFICHAGES.map((a) => (
-                      <option key={a} value={a}>
-                        {LIBELLES_AFFICHAGE[a]}
-                      </option>
-                    ))}
-                  </select>
+                  <Choix
+                    valeur={c.affichage}
+                    desactive={enOnglet}
+                    entrees={AFFICHAGES.map((a) => ({ valeur: a, libelle: LIBELLES_AFFICHAGE[a] }))}
+                    libelle={`Affichage de ${c.colonne.nom}`}
+                    changer={(v) => ecrireChamps(champs.map((x) => (x === c ? { ...x, affichage: v as Affichage } : x)))}
+                  />
                   {c.colonne.type === 'relation' && (
-                    <label className="case-reglage">
+                    <label className="en-onglet">
                       <input
                         type="checkbox"
+                        role="switch"
+                        className="interrupteur"
                         checked={enOnglet}
                         onChange={(e) =>
                           modifier({
@@ -460,10 +470,14 @@ function ReglagesPage(p: {
                 </div>
               )
             })}
-            <label className="case-reglage">
-              <input type="checkbox" checked={corps} onChange={(e) => modifier({ onglets: ongletsDe(relationsOnglet, e.target.checked) })} />
-              Contenu (corps de la page) dans son propre onglet
-            </label>
+            </Section>
+            <Section>
+              <Interrupteur
+                libelle="Contenu (corps de la page) dans son propre onglet"
+                coche={corps}
+                changer={(v) => modifier({ onglets: ongletsDe(relationsOnglet, v) })}
+              />
+            </Section>
           </div>
         </Flottant>
       )}

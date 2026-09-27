@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { DepotEspace, EtatEspace } from '../core/depot-espace'
 import type { Resultat } from '../core/recherche'
+import { ArrowDown, ArrowUp } from 'lucide-react'
+import { Icone } from './icones'
 
 type Props = {
   espace: DepotEspace
@@ -95,7 +97,7 @@ export function RechercheGlobale({ espace, etat, ouvrir, fermer }: Props) {
           ))}
         </div>
         <div className="pied-recherche discret">
-          <span>↑ ↓ pour choisir</span>
+          <span><kbd className="touches"><Icone de={ArrowUp} taille={12} /><Icone de={ArrowDown} taille={12} /></kbd> pour choisir</span>
           <span>Entrée pour ouvrir</span>
           <span>Échap pour fermer</span>
         </div>

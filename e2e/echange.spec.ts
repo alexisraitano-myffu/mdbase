@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import type { Page } from '@playwright/test'
-import { expect, test } from './espace'
+import { expect, test, choisir } from './espace'
 
 // Import et export : les lignes d'une vue en CSV / Markdown, la vue en image,
 // un CSV en nouvelle base ou en lignes ajoutées.
@@ -60,10 +60,10 @@ test.describe('import CSV', () => {
     await page.getByRole('button', { name: 'Importer un CSV' }).click()
     await page.locator('.import input[type=file]').setInputFiles({ name: 'dépenses.csv', mimeType: 'text/csv', buffer: Buffer.from(CSV) })
     await expect(page.getByText('dépenses.csv : 3 lignes, 4 colonnes.')).toBeVisible()
-    await expect(page.getByLabel('Type de Montant')).toHaveValue('number')
-    await expect(page.getByLabel('Type de Échéance')).toHaveValue('date')
-    await expect(page.getByLabel('Type de Catégorie')).toHaveValue('select')
-    await page.getByLabel('Type de Catégorie').selectOption('text')
+    await expect(page.getByRole('button', { name: 'Type de Montant' })).toHaveText('Nombre')
+    await expect(page.getByRole('button', { name: 'Type de Échéance' })).toHaveText('Date')
+    await expect(page.getByRole('button', { name: 'Type de Catégorie' })).toHaveText('Sélection')
+    await choisir(page.getByRole('button', { name: 'Type de Catégorie' }), 'Texte')
     await page.getByRole('button', { name: 'Importer 3 lignes' }).click()
 
     await expect(page.locator('h1', { hasText: 'dépenses' })).toBeVisible()
@@ -80,7 +80,7 @@ test.describe('import CSV', () => {
     await page.getByRole('button', { name: 'Exporter' }).click()
     await page.getByRole('button', { name: 'Importer des lignes (CSV)…' }).click()
     await page.locator('.import input[type=file]').setInputFiles({ name: 'clients.csv', mimeType: 'text/csv', buffer: Buffer.from('nom,Pays\nUmbrella,France\n') })
-    await expect(page.getByLabel('Destination de Pays')).toHaveValue('')
+    await expect(page.getByRole('button', { name: 'Destination de Pays' })).toHaveText('Ignorer')
     await page.getByRole('button', { name: 'Importer 1 ligne' }).click()
     await expect(page.locator('.carte', { hasText: 'Umbrella' })).toBeVisible() // vue par défaut des clients : cartes
     const fichier = (await espace.lister('clients')).find((n) => n.startsWith('umbrella'))!

@@ -13,7 +13,8 @@ import { titreDe, useEspace } from './contexte-espace'
 import { NOMS_TYPES } from './EnteteColonne'
 import { Fenetre } from './fenetre'
 import { Flottant } from './flottant'
-import { Icone } from './icones'
+import { Icone, ICONES } from './icones'
+import { Choix } from './Choix'
 
 // Import et export (données et image). Tout reste local : le fichier est
 // fabriqué dans le navigateur et proposé au téléchargement.
@@ -237,28 +238,21 @@ export function FenetreImport(p: {
                     </td>
                     <td>
                       {p.base ? (
-                        <select value={cles[i] ?? ''} onChange={(e) => setCles(cles.map((c, j) => (j === i ? e.target.value || null : c)))} aria-label={`Destination de ${entete}`}>
-                          <option value="">Ignorer</option>
-                          {saisissables.map((c) => (
-                            <option key={c.cle} value={c.cle}>
-                              {c.nom}
-                            </option>
-                          ))}
-                        </select>
+                        <Choix
+                          valeur={cles[i] ?? ''}
+                          entrees={[{ valeur: '', libelle: 'Ignorer' }, ...saisissables.map((c) => ({ valeur: c.cle, libelle: c.nom, icone: ICONES[c.type] }))]}
+                          libelle={`Destination de ${entete}`}
+                          changer={(v) => setCles(cles.map((c, j) => (j === i ? v || null : c)))}
+                        />
                       ) : i === 0 ? (
                         <span className="discret">Titre</span>
                       ) : (
-                        <select
-                          value={colonnes[i]!.type}
-                          onChange={(e) => modifierColonne(i, { type: e.target.value as TypeCreable })}
-                          aria-label={`Type de ${colonnes[i]!.nom}`}
-                        >
-                          {TYPES_CREABLES.map((t) => (
-                            <option key={t} value={t}>
-                              {NOMS_TYPES[t]}
-                            </option>
-                          ))}
-                        </select>
+                        <Choix
+                          valeur={colonnes[i]!.type}
+                          entrees={TYPES_CREABLES.map((t) => ({ valeur: t, libelle: NOMS_TYPES[t], icone: ICONES[t] }))}
+                          libelle={`Type de ${colonnes[i]!.nom}`}
+                          changer={(v) => modifierColonne(i, { type: v as TypeCreable })}
+                        />
                       )}
                     </td>
                     <td className="discret apercu-import">{apercu(i)}</td>

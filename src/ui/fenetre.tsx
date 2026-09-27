@@ -2,11 +2,13 @@ import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { Icone } from './icones'
+import { flottantOuvert } from './flottant'
 
 /** Fenêtre modale : fermée par Échap, la croix ou un clic sur le voile. */
 export function Fenetre({ titre, fermer, children }: { titre: string; fermer: () => void; children: ReactNode }) {
   useEffect(() => {
-    const clavier = (e: KeyboardEvent) => e.key === 'Escape' && fermer()
+    // Un menu ouvert dans la fenêtre prend Échap pour lui.
+    const clavier = (e: KeyboardEvent) => e.key === 'Escape' && !flottantOuvert() && fermer()
     document.addEventListener('keydown', clavier)
     return () => document.removeEventListener('keydown', clavier)
   }, [fermer])

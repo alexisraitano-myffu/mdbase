@@ -61,7 +61,7 @@ test('une demande : aperçu avant → après, rien d’écrit avant « Appliquer
   const plan = page.locator('.operation-ia')
   await expect(plan.locator('h3')).toHaveText('Modifier 1 ligne · Projets')
   await expect(plan.locator('li')).toContainText('Site vitrine')
-  await expect(plan.locator('.changement-ia')).toHaveText('Statut : En cours → Terminé')
+  await expect(plan.locator('.changement-ia')).toHaveText('Statut : En cours Terminé') // la flèche est une icône
   expect(await espace.lire(SITE)).toContain('statut: En cours\n')
 
   const requete = recues[0]!
@@ -90,7 +90,7 @@ test('conversation : on répond à la question du modèle, qui relit l’échang
 
   await page.getByPlaceholder('Répondre…').fill('Le site vitrine')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.changement-ia')).toHaveText('Statut : En cours → Terminé')
+  await expect(page.locator('.changement-ia')).toHaveText('Statut : En cours Terminé') // la flèche est une icône
   const messages = (recues[1]!.postDataJSON() as { messages: { role: string; content: string }[] }).messages
   expect(messages.slice(1)).toEqual([
     { role: 'user', content: 'Termine le projet' },
@@ -191,7 +191,7 @@ test('structure : colonne créée puis remplie, vue ajoutée ; une suppression e
   await expect(structure).toContainText('Ajouter la colonne « Priorité »')
   await expect(structure).toContainText('Créer la vue tableau « Prioritaires »')
   await expect(structure.locator('.danger-ia')).toContainText('Supprimer la colonne « Revue client »')
-  await expect(page.locator('.changement-ia')).toHaveText('Priorité : vide → Haute')
+  await expect(page.locator('.changement-ia')).toHaveText('Priorité : vide Haute')
   expect(await espace.lire('projets/_schema.yaml')).not.toContain('Priorité')
 
   await page.getByRole('button', { name: 'Appliquer (3 actions et 1 ligne)' }).click()

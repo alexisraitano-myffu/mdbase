@@ -358,7 +358,13 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
                   <span className="titre-ia">{l.titre}</span>
                   {l.changements.map((c, k) => (
                     <span key={k} className="changement-ia">
-                      {c.colonne} : {op.type === 'modifier' && <del>{c.avant || 'vide'}</del>} {op.type === 'modifier' && '→'} <ins>{c.apres || 'vide'}</ins>
+                      {c.colonne} : {op.type === 'modifier' && (
+                        <>
+                          <del>{c.avant || 'vide'}</del>
+                          <Icone de={ArrowRight} taille={13} />
+                        </>
+                      )}{' '}
+                      <ins>{c.apres || 'vide'}</ins>
                     </span>
                   ))}
                 </li>

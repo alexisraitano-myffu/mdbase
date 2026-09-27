@@ -5,14 +5,16 @@ import { natureDe, type Colonne, type ColonneRelation, type Schema } from '../co
 import { colonnesDeLaVue, groupables } from '../core/groupes'
 import { PROFONDEUR_MAX, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../core/vue'
 import { useLancer } from './actions'
-import { colonnesFiltrables, EditeurFiltres } from './EditeurFiltres'
+import { colonnesFiltrables, EditeurFiltres, entreesColonnes } from './EditeurFiltres'
 import { MenuExporter } from './Echange'
 import { Flottant } from './flottant'
 import { useEspace } from './contexte-espace'
 import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
-import { Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, Plus, X } from 'lucide-react'
+import { Choix, type EntreeChoix } from './Choix'
+import { Interrupteur, Reglage, Section, Visibilite } from './reglages'
 import { useConsultation } from './mode'
 import { COULEURS, type ReglageCouleur } from '../core/couleurs'
 
@@ -86,7 +88,7 @@ export function reglagesParDefaut(type: TypeVue, schema: Schema): ModificationVu
 export function OutilsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
   return (
     <div className="outils-vue">
-      <Panneau libelle={`Filtrer${vue.filtres.length ? ` (${vue.filtres.length})` : ''}`} actif={vue.filtres.length > 0}>
+      <Panneau libelle={`Filtrer${vue.filtres.length ? ` (${vue.filtres.length})` : ''}`} actif={vue.filtres.length > 0} large>
         <EditeurFiltres schema={schema} filtres={vue.filtres} changer={(filtres) => modifier({ filtres })} />
       </Panneau>
       <Panneau libelle={`Trier${vue.tris.length ? ` (${vue.tris.length})` : ''}`} actif={vue.tris.length > 0}>
@@ -228,7 +230,7 @@ function Onglet(p: {
   )
 }
 
-function Panneau({ libelle, actif, children }: { libelle: string; actif: boolean; children: ReactNode }) {
+function Panneau({ libelle, actif, large, children }: { libelle: string; actif: boolean; large?: boolean; children: ReactNode }) {
   const [ouvert, setOuvert] = useState(false)
   const ancre = useRef<HTMLButtonElement>(null)
   return (
@@ -238,7 +240,7 @@ function Panneau({ libelle, actif, children }: { libelle: string; actif: boolean
       </button>
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
-          <div className="panneau">{children}</div>
+          <div className={`panneau ${large ? 'large' : ''}`}>{children}</div>
         </Flottant>
       )}
     </>
@@ -253,27 +255,24 @@ function EditeurTris({ schema, tris, changer }: { schema: Schema; tris: Tri[]; c
       {tris.length === 0 && <div className="discret">Aucun tri : ordre des fichiers</div>}
       {tris.map((t, i) => (
         <div key={t.colonne} className="ligne-filtre">
-          <select
-            value={t.colonne}
-            onChange={(e) => changer(tris.map((x, j) => (j === i ? { ...x, colonne: e.target.value } : x)))}
-          >
-            {colonnes
-              .filter((c) => c.cle === t.colonne || libres.includes(c))
-              .map((c) => (
-                <option key={c.cle} value={c.cle}>
-                  {c.nom}
-                </option>
-              ))}
-          </select>
-          <select
-            value={t.sens}
-            onChange={(e) => changer(tris.map((x, j) => (j === i ? { ...x, sens: e.target.value as Tri['sens'] } : x)))}
-          >
-            <option value="asc">croissant</option>
-            <option value="desc">décroissant</option>
-          </select>
-          <button className="discret" onClick={() => changer(tris.filter((_, j) => j !== i))} aria-label="Retirer le tri">
-            ×
+          <span className="liaison-filtre">{i === 0 ? 'Par' : 'Puis'}</span>
+          <Choix
+            valeur={t.colonne}
+            entrees={entreesColonnes(colonnes.filter((c) => c.cle === t.colonne || libres.includes(c)))}
+            libelle="Colonne du tri"
+            changer={(v) => changer(tris.map((x, j) => (j === i ? { ...x, colonne: v } : x)))}
+          />
+          <Choix
+            valeur={t.sens}
+            entrees={[
+              { valeur: 'asc', libelle: 'croissant', icone: ArrowUp },
+              { valeur: 'desc', libelle: 'décroissant', icone: ArrowDown },
+            ]}
+            libelle="Sens du tri"
+            changer={(v) => changer(tris.map((x, j) => (j === i ? { ...x, sens: v as Tri['sens'] } : x)))}
+          />
+          <button className="discret retirer" onClick={() => changer(tris.filter((_, j) => j !== i))} aria-label="Retirer le tri" title="Retirer le tri">
+            <Icone de={X} taille={14} />
           </button>
         </div>
       ))}
@@ -286,45 +285,46 @@ function EditeurTris({ schema, tris, changer }: { schema: Schema; tris: Tri[]; c
   )
 }
 
+/** Entrées « aucun » puis une colonne par entrée ; une valeur disparue reste choisissable, signalée. */
+function entreesAvecVide(vide: string, colonnes: Colonne[]): EntreeChoix[] {
+  return [{ valeur: '', libelle: vide }, ...entreesColonnes(colonnes)]
+}
+
 /** Réglages d'affichage du tableau : groupement, retour à la ligne, colonnes affichées (spec §7). */
 function OptionsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
   const { visibles, masquees } = colonnesDeLaVue(schema, vue)
   const toutes = [...visibles, ...masquees]
   const cachees = new Set(masquees.map((c) => c.cle))
   return (
-    <div className="editeur-filtres">
-      <label className="case-reglage">
-        Grouper par
-        <select value={vue.groupe ?? ''} onChange={(e) => modifier({ groupe: e.target.value || undefined })}>
-          <option value="">aucun groupement</option>
-          {groupables(schema).map((c) => (
-            <option key={c.cle} value={c.cle}>
-              {c.nom}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="case-reglage">
-        <input type="checkbox" checked={vue.retourLigne === true} onChange={(e) => modifier({ retourLigne: e.target.checked })} />
-        Retour à la ligne dans les cellules
-      </label>
-      <div className="titre-section">Colonnes affichées</div>
-      {toutes.map((c) => (
-        <label key={c.cle} className="case-reglage">
-          <input
-            type="checkbox"
-            checked={!cachees.has(c.cle)}
-            disabled={c.cle === schema.champTitre}
-            onChange={(e) =>
+    <div className="reglages">
+      <Section>
+        <Reglage libelle="Grouper par">
+          <Choix
+            valeur={vue.groupe ?? ''}
+            entrees={entreesAvecVide('aucun groupement', groupables(schema))}
+            libelle="Grouper par"
+            inconnue={`${vue.groupe} (disparue)`}
+            changer={(v) => modifier({ groupe: v || undefined })}
+          />
+        </Reglage>
+        <Interrupteur libelle="Retour à la ligne dans les cellules" coche={vue.retourLigne === true} changer={(v) => modifier({ retourLigne: v })} />
+      </Section>
+      <Section titre="Colonnes affichées">
+        {toutes.map((c) => (
+          <Visibilite
+            key={c.cle}
+            libelle={c.nom}
+            icone={ICONES[c.type]}
+            visible={!cachees.has(c.cle)}
+            desactive={c.cle === schema.champTitre}
+            changer={(v) =>
               modifier({
-                masquees: e.target.checked ? masquees.map((x) => x.cle).filter((x) => x !== c.cle) : [...masquees.map((x) => x.cle), c.cle],
+                masquees: v ? masquees.map((x) => x.cle).filter((x) => x !== c.cle) : [...masquees.map((x) => x.cle), c.cle],
               })
             }
           />
-          <Icone de={ICONES[c.type]} />
-          {c.nom}
-        </label>
-      ))}
+        ))}
+      </Section>
     </div>
   )
 }
@@ -333,49 +333,48 @@ function OptionsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modif
 function OptionsCartes({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
   const candidats = schema.colonnes.filter((c) => TYPES_GROUPE_KANBAN.includes(c.type))
   return (
-    <div className="editeur-filtres">
-      {vue.type === 'kanban' && (
-        <>
-          <label className="case-reglage">
-            Colonnes selon
-            <select value={vue.groupe ?? ''} onChange={(e) => modifier({ groupe: e.target.value || undefined })}>
-              <option value="" disabled>
-                choisir…
-              </option>
-              {candidats.map((c) => (
-                <option key={c.cle} value={c.cle}>
-                  {c.nom}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="case-reglage">
-            Couloirs selon
-            <select value={vue.sousGroupe ?? ''} onChange={(e) => modifier({ sousGroupe: e.target.value || undefined })}>
-              <option value="">pas de couloirs</option>
-              {candidats
-                .filter((c) => c.cle !== vue.groupe)
-                .map((c) => (
-                  <option key={c.cle} value={c.cle}>
-                    {c.nom}
-                  </option>
-                ))}
-            </select>
-          </label>
-        </>
-      )}
-      {vue.type === 'collection' && (
-        <label className="case-reglage">
-          <input type="checkbox" checked={vue.apercuCorps === true} onChange={(e) => modifier({ apercuCorps: e.target.checked })} />
-          Afficher le début du contenu
-        </label>
-      )}
+    <div className="reglages">
+      <Section>
+        {vue.type === 'kanban' && (
+          <>
+            <Reglage libelle="Colonnes selon">
+              <Choix
+                valeur={vue.groupe ?? ''}
+                entrees={entreesColonnes(candidats)}
+                libelle="Colonnes selon"
+                inconnue={`${vue.groupe} (disparue)`}
+                changer={(v) => modifier({ groupe: v || undefined })}
+              />
+            </Reglage>
+            <Reglage libelle="Couloirs selon">
+              <Choix
+                valeur={vue.sousGroupe ?? ''}
+                entrees={entreesAvecVide('pas de couloirs', candidats.filter((c) => c.cle !== vue.groupe))}
+                libelle="Couloirs selon"
+                inconnue={`${vue.sousGroupe} (disparue)`}
+                changer={(v) => modifier({ sousGroupe: v || undefined })}
+              />
+            </Reglage>
+          </>
+        )}
+        {vue.type === 'collection' && (
+          <Interrupteur libelle="Afficher le début du contenu" coche={vue.apercuCorps === true} changer={(v) => modifier({ apercuCorps: v })} />
+        )}
+      </Section>
       <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre="Champs sur la carte" />
     </div>
   )
 }
 
 const colonnesDates = (schema: Schema) => schema.colonnes.filter((c) => natureDe(c) === 'date')
+
+/** Colonnes cochées après une bascule, dans l'ordre de `dates` (celui du schéma). */
+function basculerCle(dates: readonly Colonne[], choisies: ReadonlySet<string>, cle: string, oui: boolean): string[] {
+  const suivants = new Set(choisies)
+  if (oui) suivants.add(cle)
+  else suivants.delete(cle)
+  return dates.map((x) => x.cle).filter((x) => suivants.has(x))
+}
 
 /** Réglages du calendrier et de la timeline : champ de date (ou de début), de fin, jalons (spec §7). */
 function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
@@ -385,75 +384,57 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
   const jalons = new Set(vue.champsJalons ?? [])
   const candidats = dates.filter((c) => c.cle !== vue.champDebut && c.cle !== vue.champFin)
   return (
-    <div className="editeur-filtres">
-      <label className="case-reglage">
-        {timeline ? 'Début' : 'Date'}
-        <select value={vue.champDebut ?? ''} onChange={(e) => modifier({ champDebut: e.target.value || undefined })}>
-          <option value="" disabled>
-            choisir…
-          </option>
-          {dates.map((c) => (
-            <option key={c.cle} value={c.cle}>
-              {c.nom}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="case-reglage">
-        Fin
-        <select value={vue.champFin ?? ''} onChange={(e) => modifier({ champFin: e.target.value || undefined })}>
-          <option value="">{timeline ? 'pas de fin (barres d’un jour)' : 'pas de fin (un seul jour)'}</option>
-          {dates
-            .filter((c) => c.cle !== vue.champDebut)
-            .map((c) => (
-              <option key={c.cle} value={c.cle}>
-                {c.nom}
-              </option>
-            ))}
-        </select>
-      </label>
-      <ChoixCouleur schema={schema} reglage={vue} changer={modifier} />
+    <div className="reglages">
+      <Section>
+        <Reglage libelle={timeline ? 'Début' : 'Date'}>
+          <Choix
+            valeur={vue.champDebut ?? ''}
+            entrees={entreesColonnes(dates)}
+            libelle={timeline ? 'Début' : 'Date'}
+            inconnue={`${vue.champDebut} (disparue)`}
+            changer={(v) => modifier({ champDebut: v || undefined })}
+          />
+        </Reglage>
+        <Reglage libelle="Fin">
+          <Choix
+            valeur={vue.champFin ?? ''}
+            entrees={entreesAvecVide(timeline ? 'pas de fin (barres d’un jour)' : 'pas de fin (un seul jour)', dates.filter((c) => c.cle !== vue.champDebut))}
+            libelle="Fin"
+            inconnue={`${vue.champFin} (disparue)`}
+            changer={(v) => modifier({ champFin: v || undefined })}
+          />
+        </Reglage>
+        <ChoixCouleur schema={schema} reglage={vue} changer={modifier} />
+        {timeline && (
+          <Reglage libelle="Grouper par">
+            <Choix
+              valeur={vue.groupe ?? ''}
+              entrees={entreesAvecVide('aucun groupement', groupables(schema))}
+              libelle="Grouper par"
+              inconnue={`${vue.groupe} (disparue)`}
+              changer={(v) => modifier({ groupe: v || undefined })}
+            />
+          </Reglage>
+        )}
+      </Section>
       {timeline && (
-        <label className="case-reglage">
-          Grouper par
-          <select value={vue.groupe ?? ''} onChange={(e) => modifier({ groupe: e.target.value || undefined })}>
-            <option value="">aucun groupement</option>
-            {groupables(schema).map((c) => (
-              <option key={c.cle} value={c.cle}>
-                {c.nom}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {timeline && (
-        <>
-          <div className="titre-section">Jalons (points sur la barre)</div>
-          {candidats.length === 0 && <div className="discret">Aucune autre colonne date à poser en jalon.</div>}
+        <Section titre="Jalons" aide="Des points sur la barre, aux dates cochées.">
+          {candidats.length === 0 && <div className="discret aide-reglage">Aucune autre colonne date à poser en jalon.</div>}
           {candidats.map((c) => (
-              <label key={c.cle} className="case-reglage">
-                <input
-                  type="checkbox"
-                  checked={jalons.has(c.cle)}
-                  onChange={(e) => {
-                    const suivants = new Set(jalons)
-                    if (e.target.checked) suivants.add(c.cle)
-                    else suivants.delete(c.cle)
-                    modifier({ champsJalons: dates.map((x) => x.cle).filter((x) => suivants.has(x)) })
-                  }}
-                />
-                <Icone de={ICONES[c.type]} />
-                {c.nom}
-              </label>
-            ))}
-        </>
+            <Interrupteur
+              key={c.cle}
+              libelle={c.nom}
+              icone={ICONES[c.type]}
+              coche={jalons.has(c.cle)}
+              changer={(v) => modifier({ champsJalons: basculerCle(dates, jalons, c.cle, v) })}
+            />
+          ))}
+        </Section>
       )}
       {timeline && (
-        <>
-          <div className="titre-section">Déplier par</div>
-          <div className="discret aide-reglage">Sous chaque ligne, les lignes liées par les relations cochées.</div>
+        <Section titre="Déplier par" aide="Sous chaque ligne, les lignes liées par les relations choisies.">
           <OptionsDeplier schema={schema} niveaux={vue.deplier ?? []} changer={(deplier) => modifier({ deplier })} profondeur={1} />
-        </>
+        </Section>
       )}
       <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre={timeline ? 'Champs sur la barre' : 'Champs affichés'} />
     </div>
@@ -471,14 +452,14 @@ function niveauParDefaut(relation: string, schema: Schema): Niveau {
 
 /**
  * Timeline : relations à déplier sous chaque ligne (spec §7). Une relation
- * cochée ouvre ses réglages : dates de la base liée, filtres, niveau suivant.
+ * activée ouvre ses réglages : dates de la base liée, filtres, niveau suivant.
  * `retour` : la relation qui ramène au niveau parent, jamais proposée.
  */
 function OptionsDeplier(p: { schema: Schema; niveaux: Niveau[]; changer: (n: Niveau[]) => void; retour?: string; profondeur: number }) {
   const { etat } = useEspace()
   const relations = p.schema.colonnes.filter((c): c is ColonneRelation => c.type === 'relation' && c.cle !== p.retour)
   if (relations.length === 0) {
-    return p.profondeur === 1 ? <div className="discret">Aucune relation dans cette base.</div> : null
+    return p.profondeur === 1 ? <div className="discret aide-reglage">Aucune relation dans cette base.</div> : null
   }
   return (
     <div className="options-deplier">
@@ -488,19 +469,18 @@ function OptionsDeplier(p: { schema: Schema; niveaux: Niveau[]; changer: (n: Niv
         const cible = etat.bases.get(c.cible)?.depot?.schema
         return (
           <div key={c.cle}>
-            <label className="case-reglage">
-              <input
-                type="checkbox"
-                checked={niveau !== undefined}
-                disabled={!cible}
-                onChange={(e) =>
-                  p.changer(e.target.checked && cible ? [...p.niveaux, niveauParDefaut(c.cle, cible)] : p.niveaux.filter((n) => n.relation !== c.cle))
-                }
-              />
-              <Icone de={ICONES.relation} />
-              {c.nom}
-              {cible && cible.nom !== c.nom && <span className="discret">({cible.nom})</span>}
-            </label>
+            <Interrupteur
+              libelle={
+                <>
+                  {c.nom}
+                  {cible && cible.nom !== c.nom && <span className="discret">({cible.nom})</span>}
+                </>
+              }
+              icone={ICONES.relation}
+              coche={niveau !== undefined}
+              desactive={!cible}
+              changer={(v) => p.changer(v && cible ? [...p.niveaux, niveauParDefaut(c.cle, cible)] : p.niveaux.filter((n) => n.relation !== c.cle))}
+            />
             {niveau && cible && (
               <ReglagesNiveau
                 schema={cible}
@@ -538,30 +518,15 @@ function ChoixCouleur(p: { schema: Schema; reglage: ReglageCouleur; changer: (m:
       couleur: v.startsWith('fixe:') ? v.slice(5) : undefined,
       couleurPar: v.startsWith('par:') ? v.slice(4) : undefined,
     })
+  const entrees: EntreeChoix[] = [
+    { valeur: '', libelle: 'neutre' },
+    ...choix.map((c) => ({ valeur: `par:${c.cle}`, libelle: `selon ${c.nom}`, icone: ICONES[c.type], groupe: 'Selon une colonne' })),
+    ...COULEURS.map((c) => ({ valeur: `fixe:${c}`, libelle: NOMS_COULEURS[c], couleur: c, groupe: 'Couleur fixe' })),
+  ]
   return (
-    <label className="case-reglage">
-      Couleur
-      <select value={valeur} onChange={(e) => changer(e.target.value)}>
-        <option value="">neutre</option>
-        {choix.length > 0 && (
-          <optgroup label="Selon une colonne">
-            {choix.map((c) => (
-              <option key={c.cle} value={`par:${c.cle}`}>
-                selon {c.nom}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        <optgroup label="Couleur fixe">
-          {COULEURS.map((c) => (
-            <option key={c} value={`fixe:${c}`}>
-              {NOMS_COULEURS[c]}
-            </option>
-          ))}
-        </optgroup>
-        {p.reglage.couleurPar && !choix.some((c) => c.cle === p.reglage.couleurPar) && <option value={valeur}>{p.reglage.couleurPar} (disparue)</option>}
-      </select>
-    </label>
+    <Reglage libelle="Couleur">
+      <Choix valeur={valeur} entrees={entrees} libelle="Couleur" inconnue={`${p.reglage.couleurPar} (disparue)`} changer={changer} />
+    </Reglage>
   )
 }
 
@@ -569,59 +534,47 @@ function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partia
   const { schema, niveau } = p
   const dates = colonnesDates(schema)
   const jalons = new Set(niveau.champsJalons ?? [])
-  const choisir = (valeur: string, vide: string, exclure?: string) => (
-    <>
-      <option value="">{vide}</option>
-      {dates
-        .filter((c) => c.cle !== exclure)
-        .map((c) => (
-          <option key={c.cle} value={c.cle}>
-            {c.nom}
-          </option>
-        ))}
-      {valeur && !dates.some((c) => c.cle === valeur) && <option value={valeur}>{valeur} (disparue)</option>}
-    </>
-  )
   return (
     <div className="reglages-niveau">
       {dates.length === 0 ? (
-        <div className="discret">{schema.nom} n'a pas de colonne date : ses lignes s'affichent sans barre.</div>
+        <div className="discret aide-reglage">{schema.nom} n'a pas de colonne date : ses lignes s'affichent sans barre.</div>
       ) : (
         <>
-          <label className="case-reglage">
-            Début
-            <select value={niveau.champDebut ?? ''} onChange={(e) => p.changer({ champDebut: e.target.value || undefined })}>
-              {choisir(niveau.champDebut ?? '', 'aucune date')}
-            </select>
-          </label>
-          <label className="case-reglage">
-            Fin
-            <select value={niveau.champFin ?? ''} onChange={(e) => p.changer({ champFin: e.target.value || undefined })}>
-              {choisir(niveau.champFin ?? '', 'pas de fin (losanges)', niveau.champDebut)}
-            </select>
-          </label>
+          <Reglage libelle="Début">
+            <Choix
+              valeur={niveau.champDebut ?? ''}
+              entrees={entreesAvecVide('aucune date', dates)}
+              libelle="Début"
+              inconnue={`${niveau.champDebut} (disparue)`}
+              changer={(v) => p.changer({ champDebut: v || undefined })}
+            />
+          </Reglage>
+          <Reglage libelle="Fin">
+            <Choix
+              valeur={niveau.champFin ?? ''}
+              entrees={entreesAvecVide('pas de fin (losanges)', dates.filter((c) => c.cle !== niveau.champDebut))}
+              libelle="Fin"
+              inconnue={`${niveau.champFin} (disparue)`}
+              changer={(v) => p.changer({ champFin: v || undefined })}
+            />
+          </Reglage>
           {dates
             .filter((c) => c.cle !== niveau.champDebut && c.cle !== niveau.champFin)
             .map((c) => (
-              <label key={c.cle} className="case-reglage">
-                <input
-                  type="checkbox"
-                  checked={jalons.has(c.cle)}
-                  onChange={(e) => {
-                    const suivants = new Set(jalons)
-                    if (e.target.checked) suivants.add(c.cle)
-                    else suivants.delete(c.cle)
-                    p.changer({ champsJalons: dates.map((x) => x.cle).filter((x) => suivants.has(x)) })
-                  }}
-                />
-                Jalon : {c.nom}
-              </label>
+              <Interrupteur
+                key={c.cle}
+                libelle={`Jalon : ${c.nom}`}
+                icone={ICONES[c.type]}
+                coche={jalons.has(c.cle)}
+                changer={(v) => p.changer({ champsJalons: basculerCle(dates, jalons, c.cle, v) })}
+              />
             ))}
         </>
       )}
       <ChoixCouleur schema={schema} reglage={niveau} changer={p.changer} />
       <details className="filtres-niveau" open={niveau.filtres.length > 0 || undefined}>
         <summary>
+          <Icone de={ChevronRight} className="chevron-details" taille={14} />
           Filtrer les lignes de {schema.nom}
           {niveau.filtres.length > 0 && ` (${niveau.filtres.length})`}
         </summary>
@@ -638,27 +591,19 @@ function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partia
 function ChampsAffiches({ schema, vue, modifier, titre }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void; titre: string }) {
   const champs = new Set(vue.champsCarte ?? [])
   return (
-    <>
-      <div className="titre-section">{titre}</div>
+    <Section titre={titre}>
       {schema.colonnes
         .filter((c) => c.cle !== schema.champTitre)
         .map((c) => (
-          <label key={c.cle} className="case-reglage">
-            <input
-              type="checkbox"
-              checked={champs.has(c.cle)}
-              onChange={(e) => {
-                const suivants = new Set(champs)
-                if (e.target.checked) suivants.add(c.cle)
-                else suivants.delete(c.cle)
-                // Dans l'ordre du schéma.
-                modifier({ champsCarte: schema.colonnes.map((x) => x.cle).filter((x) => suivants.has(x)) })
-              }}
-            />
-            <Icone de={ICONES[c.type]} />
-            {c.nom}
-          </label>
+          <Visibilite
+            key={c.cle}
+            libelle={c.nom}
+            icone={ICONES[c.type]}
+            visible={champs.has(c.cle)}
+            // Dans l'ordre du schéma.
+            changer={(v) => modifier({ champsCarte: basculerCle(schema.colonnes, champs, c.cle, v) })}
+          />
         ))}
-    </>
+    </Section>
   )
 }

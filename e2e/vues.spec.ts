@@ -1,5 +1,5 @@
 import { expect as expectBase, test as testBase, type Locator, type Page } from '@playwright/test'
-import { expect, test } from './espace'
+import { expect, test, choisir } from './espace'
 
 // Jalons 1, 7, 8, 9 et 11 : ouverture, pages, kanban, vues temporelles,
 // dashboards et recherche globale.
@@ -146,10 +146,10 @@ test.describe('timeline en arbre', () => {
     await expect(rangee(page, 'Maquettes').locator('.tl-barre')).toHaveCSS('background-color', 'rgb(255, 226, 221)')
 
     await page.getByRole('button', { name: 'Options' }).click()
-    await page.locator('.flottant .case-reglage', { hasText: 'Couleur' }).first().locator('select').selectOption('fixe:violet')
+    await choisir(page.locator('.flottant').getByRole('button', { name: 'Couleur' }).first(), 'Violet')
     await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).toContain('couleur: violet\n')
     expect(await espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('couleur_par: statut')
-    await page.locator('.reglages-niveau').first().locator('.case-reglage', { hasText: 'Couleur' }).locator('select').selectOption('')
+    await choisir(page.locator('.reglages-niveau').first().getByRole('button', { name: 'Couleur' }), 'neutre')
     await expect(rangee(page, 'Maquettes').locator('.tl-barre')).not.toHaveClass(/coloree/)
     await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('couleur_par: priorite')
   })
@@ -159,14 +159,14 @@ test.describe('timeline en arbre', () => {
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
     await page.getByRole('button', { name: 'Options' }).click()
     const reglages = page.locator('.reglages-niveau').first()
-    await reglages.getByRole('combobox').nth(1).selectOption('')
+    await choisir(reglages.getByRole('button', { name: 'Fin' }), 'pas de fin (losanges)')
     await expect(page.locator('.tl-enfant .tl-point').first()).toBeVisible()
     await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('    champ_fin')
 
     await reglages.getByText('Filtrer les lignes de Tâches').click()
     await reglages.getByRole('button', { name: 'Ajouter un filtre' }).click()
     const ligne = reglages.locator('.ligne-filtre').first()
-    await ligne.locator('select').nth(1).selectOption('contient')
+    await choisir(ligne.getByRole('button', { name: 'Opérateur' }), 'contient')
     await ligne.locator('input').fill('mise')
     await ligne.locator('input').press('Enter')
     await page.keyboard.press('Escape')

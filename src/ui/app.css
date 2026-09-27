@@ -186,7 +186,7 @@ button:hover { background: var(--survol); }
 /* Panneau flottant */
 .flottant {
   position: fixed;
-  z-index: 10;
+  z-index: 30; /* au-dessus des fenêtres (20) : un menu peut s’ouvrir dans une fenêtre */
   background: var(--surface);
   border-radius: 6px;
   box-shadow: 0 0 0 1px rgba(var(--ombre), 0.05), 0 3px 12px rgba(var(--ombre), 0.15);
@@ -266,10 +266,9 @@ button:hover { background: var(--survol); }
 .filtres-rapides { display: flex; gap: 6px; flex-wrap: wrap; }
 .pilule { padding: 0.2rem 0.7rem; border-radius: 999px; font-size: 0.9em; }
 .pilule.active { background: var(--accent); border-color: var(--accent); color: var(--sur-accent); }
-.panneau { padding: 6px; width: min(420px, calc(100vw - 32px)); }
 .editeur-filtres { display: flex; flex-direction: column; gap: 6px; }
 .ligne-filtre { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.ligne-filtre select, .ligne-filtre input, .filtre-rapide legend input {
+.filtre-rapide legend input {
   font: inherit;
   padding: 3px 6px;
   border: 1px solid var(--bordure);
@@ -304,8 +303,6 @@ button:hover { background: var(--survol); }
 }
 .lien-casse { color: var(--alerte); font-size: 0.9em; white-space: nowrap; }
 .reglages-rollup { display: flex; flex-direction: column; gap: 4px; padding: 4px 6px 6px; border-bottom: 1px solid var(--bordure); margin-bottom: 4px; }
-.reglages-rollup label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--discret); font-size: 0.9em; }
-.reglages-rollup select { font: inherit; color: var(--texte); padding: 2px 4px; border: 1px solid var(--bordure); border-radius: 4px; max-width: 180px; }
 
 /* Vue + page */
 .zone-vue { flex: 1; min-height: 0; display: flex; gap: 0; }
@@ -877,7 +874,7 @@ button { border-radius: 8px; }
 .colonnes-import { border-collapse: collapse; width: 100%; font-size: 0.95em; }
 .colonnes-import th { text-align: left; font-weight: 500; color: var(--discret); padding: 0.3rem 0.5rem; }
 .colonnes-import td { padding: 0.3rem 0.5rem; border-top: 1px solid var(--bordure); }
-.colonnes-import input, .colonnes-import select, .import .case-reglage input { font: inherit; padding: 3px 6px; border: 1px solid var(--bordure); border-radius: 6px; background: var(--fond); color: inherit; }
+.colonnes-import input, .import .case-reglage input { font: inherit; padding: 3px 6px; border: 1px solid var(--bordure); border-radius: 6px; background: var(--fond); color: inherit; }
 .en-capture :is(.nouvelle-ligne, .cellule-entete.ajout, .ajout-carte, .carte-ajout, .ajout-jour, .ajout-groupe, .ajout-ligne, .bouton-ouvrir, .invite-calcul) { visibility: hidden; }
 .apercu-import { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -1059,3 +1056,153 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
   border-color: color-mix(in srgb, var(--barre-texte) 22%, var(--barre-fond));
 }
 .tl-point.coloree { background: color-mix(in srgb, var(--barre-texte) 55%, var(--barre-fond)); }
+
+/* Contrôles uniformes : listes de choix (`Choix`), champs, interrupteurs, sections de panneau */
+.choix {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  box-sizing: border-box;
+  max-width: 220px;
+  min-width: 0;
+  padding: 0 7px 0 10px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.9em;
+  text-align: left;
+}
+.choix:hover { background: var(--surface); border-color: var(--bordure-forte); }
+.choix[aria-expanded='true'] { border-color: var(--bordure-forte); background: var(--fond-doux); }
+.choix:disabled { opacity: 0.5; cursor: default; }
+.valeur-choix { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+.libelle-choix { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.valeur-choix .pastille { overflow: hidden; text-overflow: ellipsis; }
+svg.chevron-choix { color: var(--discret); margin-left: auto; }
+svg.icone.alerte { color: var(--alerte); opacity: 1; }
+.liste-choix { display: flex; flex-direction: column; min-width: 180px; max-width: 320px; }
+.options-choix { display: flex; flex-direction: column; gap: 1px; outline: none; }
+.options-choix .option { width: 100%; border-radius: 6px; padding: 5px 8px; font-size: 0.92em; }
+.options-choix .option:hover { background: none; }
+.options-choix .option.active { background: var(--survol); }
+.options-choix .option:disabled { opacity: 0.45; cursor: default; }
+.options-choix .option .coche { margin-left: auto; display: inline-flex; justify-content: flex-end; }
+.groupe-choix { font-size: 0.75em; font-weight: 600; color: var(--discret); padding: 8px 8px 3px; }
+.entree-choix:first-child .groupe-choix { padding-top: 3px; }
+.aucun-choix { padding: 6px 8px; font-size: 0.9em; }
+.recherche-choix { display: flex; align-items: center; gap: 6px; padding: 2px 8px 6px; margin-bottom: 4px; border-bottom: 1px solid var(--bordure); color: var(--discret); }
+.recherche-choix input { flex: 1; min-width: 0; border: none; outline: none; background: none; font: inherit; color: var(--texte); padding: 3px 0; }
+
+/* Champs de saisie des panneaux et fenêtres : même hauteur, même bord, anneau de focus */
+:is(.flottant, .fenetre) :is(input:not([type='checkbox'], [type='radio'], [type='color']), textarea):not(.recherche-choix input, .editeur, .champ-nu) {
+  font: inherit;
+  font-size: 0.9em;
+  color: var(--texte);
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  background: var(--surface);
+}
+:is(.flottant, .fenetre) textarea:not(.champ-nu) { height: auto; padding: 6px 8px; }
+:is(.flottant, .fenetre) :is(input, textarea):not(.recherche-choix input, .editeur, .champ-nu):hover { border-color: var(--bordure-forte); }
+:is(.choix, input, textarea, button):focus-visible { outline: 2px solid rgba(var(--accent-rgb), 0.35); outline-offset: 1px; }
+:is(.flottant, .fenetre) :is(input, textarea):not(.recherche-choix input, .editeur, .champ-nu):focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12); }
+input[type='checkbox'] { accent-color: var(--accent); }
+
+/* Filtres : une ligne par filtre (Où / Et, colonne, opérateur, valeur, retirer) */
+.panneau { width: min(400px, calc(100vw - 32px)); padding: 8px; }
+.panneau.large { width: min(560px, calc(100vw - 32px)); }
+.editeur-filtres { gap: 4px; }
+.editeur-filtres .ligne-filtre { flex-wrap: nowrap; gap: 6px; }
+.liaison-filtre { flex: 0 0 1.8rem; font-size: 0.85em; color: var(--discret); text-align: right; }
+.editeur-filtres .choix { flex: 0 1 auto; max-width: 150px; }
+.valeur-filtre { flex: 1; min-width: 0; display: flex; }
+.valeur-filtre > .choix { max-width: 100%; }
+.valeurs-filtre { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1; font-size: 0.9em; }
+.valeurs-filtre input { flex: 1; min-width: 0; }
+.valeurs-filtre input[type='date'] { flex: 0 1 auto; }
+.ligne-filtre button.retirer { padding: 0; width: 26px; height: 26px; justify-content: center; flex-shrink: 0; margin-left: auto; }
+.ligne-filtre button.retirer:hover { color: var(--texte); background: var(--survol); }
+.choix-parmi { gap: 4px 10px; }
+.choix-parmi label { gap: 5px; cursor: pointer; }
+.ajout-filtre { margin-top: 2px; padding: 0.25rem 0.4rem; font-size: 0.9em; }
+
+/* Panneaux de réglages : sections séparées d'un trait fin, lignes « libellé | contrôle » */
+.reglages { display: flex; flex-direction: column; }
+.section-reglages { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; }
+.section-reglages:first-child { padding-top: 0; }
+.section-reglages:last-child { padding-bottom: 0; }
+.section-reglages + .section-reglages { border-top: 1px solid var(--bordure); }
+.section-reglages:empty { display: none; }
+.titre-section { font-size: 0.75em; font-weight: 600; color: var(--discret); margin: 0 0 4px; padding: 0 6px; letter-spacing: 0.01em; }
+.aide-reglage { font-size: 0.82em; line-height: 1.4; padding: 0 6px; margin: -2px 0 4px; }
+.ligne-reglage { justify-content: space-between; min-height: 30px; padding: 0 6px; border-radius: 6px; font-size: 0.9em; }
+label.ligne-reglage { cursor: pointer; }
+label.ligne-reglage:hover { background: var(--survol-leger); }
+.ligne-reglage.desactive { cursor: default; }
+.ligne-reglage.desactive .nom-reglage { color: var(--discret); }
+.nom-reglage { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--texte-doux); }
+.nom-reglage > svg.icone:first-child { margin-right: 0; }
+.ligne-reglage .choix { max-width: 60%; }
+
+/* Interrupteur : une case à cocher habillée */
+input.interrupteur {
+  appearance: none;
+  flex-shrink: 0;
+  width: 28px;
+  height: 16px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--gris-moyen);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+input.interrupteur::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(var(--ombre), 0.25);
+  transition: transform 150ms ease;
+}
+input.interrupteur:checked { background: var(--accent); }
+input.interrupteur:checked::after { transform: translateX(12px); }
+input.interrupteur:disabled { opacity: 0.45; cursor: default; }
+
+/* Visibilité d'une colonne : un œil à droite, la ligne s'estompe quand elle est masquée */
+.visibilite .oeil { position: relative; display: inline-flex; color: var(--texte-doux); }
+.visibilite .oeil input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.visibilite.masquee .nom-reglage, .visibilite.masquee .oeil { color: var(--tres-discret-texte); }
+.visibilite .oeil svg.icone { opacity: 1; }
+.visibilite.desactive .oeil { visibility: hidden; }
+.visibilite:has(input:focus-visible) { outline: 2px solid rgba(var(--accent-rgb), 0.35); }
+
+/* Déplier par : réglages d'un niveau en retrait, filtres dans un volet */
+.reglages-niveau { margin: 2px 0 6px 13px; padding: 2px 0 2px 10px; }
+.filtres-niveau summary { list-style: none; display: flex; align-items: center; gap: 4px; padding: 5px 6px; border-radius: 6px; font-size: 0.9em; }
+.filtres-niveau summary::-webkit-details-marker { display: none; }
+.filtres-niveau summary:hover { background: var(--survol-leger); }
+.filtres-niveau[open] svg.chevron-details { transform: rotate(90deg); }
+.filtres-niveau .editeur-filtres { padding-left: 6px; }
+kbd.touches { display: inline-flex; gap: 1px; vertical-align: -0.15em; }
+kbd.touches svg.icone { margin: 0; }
+.vers { display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; }
+.vers svg.icone { margin: 0; }
+.changement-ia svg.icone { margin: 0 4px; vertical-align: -0.15em; }
+:is(.lien-casse, .invalide, summary, .bandeau-conflit, .alerte-copies, .resume) > svg.icone.alerte { margin-right: 4px; vertical-align: -0.15em; }
+.outil { white-space: nowrap; }
+.reglages-page { gap: 0; }
+.reglages-page > .ligne-filtre { padding-bottom: 8px; }
+.reglages-page .ligne-reglage input:not([type='checkbox']) { flex: 0 1 60%; }
+.champ-page { padding: 1px 0; }
+.en-onglet { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85em; color: var(--texte-doux); white-space: nowrap; cursor: pointer; }
+.reglages-rollup { min-width: 250px; gap: 0; padding: 4px 0 6px; }
+.ligne-reglage .choix { flex-shrink: 0; }
