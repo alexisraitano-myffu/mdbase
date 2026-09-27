@@ -935,6 +935,47 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .envoi-ia { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border-radius: 8px; flex-shrink: 0; }
 .arret-ia { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--bordure-forte); background: var(--surface); color: var(--texte); font-size: 1em; flex-shrink: 0; }
 .arret-ia svg.icone { fill: currentColor; }
+/* Réponses en Markdown : titres modestes, listes serrées, code et tableaux qui défilent dans la bulle */
+.markdown-ia { white-space: normal; display: flex; flex-direction: column; gap: 0.45rem; }
+.markdown-ia :is(p, li, blockquote) { white-space: pre-wrap; margin: 0; }
+.markdown-ia :is(h3, h4, h5, h6) { margin: 0.25rem 0 0; font-size: 0.95rem; font-weight: 650; }
+.markdown-ia :is(ul, ol) { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 2px; }
+.markdown-ia code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: rgba(var(--ombre), 0.06); border-radius: 4px; padding: 0 3px; }
+.markdown-ia pre { margin: 0; background: var(--fond); border: 1px solid var(--bordure); border-radius: 8px; padding: 0.5rem 0.6rem; overflow-x: auto; }
+.markdown-ia pre code { background: none; padding: 0; }
+.markdown-ia blockquote { border-left: 3px solid var(--bordure-forte); padding-left: 0.6rem; color: var(--discret); }
+.markdown-ia hr { border: none; border-top: 1px solid var(--bordure); margin: 0.25rem 0; width: 100%; }
+.markdown-ia a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.tableau-md { overflow-x: auto; }
+.tableau-md table { border-collapse: collapse; font-size: 0.9em; }
+.tableau-md :is(th, td) { border: 1px solid var(--bordure); padding: 3px 8px; text-align: left; white-space: nowrap; }
+.tableau-md th { background: rgba(var(--ombre), 0.04); font-weight: 600; }
+/* Copier, relancer, modifier : discrets, sous le message qu'ils concernent */
+.actions-ia { display: flex; gap: 2px; margin-top: -2px; }
+.actions-ia.droite { justify-content: flex-end; }
+.bouton-ia { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; padding: 0; border-radius: 6px; }
+.bouton-ia:hover { background: rgba(var(--ombre), 0.06); color: var(--texte); }
+/* Bases citées (@) et skill choisi (/) */
+.citations-ia { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+.citation-ia { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82em; padding: 1px 7px; border-radius: 999px; background: var(--fond-doux); color: var(--texte); border: 1px solid var(--bordure); }
+.citation-ia button { display: inline-flex; padding: 0; border: none; background: none; }
+.bulle-ia.moi .citation-ia { background: rgba(255, 255, 255, 0.16); color: inherit; border-color: rgba(255, 255, 255, 0.25); }
+.demande-ia { position: relative; }
+.suggestions-ia { position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 6; background: var(--surface); border: 1px solid var(--bordure); border-radius: 10px; box-shadow: 0 6px 20px rgba(var(--ombre), 0.12); padding: 4px; display: flex; flex-direction: column; }
+.suggestion-ia { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 0.92em; min-width: 0; }
+.suggestion-ia.choisie { background: var(--fond-doux); }
+.detail-suggestion { margin-left: auto; font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.choix.choix-modele-ia { min-width: 0; max-width: 70%; font-size: 1em; padding: 1px 8px; border-color: transparent; background: none; color: var(--discret); }
+.choix.choix-modele-ia:hover { color: var(--texte); background: rgba(var(--ombre), 0.05); }
+/* Historique des conversations */
+.historique-ia { list-style: none; margin: 0; padding: 4px; width: 320px; max-height: 50vh; overflow-y: auto; }
+.historique-ia li { display: flex; align-items: center; gap: 2px; border-radius: 6px; }
+.historique-ia li.courante { background: var(--fond-doux); }
+.historique-ia li > button:last-child { display: inline-flex; padding: 4px; }
+.ouvrir-conversation { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 8px; text-align: left; color: var(--texte); }
+.ouvrir-conversation .libelle-choix { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ouvrir-conversation .discret { font-size: 0.8em; }
+.historique-vide { margin: 0; padding: 0.6rem 0.8rem; }
 .vue-plein-ecran .panneau-ia { margin-left: 0; border-radius: 0; box-shadow: none; border-left: 1px solid var(--bordure); }
 /* Bouton de la barre latérale : une demande tourne, ou une proposition attend d'être relue */
 .indicateur-ia { display: inline-flex; align-items: center; color: var(--texte); }

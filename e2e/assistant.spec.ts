@@ -1,5 +1,5 @@
 import type { Page, Request } from '@playwright/test'
-import { expect, test } from './espace'
+import { choisir, expect, test } from './espace'
 
 // Assistant IA (spec §12, « Module IA ») : désactivé par défaut, avertissement
 // avant activation, aperçu avant toute écriture. Le service est simulé.
@@ -10,7 +10,7 @@ const SITE = 'projets/site-vitrine--psite001.md'
 /** Faux service compatible OpenAI : répond les messages donnés, dans l'ordre, et garde les requêtes. */
 async function simulerService(page: Page, ...messages: object[]) {
   const recues: Request[] = []
-  await page.route(`${SERVICE}/**`, async (route) => {
+  await page.route(`${SERVICE}/chat/completions`, async (route) => {
     recues.push(route.request())
     const message = messages.shift() ?? { content: 'plus de réponse' }
     await route.fulfill({ json: { choices: [{ message }] }, headers: { 'Access-Control-Allow-Origin': '*' } })
@@ -20,7 +20,9 @@ async function simulerService(page: Page, ...messages: object[]) {
 
 const appel = (nom: string, args: object) => ({ content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: nom, arguments: JSON.stringify(args) } }] })
 
-async function activer(page: Page) {
+/** Active l'assistant ; le faux service liste `modeles` (demandés à l'ouverture du panneau). */
+async function activer(page: Page, modeles: string[] = []) {
+  await page.route(`${SERVICE}/models`, (route) => route.fulfill({ json: { data: modeles.map((id) => ({ id })) }, headers: { 'Access-Control-Allow-Origin': '*' } }))
   await page.getByRole('button', { name: /Assistant IA/ }).click()
   const fenetre = page.getByRole('dialog', { name: 'Assistant IA' })
   await expect(fenetre).toContainText('À chaque demande, l’assistant envoie au service choisi')
@@ -39,7 +41,7 @@ async function serviceEnAttente(page: Page) {
   page.on('requestfailed', (r) => {
     if (r.url().startsWith(SERVICE)) etat.coupee = true
   })
-  await page.route(`${SERVICE}/**`, async (route) => {
+  await page.route(`${SERVICE}/chat/completions`, async (route) => {
     etat.recue = true
     const evenements = await reponse
     const corps = evenements.map((e) => `data: ${JSON.stringify({ choices: [{ delta: e }] })}\n\n`).join('') + 'data: [DONE]\n\n'
@@ -178,8 +180,8 @@ test('conversation : on répond à la question du modèle, qui relit l’échang
   await expect(page.locator('.panneau-ia')).toHaveCount(0)
   await page.keyboard.press('Control+j')
   await expect(page.locator('.bulle-ia.moi')).toHaveText(['Termine le projet', 'Le site vitrine'])
-  const garde = await page.evaluate(() => localStorage.getItem('mdbase.ia.conversation.espace'))
-  expect(JSON.parse(garde!)).toEqual([
+  const garde = await page.evaluate(() => localStorage.getItem('mdbase.ia.conversations.espace'))
+  expect(JSON.parse(garde!)[0].tours).toEqual([
     { demande: 'Termine le projet', type: 'reponse', texte: 'Quel projet ?' },
     { demande: 'Le site vitrine', type: 'plan', texte: 'Modifier 1 ligne dans Projets : Site vitrine (Statut → Terminé)', statut: 'annule' },
   ])
@@ -274,4 +276,98 @@ test('structure : colonne créée puis remplie, vue ajoutée ; une suppression e
   await expect(page.locator('.applique-ia')).toHaveText('Appliqué')
   await expect.poll(() => espace.lire(SITE)).toContain('priorite: Haute\n')
   expect(await espace.lire('projets/_schema.yaml')).not.toContain('cle: revue')
+})
+
+test('réponse en Markdown ; copier, relancer, modifier la dernière demande', async ({ espace, page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const recues = await simulerService(page, { content: '## Bilan\n**Deux** projets en retard :\n- Site vitrine\n- `Boutique`' }, { content: 'Autre réponse' }, { content: 'Corrigé' })
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Fais le bilan')
+  await page.keyboard.press('Enter')
+  const reponse = page.locator('.reponse-ia')
+  await expect(reponse.locator('h4')).toHaveText('Bilan')
+  await expect(reponse.locator('strong')).toHaveText('Deux')
+  await expect(reponse.locator('li')).toHaveText(['Site vitrine', 'Boutique'])
+  await expect(reponse.locator('li code')).toHaveText('Boutique')
+
+  await page.getByRole('button', { name: 'Copier la réponse' }).click()
+  await expect(page.getByRole('button', { name: 'Copié' })).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('**Deux** projets')
+
+  // Relancer : la même demande repart, sa réponse remplace l'ancienne.
+  await page.getByRole('button', { name: 'Relancer la demande' }).click()
+  await expect(reponse).toHaveText('Autre réponse')
+  await expect(page.locator('.tour-ia')).toHaveCount(1)
+  expect((recues[1]!.postDataJSON() as { messages: { content: string }[] }).messages.at(-1)!.content).toBe('Fais le bilan')
+
+  // Modifier : la demande revient dans le champ, le tour est retiré.
+  await page.getByRole('button', { name: 'Modifier la demande' }).click()
+  const champ = page.getByLabel('Demande à l’assistant')
+  await expect(champ).toHaveValue('Fais le bilan')
+  await expect(page.locator('.tour-ia')).toHaveCount(0)
+  await champ.fill('Fais le bilan de septembre')
+  await page.keyboard.press('Enter')
+  await expect(reponse).toHaveText('Corrigé')
+  expect(espace).toBeTruthy()
+})
+
+test('@ cite une base, / lance un skill : pastilles, et le modèle les reçoit', async ({ espace, page }) => {
+  await espace.ecrire('_assistant/skills/revue-du-lundi.md', '---\nnom: Revue du lundi\ndescription: le lundi matin\n---\n\nTâches en retard en priorité haute.\n')
+  const recues = await simulerService(page, { content: 'ok' })
+  await activer(page)
+  const champ = page.getByLabel('Demande à l’assistant')
+  await champ.pressSequentially('/rev')
+  await expect(page.getByRole('option')).toHaveText([/Revue du lundi/])
+  await page.keyboard.press('Enter')
+  // Frappe enchaînée aussitôt : le curseur est déjà à sa place.
+  await champ.pressSequentially('sur @tâc')
+  await expect(page.locator('.demande-ia .citation-ia').first()).toHaveText('Revue du lundi')
+  await expect(page.getByRole('option', { name: 'Tâches' })).toBeVisible()
+  await page.keyboard.press('Tab')
+  await expect(page.locator('.demande-ia .citation-ia')).toHaveText(['Revue du lundi', 'Tâches'])
+  await expect(champ).toHaveValue('sur ')
+  await page.keyboard.press('Enter')
+
+  await expect(page.locator('.bulle-ia.moi .citation-ia')).toHaveText(['Revue du lundi', 'Tâches'])
+  const messages = (recues[0]!.postDataJSON() as { messages: { content: string }[] }).messages
+  expect(messages.at(-1)!.content).toBe('Applique le skill « Revue du lundi ».\nsur')
+  expect(messages[0]!.content).toContain("Bases citées par l'utilisateur : taches")
+})
+
+test('modèle changé depuis le panneau ; historique : reprendre une conversation précédente', async ({ espace, page }) => {
+  const recues: { model: string; messages: { content: string }[] }[] = []
+  await page.route(`${SERVICE}/chat/completions`, async (route) => {
+    recues.push(route.request().postDataJSON())
+    await route.fulfill({ json: { choices: [{ message: { content: `réponse ${recues.length}` } }] }, headers: { 'Access-Control-Allow-Origin': '*' } })
+  })
+  await activer(page, ['qwen-test', 'mistral-large'])
+  await choisir(page.getByRole('button', { name: 'Modèle' }), 'mistral-large')
+  const champ = page.getByLabel('Demande à l’assistant')
+  await champ.fill('Première conversation')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.reponse-ia')).toHaveText('réponse 1')
+  expect(recues[0]!.model).toBe('mistral-large')
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('mdbase.ia')))!).modele).toBe('mistral-large')
+
+  await page.getByRole('button', { name: 'Nouvelle conversation' }).click()
+  await champ.fill('Deuxième conversation')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.reponse-ia')).toHaveText('réponse 2')
+  // La deuxième ne relit pas la première.
+  expect(recues[1]!.messages.map((m) => m.content)).not.toContain('Première conversation')
+
+  await page.getByRole('button', { name: 'Conversations précédentes' }).click()
+  const historique = page.getByRole('list', { name: 'Conversations précédentes' })
+  await expect(historique.locator('.libelle-choix')).toHaveText(['Deuxième conversation', 'Première conversation'])
+  await historique.locator('.ouvrir-conversation', { hasText: 'Première conversation' }).click()
+  await expect(page.locator('.bulle-ia.moi')).toHaveText('Première conversation')
+  await expect(page.locator('.reponse-ia')).toHaveText('réponse 1')
+
+  // Gardées dans le navigateur, la plus récente d'abord ; une conversation s'efface.
+  const gardees = JSON.parse((await page.evaluate(() => localStorage.getItem('mdbase.ia.conversations.espace')))!) as { tours: { demande: string }[] }[]
+  expect(gardees.map((c) => c.tours[0]!.demande)).toEqual(['Première conversation', 'Deuxième conversation'])
+  await page.getByRole('button', { name: 'Conversations précédentes' }).click()
+  await page.getByRole('button', { name: 'Effacer « Deuxième conversation »' }).click()
+  await expect(page.getByRole('list', { name: 'Conversations précédentes' }).locator('li')).toHaveCount(1)
+  expect(espace).toBeTruthy()
 })

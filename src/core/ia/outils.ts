@@ -313,6 +313,8 @@ function decrireLigne(schema: Schema, l: LigneChargee, calculees: Record<string,
 export type OptionsContexte = {
   aujourdhui: string
   baseOuverte: string | null
+  /** Bases citées avec `@` dans la demande : leurs lignes sont envoyées comme celles de la base ouverte. */
+  basesCitees?: readonly string[]
   /** Lignes proches de la demande, les plus pertinentes d'abord (recherche plein texte). */
   candidats: readonly { base: string; ligne: string }[]
   memoire?: readonly string[]
@@ -369,14 +371,17 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
   }
   parties.push('', `Aujourd'hui : ${o.aujourdhui} (${JOURS[jourSemaine(o.aujourdhui)]})`)
   if (o.baseOuverte) parties.push(`Base ouverte : ${o.baseOuverte}`)
+  if (o.basesCitees?.length) parties.push(`Bases citées par l'utilisateur : ${o.basesCitees.join(', ')}`)
 
   const total = bases.reduce((n, b) => n + b.lignes.length, 0)
   const retenues = new Map<string, Set<string>>()
   if (total > LIGNES_MAX) {
     const retenir = (base: string, ligne: string) => retenues.set(base, (retenues.get(base) ?? new Set()).add(ligne))
     for (const c of o.candidats) retenir(c.base, c.ligne)
-    const ouverte = bases.find((b) => b.id === o.baseOuverte)
-    for (const l of ouverte?.lignes.slice(0, LIGNES_BASE_OUVERTE) ?? []) retenir(ouverte!.id, l.id)
+    for (const id of [o.baseOuverte, ...(o.basesCitees ?? [])]) {
+      const b = bases.find((x) => x.id === id)
+      for (const l of b?.lignes.slice(0, LIGNES_BASE_OUVERTE) ?? []) retenir(b!.id, l.id)
+    }
   }
   parties.push('', `## Lignes (id | titre | valeurs)${total > LIGNES_MAX ? ` : extrait, ${total} lignes au total ; les autres se désignent par des filtres` : ''}`)
   for (const { id, schema, lignes } of bases) {

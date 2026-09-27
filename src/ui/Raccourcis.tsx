@@ -66,6 +66,10 @@ const GROUPES: Groupe[] = [
     raccourcis: [
       { touches: [['Entrée']], action: 'Envoyer la demande' },
       { touches: [['Maj', 'Entrée']], action: 'Aller à la ligne' },
+      { touches: [['@']], action: 'Citer une base : ses lignes accompagnent la demande' },
+      { touches: [['/']], action: 'Lancer un skill (en tête de demande)' },
+      { touches: [['haut'], ['bas']], action: 'Parcourir les bases ou les skills proposés ; Entrée ou Tab pour choisir' },
+      { touches: [['Retour arrière']], action: 'En tête de demande : retirer la dernière base ou le skill cités' },
     ],
   },
 ]

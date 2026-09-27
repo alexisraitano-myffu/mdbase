@@ -107,6 +107,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Assistant IA : la réponse arrive au fil de l'eau, et une demande n'est plus coupée au bout de 60 s ; elle n'est abandonnée qu'après 30 minutes sans rien recevoir du service (un modèle qui réfléchit longtemps n'envoie rien entre-temps), et c'est toi qui l'arrêtes avant si tu veux. Un bouton « Arrêter » coupe vraiment la requête.
 - Assistant IA : fermer le panneau ou passer sur une autre base n'arrête plus une demande en cours ; le bouton de la barre latérale montre qu'elle tourne, puis qu'une proposition attend d'être relue. Le texte en cours de saisie est retrouvé à la réouverture.
 - Assistant IA : le champ de demande grandit avec le texte (Entrée envoie, Maj+Entrée va à la ligne).
+- Assistant IA : réponses mises en forme (titres, listes, gras, code, tableaux), bouton « Copier » sous chaque réponse, « Relancer » et « Modifier » sur la dernière demande.
+- Assistant IA : `@` cite une base (ses lignes partent avec la demande), `/` en tête de demande lance un skill ; les deux s'affichent en pastilles, retirables.
+- Assistant IA : choix du modèle directement dans le pied du panneau, et historique des conversations (20 par dossier) pour reprendre une conversation précédente.
 - Petites animations, toutes sous 250 ms : les menus grandissent depuis leur bouton, les fenêtres se posent au centre, le panneau de page arrive de la droite (pas en passant d'une ligne à l'autre), les boutons d'action et les pilules s'enfoncent à l'appui, les chevrons de groupe tournent, et une barre relâchée dans la timeline ou le calendrier glisse jusqu'à son jour. Rien ne bouge sur les raccourcis clavier (recherche, assistant, consultation) ; avec « réduire les animations », de simples fondus.
 
 ### Fixed

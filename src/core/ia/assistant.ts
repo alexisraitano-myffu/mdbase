@@ -23,6 +23,10 @@ export type Echange = { demande: string; reponse: string }
 export type OptionsDemande = {
   aujourdhui: string
   baseOuverte: string | null
+  /** Bases citées avec `@` : leurs lignes accompagnent la demande. */
+  basesCitees?: readonly string[]
+  /** Skill choisi avec `/` : le modèle est prié de l'appliquer. */
+  skill?: string
   /** Échanges précédents, du plus ancien au plus récent ; seuls les derniers sont renvoyés. */
   historique?: readonly Echange[]
   /** Transmis au modèle : arrêt par l'utilisateur, et réponse suivie au fil de l'eau. */
@@ -38,6 +42,9 @@ const RELANCES = 1
 /** Certains modèles écrivent leur raisonnement entre balises `<think>` : il n'est pas montré. */
 export const sansReflexion = (texte: string) => texte.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim()
 
+/** Demande telle que le modèle la lit, skill choisi compris : aussi ce que relit l'historique. */
+export const avecSkill = (demande: string, skill?: string) => (skill ? `Applique le skill « ${skill} ».${demande ? `\n${demande}` : ''}` : demande)
+
 export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: string, o: OptionsDemande): Promise<Proposition> {
   const assistant = await espace.assistant.lire()
   const contexte = decrireEspace(espace.etat(), { ...o, candidats: espace.candidats(demande), memoire: assistant.memoire, skills: assistant.skills })
@@ -47,7 +54,7 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
       { role: 'user', contenu: e.demande },
       { role: 'assistant', contenu: e.reponse, appels: [] },
     ]),
-    { role: 'user', contenu: demande },
+    { role: 'user', contenu: avecSkill(demande, o.skill) },
   ]
   for (let essai = 0; ; essai++) {
     const reponse = await modele({ messages, outils: OUTILS, signal: o.signal, progression: o.progression })

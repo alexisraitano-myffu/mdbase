@@ -64,6 +64,17 @@ describe('contexte envoyé au modèle', () => {
     expect(texte).toContain('c0000002 | Globex')
     expect(texte).not.toContain('Acme')
     expect(texte).not.toContain('Tâche 12')
+    // Une base citée avec `@` : ses lignes accompagnent la demande comme celles de la base ouverte.
+    const cite = decrireEspace(espace.etat(), { aujourdhui: AUJOURDHUI, baseOuverte: 'projets', basesCitees: ['taches'], candidats: [] })
+    expect(cite).toContain('Bases citées par l\'utilisateur : taches')
+    expect(cite).toContain('Tâche 12')
+  })
+
+  it('skill choisi avec `/` : le modèle est prié de l’appliquer', async () => {
+    const { espace } = await ouvrir()
+    const modele = modeleScripte({ texte: 'ok', appels: [] })
+    await proposer(modele, espace, 'pour cette semaine', { aujourdhui: AUJOURDHUI, baseOuverte: null, skill: 'Revue du lundi' })
+    expect(modele.requetes[0]!.messages.at(-1)).toEqual({ role: 'user', contenu: 'Applique le skill « Revue du lundi ».\npour cette semaine' })
   })
 })
 

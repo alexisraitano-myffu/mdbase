@@ -318,7 +318,18 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             )}
           </main>
           {panneauIA && reglagesIA.actif && !consultation && (
-            <PanneauAssistant session={sessionIA} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setReglerIA(true)} fermer={() => setPanneauIA(false)} />
+            <PanneauAssistant
+              session={sessionIA}
+              baseOuverte={choisie}
+              reglages={reglagesIA}
+              reglerIA={() => setReglerIA(true)}
+              changerModele={(modele) => {
+                const r = { ...reglagesIA, modele }
+                enregistrerReglages(r)
+                setReglagesIA(r)
+              }}
+              fermer={() => setPanneauIA(false)}
+            />
           )}
         </div>
         {reglerIA && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setReglerIA(false)} />}
