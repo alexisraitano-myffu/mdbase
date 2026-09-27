@@ -110,6 +110,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Assistant IA : réponses mises en forme (titres, listes, gras, code, tableaux), bouton « Copier » sous chaque réponse, « Relancer » et « Modifier » sur la dernière demande.
 - Assistant IA : `@` cite une base (ses lignes partent avec la demande), `/` en tête de demande lance un skill ; les deux s'affichent en pastilles, retirables.
 - Assistant IA : choix du modèle directement dans le pied du panneau, et historique des conversations (20 par dossier) pour reprendre une conversation précédente.
+- Timeline : chaque niveau déplié choisit ses champs affichés dans sa base (« Champs affichés » dans ses réglages) : les dates d'une phase se lisent comme celles de la ligne principale, ou à la suite du titre quand le niveau est sur la ligne du parent.
+- Timeline : titres des bandes en haut ou en bas (sous la dernière rangée), jamais coupés : un titre plus long que sa bande déborde, et deux titres qui se toucheraient passent sur deux rangées. Bandes plus lisibles, fond plus dense et bords marqués.
+- Couleurs des options : quand les barres ou les bandes prennent la couleur d'une colonne, le réglage « Couleur » montre ses options, dont la couleur se change sur place (elle vaut partout dans l'espace).
 - Petites animations, toutes sous 250 ms : les menus grandissent depuis leur bouton, les fenêtres se posent au centre, le panneau de page arrive de la droite (pas en passant d'une ligne à l'autre), les boutons d'action et les pilules s'enfoncent à l'appui, les chevrons de groupe tournent, et une barre relâchée dans la timeline ou le calendrier glisse jusqu'à son jour. Rien ne bouge sur les raccourcis clavier (recherche, assistant, consultation) ; avec « réduire les animations », de simples fondus.
 
 ### Fixed

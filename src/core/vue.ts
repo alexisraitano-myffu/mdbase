@@ -59,10 +59,20 @@ export type Niveau = {
   deplier: Niveau[]
   /** Les lignes du niveau se dessinent sur la rangée de leur parent, sans rangées à elles (et ne se déplient pas plus bas). */
   surLaLigne?: boolean
+  /** Colonnes de la base liée affichées sur les barres du niveau (`champs_carte`). */
+  champsCarte?: string[]
 }
 
 /** Timeline : bandes verticales tirées d'une autre base (moratoires, congés, sprints…), derrière les barres. */
-export type Bande = { base: string; champDebut?: string; champFin?: string; couleur?: string; couleurPar?: string }
+export type Bande = {
+  base: string
+  champDebut?: string
+  champFin?: string
+  couleur?: string
+  couleurPar?: string
+  /** Titres sous la dernière rangée plutôt que dans l'en-tête. */
+  titres?: 'bas'
+}
 
 export type Vue = {
   id: string
@@ -254,6 +264,7 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
               filtres: filtres(n.filtres, `niveau ${n.relation}`),
               deplier: niveaux(n.deplier, profondeur + 1),
               ...(n.sur_la_ligne === true && { surLaLigne: true }),
+              ...(r.champsCarte && { champsCarte: r.champsCarte }),
             },
           ]
         })
@@ -271,6 +282,7 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
         ...(r.champFin && { champFin: r.champFin }),
         ...(r.couleur && { couleur: r.couleur }),
         ...(r.couleurPar && { couleurPar: r.couleurPar }),
+        ...(b.titres === 'bas' && { titres: 'bas' as const }),
       },
     ]
   })
@@ -345,6 +357,7 @@ export function appliquerModificationsVue(doc: Document, cible: YAMLMap, modifs:
         if (b.champFin) m.set('champ_fin', b.champFin)
         if (b.couleur) m.set('couleur', b.couleur)
         if (b.couleurPar) m.set('couleur_par', b.couleurPar)
+        if (b.titres) m.set('titres', b.titres)
         seq.items.push(m)
       }
       cible.set('bandes', seq)
@@ -379,6 +392,7 @@ function noeudNiveaux(doc: Document, niveaux: readonly Niveau[]): YAMLSeq {
       m.set('filtres', f)
     }
     if (n.surLaLigne) m.set('sur_la_ligne', true)
+    if (n.champsCarte?.length) m.set('champs_carte', doc.createNode(n.champsCarte, { flow: true }))
     if (n.deplier.length > 0) m.set('deplier', noeudNiveaux(doc, n.deplier))
     seq.items.push(m)
   }

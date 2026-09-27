@@ -296,6 +296,56 @@ test.describe('timeline en arbre', () => {
     await expect(page.locator('.titre-page')).toHaveValue('Recette')
   })
 
+  test('bandes : titres en bas, jamais coupés ni superposés ; couleur d’une option changée depuis le réglage', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Planning' }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await choisir(page.getByRole('button', { name: 'Ajouter des bandes' }), 'Tâches')
+    await choisir(page.getByRole('button', { name: 'Place des titres des bandes' }), 'en bas')
+    await expect.poll(() => espace.lire('projets/_vues/planning.yaml')).toContain('    couleur_par: priorite\n    titres: bas\n')
+
+    // Couleurs des options de la colonne qui colore : écrites dans le schéma de sa base.
+    await page.locator('.couleurs-options summary').click()
+    await choisir(page.getByRole('button', { name: 'Couleur de « Normale »' }), 'Violet')
+    await expect.poll(() => espace.lire('taches/_schema.yaml')).toContain('{ label: Normale, couleur: violet }')
+    await page.keyboard.press('Escape')
+
+    await expect(page.locator('.tl-entete .tl-titre-bande')).toHaveCount(0)
+    const titres = page.locator('.tl-pied-bandes .tl-titre-bande')
+    await expect(titres.filter({ hasText: 'Recette' })).toBeVisible()
+    // Aucun titre n'est coupé, et deux titres d'un même étage ne se touchent pas, débordement compris.
+    const boites = await titres.evaluateAll((els) =>
+      els.map((el) => {
+        const r = el.getBoundingClientRect()
+        return { haut: Math.round(r.top), gauche: r.left, droite: r.left + Math.max(el.clientWidth, el.scrollWidth), coupe: getComputedStyle(el).overflow !== 'visible' }
+      }),
+    )
+    expect(boites.some((b) => b.coupe)).toBe(false)
+    for (const a of boites) for (const b of boites) if (a !== b && a.haut === b.haut && a.gauche < b.gauche) expect(a.droite).toBeLessThanOrEqual(b.gauche)
+  })
+
+  test('champs affichés d’un niveau : pris dans sa base, dates de part et d’autre, puis dans la barre sur la ligne du parent', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    const niveau = page.locator('.reglages-niveau').first()
+    await niveau.getByText('Champs affichés').click()
+    await niveau.getByRole('checkbox', { name: 'Afficher Début' }).check()
+    await niveau.getByRole('checkbox', { name: 'Afficher Priorité' }).check()
+    await page.keyboard.press('Escape')
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).toContain('    champs_carte: [ priorite, debut ]\n')
+
+    const tache = page.locator('.tl-enfant', { hasText: 'Intégration' })
+    await expect(tache.locator('.champs-bord.avant')).toHaveText(/\d{2}\/\d{2}\/\d{4}/)
+    await expect(tache.locator('.titre-evt .champ-carte')).toHaveText('Normale')
+
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await page.locator('.reglages-niveau').first().getByRole('switch', { name: 'Sur la ligne du parent' }).check()
+    await page.keyboard.press('Escape')
+    const sous = rangee(page, 'Site vitrine').locator('.tl-sous-ligne', { hasText: 'Intégration' })
+    await expect(sous.locator('.champ-carte')).toHaveCount(2)
+  })
+
   test('réglages d’un niveau : sans fin, des losanges ; ses filtres ne touchent que lui', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()

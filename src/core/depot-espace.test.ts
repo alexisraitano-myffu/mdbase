@@ -155,6 +155,16 @@ describe('DepotEspace : colonnes', () => {
     expect(await espace.ajouterOption('projets', 'statut', 'Terminé')).toEqual(option)
   })
 
+  it('couleur d’une option : seul le schéma change ; une couleur inconnue est refusée', async () => {
+    const { espace, a } = await ouvrir()
+    await espace.ajouterOption('projets', 'statut', 'Terminé')
+    const avant = a.ecritures.length
+    await espace.changerCouleurOption('projets', 'statut', 'Terminé', 'rouge')
+    expect(schemaDe(espace, 'projets').colonnes.find((c) => c.cle === 'statut')).toMatchObject({ options: expect.arrayContaining([{ label: 'Terminé', couleur: 'rouge' }]) })
+    expect(a.ecritures.slice(avant).every((f) => f.endsWith('_schema.yaml'))).toBe(true)
+    await expect(espace.changerCouleurOption('projets', 'statut', 'Terminé', 'fuchsia')).rejects.toThrow('Couleur inconnue')
+  })
+
   it('une opération refusée ne bloque pas les suivantes', async () => {
     const { espace } = await ouvrir()
     await expect(espace.supprimerColonne('projets', 'titre')).rejects.toThrow()

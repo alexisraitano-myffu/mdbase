@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
-import { natureDe, type Colonne, type ColonneRelation, type Schema } from '../core/schema'
+import { natureDe, type Colonne, type ColonneChoix, type ColonneRelation, type Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
 import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../core/vue'
 import { useLancer } from './actions'
@@ -531,10 +531,64 @@ function ChoixCouleur(p: { schema: Schema; reglage: ReglageCouleur; changer: (m:
     ...choix.map((c) => ({ valeur: `par:${c.cle}`, libelle: `selon ${c.nom}`, icone: ICONES[c.type], groupe: 'Selon une colonne' })),
     ...COULEURS.map((c) => ({ valeur: `fixe:${c}`, libelle: NOMS_COULEURS[c], couleur: c, groupe: 'Couleur fixe' })),
   ]
+  const selon = choix.find((c) => c.cle === p.reglage.couleurPar)
   return (
-    <Reglage libelle="Couleur">
-      <Choix valeur={valeur} entrees={entrees} libelle="Couleur" inconnue={`${p.reglage.couleurPar} (disparue)`} changer={changer} />
-    </Reglage>
+    <>
+      <Reglage libelle="Couleur">
+        <Choix valeur={valeur} entrees={entrees} libelle="Couleur" inconnue={`${p.reglage.couleurPar} (disparue)`} changer={changer} />
+      </Reglage>
+      {(selon?.type === 'select' || selon?.type === 'multiselect') && selon.options.length > 0 && <CouleursOptions schema={p.schema} colonne={selon} />}
+    </>
+  )
+}
+
+/** Couleur de chaque option de la colonne qui colore les barres : celle de l'option dans le schéma, qui vaut partout. */
+function CouleursOptions({ schema, colonne }: { schema: Schema; colonne: ColonneChoix }) {
+  const { espace } = useEspace()
+  const lancer = useLancer()
+  const entrees: EntreeChoix[] = COULEURS.map((c) => ({ valeur: c, libelle: NOMS_COULEURS[c], couleur: c }))
+  return (
+    <details className="filtres-niveau couleurs-options">
+      <summary>
+        <Icone de={ChevronRight} className="chevron-details" taille={14} />
+        Couleurs de {colonne.nom} ({colonne.options.length})
+      </summary>
+      {colonne.options.map((o) => (
+        <Reglage key={o.label} libelle={o.label}>
+          <Choix
+            valeur={o.couleur ?? 'gris'}
+            entrees={entrees}
+            libelle={`Couleur de « ${o.label} »`}
+            changer={(c) => void lancer(espace.changerCouleurOption(schema.id, colonne.cle, o.label, c))}
+          />
+        </Reglage>
+      ))}
+    </details>
+  )
+}
+
+/** Champs d'un niveau déplié affichés sur ses barres, pris dans sa base (`champs_carte` du niveau). */
+function ChampsNiveau({ schema, champs, changer }: { schema: Schema; champs: string[]; changer: (c: string[]) => void }) {
+  const choisis = new Set(champs)
+  return (
+    <details className="filtres-niveau" open={champs.length > 0 || undefined}>
+      <summary>
+        <Icone de={ChevronRight} className="chevron-details" taille={14} />
+        Champs affichés{champs.length > 0 && ` (${champs.length})`}
+      </summary>
+      {schema.colonnes
+        .filter((c) => c.cle !== schema.champTitre)
+        .map((c) => (
+          <Visibilite
+            key={c.cle}
+            libelle={c.nom}
+            icone={ICONES[c.type]}
+            visible={choisis.has(c.cle)}
+            // Dans l'ordre du schéma.
+            changer={(v) => changer(basculerCle(schema.colonnes, choisis, c.cle, v))}
+          />
+        ))}
+    </details>
   )
 }
 
@@ -586,6 +640,7 @@ function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partia
         coche={niveau.surLaLigne === true}
         changer={(v) => p.changer({ surLaLigne: v || undefined })}
       />
+      <ChampsNiveau schema={schema} champs={niveau.champsCarte ?? []} changer={(c) => p.changer({ champsCarte: c.length > 0 ? c : undefined })} />
       <details className="filtres-niveau" open={niveau.filtres.length > 0 || undefined}>
         <summary>
           <Icone de={ChevronRight} className="chevron-details" taille={14} />
@@ -667,6 +722,20 @@ function OptionsBandes(p: { bandes: Bande[]; changer: (b: Bande[]) => void }) {
                   />
                 </Reglage>
                 <ChoixCouleur schema={schema} reglage={b} changer={(m) => remplacer(i, { ...b, ...m })} />
+                <Reglage libelle="Titres">
+                  <Choix
+                    valeur={b.titres ?? 'haut'}
+                    entrees={[
+                      { valeur: 'haut', libelle: 'en haut' },
+                      { valeur: 'bas', libelle: 'en bas' },
+                    ]}
+                    libelle="Place des titres des bandes"
+                    changer={(v) => {
+                      const { titres: _, ...reste } = b
+                      remplacer(i, v === 'bas' ? { ...reste, titres: 'bas' } : reste)
+                    }}
+                  />
+                </Reglage>
               </>
             )}
           </div>

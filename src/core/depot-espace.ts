@@ -612,6 +612,14 @@ export class DepotEspace {
     })
   }
 
+  /** Couleur d'une option : ne modifie que `_schema.yaml`, et vaut partout où l'option s'affiche. */
+  changerCouleurOption(base: string, cle: string, label: string, couleur: string): Promise<void> {
+    return this.enFile(async () => {
+      if (!(COULEURS as readonly string[]).includes(couleur)) throw new ErreurSchema(`Couleur inconnue : ${couleur}`)
+      await this.modifierSchema(base, { type: 'couleur_option', cle, label, couleur })
+    })
+  }
+
   /** Change la relation, la colonne remontée ou le calcul d'un rollup ; refusé s'il créerait une boucle. */
   modifierRollup(base: string, cle: string, modifs: { relation?: string; champ?: string; calcul?: Calcul }): Promise<void> {
     return this.enFile(async () => {

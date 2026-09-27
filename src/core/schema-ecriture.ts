@@ -1,4 +1,4 @@
-import { Document, isMap, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
+import { Document, isMap, isScalar, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
 import type { Colonne, Option } from './schema'
 
 // Réécriture de `_schema.yaml` par l'API Document de `yaml` : seule la partie
@@ -11,6 +11,8 @@ export type OperationSchema =
   | { type: 'supprimer_colonne'; cle: string }
   | { type: 'champ_titre'; cle: string }
   | { type: 'ajouter_option'; cle: string; option: Option }
+  /** Couleur d'une option existante (une des couleurs nommées de l'espace). */
+  | { type: 'couleur_option'; cle: string; label: string; couleur: string }
   | { type: 'renommer_base'; nom: string }
   /** Ordre des onglets de vues ; une liste vide retire la clé. */
   | { type: 'ordre_vues'; ids: string[] }
@@ -103,6 +105,21 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
       const noeud = doc.createNode({ label: op.option.label, ...(op.option.couleur && { couleur: op.option.couleur }) })
       noeud.flow = true
       ;(options as YAMLSeq).items.push(noeud)
+      break
+    }
+    case 'couleur_option': {
+      const options = trouverColonne(doc, op.cle).get('options')
+      const items = isSeq(options) ? options.items : []
+      // Une option s'écrit en objet (`{ label, couleur }`) ou en simple libellé.
+      const i = items.findIndex((o) => (isMap(o) ? o.get('label') : isScalar(o) ? o.value : undefined) === op.label)
+      if (i < 0) throw new ErreurSchema(`Option introuvable : ${op.label}`)
+      const o = items[i]
+      if (isMap(o)) o.set('couleur', op.couleur)
+      else {
+        const noeud = doc.createNode({ label: op.label, couleur: op.couleur })
+        noeud.flow = true
+        items[i] = noeud
+      }
       break
     }
   }

@@ -78,6 +78,15 @@ describe('modifierSchema', () => {
     expect(lireSchema(sans, 'projets').schema!.colonnes.at(-1)).toMatchObject({ options: [{ label: 'pro' }] })
   })
 
+  it('change la couleur d’une option, écrite en objet ou en simple libellé', () => {
+    const t = modifierSchema(TEXTE, { type: 'couleur_option', cle: 'statut', label: 'À faire', couleur: 'rouge' })
+    expect(t).toContain('      - { label: À faire, couleur: rouge }\n')
+    const simple = TEXTE.replace('- { label: À faire, couleur: gris }', '- À faire')
+    expect(simple).not.toBe(TEXTE)
+    expect(modifierSchema(simple, { type: 'couleur_option', cle: 'statut', label: 'À faire', couleur: 'vert' })).toContain('      - { label: À faire, couleur: vert }\n')
+    expect(() => modifierSchema(TEXTE, { type: 'couleur_option', cle: 'statut', label: 'Absente', couleur: 'vert' })).toThrow(ErreurSchema)
+  })
+
   it('refuse une colonne introuvable ou un fichier illisible', () => {
     expect(() => modifierSchema(TEXTE, { type: 'renommer_colonne', cle: 'absente', nom: 'x' })).toThrow(ErreurSchema)
     expect(() => modifierSchema('colonnes: [', { type: 'renommer_base', nom: 'x' })).toThrow(ErreurSchema)

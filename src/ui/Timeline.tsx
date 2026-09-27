@@ -86,9 +86,18 @@ function useZoom(cle: string): [number | null, (px: number | null) => void] {
 const HAUTEUR_LIGNE = 36
 /** Décalage d'une sous-ligne à l'autre dans une rangée qui porte un niveau « sur la ligne ». */
 const PAS_SOUS_LIGNE = 28
-/** Hauteur d'une rangée de titres de bandes, dans l'en-tête. */
+/** Hauteur d'une rangée de titres de bandes (en-tête ou pied). */
 const HAUTEUR_BANDE = 20
 const LARGEUR_TITRES = 240
+
+let pinceau: { contexte: CanvasRenderingContext2D | null; police: string } | undefined
+/** Largeur à l'écran d'un titre de bande (police de `.tl-titre-bande`), marges et écart compris. */
+function largeurTitreBande(titre: string): number {
+  pinceau ??= { contexte: document.createElement('canvas').getContext('2d'), police: `${0.75 * parseFloat(getComputedStyle(document.body).fontSize)}px ${getComputedStyle(document.body).fontFamily}` }
+  if (!pinceau.contexte) return titre.length * 7 + 20
+  pinceau.contexte.font = pinceau.police
+  return pinceau.contexte.measureText(titre).width + 12 + 8
+}
 /** Retrait d'un niveau déplié dans la colonne des titres. */
 const RETRAIT = 18
 
@@ -96,7 +105,19 @@ const RETRAIT = 18
 type EnCours = { chemin: string; geste: Geste; jours: number; dx: number }
 
 /** Ce qui place une ligne dans le temps : sa base et les colonnes de dates de son niveau. */
-type Axe = { base: string; depot: DepotBase; schema: Schema; debut?: Colonne; fin?: Colonne; jalons: Colonne[]; /** Niveau déplié sans fin : des losanges. */ point: boolean; couleur: ReglageCouleur }
+type Axe = {
+  base: string
+  depot: DepotBase
+  schema: Schema
+  debut?: Colonne
+  fin?: Colonne
+  jalons: Colonne[]
+  /** Niveau déplié sans fin : des losanges. */
+  point: boolean
+  couleur: ReglageCouleur
+  /** Champs affichés sur les barres (`champs_carte` de la vue ou du niveau). */
+  champs: Colonne[]
+}
 type Rangee = { ligne: LigneChargee; sortira: boolean; axe: Axe; plage: Plage | null; jalons: { colonne: Colonne; jour: string }[]; /** Couleur nommée de la barre, ou neutre. */ couleur: string | undefined }
 /** Rangées affichées : en-têtes de groupe (repliables), lignes (et leurs niveaux dépliés), et la rangée « + Nouvelle ». */
 type Element =
@@ -122,7 +143,16 @@ type Element =
     }
   | { type: 'ajout' }
 
-function axeDe(depot: DepotBase, base: string, couleur: ReglageCouleur, debut?: string, fin?: string, jalons: readonly string[] = [], niveau = false): Axe {
+function axeDe(
+  depot: DepotBase,
+  base: string,
+  couleur: ReglageCouleur,
+  debut?: string,
+  fin?: string,
+  jalons: readonly string[] = [],
+  niveau = false,
+  champs: readonly string[] = [],
+): Axe {
   const schema = depot.schema
   const colFin = fin ? colonneDe(schema, fin) : undefined
   return {
@@ -134,6 +164,7 @@ function axeDe(depot: DepotBase, base: string, couleur: ReglageCouleur, debut?: 
     jalons: jalons.flatMap((c) => colonneDe(schema, c) ?? []),
     point: niveau && !colFin,
     couleur,
+    champs: champs.flatMap((c) => colonneDe(schema, c) ?? []),
   }
 }
 
@@ -208,10 +239,20 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   /** Jour (fractionnaire) à garder sous le même pixel de l'écran après un changement de zoom. */
   const ancre = useRef<{ jours: number; ecran: number } | null>(null)
   const clesJalons = (vue.champsJalons ?? []).join('|')
-  const champs = (vue.champsCarte ?? []).flatMap((c) => colonneDe(schema, c) ?? [])
+  const clesChamps = (vue.champsCarte ?? []).join('|')
   const axe = useMemo(
-    () => axeDe(depot, base, { couleur: vue.couleur, couleurPar: vue.couleurPar }, vue.champDebut, vue.champFin, clesJalons ? clesJalons.split('|') : []),
-    [depot, base, vue.champDebut, vue.champFin, clesJalons, schema, vue.couleur, vue.couleurPar], // eslint-disable-line react-hooks/exhaustive-deps -- le schéma change sans que le dépôt change
+    () =>
+      axeDe(
+        depot,
+        base,
+        { couleur: vue.couleur, couleurPar: vue.couleurPar },
+        vue.champDebut,
+        vue.champFin,
+        clesJalons ? clesJalons.split('|') : [],
+        false,
+        clesChamps ? clesChamps.split('|') : [],
+      ),
+    [depot, base, vue.champDebut, vue.champFin, clesJalons, clesChamps, schema, vue.couleur, vue.couleurPar], // eslint-disable-line react-hooks/exhaustive-deps -- le schéma change sans que le dépôt change
   )
   const colDebut = axe.debut
   const colGroupe = vue.groupe ? groupables(schema).find((c) => c.cle === vue.groupe) : undefined
@@ -233,7 +274,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     const axeNiveau = (n: Noeud) => {
       if (!axes.has(n.niveau)) {
         const d = etat.bases.get(n.base)?.depot
-        axes.set(n.niveau, d ? axeDe(d, n.base, n.niveau, n.niveau.champDebut, n.niveau.champFin, n.niveau.champsJalons, true) : null)
+        axes.set(n.niveau, d ? axeDe(d, n.base, n.niveau, n.niveau.champDebut, n.niveau.champFin, n.niveau.champsJalons, true, n.niveau.champsCarte) : null)
       }
       return axes.get(n.niveau)!
     }
@@ -261,8 +302,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
 
   // Bandes : les lignes d'autres bases (moratoires, sprints…) en travers de toute la timeline.
   const sourcesBandes = vue.bandes
-  const bandes = useMemo(() => {
-    const liste = (sourcesBandes ?? []).flatMap((b) => {
+  const listeBandes = useMemo(() => {
+    return (sourcesBandes ?? []).flatMap((b) => {
       const d = etat.bases.get(b.base)?.depot
       const debut = d && b.champDebut ? colonneDe(d.schema, b.champDebut) : undefined
       if (!d || !debut) return []
@@ -272,12 +313,24 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
         const c = calculs?.get(l0.id)
         const l = c ? { ...l0, cellules: { ...l0.cellules, ...c } } : l0
         const plage = plageDe(l, debut, fin)
-        return plage ? [{ base: b.base, ligne: l, plage, titre: titreLigne(l, d.schema.champTitre), couleur: couleurDeLigne(l, d.schema, b) }] : []
+        return plage ? [{ base: b.base, ligne: l, plage, titre: titreLigne(l, d.schema.champTitre), couleur: couleurDeLigne(l, d.schema, b), bas: b.titres === 'bas' }] : []
       })
     })
-    const etages = empiler(liste.map((b) => b.plage))
-    return { liste: liste.map((b, i) => ({ ...b, etage: etages[i]! })), etages: Math.max(0, ...etages.map((i) => i + 1)) }
   }, [sourcesBandes, etat])
+  // Un titre plus long que sa bande déborde à droite : il compte pour sa longueur quand on range
+  // les titres en étages, si bien que deux titres ne se chevauchent jamais, à tout zoom.
+  const bandes = useMemo(() => {
+    const finDuTitre = (b: (typeof listeBandes)[number]) => {
+      const fin = decaler(b.plage.debut, Math.ceil(largeurTitreBande(b.titre) / px) - 1)
+      return fin > b.plage.fin ? fin : b.plage.fin
+    }
+    const ranger = (bas: boolean) => {
+      const liste = listeBandes.filter((b) => b.bas === bas)
+      const etages = empiler(liste.map((b) => ({ debut: b.plage.debut, fin: finDuTitre(b) })))
+      return { liste: liste.map((b, i) => ({ ...b, etage: etages[i]! })), etages: Math.max(0, ...etages.map((i) => i + 1)) }
+    }
+    return { toutes: listeBandes, haut: ranger(false), bas: ranger(true) }
+  }, [listeBandes, px])
 
   // Largeur de la zone des barres à l'écran : la timeline la remplit toujours, jusqu'au bord droit.
   const [largeurVisible, setLargeurVisible] = useState(0)
@@ -507,15 +560,46 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     r.axe.depot.modifier(r.ligne.chemin, r.axe.debut.cle, jour)
   }
 
-  /** Champs affichés d'une ligne, en valeurs compactes ; rien quand aucun n'a de valeur à montrer. */
-  const afficher = (ligne: LigneChargee, cols: Colonne[]) =>
+  /** Champs affichés d'une rangée, en valeurs compactes ; rien quand aucun n'a de valeur à montrer. */
+  const afficher = (r: Rangee, cols: Colonne[]) =>
     cols.length === 0
       ? null
       : cols.map((c) => (
           <span key={c.cle} className="champ-carte">
-            <ValeurCompacte base={base} ligne={ligne} colonne={c} />
+            <ValeurCompacte base={r.axe.base} ligne={r.ligne} colonne={c} />
           </span>
         ))
+  /** Champs de la vue ou du niveau : le début se lit avant la barre, la fin après, les autres après le titre. */
+  const champsDe = (r: Rangee) => {
+    const { champs, debut, fin } = r.axe
+    return {
+      avant: afficher(r, champs.filter((c) => c.cle === debut?.cle)),
+      champs: afficher(r, champs.filter((c) => c.cle !== debut?.cle && c.cle !== fin?.cle)),
+      apres: afficher(r, champs.filter((c) => c.cle === fin?.cle)),
+    }
+  }
+
+  /** Titres des bandes, en étages : dans l'en-tête, ou sous la dernière rangée (`titres: bas`). */
+  const titresBandes = (r: { liste: { base: string; ligne: LigneChargee; plage: Plage; titre: string; couleur: string | undefined; etage: number }[]; etages: number }) => (
+    <div className="tl-titres-bandes" style={{ width: largeur, height: r.etages * HAUTEUR_BANDE + 4 }}>
+      {r.liste.map((b) => {
+        const p = visible(b.plage)
+        return (
+          p && (
+            <button
+              key={`${b.base}/${b.ligne.id}`}
+              className="tl-titre-bande"
+              style={{ left: x(p.debut), width: (ecartJours(p.debut, p.fin) + 1) * px, top: 2 + b.etage * HAUTEUR_BANDE, ...styleCouleur(b.couleur) }}
+              title={`${b.titre} · ${plageEnTexte(b.plage)}`}
+              onClick={() => ouvrirPage(b.base, b.ligne.id)}
+            >
+              {b.titre}
+            </button>
+          )
+        )
+      })}
+    </div>
+  )
 
   const basculer = (cle: string) => {
     const s = new Set(replies)
@@ -557,41 +641,17 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
       </div>
       <div className="timeline" ref={defilement}>
         <div style={{ width: LARGEUR_TITRES + largeur }}>
-          <div className="tl-entete" style={bandes.etages > 0 ? { height: 52 + bandes.etages * HAUTEUR_BANDE + 4 } : undefined}>
+          <div className="tl-entete" style={bandes.haut.etages > 0 ? { height: 52 + bandes.haut.etages * HAUTEUR_BANDE + 4 } : undefined}>
             <div className="tl-coin">{colDebut.nom}</div>
             <div className="tl-graduations" style={{ width: largeur }}>
               <Rangee graduations={haut} x={x} px={px} classe="tl-haut" />
               <Rangee graduations={bas} x={x} px={px} classe="tl-bas" />
-              {bandes.etages > 0 && (
-                <div className="tl-titres-bandes" style={{ height: bandes.etages * HAUTEUR_BANDE + 4 }}>
-                  {bandes.liste.map((b) => {
-                    const p = visible(b.plage)
-                    return (
-                      p && (
-                        <button
-                          key={`${b.base}/${b.ligne.id}`}
-                          className="tl-titre-bande"
-                          style={{
-                            left: x(p.debut),
-                            width: (ecartJours(p.debut, p.fin) + 1) * px,
-                            top: 2 + b.etage * HAUTEUR_BANDE,
-                            ...styleCouleur(b.couleur),
-                          }}
-                          title={`${b.titre} · ${plageEnTexte(b.plage)}`}
-                          onClick={() => ouvrirPage(b.base, b.ligne.id)}
-                        >
-                          {b.titre}
-                        </button>
-                      )
-                    )
-                  })}
-                </div>
-              )}
+              {bandes.haut.etages > 0 && titresBandes(bandes.haut)}
             </div>
           </div>
           <div className="tl-corps" style={{ height: virtuel.getTotalSize() }}>
             <div className="tl-fond" style={{ left: LARGEUR_TITRES, width: largeur }}>
-              {bandes.liste.map((b) => {
+              {bandes.toutes.map((b) => {
                 const p = visible(b.plage)
                 return (
                   p && (
@@ -718,8 +778,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         commencer={modifiable ? (ev) => commencer(ev, r, 'deplacer') : undefined}
                         // Une ligne d'un jour qui a une fin s'étire par la droite de son losange, comme une barre.
                         etirer={modifiable && !r.axe.point && r.axe.fin !== undefined && estSaisie(r.axe.fin) ? (ev) => commencer(ev, r, 'fin') : undefined}
-                        avant={premier(r) ? afficher(ligne, champs.filter((c) => c.cle === vue.champDebut)) : null}
-                        champs={premier(r) ? afficher(ligne, champs.filter((c) => c.cle !== vue.champDebut && c.cle !== vue.champFin)) : null}
+                        avant={champsDe(r).avant}
+                        champs={champsDe(r).champs}
                         ouvrir={() => ouvrirRangee(r)}
                       />
                     )}
@@ -728,10 +788,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         couleur={r.couleur}
                         plage={plage}
                         titre={titre}
-                        champs={premier(r) ? afficher(ligne, champs.filter((c) => c.cle !== vue.champDebut && c.cle !== vue.champFin)) : null}
                         // Les dates de début et de fin se lisent de part et d'autre de la barre.
-                        avant={premier(r) ? afficher(ligne, champs.filter((c) => c.cle === vue.champDebut)) : null}
-                        apres={premier(r) ? afficher(ligne, champs.filter((c) => c.cle === vue.champFin)) : null}
+                        {...champsDe(r)}
                         x={x}
                         px={px}
                         geste={geste}
@@ -770,7 +828,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                               couleur={s.couleur}
                               plage={p}
                               titre={nom}
-                              champs={null}
+                              // Les barres d'une rangée partagée se touchent : tous les champs suivent le titre, dans la barre.
+                              champs={afficher(s, s.axe.champs)}
                               avant={null}
                               apres={null}
                               x={x}
@@ -795,6 +854,12 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
               )
             })}
           </div>
+          {bandes.bas.etages > 0 && (
+            <div className="tl-pied-bandes">
+              <div className="tl-coin" />
+              {titresBandes(bandes.bas)}
+            </div>
+          )}
         </div>
       </div>
       {legende.length > 0 && (

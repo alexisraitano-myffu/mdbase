@@ -197,6 +197,14 @@ describe('niveaux dépliés de la timeline', () => {
     expect(texte).toContain('    couleur_par: type\n    sur_la_ligne: true')
     expect(lireVue(texte, 'v').vue!.deplier).toEqual(niveaux)
   })
+
+  it('champs affichés d’un niveau : `champs_carte` sur le niveau, à l’aller-retour', () => {
+    const vue = lireVue('type: timeline\nchamp_debut: debut\n', 'v').vue!
+    const niveaux = [{ relation: 'phases', champDebut: 'debut', champFin: 'fin', filtres: [], deplier: [], champsCarte: ['debut', 'fin'] }]
+    const texte = modifierVue('type: timeline\nchamp_debut: debut\n', vue, { deplier: niveaux })
+    expect(texte).toContain('    champs_carte: [ debut, fin ]\n')
+    expect(lireVue(texte, 'v').vue!.deplier).toEqual(niveaux)
+  })
 })
 
 describe('bandes de la timeline', () => {
@@ -207,6 +215,11 @@ describe('bandes de la timeline', () => {
     expect(texte).toContain(['bandes:', '  - base: periodes', '    champ_debut: debut', '    champ_fin: fin', '    couleur_par: type', '  - base: sprints'].join('\n'))
     expect(lireVue(texte, 'v').vue!.bandes).toEqual(bandes)
     expect(modifierVue(texte, vue, { bandes: [] })).not.toContain('bandes')
+    // Titres en bas : `titres: bas` ; toute autre valeur garde le défaut (en haut).
+    const enBas = modifierVue(texte, vue, { bandes: [{ ...bandes[0]!, titres: 'bas' }] })
+    expect(enBas).toContain('    couleur_par: type\n    titres: bas\n')
+    expect(lireVue(enBas, 'v').vue!.bandes![0]!.titres).toBe('bas')
+    expect(lireVue('type: timeline\nbandes:\n  - { base: p, titres: milieu }\n', 'v').vue!.bandes).toEqual([{ base: 'p' }])
   })
 
   it('une bande sans base est écartée avec un avertissement', () => {

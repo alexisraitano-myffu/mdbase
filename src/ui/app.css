@@ -1371,9 +1371,18 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
 .tl-barre.coupee { overflow: hidden; }
 .tl-barre.coupee .contenu-barre { flex: 1; flex-shrink: 1; min-width: 0; overflow: hidden; }
 .tl-barre.coupee .titre-evt { position: static; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
+/* Champs d'une barre sur la ligne du parent : à la suite du titre, sur la même ligne, coupés avec lui. */
+.tl-barre.coupee .titre-evt .champ-carte { display: inline-flex; margin-left: 6px; vertical-align: top; }
 
 /* Timeline : bandes de périodes, en travers de toutes les rangées, derrière les barres */
-.tl-bande { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--barre-fond) 55%, transparent); }
+/* Fond presque plein et bords marqués : une couleur pâle (moratoire en rouge clair) reste visible sur le blanc. */
+.tl-bande {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--barre-fond) 85%, transparent);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--barre-texte) 30%, transparent), inset -1px 0 0 color-mix(in srgb, var(--barre-texte) 30%, transparent);
+}
 .tl-titres-bandes { position: relative; border-top: 1px solid var(--trait); }
 .tl-titre-bande {
   position: absolute;
@@ -1388,10 +1397,13 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
   line-height: 18px;
   text-align: left;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Plus long que sa bande, le titre déborde à droite : les étages sont calculés pour qu'il ne touche aucun autre. */
+  overflow: visible;
   cursor: pointer;
 }
+.tl-pied-bandes { display: flex; border-top: 1px solid var(--bordure); }
+.tl-pied-bandes .tl-coin { padding: 0; }
+.tl-pied-bandes .tl-titres-bandes { border-top: none; flex-shrink: 0; }
 .tl-titre-bande:hover { filter: brightness(0.96); }
 .controles-reglage { display: flex; align-items: center; gap: 2px; }
 .zoom-libre { font-size: 0.85em; margin-right: 6px; }
