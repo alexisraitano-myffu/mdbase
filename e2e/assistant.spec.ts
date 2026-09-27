@@ -329,6 +329,8 @@ test('@ cite une base, / lance un skill : pastilles, et le modèle les reçoit',
   await page.keyboard.press('Enter')
 
   await expect(page.locator('.bulle-ia.moi .citation-ia')).toHaveText(['Revue du lundi', 'Tâches'])
+  // La bulle s'affiche avant que la requête parte : attendre qu'elle soit reçue.
+  await expect.poll(() => recues.length).toBe(1)
   const messages = (recues[0]!.postDataJSON() as { messages: { content: string }[] }).messages
   expect(messages.at(-1)!.content).toBe('Applique le skill « Revue du lundi ».\nsur')
   expect(messages[0]!.content).toContain("Bases citées par l'utilisateur : taches")
