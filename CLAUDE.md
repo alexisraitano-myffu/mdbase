@@ -49,7 +49,7 @@ src/
     arbre-temps.ts         timeline en arbre : lignes liées par les relations cochées, niveau par niveau (filtres, boucles)
     couleurs.ts            couleurs nommées de l'espace, couleur d'une ligne selon le réglage d'une vue temporelle (fixe ou selon une colonne select)
     temps.ts               jours ISO en UTC pur, grille du calendrier, placement des plages,
-                           gestes (déplacer, étirer), étendue et graduations de la timeline
+                           gestes (déplacer, étirer), étendue, graduations et empilement de la timeline
     dashboard.ts           lecture/réécriture des `_dashboards/*.yaml`, même opération en mémoire
     recherche.ts           index plein texte (MiniSearch) de toutes les bases, extraits surlignés
     echange.ts             import/export : grille d'une vue, CSV (écriture, lecture), Markdown (écriture, lecture),

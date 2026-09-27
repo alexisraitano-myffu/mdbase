@@ -12,6 +12,7 @@ import {
   apresGeste,
   decaler,
   ecartJours,
+  empiler,
   enveloppe,
   etendue,
   graduations,
@@ -52,6 +53,10 @@ type Props = {
 /** Largeur d'un jour selon le zoom, en pixels. */
 const PIXELS_PAR_JOUR: Record<Echelle, number> = { semaine: 36, mois: 12, trimestre: 4 }
 const HAUTEUR_LIGNE = 36
+/** Décalage d'une sous-ligne à l'autre dans une rangée qui porte un niveau « sur la ligne ». */
+const PAS_SOUS_LIGNE = 28
+/** Hauteur d'une rangée de titres de bandes, dans l'en-tête. */
+const HAUTEUR_BANDE = 20
 const LARGEUR_TITRES = 240
 /** Retrait d'un niveau déplié dans la colonne des titres. */
 const RETRAIT = 18
@@ -79,6 +84,10 @@ type Element =
       enveloppe: Plage | null
       /** Nom de la base, quand plusieurs relations sont dépliées au même niveau. */
       etiquette?: string
+      /** Lignes des niveaux « sur la ligne », dessinées sur cette rangée, et leur sous-ligne. */
+      surLaLigne: { rangee: Rangee; sousLigne: number }[]
+      /** Nombre de sous-lignes (1 au moins) : la hauteur de la rangée. */
+      sousLignes: number
     }
   | { type: 'ajout' }
 
@@ -111,6 +120,9 @@ function rangeeDe(ligne: LigneChargee, sortira: boolean, axe: Axe): Rangee {
     couleur: couleurDeLigne(ligne, axe.schema, axe.couleur),
   }
 }
+
+/** Hauteur d'une rangée : une rangée qui porte des lignes empilées grandit d'une sous-ligne à chaque étage. */
+const hauteurDe = (el: Element | undefined) => (el?.type === 'ligne' ? HAUTEUR_LIGNE + (el.sousLignes - 1) * PAS_SOUS_LIGNE : HAUTEUR_LIGNE)
 
 /** Plages et jalons d'une rangée, comme des plages : pour l'étendue et les barres calculées. */
 const plagesDe = (r: Rangee): Plage[] => [...(r.plage ? [r.plage] : []), ...r.jalons.map((j) => ({ debut: j.jour, fin: j.jour }))]
@@ -212,6 +224,26 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   /** Rangée de chaque nœud déplié, par clé. */
   const rangeesNoeuds = useMemo(() => new Map([...arbres.values()].flat(2).map((x) => [x.noeud.cle, x])), [arbres])
 
+  // Bandes : les lignes d'autres bases (moratoires, sprints…) en travers de toute la timeline.
+  const sourcesBandes = vue.bandes
+  const bandes = useMemo(() => {
+    const liste = (sourcesBandes ?? []).flatMap((b) => {
+      const d = etat.bases.get(b.base)?.depot
+      const debut = d && b.champDebut ? colonneDe(d.schema, b.champDebut) : undefined
+      if (!d || !debut) return []
+      const fin = b.champFin ? colonneDe(d.schema, b.champFin) : undefined
+      const calculs = etat.calculs.get(b.base)
+      return d.lignes().flatMap((l0) => {
+        const c = calculs?.get(l0.id)
+        const l = c ? { ...l0, cellules: { ...l0.cellules, ...c } } : l0
+        const plage = plageDe(l, debut, fin)
+        return plage ? [{ base: b.base, ligne: l, plage, titre: titreLigne(l, d.schema.champTitre), couleur: couleurDeLigne(l, d.schema, b) }] : []
+      })
+    })
+    const etages = empiler(liste.map((b) => b.plage))
+    return { liste: liste.map((b, i) => ({ ...b, etage: etages[i]! })), etages: Math.max(0, ...etages.map((i) => i + 1)) }
+  }, [sourcesBandes, etat])
+
   const e = useMemo(
     () => etendue([...rangees.flatMap(plagesDe), ...[...rangeesNoeuds.values()].flatMap((x) => plagesDe(x.rangee))], aujourdhui),
     [rangees, rangeesNoeuds, aujourdhui],
@@ -223,11 +255,21 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     const couvertes = (enfants: readonly Noeud[]): Plage[] =>
       enfants.flatMap((n) => [...plagesDe(rangeesNoeuds.get(n.cle)?.rangee ?? rangeeDe(n.ligne, false, axe)), ...couvertes(n.enfants)])
     const visibles = (n: Noeud) => n.enfants.filter((x) => rangeesNoeuds.has(x.cle))
+    /** Enfants des niveaux « sur la ligne », empilés sur la rangée du parent ; ceux sans date n'ont pas de place. */
+    const empiles = (enfants: readonly Noeud[]) => {
+      const places = enfants.flatMap((n) => {
+        const r = n.niveau.surLaLigne ? rangeesNoeuds.get(n.cle)?.rangee : undefined
+        return r?.plage ? [{ rangee: r, plage: r.plage }] : []
+      })
+      const sous = empiler(places.map((p) => p.plage))
+      return { surLaLigne: places.map((p, i) => ({ rangee: p.rangee, sousLigne: sous[i]! })), sousLignes: Math.max(1, ...sous.map((i) => i + 1)) }
+    }
     const deroule = (noeuds: readonly Noeud[], groupe: string | undefined, freres: number): Element[] =>
       noeuds.flatMap((n): Element[] => {
         const x = rangeesNoeuds.get(n.cle)
         if (!x) return []
-        const enfants = visibles(n)
+        const tous = visibles(n)
+        const enfants = tous.filter((c) => !c.niveau.surLaLigne)
         const replie = lignesRepliees.has(n.cle)
         const el: Element = {
           type: 'ligne',
@@ -239,12 +281,14 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
           replie,
           enveloppe: x.rangee.plage ? null : enveloppe(couvertes(n.enfants)),
           ...(freres > 1 && { etiquette: etat.bases.get(n.base)?.depot?.schema.nom }),
+          ...empiles(tous),
         }
         return [el, ...(replie ? [] : deroule(enfants, groupe, n.niveau.deplier.length))]
       })
     const premierNiveau = (rangee: Rangee, groupe?: string): Element[] => {
       const cle = `${base}:${rangee.ligne.id}`
-      const enfants = (arbres.get(cle)?.[0] ?? []).map((x) => x.noeud)
+      const tous = (arbres.get(cle)?.[0] ?? []).map((x) => x.noeud)
+      const enfants = tous.filter((c) => !c.niveau.surLaLigne)
       const replie = lignesRepliees.has(cle)
       const el: Element = {
         type: 'ligne',
@@ -254,7 +298,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
         profondeur: 0,
         enfants: enfants.length,
         replie,
-        enveloppe: rangee.plage ? null : enveloppe(couvertes(enfants)),
+        enveloppe: rangee.plage ? null : enveloppe(couvertes(tous)),
+        ...empiles(tous),
       }
       return [el, ...(replie ? [] : deroule(enfants, groupe, deplier?.length ?? 0))]
     }
@@ -275,13 +320,18 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   const largeur = (ecartJours(e.debut, e.fin) + 1) * px
   const x = (jour: string) => ecartJours(e.debut, jour) * px
   const enArbre = (deplier?.length ?? 0) > 0
+  /** Partie d'une plage dans l'étendue de la timeline (les bandes ne l'élargissent pas) ; null si elle est dehors. */
+  const visible = (p: Plage): Plage | null =>
+    p.fin < e.debut || p.debut > e.fin ? null : { debut: p.debut < e.debut ? e.debut : p.debut, fin: p.fin > e.fin ? e.fin : p.fin }
 
   const virtuel = useVirtualizer({
     count: elements.length,
     getScrollElement: () => defilement.current,
-    estimateSize: () => HAUTEUR_LIGNE,
+    estimateSize: (i) => hauteurDe(elements[i]),
     overscan: 10,
   })
+  // Les hauteurs changent avec les lignes empilées : le virtualiseur les recalcule.
+  useLayoutEffect(() => virtuel.measure(), [elements, virtuel])
 
   // Aujourd'hui en vue à l'ouverture et à chaque changement de zoom.
   const allerA = (jour: string) => {
@@ -370,15 +420,52 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
       </div>
       <div className="timeline" ref={defilement}>
         <div style={{ width: LARGEUR_TITRES + largeur }}>
-          <div className="tl-entete">
+          <div className="tl-entete" style={bandes.etages > 0 ? { height: 52 + bandes.etages * HAUTEUR_BANDE + 4 } : undefined}>
             <div className="tl-coin">{colDebut.nom}</div>
             <div className="tl-graduations" style={{ width: largeur }}>
               <Rangee graduations={haut} x={x} px={px} classe="tl-haut" />
               <Rangee graduations={bas} x={x} px={px} classe="tl-bas" />
+              {bandes.etages > 0 && (
+                <div className="tl-titres-bandes" style={{ height: bandes.etages * HAUTEUR_BANDE + 4 }}>
+                  {bandes.liste.map((b) => {
+                    const p = visible(b.plage)
+                    return (
+                      p && (
+                        <button
+                          key={`${b.base}/${b.ligne.id}`}
+                          className="tl-titre-bande"
+                          style={{
+                            left: x(p.debut),
+                            width: (ecartJours(p.debut, p.fin) + 1) * px,
+                            top: 2 + b.etage * HAUTEUR_BANDE,
+                            ...styleCouleur(b.couleur),
+                          }}
+                          title={`${b.titre} · ${plageEnTexte(b.plage)}`}
+                          onClick={() => ouvrirPage(b.base, b.ligne.id)}
+                        >
+                          {b.titre}
+                        </button>
+                      )
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <div className="tl-corps" style={{ height: virtuel.getTotalSize() }}>
             <div className="tl-fond" style={{ left: LARGEUR_TITRES, width: largeur }}>
+              {bandes.liste.map((b) => {
+                const p = visible(b.plage)
+                return (
+                  p && (
+                    <div
+                      key={`${b.base}/${b.ligne.id}`}
+                      className="tl-bande"
+                      style={{ left: x(p.debut), width: (ecartJours(p.debut, p.fin) + 1) * px, ...styleCouleur(b.couleur) }}
+                    />
+                  )
+                )
+              })}
               {bas.map((g) => (
                 <div key={g.debut} className="tl-trait" style={{ left: x(g.debut) }} />
               ))}
@@ -433,15 +520,18 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
               const r = el.rangee
               const { ligne, sortira } = r
               const geste = enCours?.chemin === ligne.chemin ? enCours : undefined
-              const plage = r.plage
+              // Une rangée qui porte ses enfants « sur la ligne » leur laisse la place : sa barre s'efface, ses jalons restent.
+              const cedee = el.surLaLigne.length > 0
+              const plage = cedee ? null : r.plage
               const modifiable = !lecture && r.axe.debut !== undefined && estSaisie(r.axe.debut)
+              const aPlacer = !r.plage && !cedee && modifiable
               const titre = titreLigne(ligne, r.axe.schema.champTitre)
               const retrait = (el.groupe !== undefined ? 26 : 8) + el.profondeur * RETRAIT + (enArbre ? RETRAIT : 0)
               return (
                 <div
                   key={`${el.groupe ?? ''}/${el.cle}`}
                   className={`tl-ligne ${el.profondeur > 0 ? 'tl-enfant' : ''}`}
-                  style={{ transform: `translateY(${v.start}px)` }}
+                  style={{ transform: `translateY(${v.start}px)`, height: hauteurDe(el) }}
                 >
                   <div
                     className={`tl-titre ${sortira ? 'sortira' : ''}`}
@@ -467,12 +557,12 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                     {el.etiquette && <span className="discret tl-etiquette">{el.etiquette}</span>}
                   </div>
                   <div
-                    className={`tl-piste ${!plage && modifiable ? 'a-placer' : ''}`}
+                    className={`tl-piste ${aPlacer ? 'a-placer' : ''}`}
                     style={{ width: largeur }}
-                    title={!plage && modifiable ? `Cliquer pour placer à cette date (${r.axe.debut!.nom})` : undefined}
-                    onClick={!plage && modifiable ? (ev) => placer(ev, r) : undefined}
+                    title={aPlacer ? `Cliquer pour placer à cette date (${r.axe.debut!.nom})` : undefined}
+                    onClick={aPlacer ? (ev) => placer(ev, r) : undefined}
                   >
-                    {!plage && el.enveloppe && (
+                    {!r.plage && !cedee && el.enveloppe && (
                       <div
                         className="tl-enveloppe"
                         style={{ left: x(el.enveloppe.debut), width: (ecartJours(el.enveloppe.debut, el.enveloppe.fin) + 1) * px }}
@@ -518,6 +608,51 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                     {r.jalons.map((j) => (
                       <Jalon key={j.colonne.cle} colonne={j.colonne} jour={j.jour} left={x(j.jour) + px / 2} nom={vue.nomsJalons === true} ouvrir={() => ouvrirRangee(r)} />
                     ))}
+                    {el.surLaLigne.map(({ rangee: s, sousLigne }) => {
+                      const p = s.plage!
+                      const g = enCours?.chemin === s.ligne.chemin ? enCours : undefined
+                      const deplacable = !lecture && s.axe.debut !== undefined && estSaisie(s.axe.debut)
+                      const nom = titreLigne(s.ligne, s.axe.schema.champTitre)
+                      return (
+                        <div key={s.ligne.chemin} className="tl-sous-ligne" style={{ top: sousLigne * PAS_SOUS_LIGNE }}>
+                          {g && !s.axe.point && <Cadre plage={plageApresGeste(p, g.geste, g.jours)} x={x} px={px} />}
+                          {s.axe.point || p.debut === p.fin ? (
+                            <Point
+                              couleur={s.couleur}
+                              jour={p.debut}
+                              titre={nom}
+                              left={x(p.debut) + px / 2}
+                              geste={g}
+                              pose={pose === s.ligne.chemin}
+                              commencer={deplacable ? (ev) => commencer(ev, s, 'deplacer') : undefined}
+                              sansTitre
+                              ouvrir={() => ouvrirRangee(s)}
+                            />
+                          ) : (
+                            <Barre
+                              couleur={s.couleur}
+                              plage={p}
+                              titre={nom}
+                              champs={null}
+                              avant={null}
+                              apres={null}
+                              x={x}
+                              px={px}
+                              geste={g}
+                              pose={pose === s.ligne.chemin}
+                              sortira={false}
+                              commencer={deplacable ? (ev, geste) => commencer(ev, s, geste) : undefined}
+                              finModifiable={s.axe.fin !== undefined && estSaisie(s.axe.fin)}
+                              coupee
+                              ouvrir={() => ouvrirRangee(s)}
+                            />
+                          )}
+                          {s.jalons.map((j) => (
+                            <Jalon key={j.colonne.cle} colonne={j.colonne} jour={j.jour} left={x(j.jour) + px / 2} nom={false} ouvrir={() => ouvrirRangee(s)} />
+                          ))}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
@@ -566,6 +701,8 @@ function Barre(p: {
   sortira: boolean
   commencer: ((e: PointerReact, geste: Geste) => void) | undefined
   finModifiable: boolean
+  /** Sur une rangée partagée : le titre reste dans la barre, coupé, pour ne pas chevaucher la suivante. */
+  coupee?: boolean
   ouvrir: () => void
 }) {
   // Pendant un geste, la barre suit le pointeur au pixel près, sans passer sous un jour.
@@ -582,11 +719,11 @@ function Barre(p: {
   if (p.geste?.geste === 'fin') largeur = Math.max(p.px, base + dx)
   // Le titre part de la barre et déborde à droite s'il est plus long (comme Notion) ;
   // une barre trop courte pour l'accueillir le met juste après elle.
-  const dedans = largeur >= 36
+  const dedans = largeur >= 36 || p.coupee === true
   return (
     <>
       <div
-        className={`tl-barre ${p.geste ? 'glisse' : ''} ${p.pose ? 'pose' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''} ${p.couleur ? 'coloree' : ''}`}
+        className={`tl-barre ${p.coupee ? 'coupee' : ''} ${p.geste ? 'glisse' : ''} ${p.pose ? 'pose' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''} ${p.couleur ? 'coloree' : ''}`}
         style={{ left, width: Math.max(largeur, 6), ...styleCouleur(p.couleur) }}
         title={`${p.titre} · ${plageEnTexte(p.plage)}`}
         onPointerDown={p.commencer ? (e) => p.commencer!(e, 'deplacer') : undefined}
@@ -594,7 +731,7 @@ function Barre(p: {
       >
         {p.commencer && p.finModifiable && <span className="poignee poignee-debut" onPointerDown={(e) => p.commencer!(e, 'debut')} />}
         {p.avant && <span className="champs-bord avant">{p.avant}</span>}
-        {dedans && (
+        {dedans && (!p.coupee || largeur >= 24) && (
           <>
             {/* Au moins la largeur de la barre : la date de fin se pose après la barre, ou après le titre s'il déborde. */}
             <span className="contenu-barre">
@@ -637,6 +774,8 @@ function Point(p: {
   /** Date de début affichée, devant le losange ; autres champs après le titre. */
   avant?: ReactNode
   champs?: ReactNode
+  /** Sur une rangée partagée : pas de titre à côté du losange (il reste dans l'infobulle). */
+  sansTitre?: boolean
   ouvrir: () => void
 }) {
   // Étirer ne déplace pas le losange : le cadre pointillé montre la future plage.
@@ -664,10 +803,12 @@ function Point(p: {
           <span className="bulle-date">{dateCourte(decaler(p.jour, p.geste.jours))}</span>
         </span>
       )}
-      <span className="tl-titre-dehors" style={{ left: p.left + dx + 12 }}>
-        {p.titre}
-        {p.champs}
-      </span>
+      {!p.sansTitre && (
+        <span className="tl-titre-dehors" style={{ left: p.left + dx + 12 }}>
+          {p.titre}
+          {p.champs}
+        </span>
+      )}
     </>
   )
 }

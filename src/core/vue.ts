@@ -57,7 +57,12 @@ export type Niveau = {
   couleurPar?: string
   filtres: Filtre[]
   deplier: Niveau[]
+  /** Les lignes du niveau se dessinent sur la rangée de leur parent, sans rangées à elles (et ne se déplient pas plus bas). */
+  surLaLigne?: boolean
 }
+
+/** Timeline : bandes verticales tirées d'une autre base (moratoires, congés, sprints…), derrière les barres. */
+export type Bande = { base: string; champDebut?: string; champFin?: string; couleur?: string; couleurPar?: string }
 
 export type Vue = {
   id: string
@@ -101,6 +106,8 @@ export type Vue = {
   echelle?: EchelleVue
   /** Timeline : relations dépliées sous chaque ligne, niveau par niveau. */
   deplier?: Niveau[]
+  /** Timeline : sources de bandes verticales. */
+  bandes?: Bande[]
   /** Vue par défaut d'une base sans `_vues/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
@@ -133,7 +140,7 @@ const REGLAGES = {
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
 /** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
-export const CHAMPS_MODIFIABLES = [...Object.keys(REGLAGES), 'filtres', 'tris', 'filtresRapides', 'deplier'] as (keyof ModificationVue)[]
+export const CHAMPS_MODIFIABLES = [...Object.keys(REGLAGES), 'filtres', 'tris', 'filtresRapides', 'deplier', 'bandes'] as (keyof ModificationVue)[]
 
 /** Profondeur maximale des niveaux dépliés : au-delà, le fichier est ignoré (et une boucle de relations, bornée). */
 export const PROFONDEUR_MAX = 5
@@ -246,10 +253,27 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
               ...(r.couleurPar && { couleurPar: r.couleurPar }),
               filtres: filtres(n.filtres, `niveau ${n.relation}`),
               deplier: niveaux(n.deplier, profondeur + 1),
+              ...(n.sur_la_ligne === true && { surLaLigne: true }),
             },
           ]
         })
   const deplier = niveaux(brut.deplier, 1)
+  const bandes = (Array.isArray(brut.bandes) ? brut.bandes : []).flatMap((b): Bande[] => {
+    if (!estObjet(b) || typeof b.base !== 'string') {
+      avertissements.push(`Vue ${id} : bande ignorée (base manquante)`)
+      return []
+    }
+    const r = lireReglages(b)
+    return [
+      {
+        base: b.base,
+        ...(r.champDebut && { champDebut: r.champDebut }),
+        ...(r.champFin && { champFin: r.champFin }),
+        ...(r.couleur && { couleur: r.couleur }),
+        ...(r.couleurPar && { couleurPar: r.couleurPar }),
+      },
+    ]
+  })
 
   return {
     vue: {
@@ -261,6 +285,7 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
       filtresRapides,
       ...lireReglages(brut),
       ...(deplier.length > 0 && { deplier }),
+      ...(bandes.length > 0 && { bandes }),
     },
     avertissements,
   }
@@ -310,6 +335,21 @@ export function appliquerModificationsVue(doc: Document, cible: YAMLMap, modifs:
     if (!modifs.deplier?.length) cible.delete('deplier')
     else cible.set('deplier', noeudNiveaux(doc, modifs.deplier))
   }
+  if ('bandes' in modifs) {
+    if (!modifs.bandes?.length) cible.delete('bandes')
+    else {
+      const seq = doc.createNode([]) as YAMLSeq
+      for (const b of modifs.bandes) {
+        const m = doc.createNode({ base: b.base }) as YAMLMap
+        if (b.champDebut) m.set('champ_debut', b.champDebut)
+        if (b.champFin) m.set('champ_fin', b.champFin)
+        if (b.couleur) m.set('couleur', b.couleur)
+        if (b.couleurPar) m.set('couleur_par', b.couleurPar)
+        seq.items.push(m)
+      }
+      cible.set('bandes', seq)
+    }
+  }
   for (const [, cle, valeur] of listes) {
     if (valeur === undefined) continue
     if (valeur.length === 0) {
@@ -338,6 +378,7 @@ function noeudNiveaux(doc: Document, niveaux: readonly Niveau[]): YAMLSeq {
       for (const item of f.items) if (isMap(item)) item.flow = true
       m.set('filtres', f)
     }
+    if (n.surLaLigne) m.set('sur_la_ligne', true)
     if (n.deplier.length > 0) m.set('deplier', noeudNiveaux(doc, n.deplier))
     seq.items.push(m)
   }

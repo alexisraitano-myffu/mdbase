@@ -332,6 +332,8 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
   - Une ligne sans dates à elle porte une barre calculée qui couvre ses descendants (non déplaçable). Les lignes des niveaux inférieurs sont de vraies lignes de leur base : glisser et étirer écrivent dans leur fichier, un clic ouvre leur page.
   - Une ligne liée à deux parents apparaît sous chacun. Une ligne déjà présente sur le chemin n'est pas redescendue (boucle de relations), et la profondeur est bornée à 5 niveaux.
   - Tout est déplié par défaut ; ▸ / ▾ replie une ligne, et ce choix est gardé dans le navigateur (pas dans le dossier).
+  - **Sur la ligne du parent** [PROPOSÉ le 27/09/2026, à valider] : un niveau réglé « sur la ligne » ne prend pas de rangées à lui. Ses lignes se dessinent sur la rangée de leur parent, à leurs dates (un lot et ses phases successives sur une seule ligne, comme un Gantt). Celles qui se chevauchent s'empilent dans la rangée, qui s'agrandit. La barre du parent laisse la place (ses jalons restent) ; les barres gardent leur titre à l'intérieur, coupé si elles sont trop courtes, et se glissent comme les autres. Un tel niveau ne se déplie pas plus bas. Fichier : `sur_la_ligne: true` sur le niveau.
+- **Bandes de périodes** (timeline) [PROPOSÉ le 27/09/2026, à valider] : les lignes d'une autre base (moratoires, congés, sprints…) se dessinent en bandes verticales qui traversent toute la timeline, derrière les barres, à leur couleur, avec leur titre dans l'en-tête. Un clic sur le titre ouvre la ligne. Les bandes n'élargissent pas l'étendue de la timeline. Réglage « Bandes » dans « Options » : la base, ses champs de début et de fin, sa couleur. Fichier : `bandes`, une liste de sources.
 - Timeline : une ligne dont la plage tient en un jour s'affiche en losange (comme un niveau sans fin) ; elle se glisse, et s'étire par la droite du losange quand la vue a un champ de fin.
 - Calendrier et timeline : une ligne sans date n'apparaît pas au calendrier (compteur « sans date ») ; dans la timeline elle garde sa rangée, et un clic sur la rangée la place à cette date. Une fin absente ou antérieure au début donne une plage d'un jour. Déplacer ou étirer garde l'heure d'une date qui en a une. Les colonnes calculées (rollup de date) s'affichent mais ne se glissent pas.
 
@@ -356,6 +358,15 @@ deplier:                # timeline seulement : relations dépliées sous chaque 
     deplier:
       - relation: jalons
         champ_debut: date # sans champ_fin : des losanges
+      - relation: phases
+        champ_debut: debut
+        champ_fin: fin
+        sur_la_ligne: true  # les phases sur la rangée de leur version, pas en dessous
+bandes:                 # timeline seulement : bandes verticales tirées d'une autre base
+  - base: periodes
+    champ_debut: debut
+    champ_fin: fin      # optionnel : sans fin, une bande d'un jour
+    couleur_par: type   # ou couleur: rouge, comme pour les barres
 ```
 
 ### Exemple `_vues/kanban-statut.yaml`

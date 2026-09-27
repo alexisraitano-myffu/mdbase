@@ -192,6 +192,41 @@ test.describe('timeline en arbre', () => {
     await expect(site.locator('.tl-nom-jalon')).toHaveText('Revue client')
   })
 
+  test('un niveau sur la ligne du parent : les tâches s’enchaînent sur la rangée de leur projet et se glissent toujours', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await page.locator('.reglages-niveau').first().getByRole('switch', { name: 'Sur la ligne du parent' }).check()
+    await page.keyboard.press('Escape')
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).toContain('    sur_la_ligne: true')
+
+    await expect(page.locator('.tl-enfant')).toHaveCount(0)
+    const site = rangee(page, 'Site vitrine')
+    await expect(site.locator('.tl-sous-ligne', { hasText: 'Intégration' })).toBeVisible()
+    await expect(site.locator('.tl-sous-ligne', { hasText: 'Maquettes' })).toBeVisible()
+    // La barre du projet laisse la place à ses tâches.
+    await expect(site.locator('.tl-piste > .tl-barre')).toHaveCount(0)
+
+    const semaines = page.locator('.tl-bas .tl-graduation')
+    const [a, b] = await Promise.all([semaines.nth(1).boundingBox(), semaines.nth(2).boundingBox()])
+    const avant = await espace.lire('taches/integration--tinte002.md')
+    await glisser(page, site.locator('.tl-sous-ligne', { hasText: 'Intégration' }).locator('.tl-barre'), b!.x - a!.x)
+    await expect.poll(() => espace.lire('taches/integration--tinte002.md')).not.toBe(avant)
+  })
+
+  test('bandes : les lignes d’une autre base traversent la timeline, leur titre dans l’en-tête ouvre la ligne', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Planning' }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await choisir(page.getByRole('button', { name: 'Ajouter des bandes' }), 'Tâches')
+    await page.keyboard.press('Escape')
+    await expect.poll(() => espace.lire('projets/_vues/planning.yaml')).toContain('bandes:\n  - base: taches\n    champ_debut: debut\n    champ_fin: echeance\n    couleur_par: priorite\n')
+
+    await expect(page.locator('.tl-bande').first()).toBeVisible()
+    await page.locator('.tl-titre-bande', { hasText: 'Recette' }).click()
+    await expect(page.locator('.titre-page')).toHaveValue('Recette')
+  })
+
   test('réglages d’un niveau : sans fin, des losanges ; ses filtres ne touchent que lui', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()

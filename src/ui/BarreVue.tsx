@@ -3,7 +3,7 @@ import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
 import { natureDe, type Colonne, type ColonneRelation, type Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
-import { PROFONDEUR_MAX, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../core/vue'
+import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { colonnesFiltrables, EditeurFiltres, entreesColonnes } from './EditeurFiltres'
 import { MenuExporter } from './Echange'
@@ -12,7 +12,7 @@ import { useEspace } from './contexte-espace'
 import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { Pastilles } from './Pastilles'
-import { ArrowDown, ArrowUp, ChevronRight, Plus, Tag, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChartGantt, ChevronRight, Plus, Tag, X } from 'lucide-react'
 import { Choix, type EntreeChoix } from './Choix'
 import { Interrupteur, Reglage, Section, Visibilite } from './reglages'
 import { useConsultation } from './mode'
@@ -439,6 +439,11 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
           <OptionsDeplier schema={schema} niveaux={vue.deplier ?? []} changer={(deplier) => modifier({ deplier })} profondeur={1} />
         </Section>
       )}
+      {timeline && (
+        <Section titre="Bandes" aide="Les lignes d'une autre base (moratoires, sprints…) en bandes qui traversent toute la timeline.">
+          <OptionsBandes bandes={vue.bandes ?? []} changer={(bandes) => modifier({ bandes })} />
+        </Section>
+      )}
       <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre={timeline ? 'Champs sur la barre' : 'Champs affichés'} />
     </div>
   )
@@ -575,6 +580,12 @@ function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partia
         </>
       )}
       <ChoixCouleur schema={schema} reglage={niveau} changer={p.changer} />
+      <Interrupteur
+        libelle="Sur la ligne du parent"
+        icone={ChartGantt}
+        coche={niveau.surLaLigne === true}
+        changer={(v) => p.changer({ surLaLigne: v || undefined })}
+      />
       <details className="filtres-niveau" open={niveau.filtres.length > 0 || undefined}>
         <summary>
           <Icone de={ChevronRight} className="chevron-details" taille={14} />
@@ -583,10 +594,99 @@ function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partia
         </summary>
         <EditeurFiltres schema={schema} filtres={niveau.filtres} changer={(filtres) => p.changer({ filtres })} />
       </details>
-      {p.profondeur < PROFONDEUR_MAX && (
+      {p.profondeur < PROFONDEUR_MAX && !niveau.surLaLigne && (
         <OptionsDeplier schema={schema} niveaux={niveau.deplier} changer={(deplier) => p.changer({ deplier })} retour={p.retour} profondeur={p.profondeur + 1} />
       )}
     </div>
+  )
+}
+
+/** Première source de bandes pour une base : ses dates comme pour un niveau déplié, et la couleur de son premier select. */
+function bandeParDefaut(base: string, schema: Schema): Bande {
+  const { relation: _, filtres: __, deplier: ___, ...dates } = niveauParDefaut('', schema)
+  const select = schema.colonnes.find((c) => c.type === 'select')
+  return { base, ...dates, ...(select && { couleurPar: select.cle }) }
+}
+
+/** Timeline : sources des bandes verticales, chacune avec sa base, ses dates et sa couleur (spec §7). */
+function OptionsBandes(p: { bandes: Bande[]; changer: (b: Bande[]) => void }) {
+  const { etat } = useEspace()
+  const bases = [...etat.bases.values()].flatMap((b) => (b.depot && colonnesDates(b.depot.schema).length > 0 ? [b.depot.schema] : []))
+  const entreesBases: EntreeChoix[] = bases.map((b) => ({ valeur: b.id, libelle: b.nom }))
+  const remplacer = (i: number, b: Bande) => p.changer(p.bandes.map((x, j) => (j === i ? b : x)))
+  return (
+    <>
+      {p.bandes.map((b, i) => {
+        const schema = etat.bases.get(b.base)?.depot?.schema
+        const dates = schema ? colonnesDates(schema) : []
+        return (
+          <div key={i} className="reglages-niveau">
+            <Reglage libelle="Base">
+              <span className="controles-reglage">
+                <Choix
+                  valeur={b.base}
+                  entrees={entreesBases}
+                  libelle="Base des bandes"
+                  inconnue={`${b.base} (disparue)`}
+                  changer={(v) => {
+                    const cible = bases.find((x) => x.id === v)
+                    if (cible) remplacer(i, bandeParDefaut(v, cible))
+                  }}
+                />
+                <button
+                  className="discret retirer"
+                  title="Retirer ces bandes"
+                  aria-label="Retirer ces bandes"
+                  onClick={() => p.changer(p.bandes.filter((_, j) => j !== i))}
+                >
+                  <Icone de={X} taille={14} />
+                </button>
+              </span>
+            </Reglage>
+            {schema && (
+              <>
+                <Reglage libelle="Début">
+                  <Choix
+                    valeur={b.champDebut ?? ''}
+                    entrees={entreesAvecVide('aucune date', dates)}
+                    libelle="Début des bandes"
+                    inconnue={`${b.champDebut} (disparue)`}
+                    changer={(v) => remplacer(i, { ...b, champDebut: v || undefined })}
+                  />
+                </Reglage>
+                <Reglage libelle="Fin">
+                  <Choix
+                    valeur={b.champFin ?? ''}
+                    entrees={entreesAvecVide(
+                      'pas de fin (un seul jour)',
+                      dates.filter((c) => c.cle !== b.champDebut),
+                    )}
+                    libelle="Fin des bandes"
+                    inconnue={`${b.champFin} (disparue)`}
+                    changer={(v) => remplacer(i, { ...b, champFin: v || undefined })}
+                  />
+                </Reglage>
+                <ChoixCouleur schema={schema} reglage={b} changer={(m) => remplacer(i, { ...b, ...m })} />
+              </>
+            )}
+          </div>
+        )
+      })}
+      {bases.length === 0 ? (
+        <div className="discret aide-reglage">Aucune base n'a de colonne date.</div>
+      ) : (
+        <Choix
+          valeur=""
+          entrees={entreesBases}
+          vide="Ajouter des bandes"
+          libelle="Ajouter des bandes"
+          changer={(v) => {
+            const cible = bases.find((x) => x.id === v)
+            if (cible) p.changer([...p.bandes, bandeParDefaut(v, cible)])
+          }}
+        />
+      )}
+    </>
   )
 }
 

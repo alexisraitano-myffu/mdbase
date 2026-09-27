@@ -188,6 +188,25 @@ export function etendue(plages: readonly Plage[], aujourdhui: string): Plage {
   return { debut: ajouterMois(debutMois(debut), -1), fin: decaler(ajouterMois(debutMois(fin), 3), -1) }
 }
 
+/**
+ * Sous-lignes de plages dessinées sur une même rangée (timeline, niveau « sur
+ * la ligne ») : chaque plage va sur la première sous-ligne où elle ne touche
+ * aucune autre, dans l'ordre des débuts. Rend l'indice de sous-ligne de chaque
+ * plage, dans l'ordre reçu.
+ */
+export function empiler(plages: readonly Plage[]): number[] {
+  const ordre = plages.map((p, i) => ({ p, i })).sort((a, b) => a.p.debut.localeCompare(b.p.debut) || a.p.fin.localeCompare(b.p.fin))
+  const finsParSousLigne: string[] = []
+  const sousLignes: number[] = new Array(plages.length)
+  for (const { p, i } of ordre) {
+    let s = finsParSousLigne.findIndex((fin) => fin < p.debut)
+    if (s < 0) s = finsParSousLigne.length
+    finsParSousLigne[s] = p.fin
+    sousLignes[i] = s
+  }
+  return sousLignes
+}
+
 /** Plage qui couvre toutes les autres (en-tête d'un groupe de la timeline) ; null s'il n'y en a aucune. */
 export function enveloppe(plages: readonly (Plage | null)[]): Plage | null {
   const presentes = plages.filter((p): p is Plage => p !== null)

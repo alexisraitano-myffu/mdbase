@@ -76,7 +76,9 @@ export function enfantsDe(
       .flatMap((l): Noeud[] => {
         const cle = `${cleParent}/${rel.cible}:${l.id}`
         if (cleParent.split('/').includes(`${rel.cible}:${l.id}`)) return []
-        return [{ cle, base: rel.cible, ligne: l, niveau, profondeur, enfants: enfantsDe(src, rel.cible, l, niveau.deplier, ctx, cle, profondeur + 1) }]
+        // Un niveau « sur la ligne » se dessine sur la rangée de son parent : il ne se déplie pas plus bas.
+        const enfants = niveau.surLaLigne ? [] : enfantsDe(src, rel.cible, l, niveau.deplier, ctx, cle, profondeur + 1)
+        return [{ cle, base: rel.cible, ligne: l, niveau, profondeur, enfants }]
       })
   })
 }

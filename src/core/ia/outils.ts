@@ -62,6 +62,11 @@ const NIVEAU = {
     ...COULEUR,
     filtres: { type: 'array', items: FILTRE, description: 'filtres sur les lignes de la base liée' },
     deplier: { type: 'array', items: { type: 'object' }, description: 'niveaux suivants, même forme, depuis la base liée' },
+    sur_la_ligne: {
+      type: 'boolean',
+      description:
+        'true : les lignes de ce niveau se dessinent sur la rangée de leur parent, à la suite (un lot et ses phases sur une ligne, comme un Gantt) ; le niveau ne se déplie pas plus bas',
+    },
   },
   required: ['relation'],
 }
@@ -85,6 +90,21 @@ const REGLAGES_VUE = {
     items: NIVEAU,
     description:
       'timeline en arbre : sous chaque ligne, les lignes liées par une relation, niveau par niveau (un projet, ses versions, leurs jalons). Remplace les niveaux existants ; null ou [] les retire.',
+  },
+  bandes: {
+    type: ['array', 'null'],
+    items: {
+      type: 'object',
+      properties: {
+        base: { type: 'string', description: 'id ou nom de la base dont les lignes deviennent des bandes' },
+        champ_debut: { type: 'string', description: 'colonne date de cette base (par défaut : sa première date)' },
+        champ_fin: { type: 'string', description: 'colonne date de fin (facultative)' },
+        ...COULEUR,
+      },
+      required: ['base'],
+    },
+    description:
+      "timeline : les lignes d'autres bases (moratoires, congés, sprints…) en bandes verticales qui traversent toute la timeline. Remplace les sources existantes ; null ou [] les retire.",
   },
 }
 
@@ -309,6 +329,7 @@ function detailTemps(v: Vue): string {
       n.champFin && `fin ${n.champFin}`,
       n.couleurPar && `couleur selon ${n.couleurPar}`,
       n.couleur && `couleur ${n.couleur}`,
+      n.surLaLigne && 'sur la ligne du parent',
       n.deplier.length > 0 && `puis ${n.deplier.map(niveau).join(' ; ')}`,
     ]
       .filter(Boolean)
@@ -321,6 +342,8 @@ function detailTemps(v: Vue): string {
     v.couleurPar && `couleur selon ${v.couleurPar}`,
     v.couleur && `couleur ${v.couleur}`,
     v.deplier?.length && `déplie [${v.deplier.map(niveau).join(' | ')}]`,
+    v.bandes?.length &&
+      `bandes [${v.bandes.map((b) => [`base ${b.base}`, b.champDebut && `début ${b.champDebut}`, b.champFin && `fin ${b.champFin}`, b.couleurPar && `couleur selon ${b.couleurPar}`, b.couleur && `couleur ${b.couleur}`].filter(Boolean).join(', ')).join(' | ')}]`,
   ].filter(Boolean)
   return r.length > 0 ? ` : ${r.join(', ')}` : ''
 }

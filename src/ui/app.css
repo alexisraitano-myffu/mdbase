@@ -1291,3 +1291,33 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
 .tl-titre-dehors.avant-point { left: auto; }
 .tl-poignee-point { position: absolute; top: 9px; width: 8px; height: 18px; cursor: ew-resize; z-index: 2; }
 .tl-poignee-point:hover { background: rgba(var(--accent-rgb), 0.15); border-radius: 3px; }
+
+/* Timeline : niveau « sur la ligne », ses barres empilées sur la rangée du parent */
+.tl-sous-ligne { position: absolute; left: 0; right: 0; height: 36px; pointer-events: none; }
+.tl-sous-ligne .tl-barre, .tl-sous-ligne .tl-jalon, .tl-sous-ligne .tl-poignee-point { pointer-events: auto; }
+.tl-barre.coupee { overflow: hidden; }
+.tl-barre.coupee .contenu-barre { flex: 1; flex-shrink: 1; min-width: 0; overflow: hidden; }
+.tl-barre.coupee .titre-evt { position: static; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
+
+/* Timeline : bandes de périodes, en travers de toutes les rangées, derrière les barres */
+.tl-bande { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--barre-fond) 55%, transparent); }
+.tl-titres-bandes { position: relative; border-top: 1px solid var(--trait); }
+.tl-titre-bande {
+  position: absolute;
+  height: 18px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: var(--barre-fond);
+  color: var(--barre-texte);
+  font-size: 0.75em;
+  line-height: 18px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.tl-titre-bande:hover { filter: brightness(0.96); }
+.controles-reglage { display: flex; align-items: center; gap: 2px; }

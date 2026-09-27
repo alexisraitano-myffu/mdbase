@@ -127,7 +127,8 @@ describe('assistant : structure', () => {
         champ_fin: 'Fin',
         couleur_par: 'Phase',
         echelle: 'trimestre',
-        deplier: [{ relation: 'Tâches', champ_debut: 'echeance', couleur: 'orange', filtres: [{ colonne: 'fait', operateur: 'egal', valeur: false }] }],
+        deplier: [{ relation: 'Tâches', champ_debut: 'echeance', couleur: 'orange', filtres: [{ colonne: 'fait', operateur: 'egal', valeur: false }], sur_la_ligne: true }],
+        bandes: [{ base: 'taches', champ_debut: 'echeance' }],
       }),
     )
     // Proposée mais pas appliquée : la vue n'existe pas encore dans l'espace.
@@ -140,9 +141,21 @@ describe('assistant : structure', () => {
     const idVue = fichier.nom.replace('.yaml', '')
     expect(vue).toContain('champ_debut: debut\nchamp_fin: fin\ncouleur_par: phase\nechelle: trimestre\n')
     expect(vue).toContain(
-      ['deplier:', '  - relation: taches', '    champ_debut: echeance', '    couleur: orange', '    filtres:', '      - { colonne: fait, operateur: egal, valeur: false }'].join('\n'),
+      [
+        'deplier:',
+        '  - relation: taches',
+        '    champ_debut: echeance',
+        '    couleur: orange',
+        '    filtres:',
+        '      - { colonne: fait, operateur: egal, valeur: false }',
+        '    sur_la_ligne: true',
+        'bandes:',
+        '  - base: taches',
+        '    champ_debut: echeance',
+      ].join('\n'),
     )
-    expect(vue).not.toContain('base:')
+    // La base notée à la validation d'un niveau ne s'écrit pas dans le fichier (seule une bande en porte une).
+    expect(vue).not.toMatch(/^ +base:/m)
 
     const refus = async (...appels: AppelOutil[]) =>
       proposer(obstine(...appels), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null }).then(
@@ -154,6 +167,9 @@ describe('assistant : structure', () => {
     expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, deplier: [{ relation: 'heures' }] }))).toContain('pas une relation')
     expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, deplier: [{ relation: 'taches', champ_fin: 'statut' }] }))).toContain('pas une colonne date')
     expect(await refus(appel('creer_vue', { base: 'projets', nom: 'K', type: 'kanban', groupe: 'Phase', deplier: [{ relation: 'taches' }] }))).toContain('seulement pour une vue timeline')
+    expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, bandes: [{ base: 'taches', champ_debut: 'titre' }] }))).toContain('pas une colonne date')
+    expect(await refus(appel('modifier_vue', { base: 'projets', vue: idVue, bandes: [{ base: 'inconnue' }] }))).not.toBe('')
+    expect(await refus(appel('creer_vue', { base: 'projets', nom: 'K', type: 'kanban', groupe: 'Phase', bandes: [{ base: 'taches' }] }))).toContain('seulement pour une vue timeline')
   })
 
   it('supprimer des lignes par filtre retire aussi les liens vers elles, et s’annule d’un Ctrl+Z', async () => {

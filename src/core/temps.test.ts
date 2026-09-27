@@ -6,6 +6,7 @@ import {
   ajouterMois,
   apresGeste,
   ecartJours,
+  empiler,
   enveloppe,
   etendue,
   graduations,
@@ -158,5 +159,18 @@ describe('timeline', () => {
     }
     expect(graduations(e, 'trimestre').haut.map((g) => g.libelle)).toEqual(['T3 2026', 'T4 2026'])
     expect(graduations(e, 'mois').haut[0]!.libelle).toBe('août 2026')
+  })
+})
+
+describe('empiler', () => {
+  const p = (debut: string, fin: string): Plage => ({ debut, fin })
+  it('des plages qui se suivent restent sur la même sous-ligne', () => {
+    expect(empiler([p('2026-10-01', '2026-10-09'), p('2026-10-10', '2026-10-20'), p('2026-10-21', '2026-10-21')])).toEqual([0, 0, 0])
+  })
+  it('une plage qui en touche une autre (même le dernier jour) descend', () => {
+    expect(empiler([p('2026-10-01', '2026-10-10'), p('2026-10-10', '2026-10-15'), p('2026-10-12', '2026-10-20'), p('2026-10-16', '2026-10-18')])).toEqual([0, 1, 0, 1])
+  })
+  it('rend les sous-lignes dans l’ordre reçu, quel que soit l’ordre des dates', () => {
+    expect(empiler([p('2026-10-20', '2026-10-25'), p('2026-10-01', '2026-10-22')])).toEqual([1, 0])
   })
 })

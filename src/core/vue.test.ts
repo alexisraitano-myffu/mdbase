@@ -189,4 +189,29 @@ describe('niveaux dépliés de la timeline', () => {
     expect(lu.vue!.deplier).toEqual([{ relation: 'versions', filtres: [], deplier: [] }])
     expect(lu.avertissements).toEqual(['Vue v : niveau déplié ignoré (relation manquante)'])
   })
+
+  it('un niveau « sur la ligne » garde son réglage à l’aller-retour', () => {
+    const vue = lireVue('type: timeline\nchamp_debut: debut\n', 'v').vue!
+    const niveaux = [{ relation: 'phases', champDebut: 'debut', champFin: 'fin', couleurPar: 'type', filtres: [], deplier: [], surLaLigne: true }]
+    const texte = modifierVue('type: timeline\nchamp_debut: debut\n', vue, { deplier: niveaux })
+    expect(texte).toContain('    couleur_par: type\n    sur_la_ligne: true')
+    expect(lireVue(texte, 'v').vue!.deplier).toEqual(niveaux)
+  })
+})
+
+describe('bandes de la timeline', () => {
+  it('s’écrivent une source par bloc et se relisent à l’identique', () => {
+    const vue = lireVue('type: timeline\nchamp_debut: debut\n', 'v').vue!
+    const bandes = [{ base: 'periodes', champDebut: 'debut', champFin: 'fin', couleurPar: 'type' }, { base: 'sprints', champDebut: 'debut', couleur: 'gris' }]
+    const texte = modifierVue('type: timeline\nchamp_debut: debut\n', vue, { bandes })
+    expect(texte).toContain(['bandes:', '  - base: periodes', '    champ_debut: debut', '    champ_fin: fin', '    couleur_par: type', '  - base: sprints'].join('\n'))
+    expect(lireVue(texte, 'v').vue!.bandes).toEqual(bandes)
+    expect(modifierVue(texte, vue, { bandes: [] })).not.toContain('bandes')
+  })
+
+  it('une bande sans base est écartée avec un avertissement', () => {
+    const lu = lireVue('type: timeline\nbandes:\n  - { champ_debut: debut }\n  - { base: periodes }\n', 'v')
+    expect(lu.vue!.bandes).toEqual([{ base: 'periodes' }])
+    expect(lu.avertissements).toEqual(['Vue v : bande ignorée (base manquante)'])
+  })
 })

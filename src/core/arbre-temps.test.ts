@@ -55,6 +55,11 @@ describe('timeline en arbre', () => {
     expect(texte(arbre)).toEqual(['clients:c0000001', 'taches:t0000001', 'taches:t0000002'])
   })
 
+  it('un niveau « sur la ligne » ne se déplie pas plus bas', async () => {
+    const arbre = await depuis('clients', 'c0000001', [niveau('projets', { surLaLigne: true, deplier: [niveau('taches')] })])
+    expect(texte(arbre)).toEqual(['projets:p0000001', 'projets:p0000002'])
+  })
+
   it('une boucle de relations s’arrête : une ligne déjà sur le chemin n’est pas redescendue', async () => {
     const arbre = await depuis('taches', 't0000001', [niveau('projet', { deplier: [niveau('taches')] })])
     expect(texte(arbre)).toEqual(['projets:p0000001', '  taches:t0000002'])

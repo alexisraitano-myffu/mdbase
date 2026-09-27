@@ -8,7 +8,7 @@ import { cleColonne, idBase } from '../identifiants'
 import { COULEURS } from '../couleurs'
 import { CALCULS, estObjet, lireSchema, natureDe, type Calcul, type Colonne, type Schema } from '../schema'
 import { nouveauSchema } from '../schema-ecriture'
-import { PROFONDEUR_MAX, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
+import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
 import { erreur, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne } from './references'
 
 // Outils de structure de l'assistant (spec §12, « Module IA ») : bases,
@@ -241,6 +241,27 @@ function lireNiveaux(b: Brouillon, bb: BaseBrouillon, brut: unknown, profondeur:
       ...(couleur.couleurPar && { couleurPar: couleur.couleurPar }),
       filtres: n.filtres === undefined ? [] : lireFiltres({ id: cible.id, schema: cible.schema, lignes: [...cible.lignes] }, n.filtres),
       deplier: n.deplier === undefined ? [] : lireNiveaux(b, cible, n.deplier, profondeur + 1),
+      ...(n.sur_la_ligne === true && { surLaLigne: true }),
+    }
+  })
+}
+
+/** Bandes de la timeline : chaque base, ses dates et sa couleur sont vérifiées. */
+function lireBandes(b: Brouillon, brut: unknown): Bande[] {
+  if (!Array.isArray(brut)) return erreur('`bandes` : liste de sources attendue')
+  return brut.map((x): Bande => {
+    if (!estObjet(x)) return erreur('bandes : objet { base, champ_debut, … } attendu')
+    const cible = b.base(x.base)
+    const debut = x.champ_debut !== undefined ? colonneDate(cible.schema, x.champ_debut) : cible.schema.colonnes.find((c) => natureDe(c) === 'date')?.cle
+    if (!debut) erreur(`bandes : ${cible.id} n'a pas de colonne date`)
+    const fin = x.champ_fin !== undefined && x.champ_fin !== null ? colonneDate(cible.schema, x.champ_fin) : undefined
+    const couleur = lireCouleur(cible.schema, x)
+    return {
+      base: cible.id,
+      champDebut: debut,
+      ...(fin && { champFin: fin }),
+      ...(couleur.couleur && { couleur: couleur.couleur }),
+      ...(couleur.couleurPar && { couleurPar: couleur.couleurPar }),
     }
   })
 }
@@ -278,6 +299,10 @@ function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, u
   if (args.deplier !== undefined) {
     if (genre !== 'timeline') erreur('deplier : seulement pour une vue timeline')
     r.deplier = args.deplier === null ? [] : lireNiveaux(b, bb, args.deplier, 1)
+  }
+  if (args.bandes !== undefined) {
+    if (genre !== 'timeline') erreur('bandes : seulement pour une vue timeline')
+    r.bandes = args.bandes === null ? [] : lireBandes(b, args.bandes)
   }
   if (avecDate(genre) && !r.champDebut) {
     const date = bb.schema.colonnes.find((c) => c.type === 'date')
@@ -512,6 +537,16 @@ export class Correspondances {
       ...(r.champsJalons ? { champsJalons: r.champsJalons.map(k) } : {}),
       ...(r.couleurPar ? { couleurPar: k(r.couleurPar) } : {}),
       ...(r.deplier ? { deplier: this.niveaux(base, r.deplier) } : {}),
+      ...(r.bandes
+        ? {
+            bandes: r.bandes.map((bd) => ({
+              ...bd,
+              ...(bd.champDebut ? { champDebut: this.cle(bd.base, bd.champDebut) } : {}),
+              ...(bd.champFin ? { champFin: this.cle(bd.base, bd.champFin) } : {}),
+              ...(bd.couleurPar ? { couleurPar: this.cle(bd.base, bd.couleurPar) } : {}),
+            })),
+          }
+        : {}),
     }
   }
 
