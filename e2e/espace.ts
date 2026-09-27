@@ -62,12 +62,13 @@ function preparerPage(nomDossier: string) {
     },
     async lire(chemin) {
       const [ds, nom] = decouper(chemin)
-      // Un fichier que l'app est en train d'écrire est illisible un instant (NotReadableError) : on réessaie.
+      // Un fichier que l'app est en train d'écrire est illisible un instant (NotReadableError),
+      // ou absent le temps de son remplacement (NotFoundError) : on réessaie.
       for (let essai = 0; ; essai++) {
         try {
           return await (await (await dossier(ds, false)).getFileHandle(nom)).getFile().then((f) => f.text())
         } catch (e) {
-          if (!(e instanceof DOMException && e.name === 'NotReadableError') || essai >= 20) throw e
+          if (!(e instanceof DOMException && ['NotReadableError', 'NotFoundError'].includes(e.name)) || essai >= 20) throw e
           await new Promise((r) => setTimeout(r, 25))
         }
       }

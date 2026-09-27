@@ -374,6 +374,27 @@ test.describe('dashboards et recherche', () => {
     expect(await page.evaluate(() => localStorage.getItem('mdbase.mode'))).toBe('edition')
   })
 
+  test('raccourcis clavier : le bouton et « ? » ouvrent la liste, Échap la ferme, jamais pendant une saisie', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.getByRole('button', { name: 'Raccourcis clavier' }).click()
+    const aide = page.getByRole('dialog', { name: 'Raccourcis clavier' })
+    await expect(aide).toBeVisible()
+    await expect(aide.getByText('Rechercher dans tout l’espace')).toBeVisible()
+    await expect(aide.getByText('Zoomer, dézoomer')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(aide).toBeHidden()
+
+    await page.keyboard.press('?')
+    await expect(aide).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // Dans un champ de saisie, « ? » s'écrit.
+    await page.keyboard.press('Control+K')
+    await page.keyboard.type('?')
+    await expect(page.locator('.champ-recherche')).toHaveValue('?')
+    await expect(aide).toBeHidden()
+  })
+
   test('plein écran : la vue seule, sans barre latérale ni titre, puis retour', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.getByRole('button', { name: 'Plein écran' }).click()

@@ -21,6 +21,7 @@ import { Assistant, FenetreReglagesIA } from './Assistant'
 import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/ia/reglages'
 import { estChampDeSaisie } from './clavier'
 import { BasculeMode, BasculePleinEcran, ContexteMode, useModeMemorise, usePleinEcran } from './mode'
+import { AideRaccourcis } from './Raccourcis'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string }
 
@@ -287,6 +288,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           />
           <main className="contenu">
             <div className="coin-contenu">
+              <AideRaccourcis />
               <BasculePleinEcran actif={pleinEcran} basculer={basculerPleinEcran} />
               <BasculeMode consultation={consultation} basculer={basculerMode} />
             </div>
