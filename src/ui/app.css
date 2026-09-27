@@ -1373,6 +1373,10 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
 .tl-barre.coupee .titre-evt { position: static; display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
 /* Champs d'une barre sur la ligne du parent : à la suite du titre, sur la même ligne, coupés avec lui. */
 .tl-barre.coupee .titre-evt .champ-carte { display: inline-flex; margin-left: 6px; vertical-align: top; }
+/* Rangée partagée : la barre coupe ce qui dépasse, le début se lit à son bord gauche et la fin à son bord droit. */
+.tl-barre.coupee .champs-bord { color: inherit; opacity: 0.75; }
+.tl-barre.coupee .champs-bord.debut-dedans { flex-shrink: 0; margin-right: 8px; }
+.tl-barre.coupee .champs-bord.apres { margin-left: auto; padding-left: 8px; }
 
 /* Timeline : bandes de périodes, en travers de toutes les rangées, derrière les barres */
 /* Fond presque plein et bords marqués : une couleur pâle (moratoire en rouge clair) reste visible sur le blanc. */

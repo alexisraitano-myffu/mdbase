@@ -324,7 +324,7 @@ test.describe('timeline en arbre', () => {
     for (const a of boites) for (const b of boites) if (a !== b && a.haut === b.haut && a.gauche < b.gauche) expect(a.droite).toBeLessThanOrEqual(b.gauche)
   })
 
-  test('champs affichés d’un niveau : pris dans sa base, dates de part et d’autre, puis dans la barre sur la ligne du parent', async ({ espace, page }) => {
+  test('champs affichés d’un niveau : pris dans sa base, dates de part et d’autre, puis aux bouts de la barre sur la ligne du parent', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
     await page.getByRole('button', { name: 'Options', exact: true }).click()
@@ -343,7 +343,9 @@ test.describe('timeline en arbre', () => {
     await page.locator('.reglages-niveau').first().getByRole('switch', { name: 'Sur la ligne du parent' }).check()
     await page.keyboard.press('Escape')
     const sous = rangee(page, 'Site vitrine').locator('.tl-sous-ligne', { hasText: 'Intégration' })
-    await expect(sous.locator('.champ-carte')).toHaveCount(2)
+    // Dans la barre aussi, le début se lit en premier ; la priorité suit le titre.
+    await expect(sous.locator('.champs-bord.debut-dedans')).toHaveText(/\d{2}\/\d{2}\/\d{4}/)
+    await expect(sous.locator('.titre-evt .champ-carte')).toHaveText('Normale')
   })
 
   test('réglages d’un niveau : sans fin, des losanges ; ses filtres ne touchent que lui', async ({ espace, page }) => {

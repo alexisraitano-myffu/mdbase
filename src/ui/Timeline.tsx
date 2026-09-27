@@ -828,10 +828,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                               couleur={s.couleur}
                               plage={p}
                               titre={nom}
-                              // Les barres d'une rangée partagée se touchent : tous les champs suivent le titre, dans la barre.
-                              champs={afficher(s, s.axe.champs)}
-                              avant={null}
-                              apres={null}
+                              // Les barres d'une rangée partagée se touchent : le début et la fin se lisent aux deux bouts, dans la barre.
+                              {...champsDe(s)}
                               x={x}
                               px={px}
                               geste={g}
@@ -937,6 +935,10 @@ function Barre(p: {
   // Le titre part de la barre et déborde à droite s'il est plus long (comme Notion) ;
   // une barre trop courte pour l'accueillir le met juste après elle.
   const dedans = largeur >= 36 || p.coupee === true
+  // Sur une rangée partagée, les dates tiennent dans la barre : le titre passe avant elles.
+  // Trop courte, elle lâche d'abord la fin, puis le début (la plage reste dans l'infobulle).
+  const avant = p.coupee && largeur < 140 ? null : p.avant
+  const apres = p.coupee && largeur < (avant ? 210 : 140) ? null : p.apres
   return (
     <>
       <div
@@ -947,24 +949,25 @@ function Barre(p: {
         onClick={p.commencer ? undefined : p.ouvrir}
       >
         {p.commencer && p.finModifiable && <span className="poignee poignee-debut" onPointerDown={(e) => p.commencer!(e, 'debut')} />}
-        {p.avant && <span className="champs-bord avant">{p.avant}</span>}
+        {avant && !p.coupee && <span className="champs-bord avant">{avant}</span>}
         {dedans && (!p.coupee || largeur >= 24) && (
           <>
             {/* Au moins la largeur de la barre : la date de fin se pose après la barre, ou après le titre s'il déborde. */}
             <span className="contenu-barre">
+              {avant && p.coupee && <span className="champs-bord debut-dedans">{avant}</span>}
               <span className="titre-evt">
                 {p.titre}
                 {p.champs}
               </span>
             </span>
-            {p.apres && <span className="champs-bord apres">{p.apres}</span>}
+            {apres && <span className="champs-bord apres">{apres}</span>}
           </>
         )}
         {p.commencer && p.finModifiable && <span className="poignee poignee-fin" onPointerDown={(e) => p.commencer!(e, 'fin')} />}
       </div>
       {!dedans && (
         <span className="tl-titre-dehors" style={{ left: left + Math.max(largeur, 6) + 6 }}>
-          {p.apres}
+          {apres}
           {p.titre}
           {p.champs}
         </span>
