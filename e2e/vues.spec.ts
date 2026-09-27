@@ -253,6 +253,17 @@ test.describe('dashboards et recherche', () => {
     expect(await page.evaluate(() => localStorage.getItem('mdbase.mode'))).toBe('edition')
   })
 
+  test('plein écran : la vue seule, sans barre latérale ni titre, puis retour', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.getByRole('button', { name: 'Plein écran' }).click()
+    await expect(page.locator('.barre-laterale')).toBeHidden()
+    await expect(page.locator('h1', { hasText: 'Projets' })).toBeHidden()
+    await expect(page.locator('.onglet', { hasText: 'Feuille de route' })).toBeVisible()
+    await page.getByRole('button', { name: 'Quitter le plein écran' }).click()
+    await expect(page.locator('.barre-laterale')).toBeVisible()
+    await expect(page.locator('h1', { hasText: 'Projets' })).toBeVisible()
+  })
+
   test('Ctrl+K : chercher dans le contenu des pages, Entrée ouvre la ligne', async ({ espace, page }) => {
     await page.keyboard.press('Control+k')
     await page.locator('.champ-recherche').fill('salon')

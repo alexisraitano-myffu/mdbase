@@ -1035,11 +1035,8 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 
 /* Mode consultation : l'icône de bascule, en haut à droite de la zone principale (comme Obsidian). */
 .contenu { position: relative; }
+.coin-contenu { position: absolute; top: 0.55rem; right: 0.55rem; z-index: 5; display: flex; gap: 2px; }
 .bascule-mode {
-  position: absolute;
-  top: 0.55rem;
-  right: 0.55rem;
-  z-index: 5;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1051,7 +1048,7 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .bascule-mode:hover { background: rgba(var(--ombre), 0.06); color: var(--texte); }
 .consultation .bascule-mode { color: var(--texte); }
 /* L'en-tête de la page ouverte laisse la place à l'icône quand il touche le bord droit. */
-.cadre-page.plein-ecran .entete-page { padding-right: 44px; }
+.cadre-page.plein-ecran .entete-page { padding-right: 76px; }
 .cellule.lecture { cursor: default; }
 
 /* Barres colorées des vues temporelles : `styleCouleur` pose --barre-fond et --barre-texte. */
@@ -1252,3 +1249,16 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
   :is(button.principal, button.danger, .pilule):not(:disabled):active { transform: none; }
   svg.pli, svg.chevron-details, input.interrupteur, input.interrupteur::after { transition: none; }
 }
+
+/* Plein écran d'une vue : ni barre latérale, ni titre, le contenu prend toute la fenêtre */
+.espace.vue-plein-ecran { padding: 0; }
+.vue-plein-ecran .barre-laterale { display: none; }
+.vue-plein-ecran .contenu { border-radius: 0; box-shadow: none; padding-top: 0.75rem; }
+.vue-plein-ecran .contenu :is(h1, .titre-dashboard) { display: none; }
+.vue-plein-ecran .barre-vue { padding-right: 76px; }
+.vue-plein-ecran .filtres-dashboard { padding-right: 76px; }
+
+/* Timeline : le titre et les champs ne sont jamais coupés, ils débordent de la barre à droite */
+.tl-barre .titre-evt { overflow: visible; text-overflow: clip; flex-shrink: 0; }
+/* Une barre qui commence hors de l'écran garde son titre visible, contre la colonne des titres (240 px, `.tl-coin`). */
+.tl-barre .titre-evt { position: sticky; left: 250px; }

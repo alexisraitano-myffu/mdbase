@@ -78,6 +78,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Tableau : pointillé qui défile autour de ce qui vient d'être copié, dès la copie (jusqu'à Échap), et reflet bref sur les cases touchées par un collage, une recopie, une action en lot, un Ctrl+Z ou l'assistant.
 - Timeline en arbre : dans « Options », « Déplier par » coche les relations dont les lignes liées s'affichent sous chaque ligne, niveau par niveau (un projet, ses versions, leurs jalons). Chaque niveau a ses dates et ses filtres ; sans fin, des losanges ; une ligne sans dates prend une barre qui couvre ses descendants. Vue « Feuille de route » dans la démo.
 - Dashboards : filtres et filtres rapides globaux, sur la base de son choix. Les blocs de cette base sont filtrés, ceux des autres bases suivent leurs relations (les tâches du projet choisi) ; une pastille « Projets » permet de cocher des projets.
+- Plein écran : une icône en haut à droite, à côté du mode consultation, affiche la vue seule (sans barre latérale ni titre) sur tout l'écran, par exemple une timeline ; Échap ou la même icône en sortent.
 - Mode consultation : une icône en haut à droite (ou Ctrl+E) passe l'espace en lecture seule, épuré : ne restent que la navigation, les onglets de vues, les filtres rapides et les pages en lecture. Le mode est gardé par le navigateur.
 - Couleurs dans le calendrier et la timeline : « Couleur » dans « Options » colore les barres selon une colonne select (la couleur de l'option, par exemple le statut) ou d'une couleur fixe, et chaque niveau déplié a la sienne. La feuille de route de la démo colore les projets selon leur statut et les tâches selon leur priorité.
 - Assistant IA : il règle aussi les calendriers et timelines (jalons, échelle, couleurs fixes ou selon une colonne, niveaux dépliés par relation avec leurs dates, couleurs et filtres), et voit ces réglages dans la description de l'espace pour les modifier.
@@ -93,6 +94,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Panneaux de réglages (Options, page, rollup, filtres d'un dashboard) en sections séparées d'un trait fin : libellé à gauche, réglage à droite, interrupteurs pour les réglages oui / non, œil pour les colonnes et champs affichés.
 - Champs de saisie des menus et fenêtres à la même hauteur, avec le même bord et le même anneau de focus.
 - Derniers symboles Unicode (avertissement, croix, flèches) remplacés par des icônes Lucide ; une plage de dates s'écrit « du … au … ».
+- Timeline : le titre d'une barre n'est plus coupé, il déborde à droite de la barre (comme Notion), et une barre qui commence hors de l'écran garde son titre visible.
 - Petites animations, toutes sous 250 ms : les menus grandissent depuis leur bouton, les fenêtres se posent au centre, le panneau de page arrive de la droite (pas en passant d'une ligne à l'autre), les boutons d'action et les pilules s'enfoncent à l'appui, les chevrons de groupe tournent, et une barre relâchée dans la timeline ou le calendrier glisse jusqu'à son jour. Rien ne bouge sur les raccourcis clavier (recherche, assistant, consultation) ; avec « réduire les animations », de simples fondus.
 
 ### Fixed

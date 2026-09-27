@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useState } from 'react'
-import { BookOpen, PenLine } from 'lucide-react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { BookOpen, Maximize2, Minimize2, PenLine } from 'lucide-react'
 import { Icone } from './icones'
 
 // Mode consultation (spec §7) : l'espace en lecture seule, sans outils, pour
@@ -43,6 +43,41 @@ export function BasculeMode({ consultation, basculer }: { consultation: boolean;
   return (
     <button className="discret bascule-mode" onClick={basculer} title={titre} aria-label={titre} aria-pressed={consultation}>
       <Icone de={consultation ? PenLine : BookOpen} taille={17} />
+    </button>
+  )
+}
+
+/**
+ * Plein écran : la vue seule, sans barre latérale ni titre, et l'écran entier
+ * quand le navigateur l'accepte. Quitter le plein écran du navigateur (Échap)
+ * quitte aussi celui de l'app. Réglage de la visite, jamais mémorisé.
+ */
+export function usePleinEcran(): [boolean, () => void] {
+  const [actif, setActif] = useState(false)
+  useEffect(() => {
+    const suivre = () => {
+      if (!document.fullscreenElement) setActif(false)
+    }
+    document.addEventListener('fullscreenchange', suivre)
+    return () => document.removeEventListener('fullscreenchange', suivre)
+  }, [])
+  const basculer = useCallback(() => {
+    setActif((avant) => {
+      const suivant = !avant
+      // Refusé (réglage du navigateur, iframe) : l'app passe quand même en plein écran dans la fenêtre.
+      if (suivant && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {})
+      if (!suivant && document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+      return suivant
+    })
+  }, [])
+  return [actif, basculer]
+}
+
+export function BasculePleinEcran({ actif, basculer }: { actif: boolean; basculer: () => void }) {
+  const titre = actif ? 'Quitter le plein écran' : 'Plein écran'
+  return (
+    <button className="discret bascule-mode" onClick={basculer} title={titre} aria-label={titre} aria-pressed={actif}>
+      <Icone de={actif ? Minimize2 : Maximize2} taille={16} />
     </button>
   )
 }

@@ -20,7 +20,7 @@ import { RechercheGlobale } from './RechercheGlobale'
 import { Assistant, FenetreReglagesIA } from './Assistant'
 import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/ia/reglages'
 import { estChampDeSaisie } from './clavier'
-import { BasculeMode, ContexteMode, useModeMemorise } from './mode'
+import { BasculeMode, BasculePleinEcran, ContexteMode, useModeMemorise, usePleinEcran } from './mode'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string }
 
@@ -214,6 +214,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   }, [rafraichir])
   const [pageDemandee, setPageDemandee] = useState<{ base: string; id: string; jeton: number } | null>(null)
   const [consultation, basculerMode] = useModeMemorise()
+  const [pleinEcran, basculerPleinEcran] = usePleinEcran()
 
   // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11) ; Ctrl+J / ⌘J, l'assistant IA
   // (pas en consultation) ; Ctrl+E / ⌘E bascule entre consultation et édition, comme Obsidian.
@@ -270,7 +271,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   return (
     <ContexteEspace.Provider value={{ espace, etat }}>
       <ContexteMode.Provider value={consultation}>
-        <div className={`espace ${consultation ? 'consultation' : ''}`}>
+        <div className={`espace ${consultation ? 'consultation' : ''} ${pleinEcran ? 'vue-plein-ecran' : ''}`}>
           <BarreLaterale
             espace={espace}
             etat={etat}
@@ -285,7 +286,10 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             relu={relu}
           />
           <main className="contenu">
-            <BasculeMode consultation={consultation} basculer={basculerMode} />
+            <div className="coin-contenu">
+              <BasculePleinEcran actif={pleinEcran} basculer={basculerPleinEcran} />
+              <BasculeMode consultation={consultation} basculer={basculerMode} />
+            </div>
             {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}
             {!base && !dashboard && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
             {base && !base.chargement.ok && (

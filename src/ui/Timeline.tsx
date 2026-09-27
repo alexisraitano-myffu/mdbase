@@ -568,8 +568,9 @@ function Barre(p: {
     largeur -= d
   }
   if (p.geste?.geste === 'fin') largeur = Math.max(p.px, base + dx)
-  // Titre dans la barre quand il y tient, à sa droite sinon.
-  const dedans = largeur >= 90
+  // Le titre part de la barre et déborde à droite s'il est plus long (comme Notion) ;
+  // une barre trop courte pour l'accueillir le met juste après elle.
+  const dedans = largeur >= 36
   return (
     <>
       <div
