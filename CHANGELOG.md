@@ -96,6 +96,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Panneaux de réglages (Options, page, rollup, filtres d'un dashboard) en sections séparées d'un trait fin : libellé à gauche, réglage à droite, interrupteurs pour les réglages oui / non, œil pour les colonnes et champs affichés.
 - Champs de saisie des menus et fenêtres à la même hauteur, avec le même bord et le même anneau de focus.
 - Derniers symboles Unicode (avertissement, croix, flèches) remplacés par des icônes Lucide ; une plage de dates s'écrit « du … au … ».
+- Timeline : la grille s'étend toujours jusqu'au bord droit de l'écran (grand écran, plein écran, échelle trimestre) au lieu de s'arrêter à quelques mois après la dernière barre.
 - Timeline : une ligne sur un seul jour s'affiche en losange au lieu d'un début de barre ; elle se glisse, et s'étire par la droite de son losange pour redevenir une barre.
 - Timeline : les dates de début et de fin affichées sur la barre se lisent devant et derrière elle ; option « Afficher le nom des jalons » (`noms_jalons`), réglable aussi par l'assistant ; le texte passe devant les jalons, qui restent devant la barre.
 - Timeline : le titre d'une barre n'est plus coupé, il déborde à droite de la barre (comme Notion), et une barre qui commence hors de l'écran garde son titre visible.

@@ -214,6 +214,21 @@ test.describe('timeline en arbre', () => {
     await expect.poll(() => espace.lire('taches/integration--tinte002.md')).not.toBe(avant)
   })
 
+  test('la grille remplit toute la largeur de l’écran, même en trimestre et en plein écran', async ({ espace, page }) => {
+    await page.setViewportSize({ width: 2400, height: 900 })
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Planning' }).click()
+    await page.getByRole('button', { name: 'Trimestre', exact: true }).click()
+    const remplit = async () => {
+      const zone = (await page.locator('.timeline').boundingBox())!
+      const grille = (await page.locator('.tl-graduations').boundingBox())!
+      return grille.x + grille.width >= zone.x + zone.width - 1
+    }
+    await expect.poll(remplit).toBe(true)
+    await page.getByRole('button', { name: 'Plein écran' }).click()
+    await expect.poll(remplit).toBe(true)
+  })
+
   test('bandes : les lignes d’une autre base traversent la timeline, leur titre dans l’en-tête ouvre la ligne', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Planning' }).click()

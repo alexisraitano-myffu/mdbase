@@ -9,7 +9,9 @@ import { colonne as colonneDe, estSaisie, type Colonne, type Schema } from '../c
 import { enfantsDe, type Noeud, type SourceArbre } from '../core/arbre-temps'
 import { CLE_VIDE, groupables, grouper, type Groupe } from '../core/groupes'
 import {
+  ajouterMois,
   apresGeste,
+  debutMois,
   decaler,
   ecartJours,
   empiler,
@@ -244,10 +246,26 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     return { liste: liste.map((b, i) => ({ ...b, etage: etages[i]! })), etages: Math.max(0, ...etages.map((i) => i + 1)) }
   }, [sourcesBandes, etat])
 
-  const e = useMemo(
-    () => etendue([...rangees.flatMap(plagesDe), ...[...rangeesNoeuds.values()].flatMap((x) => plagesDe(x.rangee))], aujourdhui),
-    [rangees, rangeesNoeuds, aujourdhui],
-  )
+  // Largeur de la zone des barres à l'écran : la timeline la remplit toujours, jusqu'au bord droit.
+  const [largeurVisible, setLargeurVisible] = useState(0)
+  const affichee = colDebut !== undefined
+  useLayoutEffect(() => {
+    const el = defilement.current
+    if (!el) return
+    const mesurer = () => setLargeurVisible(el.clientWidth - LARGEUR_TITRES)
+    mesurer()
+    const observateur = new ResizeObserver(mesurer)
+    observateur.observe(el)
+    return () => observateur.disconnect()
+  }, [affichee])
+
+  const e = useMemo(() => {
+    const brute = etendue([...rangees.flatMap(plagesDe), ...[...rangeesNoeuds.values()].flatMap((x) => plagesDe(x.rangee))], aujourdhui)
+    // Trop courte pour l'écran : prolongée jusqu'à la fin du mois qui atteint le bord droit.
+    const jours = Math.ceil(largeurVisible / px)
+    if (ecartJours(brute.debut, brute.fin) + 1 >= jours) return brute
+    return { debut: brute.debut, fin: decaler(ajouterMois(debutMois(decaler(brute.debut, jours - 1)), 1), -1) }
+  }, [rangees, rangeesNoeuds, aujourdhui, largeurVisible, px])
   const { haut, bas } = useMemo(() => graduations(e, echelle), [e, echelle])
 
   const elements = useMemo((): Element[] => {
