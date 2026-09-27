@@ -14,10 +14,13 @@ export type Connexion = {
 }
 
 /**
- * Silence au bout duquel une demande est abandonnée. La réponse arrive au fil
- * de l'eau : un long plan n'est jamais coupé tant que le service envoie quelque chose.
+ * Silence au bout duquel une demande est abandonnée. Long exprès : certains
+ * modèles réfléchissent plusieurs minutes sans rien envoyer, et l'utilisateur
+ * a le bouton Arrêter. Un long plan n'est jamais coupé tant que le service envoie quelque chose.
  */
-const INACTIVITE_MS = 60_000
+const INACTIVITE_MS = 30 * 60_000
+
+const duree = (ms: number) => (ms >= 60_000 ? `${Math.round(ms / 60_000)} min` : `${ms / 1000} s`)
 
 export function adresseComplete(adresse: string): string {
   const a = adresse.trim().replace(/\/+$/, '')
@@ -144,7 +147,7 @@ export async function listerModeles(c: Pick<Connexion, 'adresse' | 'cle'>, envoy
 /** Modèles listés par les services mais inutilisables ici : voix, images, vecteurs, modération. */
 const PAS_DE_DISCUSSION = /whisper|tts|diffusion|embed|bge|guard|rerank|moderation|ocr|dall-e|transcribe/i
 
-/** `envoyer` et `inactivite` sont réglables pour les tests ; par défaut, le `fetch` du navigateur et une minute. */
+/** `envoyer` et `inactivite` sont réglables pour les tests ; par défaut, le `fetch` du navigateur et 30 minutes. */
 export function modeleCompatibleOpenAI(c: Connexion, envoyer: typeof fetch = (...a) => fetch(...a), inactivite = INACTIVITE_MS): ModeleIA {
   return async ({ messages, outils, signal, progression }) => {
     if (signal?.aborted) throw new DemandeArretee()
@@ -162,7 +165,7 @@ export function modeleCompatibleOpenAI(c: Connexion, envoyer: typeof fetch = (..
     signal?.addEventListener('abort', arreter)
     /** Une coupure voulue (arrêt, silence) l'emporte sur l'erreur réseau qu'elle provoque. */
     const coupure = () =>
-      signal?.aborted ? new DemandeArretee() : silence ? new Error(`Plus rien reçu du service depuis ${inactivite / 1000} s : demande abandonnée.`) : null
+      signal?.aborted ? new DemandeArretee() : silence ? new Error(`Plus rien reçu du service depuis ${duree(inactivite)} : demande abandonnée.`) : null
     recu()
     try {
       let r: Response
