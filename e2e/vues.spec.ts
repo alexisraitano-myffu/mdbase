@@ -229,6 +229,39 @@ test.describe('timeline en arbre', () => {
     await expect.poll(remplit).toBe(true)
   })
 
+  test('zoom libre : Ctrl + molette sous le pointeur, + et - au clavier, 0 ou un bouton d’échelle pour revenir', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Planning' }).click()
+    const barre = rangee(page, 'Site vitrine').locator('.tl-barre')
+    const largeur = async () => (await barre.boundingBox())!.width
+    const depart = await largeur()
+
+    await page.keyboard.press('+')
+    await expect.poll(largeur).toBeCloseTo(depart * 1.25, 0)
+    await expect(page.getByText('Zoom libre')).toBeVisible()
+    await page.keyboard.press('-')
+    await expect.poll(largeur).toBeCloseTo(depart, 0)
+
+    // Le début de la barre reste sous le pointeur pendant le zoom.
+    const avant = (await barre.boundingBox())!
+    await page.mouse.move(avant.x + 2, avant.y + avant.height / 2)
+    await page.keyboard.down('Control')
+    await page.mouse.wheel(0, -200)
+    await page.keyboard.up('Control')
+    await expect.poll(largeur).toBeGreaterThan(depart * 1.3)
+    expect(Math.abs((await barre.boundingBox())!.x - avant.x)).toBeLessThan(6)
+
+    await page.keyboard.press('0')
+    await expect.poll(largeur).toBeCloseTo(depart, 0)
+    await expect(page.getByText('Zoom libre')).toHaveCount(0)
+
+    // Un bouton d'échelle efface aussi le zoom libre ; le fichier de la vue n'a jamais changé pour le zoom.
+    await page.keyboard.press('+')
+    await page.getByRole('button', { name: 'Mois', exact: true }).click()
+    await expect.poll(largeur).toBeCloseTo(depart, 0)
+    expect(await espace.lire('projets/_vues/planning.yaml')).toContain('echelle: mois')
+  })
+
   test('bandes : les lignes d’une autre base traversent la timeline, leur titre dans l’en-tête ouvre la ligne', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Planning' }).click()

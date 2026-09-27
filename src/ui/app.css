@@ -1321,3 +1321,4 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
 }
 .tl-titre-bande:hover { filter: brightness(0.96); }
 .controles-reglage { display: flex; align-items: center; gap: 2px; }
+.zoom-libre { font-size: 0.85em; margin-right: 6px; }

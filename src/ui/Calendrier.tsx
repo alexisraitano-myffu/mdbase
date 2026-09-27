@@ -293,7 +293,8 @@ function Semaine(p: {
 }
 
 /** Boutons d'échelle (mois / semaine, ou semaine / mois / trimestre) : réglage enregistré dans la vue. */
-export function Echelles<T extends string>({ valeurs, active, changer }: { valeurs: T[]; active: T; changer: (v: T) => void }) {
+/** Boutons d'échelle ; sans `active` (zoom libre de la timeline), aucun n'est allumé et chacun y ramène. */
+export function Echelles<T extends string>({ valeurs, active, changer }: { valeurs: T[]; active?: T; changer: (v: T) => void }) {
   const libelles: Record<string, string> = { semaine: 'Semaine', mois: 'Mois', trimestre: 'Trimestre' }
   return (
     <div className="echelles">

@@ -37,6 +37,8 @@ import { Icone } from './icones'
 import { useConsultation } from './mode'
 import { couleurDeLigne, type ReglageCouleur } from '../core/couleurs'
 import { styleCouleur } from './couleurs'
+import { estChampDeSaisie } from './clavier'
+import { flottantOuvert } from './flottant'
 
 type Props = {
   espace: DepotEspace
@@ -54,6 +56,33 @@ type Props = {
 
 /** Largeur d'un jour selon le zoom, en pixels. */
 const PIXELS_PAR_JOUR: Record<Echelle, number> = { semaine: 36, mois: 12, trimestre: 4 }
+/** Bornes du zoom libre, en pixels par jour. */
+const ZOOM_MIN = 1
+const ZOOM_MAX = 90
+/** Graduations lisibles à ce zoom : les jours au-delà de 24 px, les semaines au-delà de 7, sinon les mois. */
+const echelleDe = (px: number): Echelle => (px >= 24 ? 'semaine' : px >= 7 ? 'mois' : 'trimestre')
+
+/** Zoom libre d'une timeline (pixels par jour), gardé dans le navigateur comme les replis ; null : celui de l'échelle. */
+function useZoom(cle: string): [number | null, (px: number | null) => void] {
+  const [zoom, setZoom] = useState<number | null>(() => {
+    try {
+      const n = Number(localStorage.getItem(cle))
+      return n >= ZOOM_MIN && n <= ZOOM_MAX ? n : null
+    } catch {
+      return null
+    }
+  })
+  const changer = (px: number | null) => {
+    setZoom(px)
+    try {
+      if (px === null) localStorage.removeItem(cle)
+      else localStorage.setItem(cle, String(px))
+    } catch {
+      // Stockage indisponible (navigation privée) : le zoom vaut pour la session.
+    }
+  }
+  return [zoom, changer]
+}
 const HAUTEUR_LIGNE = 36
 /** Décalage d'une sous-ligne à l'autre dans une rangée qui porte un niveau « sur la ligne ». */
 const PAS_SOUS_LIGNE = 28
@@ -173,7 +202,11 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   const defilement = useRef<HTMLDivElement>(null)
   const schema = depot.schema
   const echelle: Echelle = vue.echelle ?? 'mois'
-  const px = PIXELS_PAR_JOUR[echelle]
+  // Ctrl + molette, le pincement du trackpad ou + et - règlent un zoom libre ; les boutons d'échelle le remettent à zéro.
+  const [zoom, setZoom] = useZoom(`mdbase.timeline.zoom.${base}.${vue.id}`)
+  const px = zoom ?? PIXELS_PAR_JOUR[echelle]
+  /** Jour (fractionnaire) à garder sous le même pixel de l'écran après un changement de zoom. */
+  const ancre = useRef<{ jours: number; ecran: number } | null>(null)
   const clesJalons = (vue.champsJalons ?? []).join('|')
   const champs = (vue.champsCarte ?? []).flatMap((c) => colonneDe(schema, c) ?? [])
   const axe = useMemo(
@@ -266,7 +299,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     if (ecartJours(brute.debut, brute.fin) + 1 >= jours) return brute
     return { debut: brute.debut, fin: decaler(ajouterMois(debutMois(decaler(brute.debut, jours - 1)), 1), -1) }
   }, [rangees, rangeesNoeuds, aujourdhui, largeurVisible, px])
-  const { haut, bas } = useMemo(() => graduations(e, echelle), [e, echelle])
+  const { haut, bas } = useMemo(() => graduations(e, echelleDe(px)), [e, px])
 
   const elements = useMemo((): Element[] => {
     /** Plages de tous les descendants d'un nœud (ou d'une ligne de premier niveau). */
@@ -357,6 +390,53 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     if (el) el.scrollLeft = Math.max(0, x(jour) - (el.clientWidth - LARGEUR_TITRES) / 3)
   }
   useLayoutEffect(() => allerA(aujourdhui), [echelle]) // volontairement : seulement au zoom, pas à chaque nouvelle étendue
+
+  /** Zoom libre autour d'un point de l'écran (le pointeur, ou le milieu) : la date qui s'y trouve y reste. */
+  const zoomer = (facteur: number, ecran?: number) => {
+    const el = defilement.current
+    if (!el) return
+    const suivant = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, px * facteur))
+    if (suivant === px) return
+    const point = ecran ?? (el.clientWidth - LARGEUR_TITRES) / 2
+    ancre.current = { jours: (el.scrollLeft + point) / px, ecran: point }
+    setZoom(suivant)
+  }
+  useLayoutEffect(() => {
+    const el = defilement.current
+    if (el && ancre.current) el.scrollLeft = Math.max(0, ancre.current.jours * px - ancre.current.ecran)
+    ancre.current = null
+  }, [px])
+  const zoomerRef = useRef(zoomer)
+  zoomerRef.current = zoomer
+  // Ctrl (ou Cmd) + molette, et le pincement du trackpad (que le navigateur envoie ainsi) : zoom sous le pointeur.
+  useEffect(() => {
+    const el = defilement.current
+    if (!el) return
+    const molette = (ev: WheelEvent) => {
+      if (!ev.ctrlKey && !ev.metaKey) return
+      ev.preventDefault()
+      const zone = el.getBoundingClientRect()
+      zoomerRef.current(Math.exp(-ev.deltaY * 0.0025), Math.max(0, ev.clientX - zone.left - LARGEUR_TITRES))
+    }
+    el.addEventListener('wheel', molette, { passive: false })
+    return () => el.removeEventListener('wheel', molette)
+  }, [affichee])
+  // + et - zooment, 0 revient à l'échelle choisie ; jamais dans une saisie, un menu ou une fenêtre, ni avec Ctrl (le zoom du navigateur).
+  useEffect(() => {
+    const clavier = (ev: KeyboardEvent) => {
+      if (ev.ctrlKey || ev.metaKey || ev.altKey || estChampDeSaisie(ev.target) || flottantOuvert() || document.querySelector('.voile-fenetre')) return
+      if (ev.key === '+' || ev.key === '=') zoomerRef.current(1.25)
+      else if (ev.key === '-') zoomerRef.current(1 / 1.25)
+      else if (ev.key === '0' && zoom !== null) {
+        const el = defilement.current
+        if (el) ancre.current = { jours: (el.scrollLeft + (el.clientWidth - LARGEUR_TITRES) / 2) / px, ecran: (el.clientWidth - LARGEUR_TITRES) / 2 }
+        setZoom(null)
+      } else return
+      ev.preventDefault()
+    }
+    document.addEventListener('keydown', clavier)
+    return () => document.removeEventListener('keydown', clavier)
+  })
   // L'étendue peut grandir vers la gauche : garder la même date sous les yeux.
   const debutPrecedent = useRef(e.debut)
   useEffect(() => {
@@ -431,7 +511,20 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     <div className="timeline-vue">
       <div className="barre-temps">
         <span className="espaceur" />
-        <Echelles valeurs={['semaine', 'mois', 'trimestre']} active={echelle} changer={(echelle) => modifierVue({ echelle })} />
+        {zoom !== null && <span className="discret zoom-libre">Zoom libre</span>}
+        <Echelles
+          valeurs={['semaine', 'mois', 'trimestre']}
+          active={zoom === null ? echelle : undefined}
+          changer={(v) => {
+            if (zoom !== null) {
+              // Même échelle : aujourd'hui revient en vue, comme à un changement d'échelle.
+              const el = defilement.current
+              if (el && v === echelle) ancre.current = { jours: ecartJours(e.debut, aujourdhui), ecran: (el.clientWidth - LARGEUR_TITRES) / 3 }
+              setZoom(null)
+            }
+            if (v !== echelle) modifierVue({ echelle: v })
+          }}
+        />
         <button className="discret" onClick={() => allerA(aujourdhui)}>
           Aujourd'hui
         </button>
