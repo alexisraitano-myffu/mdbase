@@ -154,6 +154,23 @@ test.describe('timeline en arbre', () => {
     await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).not.toContain('couleur_par: priorite')
   })
 
+  test('une ligne d’un seul jour : un losange, qui s’étire par sa droite en barre', async ({ espace, page }) => {
+    await espace.remplacer('taches/recette--trece007.md', 'echeance: 2026-09-29', 'echeance: 2026-09-24')
+    await espace.retourSurOnglet()
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    await page.getByRole('button', { name: 'Semaine', exact: true }).click()
+    const recette = rangee(page, 'Recette')
+    await expect(recette.locator('.tl-point')).toBeVisible()
+    await expect(recette.locator('.tl-barre')).toHaveCount(0)
+
+    // Deux jours de plus (36 px par jour à l'échelle semaine).
+    await glisser(page, recette.locator('.tl-poignee-point'), 72)
+    await expect.poll(() => espace.lire('taches/recette--trece007.md')).toContain('echeance: 2026-09-26')
+    await expect(recette.locator('.tl-barre')).toBeVisible()
+    await expect(recette.locator('.tl-point')).toHaveCount(0)
+  })
+
   test('dates de début et de fin de part et d’autre de la barre, nom des jalons en option', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()

@@ -480,7 +480,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                       />
                     )}
                     {plage && geste && !r.axe.point && <Cadre plage={plageApresGeste(plage, geste.geste, geste.jours)} x={x} px={px} />}
-                    {plage && r.axe.point && (
+                    {plage && (r.axe.point || plage.debut === plage.fin) && (
                       <Point
                         couleur={r.couleur}
                         jour={plage.debut}
@@ -489,10 +489,14 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         geste={geste}
                         pose={pose === ligne.chemin}
                         commencer={modifiable ? (ev) => commencer(ev, r, 'deplacer') : undefined}
+                        // Une ligne d'un jour qui a une fin s'étire par la droite de son losange, comme une barre.
+                        etirer={modifiable && !r.axe.point && r.axe.fin !== undefined && estSaisie(r.axe.fin) ? (ev) => commencer(ev, r, 'fin') : undefined}
+                        avant={premier(r) ? afficher(ligne, champs.filter((c) => c.cle === vue.champDebut)) : null}
+                        champs={premier(r) ? afficher(ligne, champs.filter((c) => c.cle !== vue.champDebut && c.cle !== vue.champFin)) : null}
                         ouvrir={() => ouvrirRangee(r)}
                       />
                     )}
-                    {plage && !r.axe.point && (
+                    {plage && !r.axe.point && plage.debut !== plage.fin && (
                       <Barre
                         couleur={r.couleur}
                         plage={plage}
@@ -616,10 +620,35 @@ function Barre(p: {
 }
 
 /** Ligne d'un niveau déplié sans fin : un losange à sa date, qui se glisse. */
-function Point(p: { couleur: string | undefined; jour: string; titre: string; left: number; geste: EnCours | undefined; pose: boolean; commencer: ((e: PointerReact) => void) | undefined; ouvrir: () => void }) {
-  const dx = p.geste?.dx ?? 0
+/**
+ * Losange d'une ligne sur un seul jour : niveau déplié sans fin, ou plage d'un
+ * jour (une barre d'un jour ne ferait qu'un début de barre). Il se glisse, et
+ * s'étire par sa droite quand la ligne a une fin.
+ */
+function Point(p: {
+  couleur: string | undefined
+  jour: string
+  titre: string
+  left: number
+  geste: EnCours | undefined
+  pose: boolean
+  commencer: ((e: PointerReact) => void) | undefined
+  etirer?: ((e: PointerReact) => void) | undefined
+  /** Date de début affichée, devant le losange ; autres champs après le titre. */
+  avant?: ReactNode
+  champs?: ReactNode
+  ouvrir: () => void
+}) {
+  // Étirer ne déplace pas le losange : le cadre pointillé montre la future plage.
+  const dx = p.geste?.geste === 'deplacer' ? p.geste.dx : 0
   return (
     <>
+      {p.avant && (
+        <span className="tl-titre-dehors avant-point" style={{ right: `calc(100% - ${p.left + dx - 12}px)` }}>
+          {p.avant}
+        </span>
+      )}
+      {p.etirer && <span className="tl-poignee-point" style={{ left: p.left + dx + 5 }} onPointerDown={p.etirer} title="Tirer pour allonger" />}
       <span
         className={`tl-jalon tl-point ${p.commencer ? 'deplacable' : ''} ${p.geste ? 'glisse' : ''} ${p.pose ? 'pose' : ''} ${p.couleur ? 'coloree' : ''}`}
         style={{ left: p.left + dx, ...styleCouleur(p.couleur) }}
@@ -637,6 +666,7 @@ function Point(p: { couleur: string | undefined; jour: string; titre: string; le
       )}
       <span className="tl-titre-dehors" style={{ left: p.left + dx + 12 }}>
         {p.titre}
+        {p.champs}
       </span>
     </>
   )

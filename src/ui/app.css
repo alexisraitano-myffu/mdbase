@@ -1286,3 +1286,8 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
   z-index: 1;
   pointer-events: none;
 }
+
+/* Ligne d'un jour : un losange, étirable par une poignée invisible à sa droite */
+.tl-titre-dehors.avant-point { left: auto; }
+.tl-poignee-point { position: absolute; top: 9px; width: 8px; height: 18px; cursor: ew-resize; z-index: 2; }
+.tl-poignee-point:hover { background: rgba(var(--accent-rgb), 0.15); border-radius: 3px; }

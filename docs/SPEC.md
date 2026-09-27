@@ -332,6 +332,7 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
   - Une ligne sans dates à elle porte une barre calculée qui couvre ses descendants (non déplaçable). Les lignes des niveaux inférieurs sont de vraies lignes de leur base : glisser et étirer écrivent dans leur fichier, un clic ouvre leur page.
   - Une ligne liée à deux parents apparaît sous chacun. Une ligne déjà présente sur le chemin n'est pas redescendue (boucle de relations), et la profondeur est bornée à 5 niveaux.
   - Tout est déplié par défaut ; ▸ / ▾ replie une ligne, et ce choix est gardé dans le navigateur (pas dans le dossier).
+- Timeline : une ligne dont la plage tient en un jour s'affiche en losange (comme un niveau sans fin) ; elle se glisse, et s'étire par la droite du losange quand la vue a un champ de fin.
 - Calendrier et timeline : une ligne sans date n'apparaît pas au calendrier (compteur « sans date ») ; dans la timeline elle garde sa rangée, et un clic sur la rangée la place à cette date. Une fin absente ou antérieure au début donne une plage d'un jour. Déplacer ou étirer garde l'heure d'une date qui en a une. Les colonnes calculées (rollup de date) s'affichent mais ne se glissent pas.
 
 ### Exemple `_vues/planning.yaml`
