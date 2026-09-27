@@ -97,6 +97,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Champs de saisie des menus et fenêtres à la même hauteur, avec le même bord et le même anneau de focus.
 - Derniers symboles Unicode (avertissement, croix, flèches) remplacés par des icônes Lucide ; une plage de dates s'écrit « du … au … ».
 - Raccourcis clavier : un bouton en haut à droite (ou la touche ?) ouvre la liste de tous les raccourcis de l'app, rangés par endroit (partout, tableau, page, timeline, listes, assistant).
+- Timeline : légende des couleurs sous la grille (Développement en bleu, Recette en orange…), qui apparaît toute seule dès qu'une couleur suit une colonne, pour la vue, ses niveaux et ses bandes.
 - Timeline : zoom libre de l'axe du temps. Ctrl (ou Cmd) + molette et le pincement du trackpad zooment sous le pointeur, + et - au clavier, 0 ou un bouton d'échelle pour revenir. Gardé dans le navigateur, par vue.
 - Timeline : la grille s'étend toujours jusqu'au bord droit de l'écran (grand écran, plein écran, échelle trimestre) au lieu de s'arrêter à quelques mois après la dernière barre.
 - Timeline : une ligne sur un seul jour s'affiche en losange au lieu d'un début de barre ; elle se glisse, et s'étire par la droite de son losange pour redevenir une barre.

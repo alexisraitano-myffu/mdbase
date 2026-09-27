@@ -262,6 +262,23 @@ test.describe('timeline en arbre', () => {
     expect(await espace.lire('projets/_vues/planning.yaml')).toContain('echelle: mois')
   })
 
+  test('légende : les options de chaque colonne qui colore des barres, sans rien à régler', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    const legende = page.getByLabel('Légende des couleurs')
+    await expect(legende.locator('.groupe-legende')).toHaveCount(2)
+    await expect(legende.locator('.groupe-legende').first()).toContainText('Statut')
+    await expect(legende.locator('.groupe-legende').first()).toContainText('En cours')
+    await expect(legende.locator('.groupe-legende').nth(1)).toContainText('Priorité · Tâches')
+    await expect(legende.locator('.groupe-legende').nth(1)).toContainText('Haute')
+
+    // Sans couleur selon une colonne, pas de légende.
+    await page.getByRole('button', { name: 'Options' }).click()
+    await choisir(page.locator('.flottant').getByRole('button', { name: 'Couleur' }).first(), 'neutre')
+    await choisir(page.locator('.reglages-niveau').first().getByRole('button', { name: 'Couleur' }), 'neutre')
+    await expect(legende).toHaveCount(0)
+  })
+
   test('bandes : les lignes d’une autre base traversent la timeline, leur titre dans l’en-tête ouvre la ligne', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Planning' }).click()

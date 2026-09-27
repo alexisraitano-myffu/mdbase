@@ -292,6 +292,32 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     return () => observateur.disconnect()
   }, [affichee])
 
+  // Légende : les options de chaque colonne qui colore des barres (la vue, ses niveaux, ses bandes),
+  // pour lire une barre trop courte pour son titre. Rien à régler : elle suit les réglages de couleur.
+  const legende = useMemo(() => {
+    const groupes = new Map<string, { titre: string; options: { libelle: string; couleur: string }[] }>()
+    const ajouter = (sch: Schema | undefined, couleurPar: string | undefined) => {
+      const c = sch && couleurPar ? colonneDe(sch, couleurPar) : undefined
+      if (!sch || (c?.type !== 'select' && c?.type !== 'multiselect') || c.options.length === 0) return
+      const cle = `${sch.id}/${c.cle}`
+      if (!groupes.has(cle))
+        groupes.set(cle, { titre: sch.id === base ? c.nom : `${c.nom} · ${sch.nom}`, options: c.options.map((o) => ({ libelle: o.label, couleur: o.couleur ?? 'gris' })) })
+    }
+    const schemaDe = (id: string) => etat.bases.get(id)?.depot?.schema
+    ajouter(schema, vue.couleurPar)
+    const niveaux = (sch: Schema | undefined, liste: readonly Niveau[]) => {
+      for (const n of liste) {
+        const rel = sch ? colonneDe(sch, n.relation) : undefined
+        const cible = rel?.type === 'relation' ? schemaDe(rel.cible) : undefined
+        ajouter(cible, n.couleurPar)
+        niveaux(cible, n.deplier)
+      }
+    }
+    niveaux(schema, deplier ?? [])
+    for (const b of sourcesBandes ?? []) ajouter(schemaDe(b.base), b.couleurPar)
+    return [...groupes.values()]
+  }, [schema, base, vue.couleurPar, deplier, sourcesBandes, etat])
+
   const e = useMemo(() => {
     const brute = etendue([...rangees.flatMap(plagesDe), ...[...rangeesNoeuds.values()].flatMap((x) => plagesDe(x.rangee))], aujourdhui)
     // Trop courte pour l'écran : prolongée jusqu'à la fin du mois qui atteint le bord droit.
@@ -771,6 +797,21 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
           </div>
         </div>
       </div>
+      {legende.length > 0 && (
+        <div className="tl-legende" aria-label="Légende des couleurs">
+          {legende.map((g) => (
+            <div key={g.titre} className="groupe-legende">
+              <span className="discret">{g.titre}</span>
+              {g.options.map((o) => (
+                <span key={o.libelle} className="entree-legende">
+                  <span className="pastille-legende" style={styleCouleur(o.couleur)} />
+                  {o.libelle}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

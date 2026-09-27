@@ -1348,3 +1348,15 @@ kbd.touche {
   border-radius: 5px;
 }
 kbd.touche svg.icone { margin: 0; }
+
+/* Timeline : légende des couleurs, sous la grille */
+.tl-legende { display: flex; flex-wrap: wrap; gap: 6px 24px; padding: 10px 2px 2px; font-size: 0.85em; }
+.groupe-legende { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.entree-legende { display: inline-flex; align-items: center; gap: 6px; color: var(--texte-doux); }
+.pastille-legende {
+  width: 18px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--barre-fond);
+  border: 1px solid color-mix(in srgb, var(--barre-texte) 22%, var(--barre-fond));
+}
