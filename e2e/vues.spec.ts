@@ -271,6 +271,10 @@ test.describe('timeline en arbre', () => {
     await expect(legende.locator('.groupe-legende').first()).toContainText('En cours')
     await expect(legende.locator('.groupe-legende').nth(1)).toContainText('Priorité · Tâches')
     await expect(legende.locator('.groupe-legende').nth(1)).toContainText('Haute')
+    // Juste sous la dernière ligne, pas en bas de la page.
+    const grille = (await page.locator('.timeline').boundingBox())!
+    expect((await legende.boundingBox())!.y - (grille.y + grille.height)).toBeLessThan(20)
+    expect(page.viewportSize()!.height - (grille.y + grille.height)).toBeGreaterThan(100)
 
     // Sans couleur selon une colonne, pas de légende.
     await page.getByRole('button', { name: 'Options' }).click()

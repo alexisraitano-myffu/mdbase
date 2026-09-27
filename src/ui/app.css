@@ -541,7 +541,7 @@ body.en-glisser { cursor: grabbing; user-select: none; }
 
 /* Timeline */
 .timeline-vue { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.timeline { flex: 1; overflow: auto; border-top: 1px solid var(--bordure); position: relative; }
+.timeline { flex: 0 1 auto; min-height: 0; overflow: auto; border-top: 1px solid var(--bordure); position: relative; }
 .tl-entete { position: sticky; top: 0; z-index: 4; display: flex; background: var(--fond); border-bottom: 1px solid var(--bordure); height: 52px; }
 .tl-coin { position: sticky; left: 0; z-index: 5; width: 240px; flex-shrink: 0; box-sizing: border-box; padding: 16px 8px 0; background: var(--fond); color: var(--discret); border-right: 1px solid var(--bordure); }
 .tl-graduations { position: relative; flex-shrink: 0; }
