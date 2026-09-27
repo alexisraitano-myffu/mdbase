@@ -117,6 +117,8 @@ type Axe = {
   couleur: ReglageCouleur
   /** Champs affichés sur les barres (`champs_carte` de la vue ou du niveau). */
   champs: Colonne[]
+  /** Titre écrit sur les barres (sinon seulement dans l'infobulle), `sans_titre`. */
+  titre: boolean
 }
 type Rangee = { ligne: LigneChargee; sortira: boolean; axe: Axe; plage: Plage | null; jalons: { colonne: Colonne; jour: string }[]; /** Couleur nommée de la barre, ou neutre. */ couleur: string | undefined }
 /** Rangées affichées : en-têtes de groupe (repliables), lignes (et leurs niveaux dépliés), et la rangée « + Nouvelle ». */
@@ -152,6 +154,7 @@ function axeDe(
   jalons: readonly string[] = [],
   niveau = false,
   champs: readonly string[] = [],
+  titre = true,
 ): Axe {
   const schema = depot.schema
   const colFin = fin ? colonneDe(schema, fin) : undefined
@@ -165,6 +168,7 @@ function axeDe(
     point: niveau && !colFin,
     couleur,
     champs: champs.flatMap((c) => colonneDe(schema, c) ?? []),
+    titre,
   }
 }
 
@@ -251,8 +255,9 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
         clesJalons ? clesJalons.split('|') : [],
         false,
         clesChamps ? clesChamps.split('|') : [],
+        vue.sansTitre !== true,
       ),
-    [depot, base, vue.champDebut, vue.champFin, clesJalons, clesChamps, schema, vue.couleur, vue.couleurPar], // eslint-disable-line react-hooks/exhaustive-deps -- le schéma change sans que le dépôt change
+    [depot, base, vue.champDebut, vue.champFin, clesJalons, clesChamps, vue.sansTitre, schema, vue.couleur, vue.couleurPar], // eslint-disable-line react-hooks/exhaustive-deps -- le schéma change sans que le dépôt change
   )
   const colDebut = axe.debut
   const colGroupe = vue.groupe ? groupables(schema).find((c) => c.cle === vue.groupe) : undefined
@@ -274,7 +279,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     const axeNiveau = (n: Noeud) => {
       if (!axes.has(n.niveau)) {
         const d = etat.bases.get(n.base)?.depot
-        axes.set(n.niveau, d ? axeDe(d, n.base, n.niveau, n.niveau.champDebut, n.niveau.champFin, n.niveau.champsJalons, true, n.niveau.champsCarte) : null)
+        axes.set(n.niveau, d ? axeDe(d, n.base, n.niveau, n.niveau.champDebut, n.niveau.champFin, n.niveau.champsJalons, true, n.niveau.champsCarte, n.niveau.sansTitre !== true) : null)
       }
       return axes.get(n.niveau)!
     }
@@ -772,6 +777,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         couleur={r.couleur}
                         jour={plage.debut}
                         titre={titre}
+                        masquerTitre={!r.axe.titre}
                         left={x(plage.debut) + px / 2}
                         geste={geste}
                         pose={pose === ligne.chemin}
@@ -788,6 +794,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         couleur={r.couleur}
                         plage={plage}
                         titre={titre}
+                        masquerTitre={!r.axe.titre}
                         // Les dates de début et de fin se lisent de part et d'autre de la barre.
                         {...champsDe(r)}
                         x={x}
@@ -828,6 +835,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                               couleur={s.couleur}
                               plage={p}
                               titre={nom}
+                              masquerTitre={!s.axe.titre}
                               // Les barres d'une rangée partagée se touchent : le début et la fin se lisent aux deux bouts, dans la barre.
                               {...champsDe(s)}
                               x={x}
@@ -904,6 +912,8 @@ function Barre(p: {
   couleur: string | undefined
   plage: Plage
   titre: string
+  /** Titre seulement dans l'infobulle (`sans_titre`). */
+  masquerTitre?: boolean
   champs: ReactNode
   /** Champs posés juste avant la barre (sa date de début) et juste après (sa date de fin). */
   avant: ReactNode
@@ -956,7 +966,7 @@ function Barre(p: {
             <span className="contenu-barre">
               {avant && p.coupee && <span className="champs-bord debut-dedans">{avant}</span>}
               <span className="titre-evt">
-                {p.titre}
+                {!p.masquerTitre && p.titre}
                 {p.champs}
               </span>
             </span>
@@ -968,7 +978,7 @@ function Barre(p: {
       {!dedans && (
         <span className="tl-titre-dehors" style={{ left: left + Math.max(largeur, 6) + 6 }}>
           {apres}
-          {p.titre}
+          {!p.masquerTitre && p.titre}
           {p.champs}
         </span>
       )}
@@ -986,6 +996,8 @@ function Point(p: {
   couleur: string | undefined
   jour: string
   titre: string
+  /** Titre seulement dans l'infobulle (`sans_titre`). */
+  masquerTitre?: boolean
   left: number
   geste: EnCours | undefined
   pose: boolean
@@ -1025,7 +1037,7 @@ function Point(p: {
       )}
       {!p.sansTitre && (
         <span className="tl-titre-dehors" style={{ left: p.left + dx + 12 }}>
-          {p.titre}
+          {!p.masquerTitre && p.titre}
           {p.champs}
         </span>
       )}

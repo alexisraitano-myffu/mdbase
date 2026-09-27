@@ -444,7 +444,7 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
           <OptionsBandes bandes={vue.bandes ?? []} changer={(bandes) => modifier({ bandes })} />
         </Section>
       )}
-      <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre={timeline ? 'Champs sur la barre' : 'Champs affichés'} />
+      <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre={timeline ? 'Champs sur la barre' : 'Champs affichés'} titreMasquable={timeline} />
     </div>
   )
 }
@@ -568,14 +568,16 @@ function CouleursOptions({ schema, colonne }: { schema: Schema; colonne: Colonne
 }
 
 /** Champs d'un niveau déplié affichés sur ses barres, pris dans sa base (`champs_carte` du niveau). */
-function ChampsNiveau({ schema, champs, changer }: { schema: Schema; champs: string[]; changer: (c: string[]) => void }) {
+function ChampsNiveau({ schema, champs, changer, sansTitre, changerTitre }: { schema: Schema; champs: string[]; changer: (c: string[]) => void; sansTitre: boolean; changerTitre: (visible: boolean) => void }) {
   const choisis = new Set(champs)
+  const titre = schema.colonnes.find((c) => c.cle === schema.champTitre)
   return (
     <details className="filtres-niveau" open={champs.length > 0 || undefined}>
       <summary>
         <Icone de={ChevronRight} className="chevron-details" taille={14} />
         Champs affichés{champs.length > 0 && ` (${champs.length})`}
       </summary>
+      {titre && <Visibilite libelle={titre.nom} icone={ICONES[titre.type]} visible={!sansTitre} changer={changerTitre} />}
       {schema.colonnes
         .filter((c) => c.cle !== schema.champTitre)
         .map((c) => (
@@ -640,7 +642,13 @@ function ReglagesNiveau(p: { schema: Schema; niveau: Niveau; changer: (m: Partia
         coche={niveau.surLaLigne === true}
         changer={(v) => p.changer({ surLaLigne: v || undefined })}
       />
-      <ChampsNiveau schema={schema} champs={niveau.champsCarte ?? []} changer={(c) => p.changer({ champsCarte: c.length > 0 ? c : undefined })} />
+      <ChampsNiveau
+        schema={schema}
+        champs={niveau.champsCarte ?? []}
+        changer={(c) => p.changer({ champsCarte: c.length > 0 ? c : undefined })}
+        sansTitre={niveau.sansTitre === true}
+        changerTitre={(v) => p.changer({ sansTitre: v ? undefined : true })}
+      />
       <details className="filtres-niveau" open={niveau.filtres.length > 0 || undefined}>
         <summary>
           <Icone de={ChevronRight} className="chevron-details" taille={14} />
@@ -760,10 +768,13 @@ function OptionsBandes(p: { bandes: Bande[]; changer: (b: Bande[]) => void }) {
 }
 
 /** Colonnes affichées sous le titre d'une carte, d'une case du calendrier ou d'une barre (`champs_carte`), dans l'ordre du schéma. */
-function ChampsAffiches({ schema, vue, modifier, titre }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void; titre: string }) {
+function ChampsAffiches({ schema, vue, modifier, titre, titreMasquable }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void; titre: string; titreMasquable?: boolean }) {
   const champs = new Set(vue.champsCarte ?? [])
+  // Timeline : le titre se retire aussi (la légende et l'infobulle le donnent).
+  const colTitre = titreMasquable ? schema.colonnes.find((c) => c.cle === schema.champTitre) : undefined
   return (
     <Section titre={titre}>
+      {colTitre && <Visibilite libelle={colTitre.nom} icone={ICONES[colTitre.type]} visible={vue.sansTitre !== true} changer={(v) => modifier({ sansTitre: !v })} />}
       {schema.colonnes
         .filter((c) => c.cle !== schema.champTitre)
         .map((c) => (

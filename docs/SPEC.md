@@ -333,7 +333,8 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
   - Une ligne liée à deux parents apparaît sous chacun. Une ligne déjà présente sur le chemin n'est pas redescendue (boucle de relations), et la profondeur est bornée à 5 niveaux.
   - Tout est déplié par défaut ; ▸ / ▾ replie une ligne, et ce choix est gardé dans le navigateur (pas dans le dossier).
   - **Sur la ligne du parent** [DÉCIDÉ, validé par Alex le 27/09/2026] : un niveau réglé « sur la ligne » ne prend pas de rangées à lui. Ses lignes se dessinent sur la rangée de leur parent, à leurs dates (un lot et ses phases successives sur une seule ligne, comme un Gantt). Celles qui se chevauchent s'empilent dans la rangée, qui s'agrandit. La barre du parent laisse la place (ses jalons restent) ; les barres gardent leur titre à l'intérieur, coupé si elles sont trop courtes, et se glissent comme les autres. Un tel niveau ne se déplie pas plus bas. Fichier : `sur_la_ligne: true` sur le niveau.
-  - **Champs affichés par niveau** [DÉCIDÉ, demandé par Alex le 27/09/2026] : chaque niveau choisit ses champs affichés parmi les colonnes de sa base, avec les règles de la vue : le début se lit avant la barre, la fin après, les autres après le titre. Sur la ligne du parent, où les barres se touchent, tous suivent le titre dans la barre. Fichier : `champs_carte` sur le niveau.
+  - **Champs affichés par niveau** [DÉCIDÉ, demandé par Alex le 27/09/2026] : chaque niveau choisit ses champs affichés parmi les colonnes de sa base, avec les règles de la vue : le début se lit avant la barre, la fin après, les autres après le titre. Sur la ligne du parent, où les barres se touchent, les dates restent dans la barre : le début à son bord gauche, la fin à son bord droit ; une barre trop courte lâche d'abord la fin, puis le début, pour garder le titre (la plage reste dans l'infobulle). Fichier : `champs_carte` sur le niveau.
+  - **Titre masquable** [DÉCIDÉ, demandé par Alex le 27/09/2026] : dans « Champs sur la barre » de la vue et « Champs affichés » de chaque niveau, le titre est une case comme les autres, cochée par défaut. Décochée, les barres (ou losanges) de la vue ou du niveau n'écrivent plus leur titre : la légende des couleurs et l'infobulle le donnent, et les autres champs affichés restent. La colonne des titres à gauche ne change pas. Fichier : `sans_titre: true`, sur la vue ou sur le niveau.
 - **Bandes de périodes** (timeline) [DÉCIDÉ, validé par Alex le 27/09/2026] : les lignes d'une autre base (moratoires, congés, sprints…) se dessinent en bandes verticales qui traversent toute la timeline, derrière les barres, à leur couleur, avec leur titre dans l'en-tête. Un clic sur le titre ouvre la ligne. Les bandes n'élargissent pas l'étendue de la timeline. Réglage « Bandes » dans « Options » : la base, ses champs de début et de fin, sa couleur, et la place des titres. Fichier : `bandes`, une liste de sources. Titres [DÉCIDÉ, demandé par Alex le 27/09/2026] : en haut (dans l'en-tête, par défaut) ou en bas (sous la dernière rangée), `titres: bas` ; un titre plus long que sa bande n'est pas coupé, il déborde à droite, et deux titres qui se toucheraient passent sur deux rangées.
 - **Raccourcis clavier** [DÉCIDÉ, validé par Alex le 27/09/2026] : un bouton en haut à droite, à côté du plein écran, ou la touche ? (hors saisie, menu et fenêtre) ouvre la liste de tous les raccourcis, rangés par endroit. Tout nouveau raccourci s'y ajoute (`src/ui/Raccourcis.tsx`).
 - **Légende des couleurs** (timeline) [DÉCIDÉ, validé par Alex le 27/09/2026] : sous la grille, les options de chaque colonne qui colore des barres (la vue, ses niveaux dépliés, ses bandes), avec leur couleur, pour lire une barre trop courte pour son titre. Rien à régler : elle apparaît dès qu'une couleur suit une colonne, et disparaît sinon.
@@ -351,6 +352,7 @@ champ_debut: debut      # calendrier : le champ date utilisé
 champ_fin: echeance     # optionnel
 champs_jalons: [revue]  # timeline seulement
 noms_jalons: true       # timeline : le nom de la colonne à côté de chaque losange
+sans_titre: true        # timeline : barres sans leur titre (légende et infobulle le donnent)
 champs_carte: [client]  # champs affichés, comme pour le kanban ; dans la timeline, le début se lit avant la barre et la fin après
 echelle: mois           # calendrier : mois | semaine ; timeline : semaine | mois | trimestre
 deplier:                # timeline seulement : relations dépliées sous chaque ligne
@@ -367,6 +369,7 @@ deplier:                # timeline seulement : relations dépliées sous chaque 
         champ_fin: fin
         sur_la_ligne: true  # les phases sur la rangée de leur version, pas en dessous
         champs_carte: [debut, fin]  # champs affichés, pris dans la base du niveau
+        sans_titre: true            # barres du niveau sans leur titre
 bandes:                 # timeline seulement : bandes verticales tirées d'une autre base
   - base: periodes
     champ_debut: debut

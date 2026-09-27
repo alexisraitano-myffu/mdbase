@@ -61,6 +61,8 @@ export type Niveau = {
   surLaLigne?: boolean
   /** Colonnes de la base liée affichées sur les barres du niveau (`champs_carte`). */
   champsCarte?: string[]
+  /** Barres du niveau sans leur titre (la légende et l'infobulle le donnent). */
+  sansTitre?: boolean
 }
 
 /** Timeline : bandes verticales tirées d'une autre base (moratoires, congés, sprints…), derrière les barres. */
@@ -108,6 +110,8 @@ export type Vue = {
   champsJalons?: string[]
   /** Timeline : le nom de la colonne à côté de chaque jalon. */
   nomsJalons?: boolean
+  /** Timeline : barres sans leur titre (la légende et l'infobulle le donnent). */
+  sansTitre?: boolean
   /** Calendrier et timeline : couleur fixe des barres (une des couleurs nommées). */
   couleur?: string
   /** Calendrier et timeline : colonne select dont l'option colore chaque barre ; l'emporte sur `couleur`. */
@@ -144,6 +148,7 @@ const REGLAGES = {
   champFin: 'champ_fin',
   champsJalons: 'champs_jalons',
   nomsJalons: 'noms_jalons',
+  sansTitre: 'sans_titre',
   couleur: 'couleur',
   couleurPar: 'couleur_par',
   echelle: 'echelle',
@@ -190,6 +195,7 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   if (champsCarte) r.champsCarte = champsCarte
   if (brut.apercu_corps === true) r.apercuCorps = true
   if (brut.noms_jalons === true) r.nomsJalons = true
+  if (brut.sans_titre === true) r.sansTitre = true
   const champDebut = texte(brut.champ_debut)
   if (champDebut) r.champDebut = champDebut
   const champFin = texte(brut.champ_fin)
@@ -265,6 +271,7 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
               deplier: niveaux(n.deplier, profondeur + 1),
               ...(n.sur_la_ligne === true && { surLaLigne: true }),
               ...(r.champsCarte && { champsCarte: r.champsCarte }),
+              ...(r.sansTitre && { sansTitre: true }),
             },
           ]
         })
@@ -393,6 +400,7 @@ function noeudNiveaux(doc: Document, niveaux: readonly Niveau[]): YAMLSeq {
     }
     if (n.surLaLigne) m.set('sur_la_ligne', true)
     if (n.champsCarte?.length) m.set('champs_carte', doc.createNode(n.champsCarte, { flow: true }))
+    if (n.sansTitre) m.set('sans_titre', true)
     if (n.deplier.length > 0) m.set('deplier', noeudNiveaux(doc, n.deplier))
     seq.items.push(m)
   }

@@ -205,6 +205,19 @@ describe('niveaux dépliés de la timeline', () => {
     expect(texte).toContain('    champs_carte: [ debut, fin ]\n')
     expect(lireVue(texte, 'v').vue!.deplier).toEqual(niveaux)
   })
+
+  it('titre retiré des barres : `sans_titre` sur la vue et sur un niveau, retiré quand on le remet', () => {
+    const vue = lireVue('type: timeline\nchamp_debut: debut\n', 'v').vue!
+    const niveaux = [{ relation: 'phases', champDebut: 'debut', champFin: 'fin', filtres: [], deplier: [], sansTitre: true }]
+    const texte = modifierVue('type: timeline\nchamp_debut: debut\n', vue, { sansTitre: true, deplier: niveaux })
+    expect(texte).toContain('sans_titre: true\n')
+    expect(texte).toContain('    sans_titre: true\n')
+    const relue = lireVue(texte, 'v').vue!
+    expect(relue.sansTitre).toBe(true)
+    expect(relue.deplier).toEqual(niveaux)
+    expect(modifierVue(texte, relue, { sansTitre: false, deplier: [{ ...niveaux[0]!, sansTitre: undefined }] })).not.toContain('sans_titre')
+    expect(lireVue('type: timeline\nsans_titre: oui\n', 'v').vue?.sansTitre).toBeUndefined()
+  })
 })
 
 describe('bandes de la timeline', () => {

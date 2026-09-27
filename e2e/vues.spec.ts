@@ -348,6 +348,29 @@ test.describe('timeline en arbre', () => {
     await expect(sous.locator('.titre-evt .champ-carte')).toHaveText('Normale')
   })
 
+  test('titre des barres retiré, pour la vue puis pour un niveau : il reste dans l’infobulle', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
+    const site = rangee(page, 'Site vitrine')
+    await expect(site.locator('.tl-barre').first()).toContainText('Site vitrine')
+
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await page.locator('.section-reglages', { hasText: 'Champs sur la barre' }).getByRole('checkbox', { name: 'Masquer Titre' }).uncheck()
+    const niveau = page.locator('.reglages-niveau').first()
+    await niveau.getByText('Champs affichés').click()
+    await niveau.getByRole('checkbox', { name: 'Masquer Titre' }).uncheck()
+    await page.keyboard.press('Escape')
+    await expect.poll(() => espace.lire('projets/_vues/feuille-de-route.yaml')).toMatch(/^sans_titre: true$/m)
+    expect(await espace.lire('projets/_vues/feuille-de-route.yaml')).toContain('    sans_titre: true\n')
+
+    await expect(site.locator('.tl-barre').first()).not.toContainText('Site vitrine')
+    await expect(site.locator('.tl-barre').first()).toHaveAttribute('title', /^Site vitrine · /)
+    const tache = page.locator('.tl-enfant', { hasText: 'Intégration' })
+    await expect(tache.locator('.tl-barre')).not.toContainText('Intégration')
+    // La colonne des titres, à gauche, garde les noms.
+    await expect(tache).toContainText('Intégration')
+  })
+
   test('réglages d’un niveau : sans fin, des losanges ; ses filtres ne touchent que lui', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
