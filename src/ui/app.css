@@ -53,6 +53,11 @@
   --barre-bordure: #d5d9df;
   --jalon: #e0781f;
   --bulle: #1f2328;
+
+  /* Mouvement : courbes partagées par toutes les animations */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 body { margin: 0; }
 button {
@@ -817,7 +822,7 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .boutons-accueil { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* Habillage « Îlots » : ce qui suit habille l'interface (contenu en panneau sur fond teinté, pilules).
-   Les animations viendront plus tard. */
+   Les animations sont à la fin du fichier. */
 button { border-radius: 8px; }
 
 /* Mise en page : barre latérale sur le fond, contenu en panneau surélevé */
@@ -1206,3 +1211,44 @@ kbd.touches svg.icone { margin: 0; }
 .en-onglet { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85em; color: var(--texte-doux); white-space: nowrap; cursor: pointer; }
 .reglages-rollup { min-width: 250px; gap: 0; padding: 4px 0 6px; }
 .ligne-reglage .choix { flex-shrink: 0; }
+
+/* Animations : chacune a une raison (d'où vient un panneau, confirmer un geste, montrer un état),
+   aucune ne dépasse 250 ms, et rien ne bouge sur les raccourcis clavier ni au survol. */
+
+/* Menus et panneaux flottants : ils grandissent depuis leur ancre (origine posée par Flottant). Pas de sortie. */
+.flottant { animation: apparition-flottant 150ms var(--ease-out); }
+@keyframes apparition-flottant { from { opacity: 0; transform: scale(0.97); } }
+
+/* Fenêtres : le voile s'assombrit, la fenêtre se pose au centre */
+.voile-fenetre { animation: fondu 200ms var(--ease-out); }
+.fenetre { animation: apparition-fenetre 200ms var(--ease-out); }
+@keyframes fondu { from { opacity: 0; } }
+.voile-fenetre.immediate, .voile-fenetre.immediate .fenetre { animation: none; }
+@keyframes apparition-fenetre { from { opacity: 0; transform: scale(0.96); } }
+
+/* Page : le panneau arrive de la droite quand il s'ouvre, pas quand on passe d'une ligne à l'autre */
+.cadre-page.apparition:not(.plein-ecran) { animation: apparition-page 220ms var(--ease-drawer); }
+@keyframes apparition-page { from { opacity: 0; transform: translateX(12px); } }
+
+/* Appui : les boutons d'action et les pilules s'enfoncent légèrement */
+:is(button.principal, button.danger, .pilule) { transition: transform 160ms var(--ease-out); }
+:is(button.principal, button.danger, .pilule):not(:disabled):active { transform: scale(0.97); }
+
+/* Plier / déplier : un seul chevron qui tourne */
+svg.pli { transition: transform 150ms var(--ease-out); }
+svg.pli.ouvert, .filtres-niveau[open] svg.chevron-details { transform: rotate(90deg); }
+svg.chevron-details { transition: transform 150ms var(--ease-out); }
+
+/* Timeline et calendrier : relâchée, la barre glisse jusqu'à son jour ; déplacée d'un jour à l'autre, elle se pose */
+.tl-barre.pose, .tl-point.pose { transition: left 150ms var(--ease-out), width 150ms var(--ease-out); }
+.cal-evt.pose { animation: pose-evt 150ms var(--ease-out); }
+@keyframes pose-evt { from { transform: scale(1.03); box-shadow: 0 6px 18px rgba(var(--ombre), 0.18); } }
+
+/* Mouvement réduit : des fondus, sans déplacement ni échelle */
+@media (prefers-reduced-motion: reduce) {
+  .flottant, .fenetre, .cadre-page.apparition:not(.plein-ecran) { animation-name: fondu; }
+  .cal-evt.pose { animation: none; }
+  .tl-barre.pose, .tl-point.pose { transition: none; }
+  :is(button.principal, button.danger, .pilule):not(:disabled):active { transform: none; }
+  svg.pli, svg.chevron-details, input.interrupteur, input.interrupteur::after { transition: none; }
+}

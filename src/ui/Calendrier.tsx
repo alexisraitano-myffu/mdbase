@@ -25,7 +25,7 @@ import {
 import type { ModificationVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { ValeurCompacte } from './cellules'
-import { glisser } from './glisser'
+import { glisser, usePose } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Icone } from './icones'
@@ -68,6 +68,7 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
   const aujourdhui = useAujourdhui()
   const [curseur, setCurseur] = useState(aujourdhui)
   const [enCours, setEnCours] = useState<EnCours | null>(null)
+  const [pose, poser] = usePose()
   const schema = depot.schema
   const colDebut = vue.champDebut ? colonneDe(schema, vue.champDebut) : undefined
   const colFin = vue.champFin ? colonneDe(schema, vue.champFin) : undefined
@@ -116,6 +117,7 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
       },
       finir: () => {
         setEnCours(null)
+        poser(ligne.chemin)
         const modifs = apresGeste(ligne, geste, jours, colDebut, colFin)
         if (Object.keys(modifs).length === 0) return
         retenir(ligne.id)
@@ -174,6 +176,7 @@ export function Calendrier({ espace, base, depot, vue, modifierVue, lignesVue, v
             couleur={(l) => couleurDeLigne(l, schema, vue)}
             contenu={(l) => <ContenuEvt base={base} ligne={l} titre={titreLigne(l, schema.champTitre)} champs={champs} />}
             enCours={enCours?.chemin}
+            pose={pose}
             modifiable={modifiable}
             finModifiable={finModifiable}
             commencer={commencer}
@@ -224,6 +227,8 @@ function Semaine(p: {
   cible: Plage | null
   contenu: (l: LigneChargee) => ReactNode
   enCours: string | undefined
+  /** Ligne relâchée à l'instant, qui se pose à son jour. */
+  pose: string | null
   modifiable: boolean
   finModifiable: boolean
   commencer: (e: PointerReact, l: LigneChargee, geste: Geste) => void
@@ -266,6 +271,7 @@ function Semaine(p: {
               s.coupeApres && 'coupe-apres',
               sortira && 'sortira',
               p.enCours === ligne.chemin && (p.cible ? 'origine' : 'glisse'),
+              p.pose === ligne.chemin && 'pose',
               p.modifiable && 'deplacable',
               couleur && 'coloree',
             ]

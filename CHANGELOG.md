@@ -93,6 +93,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Panneaux de réglages (Options, page, rollup, filtres d'un dashboard) en sections séparées d'un trait fin : libellé à gauche, réglage à droite, interrupteurs pour les réglages oui / non, œil pour les colonnes et champs affichés.
 - Champs de saisie des menus et fenêtres à la même hauteur, avec le même bord et le même anneau de focus.
 - Derniers symboles Unicode (avertissement, croix, flèches) remplacés par des icônes Lucide ; une plage de dates s'écrit « du … au … ».
+- Petites animations, toutes sous 250 ms : les menus grandissent depuis leur bouton, les fenêtres se posent au centre, le panneau de page arrive de la droite (pas en passant d'une ligne à l'autre), les boutons d'action et les pilules s'enfoncent à l'appui, les chevrons de groupe tournent, et une barre relâchée dans la timeline ou le calendrier glisse jusqu'à son jour. Rien ne bouge sur les raccourcis clavier (recherche, assistant, consultation) ; avec « réduire les animations », de simples fondus.
 
 ### Fixed
 - Assistant IA : une vue proposée entrait dans l'état de l'espace dès la proposition (un onglet sans fichier pouvait apparaître, même en annulant), et la vraie était ensuite créée avec un suffixe « -2 ».

@@ -61,7 +61,9 @@ export function Flottant(p: {
       const hauteurFenetre = window.innerHeight
       el.style.maxHeight = `${hauteurFenetre - 2 * MARGE}px`
       el.style.maxWidth = `${largeurFenetre - 2 * MARGE}px`
-      const { width, height } = el.getBoundingClientRect()
+      // Tailles hors transform : l'apparition part d'une échelle réduite.
+      const width = el.offsetWidth
+      const height = el.offsetHeight
 
       let gauche = r.left
       if (gauche + width > largeurFenetre - MARGE) gauche = r.right - width
@@ -72,6 +74,8 @@ export function Flottant(p: {
         const auDessus = r.top - height - 2
         haut = auDessus >= MARGE ? auDessus : Math.max(MARGE, hauteurFenetre - height - MARGE)
       }
+      // Le panneau grandit depuis son ancre : du haut s'il s'ouvre dessous, du bas s'il s'ouvre dessus.
+      el.style.transformOrigin = `${gauche + width / 2 < r.left + r.width / 2 ? 'right' : 'left'} ${haut < r.top ? 'bottom' : 'top'}`
       el.style.left = `${gauche}px`
       el.style.top = `${haut}px`
       el.style.visibility = 'visible'

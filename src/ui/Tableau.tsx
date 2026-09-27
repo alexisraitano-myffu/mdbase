@@ -28,7 +28,7 @@ import { FenetreImport } from './Echange'
 import { Icone, ICONES } from './icones'
 import { PiedTableau } from './PiedTableau'
 import { useConsultation } from './mode'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, Plus } from 'lucide-react'
 
 const HAUTEUR_LIGNE = 34
 const HAUTEUR_GROUPE = 40
@@ -577,7 +577,7 @@ export function Tableau(p: Props) {
             if (e.type === 'groupe') {
               return (
                 <div key={`g:${e.groupe.cle}`} {...commun} className="rangee-groupe" onClick={() => basculerGroupe(e.groupe.cle)}>
-                  <Icone de={e.replie ? ChevronRight : ChevronDown} className="triangle" />
+                  <Icone de={ChevronRight} className={`triangle pli ${e.replie ? '' : 'ouvert'}`} />
                   {colonneGroupe && (colonneGroupe.type === 'select' || colonneGroupe.type === 'multiselect') && e.groupe.cle !== '∅' ? (
                     <Pastille label={e.groupe.libelle} couleur={e.groupe.couleur} />
                   ) : (

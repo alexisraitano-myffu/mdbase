@@ -1,4 +1,4 @@
-import type { PointerEvent as PointerReact } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent as PointerReact } from 'react'
 
 type Suivi = {
   /** Pendant le glisser, une fois le seuil franchi : déplacement depuis le départ. */
@@ -51,4 +51,20 @@ export function glisser(depart: PointerReact, suivi: Suivi) {
   window.addEventListener('pointercancel', abandon)
   window.addEventListener('keydown', echap)
   document.body.classList.add('en-glisser')
+}
+
+/**
+ * Ligne qu'on vient de relâcher : elle se pose à son jour (une classe `pose`
+ * le temps de l'animation), puis redevient une ligne comme les autres.
+ */
+export function usePose(): [string | null, (chemin: string) => void] {
+  const [pose, setPose] = useState<string | null>(null)
+  const minuteur = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(minuteur.current), [])
+  const poser = useCallback((chemin: string) => {
+    clearTimeout(minuteur.current)
+    setPose(chemin)
+    minuteur.current = setTimeout(() => setPose(null), 250)
+  }, [])
+  return [pose, poser]
 }

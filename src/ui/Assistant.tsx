@@ -252,7 +252,8 @@ export function Assistant(p: { espace: DepotEspace; dossier: string; baseOuverte
   }
 
   return (
-    <Fenetre titre="Assistant IA" fermer={p.fermer}>
+    // Ouverte par Ctrl+J, plusieurs fois par jour : sans animation.
+    <Fenetre titre="Assistant IA" fermer={p.fermer} immediate>
       <div className="assistant-ia">
         <div className="fil-ia" ref={fil}>
           {tours.length === 0 && <p className="discret">Demande une modification en français : l’assistant te montre ce qu’il ferait avant de toucher à quoi que ce soit.</p>}

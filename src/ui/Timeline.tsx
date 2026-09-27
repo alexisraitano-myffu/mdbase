@@ -27,9 +27,9 @@ import { useLancer } from './actions'
 import { ValeurCompacte } from './cellules'
 import { dateCourte, Echelles, plageEnTexte, titreLigne } from './Calendrier'
 import { titreDe, useEspace } from './contexte-espace'
-import { glisser } from './glisser'
+import { glisser, usePose } from './glisser'
 import { useAujourdhui } from './useAujourdhui'
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 import { Icone } from './icones'
 import { useConsultation } from './mode'
 import { couleurDeLigne, type ReglageCouleur } from '../core/couleurs'
@@ -151,6 +151,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   const lancer = useLancer()
   const aujourdhui = useAujourdhui()
   const [enCours, setEnCours] = useState<EnCours | null>(null)
+  const [pose, poser] = usePose()
   // Groupes repliés : le temps de la session, comme au tableau.
   const [replies, setReplies] = useState<ReadonlySet<string>>(new Set())
   const [lignesRepliees, basculerLigne] = useReplis(`mdbase.timeline.${base}.${vue.id}`)
@@ -312,6 +313,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
       },
       finir: () => {
         setEnCours(null)
+        poser(r.ligne.chemin)
         const modifs = apresGeste(r.ligne, geste, jours, debut, fin)
         if (Object.keys(modifs).length === 0) return
         if (premier(r)) retenir(r.ligne.id)
@@ -381,7 +383,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                 return (
                   <div key={`groupe/${g.cle}`} className="tl-ligne tl-groupe" style={{ transform: `translateY(${v.start}px)` }}>
                     <div className="tl-titre" onClick={() => basculer(g.cle)}>
-                      <Icone de={el.replie ? ChevronRight : ChevronDown} className="triangle" />
+                      <Icone de={ChevronRight} className={`triangle pli ${el.replie ? '' : 'ouvert'}`} />
                       <span className="libelle-groupe">{g.libelle}</span>
                       <span className="discret compte-groupe">{g.lignes.length}</span>
                       {g.cle !== CLE_VIDE && !lecture && (
@@ -448,7 +450,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                           basculerLigne(el.cle)
                         }}
                       >
-                        <Icone de={el.replie ? ChevronRight : ChevronDown} />
+                        <Icone de={ChevronRight} className={`pli ${el.replie ? '' : 'ouvert'}`} />
                       </button>
                     )}
                     {titre}
@@ -475,6 +477,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         titre={titre}
                         left={x(plage.debut) + px / 2}
                         geste={geste}
+                        pose={pose === ligne.chemin}
                         commencer={modifiable ? (ev) => commencer(ev, r, 'deplacer') : undefined}
                         ouvrir={() => ouvrirRangee(r)}
                       />
@@ -496,6 +499,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                         x={x}
                         px={px}
                         geste={geste}
+                        pose={pose === ligne.chemin}
                         sortira={sortira}
                         commencer={modifiable ? (ev, geste) => commencer(ev, r, geste) : undefined}
                         finModifiable={r.axe.fin !== undefined && estSaisie(r.axe.fin)}
@@ -545,6 +549,8 @@ function Barre(p: {
   x: (j: string) => number
   px: number
   geste: EnCours | undefined
+  /** Relâchée à l'instant : elle glisse jusqu'à son jour. */
+  pose: boolean
   sortira: boolean
   commencer: ((e: PointerReact, geste: Geste) => void) | undefined
   finModifiable: boolean
@@ -567,7 +573,7 @@ function Barre(p: {
   return (
     <>
       <div
-        className={`tl-barre ${p.geste ? 'glisse' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''} ${p.couleur ? 'coloree' : ''}`}
+        className={`tl-barre ${p.geste ? 'glisse' : ''} ${p.pose ? 'pose' : ''} ${p.sortira ? 'sortira' : ''} ${p.commencer ? 'deplacable' : ''} ${p.couleur ? 'coloree' : ''}`}
         style={{ left, width: Math.max(largeur, 6), ...styleCouleur(p.couleur) }}
         title={`${p.titre} · ${plageEnTexte(p.plage)}`}
         onPointerDown={p.commencer ? (e) => p.commencer!(e, 'deplacer') : undefined}
@@ -593,12 +599,12 @@ function Barre(p: {
 }
 
 /** Ligne d'un niveau déplié sans fin : un losange à sa date, qui se glisse. */
-function Point(p: { couleur: string | undefined; jour: string; titre: string; left: number; geste: EnCours | undefined; commencer: ((e: PointerReact) => void) | undefined; ouvrir: () => void }) {
+function Point(p: { couleur: string | undefined; jour: string; titre: string; left: number; geste: EnCours | undefined; pose: boolean; commencer: ((e: PointerReact) => void) | undefined; ouvrir: () => void }) {
   const dx = p.geste?.dx ?? 0
   return (
     <>
       <span
-        className={`tl-jalon tl-point ${p.commencer ? 'deplacable' : ''} ${p.geste ? 'glisse' : ''} ${p.couleur ? 'coloree' : ''}`}
+        className={`tl-jalon tl-point ${p.commencer ? 'deplacable' : ''} ${p.geste ? 'glisse' : ''} ${p.pose ? 'pose' : ''} ${p.couleur ? 'coloree' : ''}`}
         style={{ left: p.left + dx, ...styleCouleur(p.couleur) }}
         title={`${p.titre} · ${dateCourte(p.jour)}`}
         onPointerDown={p.commencer}

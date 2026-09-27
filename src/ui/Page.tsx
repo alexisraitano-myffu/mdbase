@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import { appliquerVue, valeursHeritees } from '../core/filtres'
@@ -124,11 +124,23 @@ export function Page(p: Props) {
   )
 }
 
+/**
+ * Vrai quand le panneau de page apparaît, faux quand on passe d'une ligne à
+ * l'autre (la page est alors remontée) : seule l'apparition glisse.
+ */
+let derniereFermeture = -Infinity
+function useApparition(): boolean {
+  const [apparition] = useState(() => performance.now() - derniereFermeture > 50)
+  useEffect(() => () => void (derniereFermeture = performance.now()), [])
+  return apparition
+}
+
 /** Panneau à droite, étirable par son bord gauche ; plein écran, il prend toute la place. */
 function Cadre({ pleinEcran, children }: { pleinEcran: boolean; children: ReactNode }) {
   const [largeur, saisir] = useLargeurPanneau()
+  const apparition = useApparition()
   return (
-    <div className={`cadre-page ${pleinEcran ? 'plein-ecran' : ''}`} style={pleinEcran ? undefined : { width: largeur }}>
+    <div className={`cadre-page ${pleinEcran ? 'plein-ecran' : ''} ${apparition ? 'apparition' : ''}`} style={pleinEcran ? undefined : { width: largeur }}>
       {!pleinEcran && <div className="poignee-page" onPointerDown={saisir} title="Tirer pour élargir" />}
       <aside className={`page ${pleinEcran ? 'plein-ecran' : ''}`}>{children}</aside>
     </div>
