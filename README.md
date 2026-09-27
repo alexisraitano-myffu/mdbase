@@ -23,12 +23,12 @@ Tableaux, kanban, calendrier, timeline, relations entre bases, rollups, formules
 - **Mode consultation** (`Ctrl+E` ou `⌘E`, ou l'icône en haut à droite) : tout passe en lecture seule, il ne reste que tes données, les onglets de vues et les filtres rapides.
 - **Import et export** : une vue en tableau Markdown, en CSV ou en image PNG (la timeline entière, par exemple) ; un CSV en nouvelle base ou en lignes ajoutées.
 - **Tableau comme dans un tableur** : sélection de lignes pour agir en lot (modifier, dupliquer, supprimer), plage de cellules tracée à la souris, copier-coller avec Excel ou du Markdown (en remplaçant ou en lignes nouvelles), poignée pour recopier une valeur, et annuler / rétablir (`Ctrl+Z`, `Ctrl+Maj+Z`).
-- **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut. Tu lui demandes en français, il propose, tu confirmes :
+- **Assistant IA** (`Ctrl+J` ou `⌘J`), désactivé par défaut, dans un panneau à droite de ta base. Tu lui demandes en français, il propose, tu confirmes :
   - **les données** : modifier ou créer des lignes (« passe les tâches en retard en priorité haute »), écrire le contenu d'une page ;
   - **la structure** : créer une base, ajouter, renommer ou supprimer des colonnes (relations, rollups et formules compris), créer ou régler des vues avec leurs filtres, tris et groupements (et pour une timeline : jalons, couleurs, niveaux dépliés par relation, bandes de périodes), créer des dashboards. Une colonne qu'il crée peut être remplie dans la même demande ;
   - **les suppressions** (lignes, colonnes, vues, dashboards, bases) : seulement si tu les demandes, en rouge dans l'aperçu avec ce qu'elles touchent.
 
-  Rien n'est écrit avant « Appliquer », et un plan appliqué s'annule d'un `Ctrl+Z` (sauf ce qui a été supprimé dans la structure). C'est une conversation : il pose une question quand c'est ambigu, retient tes préférences et peut enregistrer des procédures nommées (skills) dans le dossier. Il se branche sur n'importe quel service compatible OpenAI, distant ou local (Ollama, LM Studio) : tu fournis l'adresse, ta clé et le modèle ; la clé reste dans ton navigateur.
+  Rien n'est écrit avant « Appliquer », et un plan appliqué s'annule d'un `Ctrl+Z` (sauf ce qui a été supprimé dans la structure). C'est une conversation : il pose une question quand c'est ambigu, retient tes préférences et peut enregistrer des procédures nommées (skills) dans le dossier. La réponse s'affiche au fil de l'eau ; une longue demande continue même panneau fermé, et « Arrêter » la coupe. Il se branche sur n'importe quel service compatible OpenAI, distant ou local (Ollama, LM Studio) : tu fournis l'adresse, ta clé et le modèle ; la clé reste dans ton navigateur.
 - **Pensé pour la synchro** : relecture du dossier au retour sur l'onglet, écriture sûre quand un fichier a changé ailleurs, détection des copies de conflit OneDrive et des identifiants en double.
 
 ![Timeline groupée par projet](docs/captures/timeline.png)

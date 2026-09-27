@@ -1,5 +1,5 @@
 import type { DepotEspace } from '../depot-espace'
-import type { MessageIA, ModeleIA } from './modele'
+import type { MessageIA, ModeleIA, RequeteIA } from './modele'
 import { CONSIGNE, decrireEspace, OUTILS } from './outils'
 import { ErreurProposition, validerAppel, type ActionMemoire, type AppelValide, type Operation, type Plan, type SkillPropose } from './plan'
 import { Brouillon, type ActionStructure, type ActionSuite } from './structure'
@@ -25,6 +25,9 @@ export type OptionsDemande = {
   baseOuverte: string | null
   /** Échanges précédents, du plus ancien au plus récent ; seuls les derniers sont renvoyés. */
   historique?: readonly Echange[]
+  /** Transmis au modèle : arrêt par l'utilisateur, et réponse suivie au fil de l'eau. */
+  signal?: RequeteIA['signal']
+  progression?: RequeteIA['progression']
 }
 
 /** Échanges renvoyés au modèle : assez pour suivre une conversation, sans alourdir chaque demande. */
@@ -33,7 +36,7 @@ export const ECHANGES_MAX = 10
 const RELANCES = 1
 
 /** Certains modèles écrivent leur raisonnement entre balises `<think>` : il n'est pas montré. */
-const sansReflexion = (texte: string) => texte.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim()
+export const sansReflexion = (texte: string) => texte.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim()
 
 export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: string, o: OptionsDemande): Promise<Proposition> {
   const assistant = await espace.assistant.lire()
@@ -47,7 +50,7 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
     { role: 'user', contenu: demande },
   ]
   for (let essai = 0; ; essai++) {
-    const reponse = await modele({ messages, outils: OUTILS })
+    const reponse = await modele({ messages, outils: OUTILS, signal: o.signal, progression: o.progression })
     if (reponse.appels.length === 0) {
       return { type: 'reponse', texte: sansReflexion(reponse.texte) || 'Le modèle n’a rien proposé.', memoire: [] }
     }
@@ -70,7 +73,8 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
       const structure = valides.flatMap((r): ActionStructure[] => (r.type === 'structure' ? r.actions : []))
       const suite = valides.flatMap((r): ActionSuite[] => (r.type === 'suite' ? [r.action] : []))
       const memoire = valides.flatMap((r): ActionMemoire[] => (r.type === 'memoire' ? [r.action] : []))
-      const message = valides.flatMap((r) => (r.type === 'reponse' && r.texte ? [r.texte] : [])).join('\n')
+      // Le texte écrit à côté des appels a été montré au fil de l'eau : il reste, à défaut d'une réponse explicite.
+      const message = valides.flatMap((r) => (r.type === 'reponse' && r.texte ? [r.texte] : [])).join('\n') || sansReflexion(reponse.texte)
       if (operations.length > 0 || skills.length > 0 || structure.length > 0 || suite.length > 0) {
         return { type: 'plan', plan: { structure, operations, suite, skills }, message, memoire }
       }

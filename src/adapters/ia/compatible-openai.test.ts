@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DemandeArretee } from '../../core/ia/modele'
 import { adresseComplete, listerModeles, modeleCompatibleOpenAI } from './compatible-openai'
 
 const CONNEXION = { adresse: 'https://exemple.test/v1/', cle: ' secret ', modele: 'qwen' }
@@ -14,6 +15,26 @@ function faux(reponse: Response | Error) {
 }
 
 const json = (corps: unknown, status = 200) => new Response(JSON.stringify(corps), { status, headers: { 'Content-Type': 'application/json' } })
+
+/** Réponse au fil de l'eau : chaque morceau est envoyé tel quel ; `puisSilence` laisse le flux ouvert sans plus rien envoyer. */
+function flux(morceaux: string[], puisSilence = false) {
+  const requetes: RequestInit[] = []
+  const envoyer = (async (_url: string, init: RequestInit) => {
+    requetes.push(init)
+    const encodeur = new TextEncoder()
+    const corps = new ReadableStream<Uint8Array>({
+      start(c) {
+        for (const m of morceaux) c.enqueue(encodeur.encode(m))
+        if (!puisSilence) c.close()
+        // Comme `fetch` : une requête coupée fait échouer la lecture du corps.
+        init.signal?.addEventListener('abort', () => c.error(new DOMException('aborted', 'AbortError')))
+      },
+    })
+    return new Response(corps, { headers: { 'Content-Type': 'text/event-stream' } })
+  }) as typeof fetch
+  return { envoyer, requetes }
+}
+const evt = (delta: unknown) => `data: ${JSON.stringify({ choices: [{ delta }] })}\n\n`
 
 describe('connecteur compatible OpenAI', () => {
   it('adresse de base ou complète', () => {
@@ -46,6 +67,7 @@ describe('connecteur compatible OpenAI', () => {
       tools: [{ type: 'function', function: { name: 'repondre', description: 'd', parameters: { type: 'object' } } }],
       tool_choice: 'auto',
       temperature: 0,
+      stream: true,
     })
   })
 
@@ -72,6 +94,50 @@ describe('connecteur compatible OpenAI', () => {
     await expect(modeleCompatibleOpenAI(CONNEXION, refus.envoyer)({ messages: [], outils: [] })).rejects.toThrow('Le service a répondu : clé refusée (invalid token)')
     const injoignable = faux(new TypeError('Failed to fetch'))
     await expect(modeleCompatibleOpenAI(CONNEXION, injoignable.envoyer)({ messages: [], outils: [] })).rejects.toThrow(/Service injoignable.*CORS/)
+  })
+
+  it('réponse au fil de l’eau : texte et appels recollés, progression à chaque morceau', async () => {
+    const f = flux([
+      evt({ content: 'Je ' }),
+      evt({ content: 'propose' }) + evt({ tool_calls: [{ index: 0, id: 'c1', function: { name: 'modifier_lignes', arguments: '{"ba' } }] }),
+      // Un évènement coupé entre deux morceaux du flux.
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"argum',
+      'ents":"se\\":1}"}}]}}]}\n\n',
+      evt({ tool_calls: [{ index: 1, id: 'c2', function: { name: 'repondre', arguments: '{}' } }] }),
+      'data: [DONE]\n\n',
+    ])
+    const vus: unknown[] = []
+    const r = await modeleCompatibleOpenAI(CONNEXION, f.envoyer)({ messages: [], outils: [], progression: (p) => vus.push(p) })
+    expect(r).toEqual({
+      texte: 'Je propose',
+      appels: [
+        { id: 'c1', nom: 'modifier_lignes', arguments: '{"base":1}' },
+        { id: 'c2', nom: 'repondre', arguments: '{}' },
+      ],
+    })
+    expect(vus[0]).toEqual({ texte: 'Je ', outils: [] })
+    expect(vus.at(-1)).toEqual({ texte: 'Je propose', outils: ['modifier_lignes', 'repondre'] })
+  })
+
+  it('erreur envoyée dans le flux : levée en français', async () => {
+    const f = flux([evt({ content: 'a' }), `data: ${JSON.stringify({ error: { message: 'quota dépassé' } })}\n\n`])
+    await expect(modeleCompatibleOpenAI(CONNEXION, f.envoyer)({ messages: [], outils: [] })).rejects.toThrow('Le service a répondu : quota dépassé')
+  })
+
+  it('silence prolongé : demande abandonnée, avec le délai dans le message', async () => {
+    const f = flux([evt({ content: 'début' })], true)
+    await expect(modeleCompatibleOpenAI(CONNEXION, f.envoyer, 30)({ messages: [], outils: [] })).rejects.toThrow('Plus rien reçu du service depuis 0.03 s')
+  })
+
+  it('arrêt par l’utilisateur : requête coupée, `DemandeArretee` levée', async () => {
+    const f = flux([evt({ content: 'début' })], true)
+    const arret = new AbortController()
+    const attente = modeleCompatibleOpenAI(CONNEXION, f.envoyer, 5000)({ messages: [], outils: [], signal: arret.signal, progression: () => arret.abort() })
+    await expect(attente).rejects.toBeInstanceOf(DemandeArretee)
+    expect(f.requetes[0]!.signal?.aborted).toBe(true)
+    // Déjà arrêtée : aucun appel réseau.
+    await expect(modeleCompatibleOpenAI(CONNEXION, f.envoyer)({ messages: [], outils: [], signal: arret.signal })).rejects.toBeInstanceOf(DemandeArretee)
+    expect(f.requetes).toHaveLength(1)
   })
 
   it('liste des modèles : seulement ceux de discussion, triés ; vide si le service ne répond pas', async () => {

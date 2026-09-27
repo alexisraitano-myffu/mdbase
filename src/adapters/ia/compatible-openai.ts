@@ -1,4 +1,4 @@
-import type { MessageIA, ModeleIA } from '../../core/ia/modele'
+import { DemandeArretee, type MessageIA, type ModeleIA, type RequeteIA, type ReponseIA } from '../../core/ia/modele'
 
 // Connecteur générique (spec §12, « Module IA ») : tout service qui parle le
 // format `/chat/completions` d'OpenAI avec appels d'outils, distant (OVH,
@@ -13,7 +13,11 @@ export type Connexion = {
   modele: string
 }
 
-const DELAI_MS = 60_000
+/**
+ * Silence au bout duquel une demande est abandonnée. La réponse arrive au fil
+ * de l'eau : un long plan n'est jamais coupé tant que le service envoie quelque chose.
+ */
+const INACTIVITE_MS = 60_000
 
 export function adresseComplete(adresse: string): string {
   const a = adresse.trim().replace(/\/+$/, '')
@@ -37,8 +41,75 @@ function versOpenAI(m: MessageIA): Record<string, unknown> {
   }
 }
 
-type ReponseOpenAI = {
-  choices?: { message?: { content?: string | null; tool_calls?: { id?: string; function?: { name?: string; arguments?: unknown } }[] } }[]
+type AppelOpenAI = { index?: number; id?: string; function?: { name?: string; arguments?: unknown } }
+type ReponseOpenAI = { choices?: { message?: { content?: string | null; tool_calls?: AppelOpenAI[] } }[] }
+type MorceauOpenAI = { choices?: { delta?: { content?: string | null; tool_calls?: AppelOpenAI[] } }[]; error?: { message?: string } | string }
+
+/** Certains serveurs renvoient les arguments déjà décodés. */
+const argumentsBruts = (a: unknown) => (typeof a === 'string' ? a : JSON.stringify(a ?? {}))
+
+/** Réponse d'un service qui ignore `stream` et renvoie tout d'un bloc. */
+function lireMessage(json: ReponseOpenAI): ReponseIA {
+  const message = json.choices?.[0]?.message
+  if (!message) throw new Error('Réponse du service illisible : aucun message.')
+  return {
+    texte: message.content ?? '',
+    appels: (message.tool_calls ?? []).map((t, i) => ({ id: t.id || `appel${i}`, nom: t.function?.name ?? '', arguments: argumentsBruts(t.function?.arguments) })),
+  }
+}
+
+/**
+ * Réponse au fil de l'eau (évènements `data:` du format OpenAI) : le texte et
+ * les appels d'outils arrivent par morceaux, recollés ici. `recu` est appelé à
+ * chaque morceau, même vide (un modèle qui raisonne envoie sans rien écrire).
+ */
+async function lireFlux(corps: ReadableStream<Uint8Array>, recu: () => void, progression: RequeteIA['progression']): Promise<ReponseIA> {
+  const lecteur = corps.getReader()
+  const decodeur = new TextDecoder()
+  let reste = ''
+  let texte = ''
+  const appels: { id?: string; nom: string; arguments: string }[] = []
+  for (;;) {
+    const { done, value } = await lecteur.read()
+    if (done) break
+    recu()
+    reste += decodeur.decode(value, { stream: true })
+    const lignes = reste.split(/\r?\n/)
+    reste = lignes.pop() ?? ''
+    let nouveau = false
+    for (const ligne of lignes) {
+      if (!ligne.startsWith('data:')) continue
+      const donnee = ligne.slice(5).trim()
+      if (donnee === '' || donnee === '[DONE]') continue
+      let morceau: MorceauOpenAI
+      try {
+        morceau = JSON.parse(donnee) as MorceauOpenAI
+      } catch {
+        continue // ligne coupée ou commentaire du service : ignorée
+      }
+      if (morceau.error) throw new Error(`Le service a répondu : ${typeof morceau.error === 'string' ? morceau.error : (morceau.error.message ?? 'erreur')}`)
+      const delta = morceau.choices?.[0]?.delta
+      if (!delta) continue
+      if (delta.content) {
+        texte += delta.content
+        nouveau = true
+      }
+      for (const t of delta.tool_calls ?? []) {
+        const a = (appels[typeof t.index === 'number' ? t.index : appels.length] ??= { nom: '', arguments: '' })
+        if (t.id) a.id = t.id
+        if (t.function?.name) a.nom ||= t.function.name
+        const args = t.function?.arguments
+        if (typeof args === 'string') a.arguments += args
+        else if (args !== undefined) a.arguments = argumentsBruts(args)
+        nouveau = true
+      }
+    }
+    if (nouveau) progression?.({ texte, outils: appels.flatMap((a) => (a?.nom ? [a.nom] : [])) })
+  }
+  return {
+    texte,
+    appels: appels.flatMap((a, i) => (a ? [{ id: a.id || `appel${i}`, nom: a.nom, arguments: a.arguments || '{}' }] : [])),
+  }
 }
 
 async function messageErreur(r: Response): Promise<string> {
@@ -73,43 +144,55 @@ export async function listerModeles(c: Pick<Connexion, 'adresse' | 'cle'>, envoy
 /** Modèles listés par les services mais inutilisables ici : voix, images, vecteurs, modération. */
 const PAS_DE_DISCUSSION = /whisper|tts|diffusion|embed|bge|guard|rerank|moderation|ocr|dall-e|transcribe/i
 
-/** `envoyer` est injectable pour les tests ; par défaut, le `fetch` du navigateur. */
-export function modeleCompatibleOpenAI(c: Connexion, envoyer: typeof fetch = (...a) => fetch(...a)): ModeleIA {
-  return async ({ messages, outils }) => {
+/** `envoyer` et `inactivite` sont réglables pour les tests ; par défaut, le `fetch` du navigateur et une minute. */
+export function modeleCompatibleOpenAI(c: Connexion, envoyer: typeof fetch = (...a) => fetch(...a), inactivite = INACTIVITE_MS): ModeleIA {
+  return async ({ messages, outils, signal, progression }) => {
+    if (signal?.aborted) throw new DemandeArretee()
     const arret = new AbortController()
-    const minuteur = setTimeout(() => arret.abort(), DELAI_MS)
-    let r: Response
+    let silence = false
+    let minuteur: ReturnType<typeof setTimeout> | undefined
+    const recu = () => {
+      clearTimeout(minuteur)
+      minuteur = setTimeout(() => {
+        silence = true
+        arret.abort()
+      }, inactivite)
+    }
+    const arreter = () => arret.abort()
+    signal?.addEventListener('abort', arreter)
+    /** Une coupure voulue (arrêt, silence) l'emporte sur l'erreur réseau qu'elle provoque. */
+    const coupure = () =>
+      signal?.aborted ? new DemandeArretee() : silence ? new Error(`Plus rien reçu du service depuis ${inactivite / 1000} s : demande abandonnée.`) : null
+    recu()
     try {
-      r = await envoyer(adresseComplete(c.adresse), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(c.cle.trim() ? { Authorization: `Bearer ${c.cle.trim()}` } : {}) },
-        body: JSON.stringify({
-          model: c.modele.trim(),
-          messages: messages.map(versOpenAI),
-          tools: outils.map((o) => ({ type: 'function', function: { name: o.nom, description: o.description, parameters: o.parametres } })),
-          tool_choice: 'auto',
-          temperature: 0,
-        }),
-        signal: arret.signal,
-      })
-    } catch (e) {
-      if (arret.signal.aborted) throw new Error(`Pas de réponse du service après ${DELAI_MS / 1000} s.`)
-      throw new Error(`Service injoignable : adresse, réseau, ou appel refusé par le navigateur (CORS). ${e instanceof Error ? e.message : ''}`.trim())
+      let r: Response
+      try {
+        r = await envoyer(adresseComplete(c.adresse), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(c.cle.trim() ? { Authorization: `Bearer ${c.cle.trim()}` } : {}) },
+          body: JSON.stringify({
+            model: c.modele.trim(),
+            messages: messages.map(versOpenAI),
+            tools: outils.map((o) => ({ type: 'function', function: { name: o.nom, description: o.description, parameters: o.parametres } })),
+            tool_choice: 'auto',
+            temperature: 0,
+            stream: true,
+          }),
+          signal: arret.signal,
+        })
+      } catch (e) {
+        throw coupure() ?? new Error(`Service injoignable : adresse, réseau, ou appel refusé par le navigateur (CORS). ${e instanceof Error ? e.message : ''}`.trim())
+      }
+      try {
+        if (!r.ok) throw new Error(await messageErreur(r))
+        const flux = (r.headers.get('Content-Type') ?? '').includes('text/event-stream')
+        return flux && r.body ? await lireFlux(r.body, recu, progression) : lireMessage((await r.json()) as ReponseOpenAI)
+      } catch (e) {
+        throw coupure() ?? e
+      }
     } finally {
       clearTimeout(minuteur)
-    }
-    if (!r.ok) throw new Error(await messageErreur(r))
-    const json = (await r.json()) as ReponseOpenAI
-    const message = json.choices?.[0]?.message
-    if (!message) throw new Error('Réponse du service illisible : aucun message.')
-    return {
-      texte: message.content ?? '',
-      appels: (message.tool_calls ?? []).map((t, i) => ({
-        id: t.id || `appel${i}`,
-        nom: t.function?.name ?? '',
-        // Certains serveurs renvoient les arguments déjà décodés.
-        arguments: typeof t.function?.arguments === 'string' ? t.function.arguments : JSON.stringify(t.function?.arguments ?? {}),
-      })),
+      signal?.removeEventListener('abort', arreter)
     }
   }
 }

@@ -22,7 +22,7 @@ const GROUPES: Groupe[] = [
     titre: 'Partout',
     raccourcis: [
       { touches: [['mod', 'K']], action: 'Rechercher dans tout l’espace' },
-      { touches: [['mod', 'J']], action: 'Ouvrir l’assistant IA' },
+      { touches: [['mod', 'J']], action: 'Ouvrir ou fermer le panneau de l’assistant IA' },
       { touches: [['mod', 'E']], action: 'Passer de l’édition à la consultation, et retour' },
       { touches: [['mod', 'Z']], action: 'Annuler la dernière modification' },
       { touches: [['mod', 'Maj', 'Z'], ['mod', 'Y']], action: 'Rétablir' },

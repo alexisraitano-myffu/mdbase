@@ -1,19 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Sparkles, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { ArrowRight, ArrowUp, LoaderCircle, Settings, Sparkles, Square, SquarePen, X } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
-import { proposer, type Echange } from '../core/ia/assistant'
+import { sansReflexion } from '../core/ia/assistant'
 import type { Assistant as MemoireEtSkills } from '../core/ia/memoire'
-import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../core/ia/plan'
 import { decrireAction } from '../core/ia/structure'
-import { listerModeles, modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
-import { enregistrerConversation, lireConversation, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
-import { aujourdhui } from '../adapters/navigateur'
+import { listerModeles } from '../adapters/ia/compatible-openai'
+import type { ReglagesIA } from '../adapters/ia/reglages'
 import { Fenetre } from './fenetre'
 import { Icone } from './icones'
+import { texteMention, type Resultat, type SessionAssistant } from './sessionAssistant'
+import { useLargeurPanneau } from './useLargeurPanneau'
 
 // Assistant IA (spec §12, « Module IA ») : désactivé par défaut, activé après
-// un avertissement ; une conversation où chaque modification proposée est
-// montrée avant d'être appliquée.
+// un avertissement ; une conversation, dans un panneau à droite, où chaque
+// modification proposée est montrée avant d'être appliquée.
+
+const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
 /** Services préréglés : un clic remplit l'adresse. Aucun n'est imposé (spec §12). */
 const SERVICES = [
@@ -98,91 +100,42 @@ export function FenetreReglagesIA(p: { espace: DepotEspace; reglages: ReglagesIA
   )
 }
 
-type Resultat =
-  | { type: 'envoi'; depuis: number }
-  | { type: 'reponse'; texte: string; duree?: number }
-  | {
-      type: 'plan'
-      /** `null` pour un plan relu d'une session précédente : il n'est plus proposé à l'application. */
-      plan: Plan | null
-      resume: string
-      message: string
-      statut: 'attente' | 'application' | 'applique' | 'annule'
-      duree?: number
-    }
-  | { type: 'erreur'; message: string }
-
-/** Fait retenu ou oublié pendant un tour : écrit aussitôt, annulable dans la session ; `garde` = relu d'une session précédente. */
-type MentionMemoire = { action: ActionMemoire; etat: 'fait' | 'annule' | 'garde' }
-
-type Tour = { demande: string; resultat: Resultat; memoire?: MentionMemoire[] }
-
-const texteMention = (a: ActionMemoire) => `${a.type === 'retenir' ? 'Retenu' : 'Oublié'} : ${a.fait}`
-const mentionsFaites = (t: Tour) => (t.memoire ?? []).filter((m) => m.etat !== 'annule').map((m) => texteMention(m.action))
-
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 const secondes = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`
 
-/** Ce que le modèle relit d'un tour passé, mentions de mémoire comprises. */
-function echange(t: Tour): Echange | null {
-  const e = echangeSansMemoire(t)
-  const mentions = mentionsFaites(t)
-  return e && mentions.length > 0 ? { ...e, reponse: [e.reponse, ...mentions].filter(Boolean).join('\n') } : e
-}
-
-function echangeSansMemoire(t: Tour): Echange | null {
-  const r = t.resultat
-  switch (r.type) {
-    case 'envoi':
-      return null
-    case 'reponse':
-      return { demande: t.demande, reponse: r.texte }
-    case 'erreur':
-      return { demande: t.demande, reponse: `Erreur : ${r.message}` }
-    case 'plan': {
-      const suite = r.statut === 'applique' ? 'Appliqué.' : r.statut === 'annule' ? 'Annulé par l’utilisateur.' : 'Pas appliqué.'
-      return { demande: t.demande, reponse: `${r.message ? `${r.message}\n` : ''}Proposé :\n${r.resume}\n${suite}` }
-    }
-  }
-}
-
-function versGarde(t: Tour): TourGarde | null {
-  const r = t.resultat
-  if (r.type === 'envoi') return null
-  const mentions = mentionsFaites(t)
-  const memoire = mentions.length > 0 ? { memoire: mentions } : {}
-  if (r.type === 'reponse') return { demande: t.demande, type: 'reponse', texte: r.texte, ...memoire }
-  if (r.type === 'erreur') return { demande: t.demande, type: 'erreur', texte: r.message }
-  return { demande: t.demande, type: 'plan', texte: r.resume, statut: r.statut === 'applique' ? 'applique' : 'annule', ...memoire }
-}
-
-function depuisGarde(g: TourGarde): Tour {
-  // Une mention relue n'est plus annulable : elle n'est gardée que comme texte.
-  const memoire = (g.memoire ?? []).map((texte): MentionMemoire => {
-    const [type, ...reste] = texte.split(' : ')
-    return { action: { type: type === 'Oublié' ? 'oublier' : 'retenir', fait: reste.join(' : ') }, etat: 'garde' }
-  })
-  if (g.type === 'reponse') return { demande: g.demande, resultat: { type: 'reponse', texte: g.texte }, memoire }
-  if (g.type === 'erreur') return { demande: g.demande, resultat: { type: 'erreur', message: g.texte } }
-  return { demande: g.demande, resultat: { type: 'plan', plan: null, resume: g.texte, message: '', statut: g.statut ?? 'annule' }, memoire }
-}
+/** Hauteur maximale du champ de demande, en part de la fenêtre : au-delà, il défile. */
+const HAUTEUR_DEMANDE = 0.4
 
 /**
- * Conversation avec l'assistant : chaque demande relit les derniers échanges,
- * si bien qu'on peut répondre à une question du modèle. Gardée par dossier
- * dans le navigateur ; un plan n'est applicable que dans la session qui l'a reçu.
+ * Panneau de l'assistant, à droite du contenu (Ctrl+J). Il ne fait qu'afficher
+ * la session : le fermer n'arrête pas une demande en cours.
  */
-export function Assistant(p: { espace: DepotEspace; dossier: string; baseOuverte: string | null; reglages: ReglagesIA; reglerIA: () => void; fermer: () => void }) {
-  const [demande, setDemande] = useState('')
-  const [tours, setTours] = useState<Tour[]>(() => lireConversation(p.dossier).map(depuisGarde))
+export function PanneauAssistant(p: { session: SessionAssistant; baseOuverte: string | null; reglages: ReglagesIA; reglerIA: () => void; fermer: () => void }) {
+  const { session } = p
+  const tours = useSyncExternalStore(session.abonner, session.lire)
+  const enCours = tours.some((t) => t.resultat.type === 'envoi')
+  const [demande, setDemande] = useState(session.brouillon)
+  const [largeur, saisirPoignee] = useLargeurPanneau('mdbase.largeurAssistant', 420)
   const [, setTic] = useState(0)
   const fil = useRef<HTMLDivElement>(null)
-  const enCours = tours.some((t) => t.resultat.type === 'envoi')
+  const champ = useRef<HTMLTextAreaElement>(null)
+  /** Le fil suit la réponse tant qu'on n'est pas remonté le relire. */
+  const enBas = useRef(true)
+  const nombre = useRef(tours.length)
 
-  useEffect(() => {
-    enregistrerConversation(p.dossier, tours.flatMap((t) => versGarde(t) ?? []))
-    fil.current?.scrollTo({ top: fil.current.scrollHeight })
-  }, [tours, p.dossier])
+  useLayoutEffect(() => {
+    const f = fil.current
+    if (f && (enBas.current || tours.length !== nombre.current)) f.scrollTop = f.scrollHeight
+    nombre.current = tours.length
+  }, [tours])
+
+  // Le champ grandit avec le texte, jusqu'à une hauteur au-delà de laquelle il défile.
+  useLayoutEffect(() => {
+    const c = champ.current
+    if (!c) return
+    c.style.height = 'auto'
+    c.style.height = `${Math.min(c.scrollHeight + 2, window.innerHeight * HAUTEUR_DEMANDE)}px`
+  }, [demande, largeur])
 
   // Chronomètre affiché pendant l'attente : la vitesse compte.
   useEffect(() => {
@@ -191,140 +144,134 @@ export function Assistant(p: { espace: DepotEspace; dossier: string; baseOuverte
     return () => clearInterval(t)
   }, [enCours])
 
-  const remplacer = (i: number, resultat: Resultat) => setTours((ts) => ts.map((t, j) => (j === i ? { ...t, resultat } : t)))
-
-  const envoyer = async () => {
-    const texte = demande.trim()
-    if (texte === '' || enCours) return
-    // Une proposition restée sans réponse est abandonnée par la nouvelle demande.
-    const passes = tours.map((t): Tour => (t.resultat.type === 'plan' && t.resultat.statut === 'attente' ? { ...t, resultat: { ...t.resultat, statut: 'annule' } } : t))
-    const i = passes.length
-    const depuis = performance.now()
-    setTours([...passes, { demande: texte, resultat: { type: 'envoi', depuis } }])
-    setDemande('')
-    try {
-      const historique = passes.flatMap((t) => echange(t) ?? [])
-      const r = await proposer(modeleCompatibleOpenAI(p.reglages), p.espace, texte, { aujourdhui: aujourdhui(), baseOuverte: p.baseOuverte, historique })
-      const duree = performance.now() - depuis
-      // Mémoire : écrite aussitôt, sans confirmation, avec une mention annulable (spec §12).
-      for (const a of r.memoire) await (a.type === 'retenir' ? p.espace.assistant.retenir(a.fait) : p.espace.assistant.oublier(a.fait))
-      const memoire = r.memoire.map((action): MentionMemoire => ({ action, etat: 'fait' }))
-      setTours((ts) =>
-        ts.map((t, j): Tour =>
-          j !== i
-            ? t
-            : {
-                ...t,
-                memoire,
-                resultat:
-                  r.type === 'plan'
-                    ? { type: 'plan', plan: r.plan, resume: resumerPlan(r.plan), message: r.message, statut: 'attente', duree }
-                    : { type: 'reponse', texte: r.texte, duree },
-              },
-        ),
-      )
-    } catch (e) {
-      remplacer(i, { type: 'erreur', message: e instanceof Error ? e.message : String(e) })
-    }
+  const saisir = (texte: string) => {
+    setDemande(texte)
+    session.brouillon = texte
   }
-
-  /** Annule un fait retenu ou oublié : l'action inverse est écrite. */
-  const annulerMemoire = async (i: number, k: number) => {
-    const m = tours[i]?.memoire?.[k]
-    if (!m || m.etat !== 'fait') return
-    await (m.action.type === 'retenir' ? p.espace.assistant.oublier(m.action.fait) : p.espace.assistant.retenir(m.action.fait))
-    setTours((ts) => ts.map((t, j) => (j === i ? { ...t, memoire: t.memoire?.map((x, l) => (l === k ? { ...x, etat: 'annule' } : x)) } : t)))
-  }
-
-  const appliquer = async (i: number) => {
-    const r = tours[i]?.resultat
-    if (r?.type !== 'plan' || !r.plan) return
-    const plan = r.plan
-    remplacer(i, { ...r, statut: 'application' })
-    try {
-      // Un seul Ctrl+Z défait tout ce que l'assistant a écrit.
-      await p.espace.enUneEtape(() => appliquerPlan(p.espace, plan))
-      remplacer(i, { ...r, statut: 'applique' })
-    } catch (e) {
-      remplacer(i, { ...r, statut: 'annule' })
-      setTours((ts) => [...ts, { demande: '', resultat: { type: 'erreur', message: e instanceof Error ? e.message : String(e) } }])
-    }
+  const envoyer = () => {
+    if (demande.trim() === '' || enCours) return
+    void session.envoyer(demande, { reglages: p.reglages, baseOuverte: p.baseOuverte })
+    saisir('')
+    enBas.current = true
   }
 
   return (
-    // Ouverte par Ctrl+J, plusieurs fois par jour : sans animation.
-    <Fenetre titre="Assistant IA" fermer={p.fermer} immediate>
-      <div className="assistant-ia">
-        <div className="fil-ia" ref={fil}>
-          {tours.length === 0 && <p className="discret">Demande une modification en français : l’assistant te montre ce qu’il ferait avant de toucher à quoi que ce soit.</p>}
-          {tours.map((t, i) => (
-            <div key={i} className="tour-ia">
-              {t.demande && <div className="bulle-ia moi">{t.demande}</div>}
-              <BulleReponse resultat={t.resultat} appliquer={() => void appliquer(i)} annuler={() => t.resultat.type === 'plan' && remplacer(i, { ...t.resultat, statut: 'annule' })} />
-              {t.memoire?.map((m, k) => (
-                <div key={k} className={`mention-ia discret${m.etat === 'annule' ? ' annulee' : ''}`}>
-                  {texteMention(m.action)}
-                  {m.etat === 'fait' && (
-                    <>
-                      {' · '}
-                      <button className="lien" onClick={() => void annulerMemoire(i, k)}>
-                        Annuler
-                      </button>
-                    </>
-                  )}
-                  {m.etat === 'annule' && ' · annulé'}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+    <aside className="panneau-ia" style={{ width: largeur }} aria-label="Assistant IA">
+      <div className="poignee-page" onPointerDown={saisirPoignee} title="Élargir ou rétrécir" />
+      <header className="entete-ia">
+        <h2>Assistant IA</h2>
+        <button className="discret bascule-mode" onClick={() => session.nouvelle()} disabled={enCours || tours.length === 0} title="Nouvelle conversation" aria-label="Nouvelle conversation">
+          <Icone de={SquarePen} taille={16} />
+        </button>
+        <button className="discret bascule-mode" onClick={p.reglerIA} title="Réglages de l’assistant" aria-label="Réglages de l’assistant">
+          <Icone de={Settings} taille={16} />
+        </button>
+        <button className="discret bascule-mode" onClick={p.fermer} title={`Fermer (${MAC ? '⌘' : 'Ctrl+'}J) : une demande en cours continue`} aria-label="Fermer l’assistant">
+          <Icone de={X} taille={17} />
+        </button>
+      </header>
 
-        <div className="demande-ia">
-          <textarea
-            autoFocus
-            rows={2}
-            value={demande}
-            placeholder={tours.length === 0 ? 'Ex. : passe les tâches en retard en « Terminé »' : 'Répondre…'}
-            onChange={(e) => setDemande(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                void envoyer()
-              }
-            }}
-          />
-          <button className="principal" onClick={() => void envoyer()} disabled={demande.trim() === '' || enCours} aria-label="Envoyer">
-            <Icone de={ArrowRight} />
-          </button>
-        </div>
+      <div
+        className="fil-ia"
+        ref={fil}
+        onScroll={(e) => {
+          const f = e.currentTarget
+          enBas.current = f.scrollHeight - f.scrollTop - f.clientHeight < 40
+        }}
+      >
+        {tours.length === 0 && <p className="discret">Demande une modification en français : l’assistant te montre ce qu’il ferait avant de toucher à quoi que ce soit.</p>}
+        {tours.map((t, i) => (
+          <div key={i} className="tour-ia">
+            {t.demande && <div className="bulle-ia moi">{t.demande}</div>}
+            <BulleReponse resultat={t.resultat} appliquer={() => void session.appliquer(i)} annuler={() => session.annulerPlan(i)} />
+            {t.memoire?.map((m, k) => (
+              <div key={k} className={`mention-ia discret${m.etat === 'annule' ? ' annulee' : ''}`}>
+                {texteMention(m.action)}
+                {m.etat === 'fait' && (
+                  <>
+                    {' · '}
+                    <button className="lien" onClick={() => void session.annulerMemoire(i, k)}>
+                      Annuler
+                    </button>
+                  </>
+                )}
+                {m.etat === 'annule' && ' · annulé'}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
 
+      <div className="demande-ia">
+        <textarea
+          ref={champ}
+          autoFocus
+          rows={1}
+          value={demande}
+          placeholder={tours.length === 0 ? 'Ex. : passe les tâches en retard en « Terminé »' : 'Répondre…'}
+          onChange={(e) => saisir(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              envoyer()
+            }
+          }}
+        />
         <div className="pied-ia discret">
-          <span>
-            {p.reglages.modele} ·{' '}
-            <button className="lien" onClick={p.reglerIA}>
-              Réglages
-            </button>
+          <span className="modele-ia" title={p.reglages.modele}>
+            {p.reglages.modele}
           </span>
-          {tours.length > 0 && !enCours && (
-            <button className="lien" onClick={() => setTours([])}>
-              Nouvelle conversation
+          {enCours ? (
+            <button className="arret-ia" onClick={() => session.arreter()} title="Arrêter la demande" aria-label="Arrêter">
+              <Icone de={Square} taille={12} />
+              Arrêter
+            </button>
+          ) : (
+            <button className="principal envoi-ia" onClick={envoyer} disabled={demande.trim() === ''} aria-label="Envoyer" title="Envoyer (Entrée)">
+              <Icone de={ArrowUp} taille={16} />
             </button>
           )}
         </div>
       </div>
-    </Fenetre>
+    </aside>
   )
+}
+
+/** Sur le bouton de la barre latérale : une demande tourne, ou une proposition attend. */
+export function IndicateurIA({ session }: { session: SessionAssistant }) {
+  const activite = useSyncExternalStore(session.abonner, () => session.activite())
+  if (activite === 'en-cours')
+    return (
+      <span className="indicateur-ia" role="status" title="Demande en cours">
+        <Icone de={LoaderCircle} taille={14} className="tourne" />
+      </span>
+    )
+  if (activite === 'a-voir') return <span className="indicateur-ia point-ia" role="status" title="Proposition à relire" />
+  return null
 }
 
 function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat; appliquer: () => void; annuler: () => void }) {
   if (r.type === 'envoi') {
+    const texte = sansReflexion(r.progression?.texte ?? '')
+    const outils = r.progression?.outils.length ?? 0
     return (
-      <div className="bulle-ia etat-ia discret">
-        <Icone de={Sparkles} /> Réflexion… {secondes(performance.now() - r.depuis)}
+      <div className="bulle-ia">
+        {texte && <p className="reponse-ia">{texte}</p>}
+        <div className="etat-ia discret">
+          <Icone de={Sparkles} /> {outils > 0 ? `Prépare ${pluriel(outils, 'proposition')}…` : texte ? 'Écrit…' : 'Réflexion…'} {secondes(performance.now() - r.depuis)}
+        </div>
       </div>
     )
   }
   if (r.type === 'erreur') return <div className="bulle-ia erreur">{r.message}</div>
+  if (r.type === 'arrete') {
+    return (
+      <div className="bulle-ia">
+        {r.texte && <p className="reponse-ia">{r.texte}</p>}
+        <div className="etat-ia discret">Arrêté</div>
+      </div>
+    )
+  }
   const duree = r.duree !== undefined && <div className="duree-ia discret">{secondes(r.duree)}</div>
   if (r.type === 'reponse') {
     if (!r.texte) return null

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { AdaptateurFsa } from '../adapters/fsa/adaptateur-fsa'
 import {
   choisirDossier,
@@ -17,7 +17,8 @@ import { ContexteEspace } from './contexte-espace'
 import { VueBase } from './VueBase'
 import { VueDashboard } from './Dashboard'
 import { RechercheGlobale } from './RechercheGlobale'
-import { Assistant, FenetreReglagesIA } from './Assistant'
+import { FenetreReglagesIA, IndicateurIA, PanneauAssistant } from './Assistant'
+import { SessionAssistant } from './sessionAssistant'
 import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/ia/reglages'
 import { estChampDeSaisie } from './clavier'
 import { BasculeMode, BasculePleinEcran, ContexteMode, useModeMemorise, usePleinEcran } from './mode'
@@ -180,12 +181,21 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   const [recherche, setRecherche] = useState(false)
   // Assistant IA : désactivé par défaut, la première ouverture montre l'avertissement (spec §12).
   const [reglagesIA, setReglagesIA] = useState(lireReglages)
-  const [ia, setIa] = useState<'assistant' | 'reglages' | null>(null)
-  const ouvrirAssistant = useCallback(() => setIa(lireReglages().actif ? 'assistant' : 'reglages'), [])
+  const [reglerIA, setReglerIA] = useState(false)
+  const [panneauIA, setPanneauIA] = useState(false)
+  // La conversation vit ici, pas dans le panneau : le fermer n'arrête pas une demande en cours.
+  const sessionIA = useMemo(() => new SessionAssistant(espace, nom), [espace, nom])
+  useEffect(() => () => sessionIA.arreter(), [sessionIA])
+  /** Ctrl+J et le bouton de la barre latérale : ouvre ou ferme le panneau (ou l'activation, la première fois). */
+  const basculerAssistant = useCallback(() => {
+    if (lireReglages().actif) setPanneauIA((o) => !o)
+    else setReglerIA(true)
+  }, [])
   const enregistrerIA = (r: ReglagesIA) => {
     enregistrerReglages(r)
     setReglagesIA(r)
-    setIa(r.actif ? 'assistant' : null)
+    setReglerIA(false)
+    setPanneauIA(r.actif)
   }
 
   // Changements faits ailleurs (synchro, autre machine) : le navigateur ne voit
@@ -228,7 +238,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
         setRecherche(true)
       } else if (touche === 'j' && !consultation) {
         e.preventDefault()
-        ouvrirAssistant()
+        basculerAssistant()
       } else if (touche === 'e' && !estChampDeSaisie(e.target)) {
         e.preventDefault()
         basculerMode()
@@ -236,10 +246,13 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
     }
     document.addEventListener('keydown', clavier)
     return () => document.removeEventListener('keydown', clavier)
-  }, [ouvrirAssistant, consultation, basculerMode])
-  // En consultation, l'assistant se referme : il n'a rien à y faire.
+  }, [basculerAssistant, consultation, basculerMode])
+  // En consultation, le panneau de l'assistant se referme : il n'a rien à y faire (une demande en cours continue).
   useEffect(() => {
-    if (consultation) setIa(null)
+    if (consultation) {
+      setPanneauIA(false)
+      setReglerIA(false)
+    }
   }, [consultation])
   // Ctrl+Z / ⌘Z annule la dernière modification des données, Ctrl+Maj+Z (ou Ctrl+Y) la rétablit.
   // Dans un champ en cours de saisie, c'est l'annulation native du champ qui joue.
@@ -282,7 +295,8 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
             changerDossier={changer}
             chercher={() => setRecherche(true)}
-            assistant={ouvrirAssistant}
+            assistant={basculerAssistant}
+            indicateurIA={panneauIA ? null : <IndicateurIA session={sessionIA} />}
             relire={rafraichir}
             relu={relu}
           />
@@ -303,11 +317,11 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
               <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} pageDemandee={pageDemandee?.base === base.id ? pageDemandee : null} />
             )}
           </main>
+          {panneauIA && reglagesIA.actif && !consultation && (
+            <PanneauAssistant session={sessionIA} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setReglerIA(true)} fermer={() => setPanneauIA(false)} />
+          )}
         </div>
-        {ia === 'assistant' && (
-          <Assistant espace={espace} dossier={nom} baseOuverte={choisie} reglages={reglagesIA} reglerIA={() => setIa('reglages')} fermer={() => setIa(null)} />
-        )}
-        {ia === 'reglages' && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setIa(null)} />}
+        {reglerIA && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setReglerIA(false)} />}
         {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
         {annonce && (
           <div className="bandeau-info" role="status">

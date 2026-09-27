@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from 'react'
+import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import type { DepotEspace, EtatEspace, PorteeSuppressionBase } from '../core/depot-espace'
 import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
@@ -17,8 +17,10 @@ type Props = {
   choisir: (id: string) => void
   choisirDashboard: (id: string) => void
   changerDossier: () => void
-  /** Ouvre l'assistant IA (ou son activation s'il est désactivé). */
+  /** Ouvre ou ferme le panneau de l'assistant IA (ou son activation s'il est désactivé). */
   assistant: () => void
+  /** Demande en cours ou proposition à relire, quand le panneau est fermé. */
+  indicateurIA?: ReactNode
   /** Ouvre la recherche globale. */
   chercher: () => void
   /** Relit le dossier (changements faits ailleurs), et l'état de la dernière relecture. */
@@ -27,7 +29,7 @@ type Props = {
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, assistant, relire, relu }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, assistant, indicateurIA, relire, relu }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -90,6 +92,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         <button className="discret bouton-recherche" onClick={assistant}>
           <Icone de={Sparkles} />
           Assistant IA
+          {indicateurIA}
           <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘J' : 'Ctrl+J'}</kbd>
         </button>
       )}

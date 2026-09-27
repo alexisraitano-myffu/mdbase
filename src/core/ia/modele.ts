@@ -13,7 +13,32 @@ export type MessageIA =
 /** Outil proposé au modèle ; `parametres` est un schéma JSON. */
 export type DefinitionOutil = { nom: string; description: string; parametres: Record<string, unknown> }
 
-export type RequeteIA = { messages: MessageIA[]; outils: DefinitionOutil[] }
+/** Ce que le cœur attend d'un `AbortSignal` du navigateur, sans dépendre du DOM. */
+export type SignalArret = {
+  readonly aborted: boolean
+  addEventListener(type: 'abort', f: () => void): void
+  removeEventListener(type: 'abort', f: () => void): void
+}
+
+/** Ce qui est déjà arrivé d'une réponse en cours : le texte, et les outils dont le nom est connu. */
+export type Progression = { texte: string; outils: string[] }
+
+export type RequeteIA = {
+  messages: MessageIA[]
+  outils: DefinitionOutil[]
+  /** Arrêt demandé par l'utilisateur : la requête est coupée et `DemandeArretee` levée. */
+  signal?: SignalArret
+  /** Appelé à chaque morceau reçu, quand le service envoie sa réponse au fil de l'eau. */
+  progression?: (p: Progression) => void
+}
 export type ReponseIA = { texte: string; appels: AppelOutil[] }
+
+/** Levée quand l'utilisateur arrête une demande : ce n'est pas une panne, rien n'est à signaler. */
+export class DemandeArretee extends Error {
+  constructor() {
+    super('Demande arrêtée.')
+    this.name = 'DemandeArretee'
+  }
+}
 
 export type ModeleIA = (requete: RequeteIA) => Promise<ReponseIA>

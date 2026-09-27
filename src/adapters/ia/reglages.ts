@@ -30,8 +30,8 @@ export function enregistrerReglages(r: ReglagesIA): void {
 /** Un tour de conversation tel qu'il est gardé : du texte seulement, un plan n'est jamais réappliqué après coup. */
 export type TourGarde = {
   demande: string
-  type: 'reponse' | 'plan' | 'erreur'
-  /** Réponse, résumé du plan ou message d'erreur. */
+  type: 'reponse' | 'plan' | 'erreur' | 'arrete'
+  /** Réponse, résumé du plan, message d'erreur, ou texte reçu avant l'arrêt. */
   texte: string
   statut?: 'applique' | 'annule'
   /** Mentions « Retenu : … » / « Oublié : … » du tour. */
@@ -48,7 +48,7 @@ export function lireConversation(dossier: string): TourGarde[] {
     if (!Array.isArray(brut)) return []
     return brut.filter(
       (t): t is TourGarde =>
-        typeof t === 'object' && t !== null && typeof t.demande === 'string' && typeof t.texte === 'string' && ['reponse', 'plan', 'erreur'].includes(t.type),
+        typeof t === 'object' && t !== null && typeof t.demande === 'string' && typeof t.texte === 'string' && ['reponse', 'plan', 'erreur', 'arrete'].includes(t.type),
     )
   } catch {
     return []

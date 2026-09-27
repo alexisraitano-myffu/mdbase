@@ -31,6 +31,81 @@ async function activer(page: Page) {
   await expect(page.getByPlaceholder(/passe les tâches en retard/)).toBeFocused()
 }
 
+/** Faux service qui répond au fil de l'eau, quand `repondre` est appelée ; une requête coupée par le navigateur est notée. */
+async function serviceEnAttente(page: Page) {
+  let partir: (evenements: object[]) => void = () => {}
+  const reponse = new Promise<object[]>((r) => (partir = r))
+  const etat = { recue: false, coupee: false }
+  page.on('requestfailed', (r) => {
+    if (r.url().startsWith(SERVICE)) etat.coupee = true
+  })
+  await page.route(`${SERVICE}/**`, async (route) => {
+    etat.recue = true
+    const evenements = await reponse
+    const corps = evenements.map((e) => `data: ${JSON.stringify({ choices: [{ delta: e }] })}\n\n`).join('') + 'data: [DONE]\n\n'
+    await route.fulfill({ body: corps, headers: { 'Content-Type': 'text/event-stream', 'Access-Control-Allow-Origin': '*' } }).catch(() => {})
+  })
+  return { etat, repondre: (evenements: object[]) => partir(evenements) }
+}
+
+test('panneau fermé pendant la demande : elle continue, la barre latérale le signale, la réponse attend', async ({ espace, page }) => {
+  const service = await serviceEnAttente(page)
+  await espace.base('Projets')
+  await activer(page)
+  await expect(page.locator('.panneau-ia')).toBeVisible()
+  // Le contenu reste visible à côté du panneau.
+  await expect(page.locator('.contenu')).toBeVisible()
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Le site vitrine est terminé')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: 'Arrêter' })).toBeVisible()
+  await expect.poll(() => service.etat.recue).toBe(true)
+
+  await page.getByRole('button', { name: 'Fermer l’assistant' }).click()
+  await expect(page.locator('.panneau-ia')).toHaveCount(0)
+  await expect(page.locator('.indicateur-ia')).toHaveAttribute('title', 'Demande en cours')
+
+  service.repondre([
+    { content: 'C’est noté.' },
+    { tool_calls: [{ index: 0, id: 'c1', type: 'function', function: { name: 'modifier_lignes', arguments: '{"base":"projets",' } }] },
+    { tool_calls: [{ index: 0, function: { arguments: '"lignes":["psite001"],"valeurs":{"statut":"Terminé"}}' } }] },
+  ])
+  await expect(page.locator('.indicateur-ia')).toHaveAttribute('title', 'Proposition à relire')
+  await page.getByRole('button', { name: /Assistant IA/ }).click()
+  await expect(page.locator('.changement-ia')).toHaveText('Statut : En cours Terminé')
+  await expect(page.locator('.indicateur-ia')).toHaveCount(0)
+  expect(await espace.lire(SITE)).toContain('statut: En cours\n')
+})
+
+test('Arrêter : la requête est coupée pour de bon et le tour marqué « Arrêté »', async ({ espace, page }) => {
+  const service = await serviceEnAttente(page)
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Une longue demande')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => service.etat.recue).toBe(true)
+  await page.getByRole('button', { name: 'Arrêter' }).click()
+  await expect(page.locator('.tour-ia .etat-ia')).toHaveText('Arrêté')
+  await expect(page.getByRole('button', { name: 'Envoyer' })).toBeVisible()
+  await expect.poll(() => service.etat.coupee).toBe(true)
+  // La réponse qui arrive trop tard n'est plus lue.
+  service.repondre([{ content: 'trop tard' }])
+  await expect(page.locator('.reponse-ia')).toHaveCount(0)
+  expect(espace).toBeTruthy()
+})
+
+test('champ de demande : grandit avec le texte, Maj+Entrée va à la ligne', async ({ espace, page }) => {
+  await activer(page)
+  const champ = page.getByPlaceholder(/passe les tâches en retard/)
+  const avant = (await champ.boundingBox())!.height
+  await champ.pressSequentially('ligne 1')
+  for (let i = 2; i <= 4; i++) {
+    await page.keyboard.press('Shift+Enter')
+    await champ.pressSequentially(`ligne ${i}`)
+  }
+  await expect(champ).toHaveValue('ligne 1\nligne 2\nligne 3\nligne 4')
+  expect((await champ.boundingBox())!.height).toBeGreaterThan(avant * 2.5)
+  expect(espace).toBeTruthy()
+})
+
 test('désactivé par défaut : l’avertissement s’affiche et rien n’est envoyé sans activation', async ({ espace, page }) => {
   const recues = await simulerService(page)
   await page.keyboard.press('Control+j')
@@ -98,8 +173,9 @@ test('conversation : on répond à la question du modèle, qui relit l’échang
     { role: 'user', content: 'Le site vitrine' },
   ])
 
-  // Fermée puis rouverte : la conversation est là, mais un plan non confirmé ne s'applique plus.
-  await page.keyboard.press('Escape')
+  // Panneau fermé puis rouvert : la conversation est là.
+  await page.keyboard.press('Control+j')
+  await expect(page.locator('.panneau-ia')).toHaveCount(0)
   await page.keyboard.press('Control+j')
   await expect(page.locator('.bulle-ia.moi')).toHaveText(['Termine le projet', 'Le site vitrine'])
   const garde = await page.evaluate(() => localStorage.getItem('mdbase.ia.conversation.espace'))
@@ -118,7 +194,7 @@ test('nouvelle conversation : le fil est vidé', async ({ espace, page }) => {
   await expect(page.locator('.reponse-ia')).toHaveText('Bonjour')
   await page.getByRole('button', { name: 'Nouvelle conversation' }).click()
   await expect(page.locator('.tour-ia')).toHaveCount(0)
-  await page.keyboard.press('Escape')
+  await page.keyboard.press('Control+j')
   await page.keyboard.press('Control+j')
   await expect(page.locator('.tour-ia')).toHaveCount(0)
   expect(espace).toBeTruthy()

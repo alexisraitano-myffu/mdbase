@@ -188,6 +188,21 @@ describe('proposer', () => {
     const outil = await proposer(modeleScripte({ texte: '', appels: [appel('repondre', { texte: 'Laquelle des deux ?' })] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
     expect(outil).toEqual({ type: 'reponse', texte: 'Laquelle des deux ?', memoire: [] })
   })
+
+  it('texte écrit à côté des appels : gardé comme message du plan (il a été montré au fil de l’eau) ; arrêt et suivi transmis au modèle', async () => {
+    const { espace } = await ouvrir()
+    const recues: RequeteIA[] = []
+    const modele: ModeleIA = async (r) => {
+      recues.push(r)
+      return { texte: '<think>…</think>Je termine C.', appels: [appel('modifier_lignes', { base: 'taches', lignes: ['t0000003'], valeurs: { statut: 'Terminé' } })] }
+    }
+    const signal = new AbortController().signal
+    const progression = () => {}
+    const p = await proposer(modele, espace, 'Termine C', { aujourdhui: AUJOURDHUI, baseOuverte: null, signal, progression })
+    expect(p.type === 'plan' && p.message).toBe('Je termine C.')
+    expect(recues[0]!.signal).toBe(signal)
+    expect(recues[0]!.progression).toBe(progression)
+  })
 })
 
 describe('conversation', () => {
