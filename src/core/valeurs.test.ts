@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { schemaProjets } from './fixtures/schema-projets'
-import { decoder, encoder, estDateValide, lireNombre } from './valeurs'
+import { adresseWeb, decoder, encoder, estDateValide, lireNombre } from './valeurs'
 
 const col = (cle: string) => schemaProjets().colonnes.find((c) => c.cle === cle)!
 
@@ -77,5 +77,18 @@ describe('lireNombre', () => {
     expect(lireNombre('  ')).toBeUndefined()
     expect(lireNombre('12a')).toBeNull()
     expect(lireNombre('1,2,3')).toBeNull()
+  })
+})
+
+describe('adresse web d’une valeur', () => {
+  it('ouvre http(s), mailto et www., jamais un autre protocole', () => {
+    expect(adresseWeb('https://exemple.atlassian.net/browse/PRVE-1')).toBe('https://exemple.atlassian.net/browse/PRVE-1')
+    expect(adresseWeb(' mailto:a@b.fr ')).toBe('mailto:a@b.fr')
+    expect(adresseWeb('www.exemple.fr/page')).toBe('https://www.exemple.fr/page')
+    expect(adresseWeb('javascript:alert(1)')).toBeNull()
+    expect(adresseWeb('file:///C:/secret')).toBeNull()
+    expect(adresseWeb('https://exemple.fr/?q=Mise en ligne')).toBe('https://exemple.fr/?q=Mise en ligne')
+    expect(adresseWeb('https:// rien')).toBeNull()
+    expect(adresseWeb('voir le ticket')).toBeNull()
   })
 })

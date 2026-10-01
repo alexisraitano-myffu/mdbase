@@ -104,3 +104,16 @@ export function lireNombre(saisie: string): number | null | undefined {
   if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(s)) return null
   return Number(s)
 }
+
+/**
+ * Adresse ouvrable depuis une valeur : http(s) et mailto tels quels, « www.… »
+ * complété en https. Rien d'autre (javascript:, file:…) : la valeur vient des
+ * fichiers, elle reste alors du texte.
+ */
+export function adresseWeb(v: string): string | null {
+  const t = v.trim()
+  // Une espace est permise (une formule qui ajoute un titre) : le navigateur l'encode.
+  if (/^(https?:\/\/|mailto:)\S/i.test(t)) return t
+  if (/^www\.\S+\.\S+$/i.test(t)) return `https://${t}`
+  return null
+}
