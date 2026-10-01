@@ -16,7 +16,7 @@ import { Pastilles } from './Pastilles'
 import { FiltresDashboard, useRetenues } from './FiltresDashboard'
 import { filtrerBloc } from '../core/filtre-global'
 import { usePageOuverte } from './usePageOuverte'
-import { useConsultation } from './mode'
+import { DonneesDe, useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronRight, Ellipsis, Plus, TriangleAlert } from 'lucide-react'
 
 const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [] }
@@ -260,15 +260,17 @@ function BlocVue({ espace, idDashboard, place, bloc, depot, vue, ouvrir, allerAB
       </div>
       <Pastilles schema={depot.schema} pastilles={vue.filtresRapides} changer={(filtresRapides) => modifierVue({ filtresRapides })} />
       <div className="contenu-bloc">
-        <ContenuVue
-          espace={espace}
-          base={bloc.base}
-          depot={depot}
-          vue={vue}
-          modifierVue={modifierVue}
-          appliquee={appliquee}
-          ouvrir={ouvrir}
-        />
+        <DonneesDe schema={depot.schema}>
+          <ContenuVue
+            espace={espace}
+            base={bloc.base}
+            depot={depot}
+            vue={vue}
+            modifierVue={modifierVue}
+            appliquee={appliquee}
+            ouvrir={ouvrir}
+          />
+        </DonneesDe>
       </div>
     </section>
   )

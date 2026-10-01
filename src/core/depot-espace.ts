@@ -25,7 +25,9 @@ import { IndexRecherche, type Resultat } from './recherche'
 import { MemoireAssistant } from './ia/memoire'
 import { ErreurEcriture, type Modifications } from './ligne'
 import type { Valeur } from './valeurs'
-import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
+import { CALCULS, colonne, estObjet, estSaisie, lireSchema, nomSource, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema, type Source } from './schema'
+import { FICHIER_SYNCHRO, lireEtatSynchro, type EtatSynchro } from './jira/synchro'
+import { schemaJira, VUE_JIRA } from './jira/ticket'
 import { copierSchema, ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
 import { CHAMPS_MODIFIABLES, lireVue, modifierVue, vueParDefaut, type ModificationVue, type TypeVue, type Vue } from './vue'
 import {
@@ -60,6 +62,8 @@ export type EtatBase = {
   vues: Vue[]
   /** Jamais vide : une base sans `_pages/` a une mise en page implicite. */
   pages: MiseEnPage[]
+  /** Base synchronisée (spec §16) : état de la dernière synchro (`_synchro.yaml`, écrit par le script). */
+  synchro?: EtatSynchro
 }
 
 /** Un dashboard (spec §10) ; `dashboard` null si son fichier est illisible. */
@@ -280,8 +284,13 @@ export class DepotEspace {
       const avertissements = [...avertissementsSchema, ...v.avertissements, ...p.avertissements]
       if (!memes(avertissements, base.avertissements)) base = { ...base, avertissements }
     }
-    if (vues !== b.vues || pages !== b.pages || base !== b.chargement.base || depot.schema !== b.chargement.base.schema) {
-      this.bases.set(b.id, { ...b, vues, pages, chargement: { ok: true, base: { ...base, schema: depot.schema } } })
+    let synchro = b.synchro
+    if (depot.schema.source) {
+      const lu = await this.lireSynchro(b.id)
+      if (!memes(lu, synchro)) synchro = lu
+    }
+    if (vues !== b.vues || pages !== b.pages || synchro !== b.synchro || base !== b.chargement.base || depot.schema !== b.chargement.base.schema) {
+      this.bases.set(b.id, { ...b, vues, pages, ...(synchro && { synchro }), chargement: { ok: true, base: { ...base, schema: depot.schema } } })
       change = true
     }
     return change
@@ -299,6 +308,32 @@ export class DepotEspace {
       this.publier()
       return id
     })
+  }
+
+  /**
+   * Crée une base Jira (spec §16) : colonnes fixées, `source` dans le schéma ;
+   * ses lignes ne sont écrites que par le script de synchro.
+   */
+  creerBaseJira(nom: string, source: Source, groupe: string | null = null): Promise<string> {
+    return this.enFile(async () => {
+      const pris = (await this.adaptateur.lister('')).map((e) => e.nom)
+      const id = idBase(nom, pris)
+      await this.adaptateur.ecrire(joindre(id, '_vues', 'tableau.yaml'), VUE_JIRA)
+      await this.adaptateur.ecrire(joindre(id, FICHIER_SCHEMA), schemaJira(id, nom.trim() || id, source))
+      await this.modifierEspace({ type: 'placer_base', base: id, groupe })
+      await this.chargerBase(id)
+      this.publier()
+      return id
+    })
+  }
+
+  /** Réglages d'une base synchronisée (spec §16) : site, projets suivis, filtre JQL. Le script les relit à chaque passage. */
+  modifierSource(base: string, source: Source): Promise<void> {
+    return this.enFile(() => this.modifierSchema(base, { type: 'source', source }))
+  }
+
+  private async lireSynchro(base: string): Promise<EtatSynchro> {
+    return lireEtatSynchro(await this.lireOuNull(joindre(base, FICHIER_SYNCHRO)))
   }
 
   /**
@@ -548,6 +583,7 @@ export class DepotEspace {
 
   ajouterColonne(base: string, nom: string, type: TypeCreable): Promise<string> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const schema = this.schema(base)
       const cle = cleColonne(nom, schema.colonnes.map((c) => c.cle))
       const nomAffiche = nom.trim() || cle
@@ -562,11 +598,17 @@ export class DepotEspace {
 
   /** Ne modifie que `_schema.yaml` : la clé ne change jamais (invariant 3). */
   renommerColonne(base: string, cle: string, nom: string): Promise<void> {
-    return this.enFile(() => this.modifierSchema(base, { type: 'renommer_colonne', cle, nom }))
+    return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
+      await this.modifierSchema(base, { type: 'renommer_colonne', cle, nom })
+    })
   }
 
   deplacerColonne(base: string, cle: string, index: number): Promise<void> {
-    return this.enFile(() => this.modifierSchema(base, { type: 'deplacer_colonne', cle, index }))
+    return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
+      await this.modifierSchema(base, { type: 'deplacer_colonne', cle, index })
+    })
   }
 
   /** Colonnes calculées qui dépendent de `cle`, à montrer avant une suppression (spec §5). */
@@ -602,6 +644,7 @@ export class DepotEspace {
    */
   supprimerColonne(base: string, cle: string): Promise<number> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const schema = this.schema(base)
       if (cle === schema.champTitre) {
         throw new ErreurSchema('La colonne titre ne peut pas être supprimée : choisis d’abord une autre colonne titre')
@@ -638,6 +681,8 @@ export class DepotEspace {
    */
   ajouterRelation(base: string, nom: string, cible: string): Promise<string> {
     return this.enFile(async () => {
+      // Vers une base synchronisée, oui : sa colonne miroir est calculée, rien ne s'écrit dans ses lignes.
+      this.refuserSiSynchronisee(base)
       if (cible === base) throw new ErreurSchema('Une relation relie deux bases différentes (auto-relation : plus tard)')
       const schema = this.schema(base)
       const schemaCible = this.schema(cible)
@@ -658,6 +703,7 @@ export class DepotEspace {
   /** Crée un rollup ; refusé s'il créerait une boucle de dépendances (invariant 7). */
   ajouterRollup(base: string, nom: string, relation: string, champ: string, calcul: Calcul): Promise<string> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const schema = this.schema(base)
       const rel = colonne(schema, relation)
       if (rel?.type !== 'relation') throw new ErreurSchema(`Pas une relation : ${relation}`)
@@ -677,6 +723,7 @@ export class DepotEspace {
   /** Change la colonne titre, puis renomme les fichiers selon le nouveau titre (spec §3). */
   changerTitre(base: string, cle: string): Promise<void> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const c = colonne(this.schema(base), cle)
       if (c?.type !== 'text') throw new ErreurSchema('Seule une colonne texte peut servir de titre')
       await this.modifierSchema(base, { type: 'champ_titre', cle })
@@ -687,6 +734,7 @@ export class DepotEspace {
   /** Ajoute une option à un select ou multiselect, ou renvoie celle qui porte déjà ce libellé. */
   ajouterOption(base: string, cle: string, label: string): Promise<Option> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const c = colonne(this.schema(base), cle)
       if (c?.type !== 'select' && c?.type !== 'multiselect') throw new ErreurSchema(`Pas une colonne à options : ${cle}`)
       const existante = c.options.find((o) => o.label === label)
@@ -700,6 +748,7 @@ export class DepotEspace {
   /** Couleur d'une option : ne modifie que `_schema.yaml`, et vaut partout où l'option s'affiche. */
   changerCouleurOption(base: string, cle: string, label: string, couleur: string): Promise<void> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       if (!(COULEURS as readonly string[]).includes(couleur)) throw new ErreurSchema(`Couleur inconnue : ${couleur}`)
       await this.modifierSchema(base, { type: 'couleur_option', cle, label, couleur })
     })
@@ -708,6 +757,7 @@ export class DepotEspace {
   /** Change la relation, la colonne remontée ou le calcul d'un rollup ; refusé s'il créerait une boucle. */
   modifierRollup(base: string, cle: string, modifs: { relation?: string; champ?: string; calcul?: Calcul }): Promise<void> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const schema = this.schema(base)
       const actuel = colonne(schema, cle)
       if (actuel?.type !== 'rollup') throw new ErreurSchema(`Pas un rollup : ${cle}`)
@@ -738,6 +788,7 @@ export class DepotEspace {
    */
   ajouterFormule(base: string, nom: string, expression: string): Promise<string> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const schema = this.schema(base)
       const cle = cleColonne(nom, schema.colonnes.map((c) => c.cle))
       const nouvelle: Colonne = { cle, nom: nom.trim() || cle, type: 'formula', expression }
@@ -749,6 +800,7 @@ export class DepotEspace {
 
   modifierFormule(base: string, cle: string, expression: string): Promise<void> {
     return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
       const actuelle = colonne(this.schema(base), cle)
       if (actuelle?.type !== 'formula') throw new ErreurSchema(`Pas une formule : ${cle}`)
       if (actuelle.expression === expression) return
@@ -1425,6 +1477,12 @@ export class DepotEspace {
   }
 
   /** Relit le fichier sur le disque, applique l'opération, réécrit (spec §4). */
+  /** Colonnes d'une base synchronisée (`source`, spec §16) : fixées par le script, pas par l'app. */
+  private refuserSiSynchronisee(base: string): void {
+    const source = this.bases.get(base)?.depot?.schema.source
+    if (source) throw new ErreurSchema(`Base synchronisée depuis ${nomSource(source.type)} : ses colonnes ne se modifient pas dans mdbase`)
+  }
+
   private async modifierSchema(base: string, op: OperationSchema): Promise<void> {
     const chemin = joindre(base, FICHIER_SCHEMA)
     const texte = modifierSchema(await this.adaptateur.lire(chemin), op)
@@ -1456,7 +1514,8 @@ export class DepotEspace {
     const depot = new DepotBase(this.adaptateur, chargement.base.schema, chargement.base.lignes, { ...this.options, journal: (c) => this.noter(c) })
     // Toute modification de lignes peut changer les colonnes calculées de n'importe quelle base.
     depot.abonner(() => this.publier())
-    this.bases.set(id, { id, chargement, depot, vues, pages })
+    const synchro = chargement.base.schema.source ? await this.lireSynchro(id) : undefined
+    this.bases.set(id, { id, chargement, depot, vues, pages, ...(synchro && { synchro }) })
   }
 
   private async lireOuNull(chemin: string): Promise<string | null> {

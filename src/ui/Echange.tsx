@@ -77,10 +77,15 @@ export function MenuExporter(p: { espace: DepotEspace; base: string; schema: Sch
           >
             Télécharger en image (PNG)
           </button>
-          <div className="separateur" />
-          <button className="option" onClick={() => (fermer(), setImporter(true))}>
-            Importer des lignes (CSV)…
-          </button>
+          {/* Base synchronisée : ses lignes viennent de la source, rien ne s'y importe. */}
+          {!p.schema.source && (
+            <>
+              <div className="separateur" />
+              <button className="option" onClick={() => (fermer(), setImporter(true))}>
+                Importer des lignes (CSV)…
+              </button>
+            </>
+          )}
         </Flottant>
       )}
       {importer && <FenetreImport espace={p.espace} base={p.base} fermer={() => setImporter(false)} />}

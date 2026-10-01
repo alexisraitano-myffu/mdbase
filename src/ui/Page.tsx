@@ -24,7 +24,7 @@ import { Flottant } from './flottant'
 import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
 import { useLargeurPanneau } from './useLargeurPanneau'
-import { useConsultation } from './mode'
+import { DonneesDe, useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Maximize2, Minimize2, Plus, TriangleAlert, X } from 'lucide-react'
 import { Choix } from './Choix'
 import { ContenusLies, ReglageContenus } from './ContenusLies'
@@ -85,13 +85,17 @@ export function Page(p: Props) {
       <EntetePage {...p}>
         {!lecture && (
           <>
-            <MenuLigne base={p.base} ligne={ligne} fermerPage={p.fermer} />
+            <DonneesDe schema={depot.schema}>
+              <MenuLigne base={p.base} ligne={ligne} fermerPage={p.fermer} />
+            </DonneesDe>
             <ReglagesPage base={p.base} schema={depot.schema} mep={mep} choisir={setIdPage} vue={p.vue} />
           </>
         )}
       </EntetePage>
       <div className="contenu-page">
-        <Titre depot={depot} ligne={ligne} />
+        <DonneesDe schema={depot.schema}>
+          <Titre depot={depot} ligne={ligne} />
+        </DonneesDe>
 
         {onglets.length > 0 && (
           <div className="onglets onglets-page">
@@ -114,10 +118,16 @@ export function Page(p: Props) {
           </div>
         )}
 
-        {actif.type === 'proprietes' && <Proprietes depot={depot} ligne={ligne} mep={mep} />}
+        {actif.type === 'proprietes' && (
+          <DonneesDe schema={depot.schema}>
+            <Proprietes depot={depot} ligne={ligne} mep={mep} />
+          </DonneesDe>
+        )}
         {actif.type === 'corps' && (
           <>
-            <Corps depot={depot} ligne={ligne} />
+            <DonneesDe schema={depot.schema}>
+              <Corps depot={depot} ligne={ligne} />
+            </DonneesDe>
             {contenus}
           </>
         )}
@@ -125,7 +135,11 @@ export function Page(p: Props) {
           <OngletRelation key={actif.relation} base={p.base} schema={depot.schema} ligne={ligne} onglet={actif} ouvrir={p.ouvrir} />
         )}
         {/* Sans onglet dédié, le corps reste sous les onglets, quel que soit l'onglet actif. */}
-        {!corpsSeul && !(lecture && ligne.corps.trim() === '') && <Corps depot={depot} ligne={ligne} />}
+        {!corpsSeul && !((lecture || depot.schema.source) && ligne.corps.trim() === '') && (
+          <DonneesDe schema={depot.schema}>
+            <Corps depot={depot} ligne={ligne} />
+          </DonneesDe>
+        )}
         {!corpsSeul && contenus}
       </div>
     </Cadre>
@@ -315,6 +329,7 @@ function OngletRelation(p: { base: string; schema: Schema; ligne: LigneChargee; 
 
   return (
     <div className="onglet-relation">
+      <DonneesDe schema={depotCible.schema}>
       <Tableau
         espace={espace}
         base={cible.id}
@@ -326,6 +341,7 @@ function OngletRelation(p: { base: string; schema: Schema; ligne: LigneChargee; 
         colonnesVisibles={colonnes}
         ouvrir={(l) => p.ouvrir(cible.id, l.id)}
       />
+      </DonneesDe>
     </div>
   )
 }
