@@ -120,6 +120,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Petites animations, toutes sous 250 ms : les menus grandissent depuis leur bouton, les fenêtres se posent au centre, le panneau de page arrive de la droite (pas en passant d'une ligne à l'autre), les boutons d'action et les pilules s'enfoncent à l'appui, les chevrons de groupe tournent, et une barre relâchée dans la timeline ou le calendrier glisse jusqu'à son jour. Rien ne bouge sur les raccourcis clavier (recherche, assistant, consultation) ; avec « réduire les animations », de simples fondus.
 
 ### Fixed
+- Filtrer par un rollup qui affiche les lignes d'une relation (le projet d'une tâche remonté par son lot) : le filtre proposait une saisie libre comparée aux identifiants, et ne retenait jamais rien. Il propose maintenant les lignes (ou les options d'un select) de la colonne d'origine, et la pastille montre leur titre.
 - Rollup de rollup d'une relation (le projet d'une tâche remonté par son lot) : la cellule, la copie et l'export montraient les identifiants des lignes au lieu de leurs titres.
 - Assistant IA : une vue proposée entrait dans l'état de l'espace dès la proposition (un onglet sans fichier pouvait apparaître, même en annulant), et la vraie était ensuite créée avec un suffixe « -2 ».
 - Accueil : « Essayer avec la démo » devient l'action principale ; avec un dossier mémorisé, l'écran « Rouvrir » garde la démo et « Ouvrir un autre dossier », et explique un refus d'autorisation du navigateur (auparavant le clic ne faisait rien).

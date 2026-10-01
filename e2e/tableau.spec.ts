@@ -132,6 +132,17 @@ test.describe('rollups qui affichent des valeurs', () => {
     await expect(groupes).toContainText(['Application mobile', 'Audit sécurité', 'Boutique en ligne', 'Site vitrine'])
     // Une tâche d'Acme est dans le groupe de chacun de ses projets ; « + » d'un groupe ne peut rien y écrire.
     await expect(page.locator('.rangee', { hasText: 'Intégration' })).toHaveCount(2)
+
+    // Filtrer par ce rollup : on choisit un projet par son titre, il contient des ids.
+    await page.getByRole('button', { name: 'Filtrer' }).click()
+    await page.getByRole('button', { name: 'Ajouter un filtre' }).click()
+    const filtre = page.locator('.flottant .ligne-filtre').first()
+    await choisir(filtre.getByRole('button', { name: 'Colonne du filtre' }), 'Uniques')
+    await choisir(filtre.getByRole('button', { name: 'Ligne liée' }), 'Boutique en ligne')
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.rangee')).toHaveCount(3)
+    await expect(page.locator('.rangee', { hasText: 'Paiement' })).toBeVisible()
+    await expect.poll(() => espace.lire('taches/_vues/par-projet-du-client.yaml')).toContain('{ colonne: uniques, operateur: contient, valeur: pbout003 }')
   })
 })
 

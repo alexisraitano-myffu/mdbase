@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { operateursPour } from '../core/filtres'
 import { useEspace } from './contexte-espace'
-import { natureDe, type Colonne, type Schema } from '../core/schema'
+import { afficheValeurs, colonneOrigine, natureDe, type Colonne, type Schema } from '../core/schema'
 import type { Filtre, Operateur } from '../core/vue'
 import { Plus, X } from 'lucide-react'
 import { Icone, ICONES } from './icones'
@@ -76,7 +76,7 @@ export function EditeurFiltres({ schema, filtres, changer }: { schema: Schema; f
               />
             )}
             <span className="valeur-filtre">
-              {c && <ValeurFiltre colonne={c} filtre={f} changer={(valeur) => remplacer(i, { ...f, valeur })} />}
+              {c && <ValeurFiltre base={schema.id} colonne={c} filtre={f} changer={(valeur) => remplacer(i, { ...f, valeur })} />}
             </span>
             <button className="discret retirer" onClick={() => changer(filtres.filter((_, j) => j !== i))} aria-label="Retirer le filtre" title="Retirer le filtre">
               <Icone de={X} taille={14} />
@@ -96,11 +96,31 @@ export function EditeurFiltres({ schema, filtres, changer }: { schema: Schema; f
   )
 }
 
-export function ValeurFiltre({ colonne, filtre, changer }: { colonne: Colonne; filtre: Filtre; changer: (v: unknown) => void }) {
+/**
+ * Valeur d'un filtre, saisie selon la colonne. Un rollup qui affiche des valeurs
+ * se filtre comme sa colonne d'origine (`base` : la base de la colonne filtrée) :
+ * les lignes d'une relation, les options d'un select, car il contient leurs ids
+ * ou leurs libellés, pas les titres qu'on lit.
+ */
+export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string; colonne: Colonne; filtre: Filtre; changer: (v: unknown) => void }) {
+  const { etat } = useEspace()
   const op = filtre.operateur
   if (['vide', 'non_vide', 'aujourdhui', 'cette_semaine', 'ce_mois'].includes(op)) return null
 
-  if (colonne.type === 'relation') return <ChoixLigne cible={colonne.cible} valeur={String(filtre.valeur ?? '')} changer={changer} />
+  const origine = afficheValeurs(colonne) ? colonneOrigine((b) => etat.bases.get(b)?.depot?.schema, base, colonne) : undefined
+  const relation = colonne.type === 'relation' ? colonne : origine?.type === 'relation' ? origine : undefined
+  if (relation) return <ChoixLigne cible={relation.cible} valeur={String(filtre.valeur ?? '')} changer={changer} />
+  if ((origine?.type === 'select' || origine?.type === 'multiselect') && natureDe(colonne) === 'liste') {
+    return (
+      <Choix
+        valeur={String(filtre.valeur ?? '')}
+        entrees={origine.options.map((o) => ({ valeur: o.label, libelle: o.label, couleur: o.couleur ?? 'gris' }))}
+        libelle="Valeur"
+        vide="Choisir"
+        changer={changer}
+      />
+    )
+  }
 
   if (natureDe(colonne) === 'case') {
     return (

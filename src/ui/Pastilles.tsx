@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { filtreDePastille, operateurParDefaut, SANS_VALEUR } from '../core/filtres'
-import { colonne as colonneDe, type Colonne, type Schema } from '../core/schema'
+import { afficheValeurs, colonne as colonneDe, colonneOrigine, type Colonne, type Schema } from '../core/schema'
 import type { FiltreRapide, Operateur } from '../core/vue'
 import { colonnesFiltrables, entreesOperateurs, LIBELLES_OPERATEURS, ValeurFiltre } from './EditeurFiltres'
 import { titreDe, useEspace } from './contexte-espace'
@@ -67,9 +67,12 @@ export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: 
   const operateur = pastille.operateur ?? operateurParDefaut(colonne)
   const actif = filtreDePastille(p.schema, pastille) !== null
   const { etat } = useEspace()
-  const titre = colonne.type === 'relation' && typeof pastille.valeur === 'string' ? titreDe(etat, colonne.cible, pastille.valeur) : undefined
+  // Relation, ou rollup qui affiche les lignes d'une relation : la valeur est un id, on montre le titre.
+  const origine = afficheValeurs(colonne) ? colonneOrigine((b) => etat.bases.get(b)?.depot?.schema, p.schema.id, colonne) : colonne
+  const relation = origine?.type === 'relation' ? origine : undefined
+  const titre = relation && typeof pastille.valeur === 'string' ? titreDe(etat, relation.cible, pastille.valeur) : undefined
   // Une ligne liée disparue garde son id, signalé.
-  const disparue = colonne.type === 'relation' && typeof pastille.valeur === 'string' && titre === undefined
+  const disparue = relation !== undefined && typeof pastille.valeur === 'string' && titre === undefined
   const valeurAffichee = titre ?? pastille.valeur
 
   return (
@@ -99,6 +102,7 @@ export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: 
             </div>
             <div className="valeur-filtre">
               <ValeurFiltre
+                base={p.schema.id}
                 colonne={colonne}
                 filtre={{ colonne: colonne.cle, operateur, ...(pastille.valeur !== undefined && { valeur: pastille.valeur }) }}
                 changer={(valeur) => p.changer({ ...pastille, operateur, valeur })}
