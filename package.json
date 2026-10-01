@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.jira.config.ts",
+    "jira": "vite build --config vite.jira.config.ts && node dist/mdbase-jira.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",

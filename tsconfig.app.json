@@ -7,5 +7,5 @@
     "types": ["vite/client", "wicg-file-system-access"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts", "src/outils"]
 }
