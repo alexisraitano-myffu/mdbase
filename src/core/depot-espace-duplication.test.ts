@@ -16,6 +16,11 @@ async function ouvrir(extra: Record<string, string> = {}) {
   return { a, espace, ecrire }
 }
 
+const schemaDe = (e: DepotEspace, base: string) => {
+  const c = e.etat().bases.get(base)!.chargement
+  if (!c.ok) throw new Error(`Base illisible : ${base}`)
+  return c.base.schema
+}
 const calcul = (e: DepotEspace, base: string, id: string, cle: string) => e.etat().calculs.get(base)?.get(id)?.[cle]
 
 describe('dupliquer une base', () => {
@@ -26,7 +31,7 @@ describe('dupliquer une base', () => {
     const { a, espace } = await ouvrir({ ...ESPACE, ...VUE })
     const id = await espace.dupliquerBase('projets')
     expect(id).toBe('projets-copie')
-    expect(espace.schema(id).nom).toBe('Projets (copie)')
+    expect(schemaDe(espace, id).nom).toBe('Projets (copie)')
     expect(await a.lire('projets-copie/navi--p0000001.md')).toBe(await a.lire('projets/navi--p0000001.md').then((t) => t.replace('\n---', '\ntaches: [t0000001, t0000002]\n---')))
     expect(await a.lire('projets-copie/_vues/tableau.yaml')).toBe(VUE['projets/_vues/tableau.yaml'])
     const copies = a.ecritures.filter((e) => e.startsWith('projets-copie/'))
@@ -38,13 +43,13 @@ describe('dupliquer une base', () => {
     const { espace, ecrire } = await ouvrir()
     const id = await espace.dupliquerBase('projets')
     await ecrire()
-    const relations = espace.schema(id).colonnes.filter((c) => c.type === 'relation')
+    const relations = schemaDe(espace, id).colonnes.filter((c) => c.type === 'relation')
     expect(relations.map((c) => [c.cle, c.cible, c.type === 'relation' && c.proprietaire, c.type === 'relation' && c.inverse])).toEqual([
       ['client', 'clients', true, 'projets_copie'],
       ['taches', 'taches', true, 'projets_copie'],
     ])
-    expect(espace.schema('clients').colonnes.find((c) => c.cle === 'projets_copie')).toMatchObject({ type: 'relation', cible: id, proprietaire: false, inverse: 'client' })
-    expect(espace.schema('taches').colonnes.find((c) => c.cle === 'projets_copie')).toMatchObject({ type: 'relation', cible: id, proprietaire: false, inverse: 'taches' })
+    expect(schemaDe(espace, 'clients').colonnes.find((c) => c.cle === 'projets_copie')).toMatchObject({ type: 'relation', cible: id, proprietaire: false, inverse: 'client' })
+    expect(schemaDe(espace, 'taches').colonnes.find((c) => c.cle === 'projets_copie')).toMatchObject({ type: 'relation', cible: id, proprietaire: false, inverse: 'taches' })
 
     // Les liens d'un côté calculé sont écrits dans la copie ; les rollups suivent.
     expect(calcul(espace, id, 'p0000001', 'heures')).toEqual({ etat: 'ok', valeur: 8 })
@@ -58,7 +63,7 @@ describe('dupliquer une base', () => {
     const { espace } = await ouvrir()
     await espace.dupliquerBase('projets')
     expect(await espace.dupliquerBase('projets')).toBe('projets-copie-2')
-    expect(espace.schema('clients').colonnes.map((c) => c.cle)).toEqual(['nom', 'projets', 'heures', 'projets_copie', 'projets_copie_2'])
+    expect(schemaDe(espace, 'clients').colonnes.map((c) => c.cle)).toEqual(['nom', 'projets', 'heures', 'projets_copie', 'projets_copie_2'])
   })
 })
 
