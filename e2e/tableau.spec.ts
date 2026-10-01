@@ -108,6 +108,32 @@ test.describe('relations et rollups', () => {
   })
 })
 
+test('liens cliquables : colonne lien, rollup qui la remonte, formule qui produit une adresse ; un autre protocole reste du texte', async ({ espace, page }) => {
+  const ajouter = async (chemin: string, lignes: string) => espace.ecrire(chemin, (await espace.lire(chemin)).replace('\nvues:', `\n${lignes}vues:`))
+  await ajouter('projets/_schema.yaml', '  - { cle: site, nom: Site, type: url }\n')
+  await ajouter(
+    'taches/_schema.yaml',
+    '  - { cle: site_projet, nom: Site du projet, type: rollup, relation: projet, champ: site, calcul: afficher }\n' +
+      `  - { cle: recherche, nom: Recherche, type: formula, expression: 'concat("https://exemple.fr/?q=", prop("titre"))' }\n`,
+  )
+  await espace.remplacer(SITE, 'budget: 8000\n', 'budget: 8000\nsite: https://vitrine.exemple.fr\n')
+  await espace.remplacer('projets/application-mobile--pmobi002.md', /\nid: pmobi002\n/, '\nid: pmobi002\nsite: javascript:alert(1)\n')
+  await espace.ecrire('taches/_vues/liens.yaml', 'id: liens\nnom: Liens\ntype: tableau\ncolonnes: [ titre, site_projet, recherche ]\n')
+  await page.getByRole('button', { name: 'Relire le dossier' }).click()
+
+  await espace.base('Projets')
+  const lien = (await cellule(page, 'Site vitrine', 'Site')).locator('a')
+  await expect(lien).toHaveAttribute('href', 'https://vitrine.exemple.fr')
+  await expect(lien).toHaveAttribute('target', '_blank')
+  await expect((await cellule(page, 'Application mobile', 'Site')).locator('a')).toHaveCount(0)
+
+  await espace.base('Tâches')
+  await page.locator('.onglet', { hasText: 'Liens' }).click()
+  await expect((await cellule(page, 'Intégration', 'Site du projet')).locator('a')).toHaveAttribute('href', 'https://vitrine.exemple.fr')
+  await expect((await cellule(page, 'Intégration', 'Recherche')).locator('a')).toHaveAttribute('href', 'https://exemple.fr/?q=Intégration')
+  await expect((await cellule(page, 'Mise en ligne', 'Recherche')).locator('a')).toHaveCount(1)
+})
+
 test.describe('rollups qui affichent des valeurs', () => {
   test('rollup de rollup d’une relation : des titres, jamais des ids ; valeurs uniques ; groupement par ses valeurs', async ({ espace, page }) => {
     // Projets : les projets du client ; Tâches : ceux du client de leur projet, remontés par deux rollups.

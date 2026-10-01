@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
+import { adresseWeb } from '../core/valeurs'
 import { colonneOrigine, estSaisie, natureDe, type Colonne, type ColonneChoix, type ColonneRelation } from '../core/schema'
 import { lireNombre, type Cellule as ValeurCellule, type Valeur } from '../core/valeurs'
 import { couleurOption } from './couleurs'
@@ -53,9 +54,7 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
         ) : colonne.type === 'checkbox' ? (
           <Icone de={cellule?.valeur === true ? SquareCheck : Square} className={cellule?.valeur === true ? 'case-cochee' : 'case-vide'} taille={16} />
         ) : cellule && colonne.type === 'url' ? (
-          <a href={String(cellule.valeur)} target="_blank" rel="noreferrer">
-            {String(cellule.valeur)}
-          </a>
+          <Lien url={String(cellule.valeur)} />
         ) : (
           <ValeurCompacte base={depot.schema.id} ligne={ligne} colonne={colonne} />
         )}
@@ -116,9 +115,7 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
       {cellule?.etat === 'invalide' ? (
         <Avertissement cellule={cellule} />
       ) : cellule && colonne.type === 'url' ? (
-        <a href={String(cellule.valeur)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-          {String(cellule.valeur)}
-        </a>
+        <Lien url={String(cellule.valeur)} />
       ) : cellule && colonne.type === 'date' ? (
         formaterDate(String(cellule.valeur))
       ) : cellule && colonne.type === 'number' ? (
@@ -127,6 +124,17 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
         cellule && String(cellule.valeur)
       )}
     </div>
+  )
+}
+
+/** Lien qui s'ouvre dans un nouvel onglet, sans ouvrir l'édition de la cellule. */
+export function Lien({ url }: { url: string }) {
+  const href = adresseWeb(url)
+  if (!href) return <span>{url}</span>
+  return (
+    <a className="lien-cellule" href={href} target="_blank" rel="noreferrer" title={href} onClick={(e) => e.stopPropagation()}>
+      {url}
+    </a>
   )
 }
 
@@ -383,7 +391,8 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
     )
   }
   const v = cellule.valeur
-  let contenu: ReactNode = String(v)
+  // Une formule qui produit une adresse web (concat de l'adresse d'un ticket…) s'ouvre au clic.
+  let contenu: ReactNode = colonne.type === 'formula' && typeof v === 'string' && adresseWeb(v) ? <Lien url={v} /> : String(v)
   switch (natureDe(colonne)) {
     case 'nombre': {
       const n = Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 })
@@ -407,6 +416,11 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
           </span>
         ) : champ?.type === 'select' || champ?.type === 'multiselect' ? (
           <Pastille key={i} label={x} couleur={champ.options.find((o) => o.label === x)?.couleur} />
+        ) : champ?.type === 'url' ? (
+          <span key={i}>
+            {i > 0 && ', '}
+            <Lien url={x} />
+          </span>
         ) : (
           <span key={i}>{(i > 0 ? ', ' : '') + (champ && natureDe(champ) === 'date' ? formaterDate(x) : x)}</span>
         ),
@@ -465,6 +479,8 @@ export function ValeurCompacte({ base, ligne, colonne }: { base: string; ligne: 
       return <span>{formaterDate(String(v))}</span>
     case 'number':
       return <span>{Number(v).toLocaleString('fr-FR')}</span>
+    case 'url':
+      return <Lien url={String(v)} />
     default:
       return <span>{String(v)}</span>
   }
