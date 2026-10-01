@@ -17,3 +17,5 @@ onglets:
 contenus:
   relation: taches
   champs: [ priorite, echeance ]
+  tris:
+    - { colonne: echeance, sens: asc }

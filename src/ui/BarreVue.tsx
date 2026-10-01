@@ -247,12 +247,12 @@ function Panneau({ libelle, actif, large, children }: { libelle: string; actif: 
   )
 }
 
-function EditeurTris({ schema, tris, changer }: { schema: Schema; tris: Tri[]; changer: (t: Tri[]) => void }) {
+export function EditeurTris({ schema, tris, changer, sansTri = 'Aucun tri : ordre des fichiers' }: { schema: Schema; tris: Tri[]; changer: (t: Tri[]) => void; sansTri?: string }) {
   const colonnes = colonnesFiltrables(schema)
   const libres = colonnes.filter((c) => !tris.some((t) => t.colonne === c.cle))
   return (
     <div className="editeur-filtres">
-      {tris.length === 0 && <div className="discret">Aucun tri : ordre des fichiers</div>}
+      {tris.length === 0 && <div className="discret">{sansTri}</div>}
       {tris.map((t, i) => (
         <div key={t.colonne} className="ligne-filtre">
           <span className="liaison-filtre">{i === 0 ? 'Par' : 'Puis'}</span>

@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import type { LigneChargee } from '../core/base'
 import { PROFONDEUR_CONTENUS, type NiveauContenus } from '../core/mise-en-page'
+import { appliquerVue } from '../core/filtres'
 import { colonne as colonneDe, type ColonneRelation, type Schema } from '../core/schema'
+import { EditeurTris } from './BarreVue'
+import { EditeurFiltres } from './EditeurFiltres'
+import { useAujourdhui } from './useAujourdhui'
 import { ValeurCompacte } from './cellules'
 import { Choix } from './Choix'
 import { useEspace } from './contexte-espace'
@@ -22,6 +26,7 @@ type Ouvrir = (base: string, id: string) => void
 export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: NiveauContenus; chemin: readonly string[]; ouvrir: Ouvrir }) {
   const { etat } = useEspace()
   const [ouverts, setOuverts] = useState<ReadonlySet<string>>(new Set())
+  const aujourdhui = useAujourdhui()
   const schema = etat.bases.get(p.base)?.depot?.schema
   const relation = schema ? colonneDe(schema, p.niveau.relation) : undefined
   const cible = relation?.type === 'relation' ? etat.bases.get(relation.cible) : undefined
@@ -37,12 +42,15 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
 
   const parId = new Map(depot.lignes().map((l) => [l.id, l]))
   const calculs = etat.calculs.get(cible.id)
-  const lignes = idsLies(p.ligne, relation).flatMap((id) => {
+  const liees = idsLies(p.ligne, relation).flatMap((id) => {
     const l = parId.get(id)
     if (!l || p.chemin.includes(`${cible.id}/${id}`)) return []
     const c = calculs?.get(id)
     return [c ? { ...l, cellules: { ...l.cellules, ...c } } : l]
   })
+  // Sans tri, l'ordre de la relation est gardé (le tri est stable).
+  const lignes = appliquerVue(liees, depot.schema, p.niveau.filtres ?? [], p.niveau.tris ?? [], { aujourdhui }).map((v) => v.ligne)
+  const masquees = liees.length - lignes.length
   const champs = p.niveau.champs.flatMap((k) => colonneDe(depot.schema, k) ?? [])
   const tousOuverts = lignes.length > 0 && lignes.every((l) => ouverts.has(l.id))
   const basculer = (id: string) => setOuverts((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])))
@@ -51,7 +59,9 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
     <section className="contenus-lies">
       <div className="titre-contenus">
         <span>{relation.nom}</span>
-        <span className="discret">{lignes.length}</span>
+        <span className="discret" title={masquees > 0 ? `${masquees} masquée${masquees > 1 ? 's' : ''} par le filtre` : undefined}>
+          {masquees > 0 ? `${lignes.length} sur ${liees.length}` : lignes.length}
+        </span>
         {lignes.length > 1 && (
           <button
             className="discret"
@@ -63,7 +73,7 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
           </button>
         )}
       </div>
-      {lignes.length === 0 && <div className="discret vide-contenus">Aucune ligne liée</div>}
+      {lignes.length === 0 && <div className="discret vide-contenus">{masquees > 0 ? 'Aucune ligne liée ne passe le filtre' : 'Aucune ligne liée'}</div>}
       {lignes.map((l) => {
         const t = l.cellules[depot.schema.champTitre]
         const titre = t?.etat === 'ok' && String(t.valeur) !== '' ? String(t.valeur) : 'Sans titre'
@@ -156,6 +166,25 @@ export function ReglageContenus(p: { schema: Schema; niveau: NiveauContenus; cha
             ))}
         </details>
       )}
+      {schemaCible && (
+        <>
+          <details className="filtres-niveau" open={(p.niveau.filtres?.length ?? 0) > 0 || undefined}>
+            <summary>
+              <Icone de={ChevronRight} className="chevron-details" taille={14} />
+              Filtrer les lignes de {schemaCible.nom}
+              {(p.niveau.filtres?.length ?? 0) > 0 && ` (${p.niveau.filtres!.length})`}
+            </summary>
+            <EditeurFiltres schema={schemaCible} filtres={p.niveau.filtres ?? []} changer={(filtres) => p.changer(avec(p.niveau, { filtres }))} />
+          </details>
+          <details className="filtres-niveau" open={(p.niveau.tris?.length ?? 0) > 0 || undefined}>
+            <summary>
+              <Icone de={ChevronRight} className="chevron-details" taille={14} />
+              Trier{(p.niveau.tris?.length ?? 0) > 0 && ` (${p.niveau.tris!.length})`}
+            </summary>
+            <EditeurTris schema={schemaCible} tris={p.niveau.tris ?? []} sansTri="Aucun tri : ordre de la relation" changer={(tris) => p.changer(avec(p.niveau, { tris }))} />
+          </details>
+        </>
+      )}
       {schemaCible && profondeur < PROFONDEUR_CONTENUS && suivantes.length > 0 && (
         <>
           <Reglage libelle={`Puis, dans ${relation!.nom}`}>
@@ -174,4 +203,12 @@ export function ReglageContenus(p: { schema: Schema; niveau: NiveauContenus; cha
       )}
     </div>
   )
+}
+
+/** Niveau avec des filtres ou des tris remplacés ; une liste vide retire la clé. */
+function avec(n: NiveauContenus, m: Pick<NiveauContenus, 'filtres'> | Pick<NiveauContenus, 'tris'>): NiveauContenus {
+  const suivant = { ...n, ...m }
+  if (suivant.filtres?.length === 0) delete suivant.filtres
+  if (suivant.tris?.length === 0) delete suivant.tris
+  return suivant
 }

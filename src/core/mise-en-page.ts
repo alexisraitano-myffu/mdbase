@@ -2,6 +2,7 @@ import { Document, isMap, isSeq, parse, parseDocument, type YAMLSeq } from 'yaml
 import type { LigneChargee } from './base'
 import { estObjet, type Colonne, type Schema } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
+import { ecrireFiltre, lireFiltre, type Filtre, type Tri } from './vue'
 
 // Mises en page des lignes `_pages/<id>.yaml` (spec §9). Une mise en page ne
 // modifie jamais les fichiers de lignes : elle décide seulement de ce qui
@@ -28,6 +29,9 @@ export type NiveauContenus = {
   relation: string
   /** Champs montrés à côté du titre de chaque ligne liée. */
   champs: string[]
+  /** Filtres et tris des lignes liées, au format des vues (§7). Sans tri : l'ordre de la relation. */
+  filtres?: Filtre[]
+  tris?: Tri[]
   puis?: NiveauContenus
 }
 
@@ -54,12 +58,26 @@ function lireNiveau(brut: unknown, profondeur: number): NiveauContenus | undefin
   if (!estObjet(brut) || typeof brut.relation !== 'string' || profondeur > PROFONDEUR_CONTENUS) return undefined
   const champs = Array.isArray(brut.champs) ? brut.champs.filter((x): x is string => typeof x === 'string') : []
   const puis = lireNiveau(brut.puis, profondeur + 1)
-  return { relation: brut.relation, champs, ...(puis && { puis }) }
+  // Un filtre illisible est écarté sans bruit : le niveau reste affiché, moins filtré.
+  const filtres = (Array.isArray(brut.filtres) ? brut.filtres : []).flatMap((f) => {
+    const lu = lireFiltre(f)
+    return typeof lu === 'string' ? [] : [lu]
+  })
+  const tris = (Array.isArray(brut.tris) ? brut.tris : []).flatMap((t): Tri[] =>
+    estObjet(t) && typeof t.colonne === 'string' ? [{ colonne: t.colonne, sens: t.sens === 'desc' ? 'desc' : 'asc' }] : [],
+  )
+  return { relation: brut.relation, champs, ...(filtres.length > 0 && { filtres }), ...(tris.length > 0 && { tris }), ...(puis && { puis }) }
 }
 
 /** Retire les clés vides (champs sans entrée) pour un fichier court. */
 function niveauEcrit(n: NiveauContenus): Record<string, unknown> {
-  return { relation: n.relation, ...(n.champs.length > 0 && { champs: n.champs }), ...(n.puis && { puis: niveauEcrit(n.puis) }) }
+  return {
+    relation: n.relation,
+    ...(n.champs.length > 0 && { champs: n.champs }),
+    ...(n.filtres?.length && { filtres: n.filtres.map(ecrireFiltre) }),
+    ...(n.tris?.length && { tris: n.tris.map((t) => ({ colonne: t.colonne, sens: t.sens })) }),
+    ...(n.puis && { puis: niveauEcrit(n.puis) }),
+  }
 }
 
 export function miseEnPageParDefaut(): MiseEnPage {
@@ -107,10 +125,14 @@ export function modifierMiseEnPage(texte: string | null, mep: MiseEnPage, modifs
   if (modifs.contenus === null) doc.delete('contenus')
   else if (modifs.contenus !== undefined) {
     const noeud = doc.createNode(niveauEcrit(modifs.contenus))
-    // Les champs d'un niveau tiennent sur une ligne, comme les colonnes d'un onglet.
+    // Les champs d'un niveau tiennent sur une ligne, comme les colonnes d'un onglet ; un filtre ou un tri par ligne.
     for (let n: unknown = noeud; isMap(n); n = n.get('puis', true)) {
       const champs = n.get('champs', true)
       if (isSeq(champs)) champs.flow = true
+      for (const cle of ['filtres', 'tris']) {
+        const liste = n.get(cle, true)
+        if (isSeq(liste)) for (const item of liste.items) if (isMap(item)) item.flow = true
+      }
     }
     doc.set('contenus', noeud)
   }

@@ -162,6 +162,22 @@ contenus:
     expect(profondeur).toBe(5)
   })
 
+  it('filtres et tris au format des vues, un par ligne ; un filtre illisible est écarté', () => {
+    const texte = `contenus:
+  relation: taches
+  filtres:
+    - { colonne: fait, operateur: egal, valeur: false }
+    - { colonne: statut, operateur: clignote }
+  tris:
+    - { colonne: echeance, sens: desc }
+`
+    const mep = lireMiseEnPage(texte, 'm').miseEnPage!
+    expect(mep.contenus).toEqual({ relation: 'taches', champs: [], filtres: [{ colonne: 'fait', operateur: 'egal', valeur: false }], tris: [{ colonne: 'echeance', sens: 'desc' }] })
+    const ecrit = modifierMiseEnPage('id: m\n', mep, { contenus: mep.contenus! })
+    expect(ecrit).toContain('  filtres:\n    - { colonne: fait, operateur: egal, valeur: false }\n  tris:\n    - { colonne: echeance, sens: desc }\n')
+    expect(lireMiseEnPage(ecrit, 'm').miseEnPage!.contenus).toEqual(mep.contenus)
+  })
+
   it('écrit les champs en ligne, sans clé vide, et `null` retire la clé', () => {
     const texte = modifierMiseEnPage('id: suivi\nnom: Suivi\n', lireMiseEnPage(AVEC, 'suivi').miseEnPage!, {
       contenus: { relation: 'taches', champs: ['statut', 'echeance'], puis: { relation: 'sous_taches', champs: [] } },

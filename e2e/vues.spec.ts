@@ -91,6 +91,26 @@ test.describe('pages', () => {
     await expect.poll(() => espace.lire('projets/_pages/defaut.yaml')).not.toContain('contenus')
   })
 
+  test('contenus liés : filtre et tri des lignes liées, le tri se retire depuis les réglages', async ({ espace, page }) => {
+    const avant = await espace.lire('projets/_pages/defaut.yaml')
+    await espace.ecrire(
+      'projets/_pages/defaut.yaml',
+      avant.replace('    - { colonne: echeance, sens: asc }\n', '    - { colonne: echeance, sens: desc }\n  filtres:\n    - { colonne: fait, operateur: egal, valeur: false }\n'),
+    )
+    await espace.base('Projets')
+    await page.getByRole('button', { name: 'Relire le dossier' }).click()
+    await espace.ouvrirPage('Projets', 'Site vitrine')
+    const section = page.locator('.contenus-lies')
+    await expect(section.locator('.titre-contenus')).toContainText('2 sur 3') // Maquettes est faite
+    await expect(section.locator('.titre-contenu')).toHaveText(['Mise en ligne', 'Intégration'])
+
+    await page.locator('.entete-page button', { hasText: 'Par défaut' }).click()
+    await page.locator('.reglages-page').getByRole('button', { name: 'Retirer le tri' }).click()
+    await expect.poll(() => espace.lire('projets/_pages/defaut.yaml')).not.toContain('tris:')
+    expect(await espace.lire('projets/_pages/defaut.yaml')).toContain('filtres:')
+    await expect(section.locator('.titre-contenu')).toHaveText(['Intégration', 'Mise en ligne']) // ordre de la relation
+  })
+
   test('contenus liés sur deux niveaux : un client, ses projets, puis leurs tâches', async ({ espace, page }) => {
     await espace.base('Clients')
     await page.locator('.carte', { hasText: 'Acme' }).click()

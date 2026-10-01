@@ -310,7 +310,7 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
   }
 }
 
-function lireFiltre(f: unknown): Filtre | string {
+export function lireFiltre(f: unknown): Filtre | string {
   if (!estObjet(f)) return 'pas un objet'
   if (typeof f.colonne !== 'string') return 'colonne manquante'
   if (!(OPERATEURS as readonly string[]).includes(String(f.operateur))) return `opérateur « ${String(f.operateur)} » inconnu`
@@ -407,6 +407,6 @@ function noeudNiveaux(doc: Document, niveaux: readonly Niveau[]): YAMLSeq {
   return seq
 }
 
-function ecrireFiltre(f: Filtre) {
+export function ecrireFiltre(f: Filtre) {
   return f.valeur === undefined ? { colonne: f.colonne, operateur: f.operateur } : { colonne: f.colonne, operateur: f.operateur, valeur: f.valeur }
 }
