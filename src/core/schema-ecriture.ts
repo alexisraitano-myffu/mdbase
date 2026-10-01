@@ -1,5 +1,5 @@
 import { Document, isMap, isScalar, isSeq, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
-import type { Colonne, Option } from './schema'
+import type { Colonne, Option, Source } from './schema'
 
 // Réécriture de `_schema.yaml` par l'API Document de `yaml` : seule la partie
 // concernée change, commentaires et mise en forme du reste sont conservés.
@@ -14,6 +14,8 @@ export type OperationSchema =
   /** Couleur d'une option existante (une des couleurs nommées de l'espace). */
   | { type: 'couleur_option'; cle: string; label: string; couleur: string }
   | { type: 'renommer_base'; nom: string }
+  /** Réglages d'une source externe (§16) ; `null` la retire. */
+  | { type: 'source'; source: Source | null }
   /** Ordre des onglets de vues ; une liste vide retire la clé. */
   | { type: 'ordre_vues'; ids: string[] }
   /** Remplace des propriétés d'une colonne (config d'un rollup…) ; `undefined` retire la propriété. */
@@ -60,6 +62,18 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
     case 'renommer_base':
       doc.set('nom', op.nom)
       break
+    case 'source': {
+      if (op.source === null) {
+        doc.delete('source')
+        break
+      }
+      const { type, site, projets, jql } = op.source
+      const noeud = doc.createNode({ type, site, projets, ...(jql && { jql }) }) as YAMLMap
+      const p = noeud.get('projets', true)
+      if (isSeq(p)) p.flow = true
+      doc.set('source', noeud)
+      break
+    }
     case 'champ_titre':
       doc.set('champ_titre', op.cle)
       break
