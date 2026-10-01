@@ -18,17 +18,49 @@ export type OngletPage =
   /** Vue tableau de la base liée, filtrée sur « lié à cette page ». */
   | { type: 'relation'; relation: string; colonnes: string[] }
 
+/**
+ * Contenus liés (spec §9) : sous le corps de la page, le corps des lignes
+ * d'une relation, chacune dépliable, puis au niveau suivant celui des lignes
+ * d'une relation de leur base. Affichage seulement : chaque texte reste dans
+ * le fichier de sa ligne.
+ */
+export type NiveauContenus = {
+  relation: string
+  /** Champs montrés à côté du titre de chaque ligne liée. */
+  champs: string[]
+  puis?: NiveauContenus
+}
+
+/** Profondeur maximale des contenus liés : au-delà, le fichier est tronqué à la lecture. */
+export const PROFONDEUR_CONTENUS = 5
+
 export type MiseEnPage = {
   id: string
   nom: string
   defaut: boolean
   champs: ChampPage[]
   onglets: OngletPage[]
+  contenus?: NiveauContenus
   /** Mise en page par défaut d'une base sans `_pages/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
 
-export type ModificationMiseEnPage = Partial<Pick<MiseEnPage, 'nom' | 'defaut' | 'champs' | 'onglets'>>
+export type ModificationMiseEnPage = Partial<Pick<MiseEnPage, 'nom' | 'defaut' | 'champs' | 'onglets'>> & {
+  /** `null` retire les contenus liés. */
+  contenus?: NiveauContenus | null
+}
+
+function lireNiveau(brut: unknown, profondeur: number): NiveauContenus | undefined {
+  if (!estObjet(brut) || typeof brut.relation !== 'string' || profondeur > PROFONDEUR_CONTENUS) return undefined
+  const champs = Array.isArray(brut.champs) ? brut.champs.filter((x): x is string => typeof x === 'string') : []
+  const puis = lireNiveau(brut.puis, profondeur + 1)
+  return { relation: brut.relation, champs, ...(puis && { puis }) }
+}
+
+/** Retire les clés vides (champs sans entrée) pour un fichier court. */
+function niveauEcrit(n: NiveauContenus): Record<string, unknown> {
+  return { relation: n.relation, ...(n.champs.length > 0 && { champs: n.champs }), ...(n.puis && { puis: niveauEcrit(n.puis) }) }
+}
 
 export function miseEnPageParDefaut(): MiseEnPage {
   return { id: 'defaut', nom: 'Par défaut', defaut: true, champs: [], onglets: [], implicite: true }
@@ -59,8 +91,10 @@ export function lireMiseEnPage(texte: string, id: string): { miseEnPage: MiseEnP
     avertissements.push(`Mise en page ${id} : onglet ignoré (${JSON.stringify(o)})`)
     return []
   })
+  const contenus = lireNiveau(brut.contenus, 1)
+  if (brut.contenus !== undefined && !contenus) avertissements.push(`Mise en page ${id} : contenus liés ignorés (relation manquante)`)
   return {
-    miseEnPage: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, defaut: brut.defaut === true, champs, onglets },
+    miseEnPage: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, defaut: brut.defaut === true, champs, onglets, ...(contenus && { contenus }) },
     avertissements,
   }
 }
@@ -70,6 +104,16 @@ export function modifierMiseEnPage(texte: string | null, mep: MiseEnPage, modifs
   if (doc.errors.length > 0 || !isMap(doc.contents)) throw new Error(`Mise en page ${mep.id} illisible : modification refusée`)
   if (modifs.nom !== undefined) doc.set('nom', modifs.nom)
   if (modifs.defaut !== undefined) doc.set('defaut', modifs.defaut)
+  if (modifs.contenus === null) doc.delete('contenus')
+  else if (modifs.contenus !== undefined) {
+    const noeud = doc.createNode(niveauEcrit(modifs.contenus))
+    // Les champs d'un niveau tiennent sur une ligne, comme les colonnes d'un onglet.
+    for (let n: unknown = noeud; isMap(n); n = n.get('puis', true)) {
+      const champs = n.get('champs', true)
+      if (isSeq(champs)) champs.flow = true
+    }
+    doc.set('contenus', noeud)
+  }
   const listes: [string, unknown[] | undefined][] = [
     ['champs', modifs.champs],
     ['onglets', modifs.onglets],

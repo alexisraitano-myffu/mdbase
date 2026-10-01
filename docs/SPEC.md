@@ -455,6 +455,14 @@ mise_en_page: suivi
 - Un onglet relation est **une vue tableau de la base liée, filtrée sur « lié à cette page »**, avec ses propres colonnes visibles.
 - Le `+` de l'onglet crée une ligne déjà liée grâce à l'héritage des filtres (§8). Aucun code spécifique.
 
+### Contenus liés [DÉCIDÉ, demandé par Alex le 01/10/2026]
+- Sous le corps de la page (là où il est : sous les propriétés ou dans son onglet), les lignes d'une relation, chacune avec son titre, quelques champs choisis, et un chevron qui déplie son corps. Un projet montre ainsi son texte, puis celui de ses tâches.
+- **Affichage seulement** : chaque texte reste dans le fichier de sa ligne. Le corps déplié s'édite sur place (même éditeur que la page) et s'écrit dans le fichier de la ligne liée ; en consultation, il se lit.
+- Un corps n'est chargé qu'au dépliage. Une ligne sans corps est marquée « vide ». Le titre ouvre la page de la ligne.
+- **Niveaux** : chaque niveau peut déplier à son tour les lignes d'une relation de sa base (client, puis projets, puis tâches), jusqu'à 5 niveaux. Une ligne déjà affichée au-dessus n'est jamais répétée (pas de boucle). L'ordre est celui de la relation.
+- Activé par la mise en page (réglage « Contenus liés »), donc par base et au choix : clé `contenus`, absente par défaut.
+- Auto-relation (sous-tâches dans la base des tâches) : [PLUS TARD], avec l'auto-relation elle-même (§5). Le dépliage récursif s'en servira tel quel.
+
 ### Exemple `_pages/suivi.yaml`
 
 ```yaml
@@ -472,6 +480,11 @@ onglets:
     relation: taches
     colonnes: [titre, statut, echeance]
   - type: corps
+contenus:                                  # optionnel : contenus liés sous le corps
+  relation: taches
+  champs: [statut, echeance]               # à côté du titre de chaque tâche
+  puis:                                    # niveau suivant, dans la base des tâches
+    relation: livrables
 ```
 
 ### Corps de la page

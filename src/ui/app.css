@@ -375,6 +375,23 @@ button:hover { background: var(--survol); }
 
 /* Corps */
 .corps-page { border-top: 1px solid var(--bordure); padding-top: 0.5rem; }
+/* Contenus liés (spec §9) : les lignes d'une relation sous le corps, dépliables sur leur propre corps. */
+.contenus-lies { margin-top: 1rem; display: flex; flex-direction: column; gap: 1px; }
+.titre-contenus { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.85em; font-weight: 600; color: var(--texte-doux); }
+.titre-contenus button { margin-left: auto; }
+.entete-contenu { display: flex; align-items: center; gap: 0.4rem; min-height: 32px; padding: 0 0.25rem; border-radius: 8px; }
+.entete-contenu:hover { background: var(--survol-leger); }
+.chevron-contenu { padding: 2px; }
+.titre-contenu { border: 0; background: none; padding: 0; font: inherit; font-weight: 500; color: var(--texte); text-align: left; cursor: pointer; }
+.titre-contenu:hover { text-decoration: underline; text-underline-offset: 3px; }
+.entete-contenu .champ-carte { flex-wrap: nowrap; }
+.marque-vide { font-size: 0.8em; color: var(--tres-discret-texte); }
+.detail-contenu { margin-left: 13px; padding: 0 0 0.25rem 0.25rem; border-left: 1px solid var(--bordure); }
+.detail-contenu .corps-page { border-top: 0; padding-top: 0; }
+.detail-contenu .contenus-lies { margin-top: 0.25rem; }
+.vide-contenus { font-size: 0.85em; padding: 0.25rem 0.5rem; }
+.niveau-contenus { display: flex; flex-direction: column; gap: 0.4rem; }
+.niveau-contenus .niveau-contenus { padding-left: 0.75rem; border-left: 1px solid var(--bordure); }
 .editeur-corps .milkdown {
   background: transparent;
   /* Mêmes polices que l'interface (Crepe met du Noto Serif / Noto Sans par défaut) */
@@ -383,6 +400,8 @@ button:hover { background: var(--survol); }
   --crepe-color-on-background: var(--texte);
 }
 .editeur-corps .milkdown .ProseMirror { padding: 8px 0 60px 48px; }
+/* Dans un contenu lié : la marge des poignées de bloc seulement, sans le grand vide du bas de page. */
+.detail-contenu .editeur-corps .milkdown .ProseMirror { padding: 2px 0 8px 36px; }
 
 /* Onglet relation */
 .onglet-relation .tableau { max-height: 60vh; }

@@ -1260,7 +1260,7 @@ export class DepotEspace {
     this.page(base, id)
     const anciennesParDefaut = modifs.defaut ? this.etatBase(base).pages.filter((p) => p.id !== id && p.defaut) : []
     this.remplacerPages(base, (pages) =>
-      pages.map((p) => (p.id === id ? { ...p, ...modifs } : modifs.defaut ? { ...p, defaut: false } : p)),
+      pages.map((p) => (p.id === id ? avecModifs(p, modifs) : modifs.defaut ? { ...p, defaut: false } : p)),
     )
     return this.apresMemoire(async () => {
       await this.ecrireMiseEnPage(base, id, modifs)
@@ -1274,8 +1274,9 @@ export class DepotEspace {
       const pages = this.etatBase(base).pages
       const modele = pages.find((p) => p.id === depuis)
       const id = idBase(nom, pages.map((p) => p.id))
-      const nouvelle: MiseEnPage = { id, nom: nom.trim() || id, defaut: false, champs: modele?.champs ?? [], onglets: modele?.onglets ?? [] }
-      await this.adaptateur.ecrire(cheminPage(base, id), modifierMiseEnPage(null, nouvelle, { champs: nouvelle.champs, onglets: nouvelle.onglets }))
+      const contenus = modele?.contenus
+      const nouvelle: MiseEnPage = { id, nom: nom.trim() || id, defaut: false, champs: modele?.champs ?? [], onglets: modele?.onglets ?? [], ...(contenus && { contenus }) }
+      await this.adaptateur.ecrire(cheminPage(base, id), modifierMiseEnPage(null, nouvelle, { champs: nouvelle.champs, onglets: nouvelle.onglets, ...(contenus && { contenus }) }))
       // La mise en page implicite n'a pas de fichier : on l'écrit pour ne pas la perdre.
       const implicite = pages.find((p) => p.implicite)
       if (implicite) {
@@ -1496,6 +1497,15 @@ export class DepotEspace {
 export type LienVers = { base: string; chemin: string; cle: string }
 
 /** Ids d'une cellule relation stockée (vide si absente ou invalide). */
+/** Mise en page modifiée en mémoire : `contenus: null` retire la clé. */
+function avecModifs(p: MiseEnPage, modifs: ModificationMiseEnPage): MiseEnPage {
+  const { contenus, ...reste } = modifs
+  const suivante: MiseEnPage = { ...p, ...reste }
+  if (contenus === null) delete suivante.contenus
+  else if (contenus !== undefined) suivante.contenus = contenus
+  return suivante
+}
+
 function idsDe(l: LigneChargee, cle: string): string[] {
   const c = l.cellules[cle]
   return c?.etat === 'ok' && Array.isArray(c.valeur) ? c.valeur.map(String) : []

@@ -61,6 +61,52 @@ test.describe('pages', () => {
     expect(await espace.lire('projets/site-vitrine--psite001.md')).toBe(avant)
   })
 
+  test('contenus liés : le corps des tâches se déplie sous le projet et s’écrit dans le fichier de la tâche', async ({ espace, page }) => {
+    await espace.ouvrirPage('Projets', 'Site vitrine')
+    const section = page.locator('.contenus-lies')
+    await expect(section.locator('.titre-contenus')).toContainText('Tâches')
+    await expect(section.locator('.bloc-contenu')).toHaveCount(3)
+    await expect(section.locator('.bloc-contenu', { hasText: 'Mise en ligne' })).toContainText('vide')
+    await expect(section.locator('.ProseMirror')).toHaveCount(0) // replié : aucun éditeur chargé
+
+    await page.getByRole('button', { name: 'Déplier Intégration' }).click()
+    const paragraphe = section.locator('.bloc-contenu', { hasText: 'Intégration' }).locator('.ProseMirror p').first()
+    await expect(paragraphe).toContainText('formulaire de contact')
+    await paragraphe.click()
+    await paragraphe.evaluate((p) => {
+      const r = document.createRange()
+      r.selectNodeContents(p)
+      r.collapse(false)
+      getSelection()!.removeAllRanges()
+      getSelection()!.addRange(r)
+    })
+    await page.keyboard.type(' Relancé le 1er octobre.')
+    await expect.poll(() => espace.lire('taches/integration--tinte002.md')).toContain("adresse d'envoi d'Acme. Relancé le 1er octobre.")
+    expect(await espace.lire('projets/site-vitrine--psite001.md')).not.toContain('Relancé')
+
+    // Le réglage de la mise en page retire la section, et la clé du fichier.
+    await page.locator('.entete-page button', { hasText: 'Par défaut' }).click()
+    await page.getByRole('switch', { name: 'Afficher le contenu des lignes liées' }).click()
+    await expect(section).toHaveCount(0)
+    await expect.poll(() => espace.lire('projets/_pages/defaut.yaml')).not.toContain('contenus')
+  })
+
+  test('contenus liés sur deux niveaux : un client, ses projets, puis leurs tâches', async ({ espace, page }) => {
+    await espace.base('Clients')
+    await page.locator('.carte', { hasText: 'Acme' }).click()
+    await page.locator('.entete-page button', { hasText: 'Par défaut' }).click()
+    await page.getByRole('switch', { name: 'Afficher le contenu des lignes liées' }).click()
+    await choisir(page.getByRole('button', { name: 'Puis, dans Projets' }), 'Tâches')
+    await page.locator('.contenus-lies .titre-contenus').click({ position: { x: 5, y: 5 } }) // ferme les réglages (Échap fermerait aussi la page)
+    await expect.poll(() => espace.lire('clients/_pages/defaut.yaml')).toContain('contenus:\n  relation: projets\n  puis:\n    relation: taches\n')
+
+    await page.getByRole('button', { name: 'Déplier Site vitrine' }).click()
+    const projet = page.locator('.contenus-lies .bloc-contenu', { hasText: 'Site vitrine' })
+    await expect(projet.locator('.ProseMirror').first()).toContainText('Refaire le site vitrine')
+    await page.getByRole('button', { name: 'Déplier Maquettes' }).click()
+    await expect(projet.locator('.bloc-contenu', { hasText: 'Maquettes' }).locator('.ProseMirror')).toContainText('bleu nuit et sable')
+  })
+
   test('↓ passe à la ligne suivante de la vue, Échap ferme', async ({ espace, page }) => {
     await espace.ouvrirPage('Projets', 'Audit sécurité')
     await page.locator('.entete-page').click({ position: { x: 300, y: 10 } })

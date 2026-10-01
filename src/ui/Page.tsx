@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import { appliquerVue, valeursHeritees } from '../core/filtres'
@@ -27,6 +27,8 @@ import { useLargeurPanneau } from './useLargeurPanneau'
 import { useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Maximize2, Minimize2, Plus, TriangleAlert, X } from 'lucide-react'
 import { Choix } from './Choix'
+import { ContenusLies, ReglageContenus } from './ContenusLies'
+import { Corps } from './Corps'
 import { Interrupteur, Reglage, Section } from './reglages'
 
 type Props = {
@@ -41,9 +43,6 @@ type Props = {
   fermer: () => void
   ouvrir: (base: string, id: string) => void
 }
-
-// Milkdown pèse lourd : chargé seulement à l'ouverture d'une première page.
-const EditeurCorps = lazy(() => import('./EditeurCorps').then((m) => ({ default: m.EditeurCorps })))
 
 const LIBELLES_AFFICHAGE: Record<Affichage, string> = {
   visible: 'Visible',
@@ -77,6 +76,9 @@ export function Page(p: Props) {
   const onglets = mep.onglets
   const actif: OngletPage = onglets[Math.min(onglet, onglets.length - 1)] ?? { type: 'proprietes' }
   const corpsSeul = corpsEnOnglet(mep)
+  const contenus = mep.contenus && (
+    <ContenusLies key={`${p.base}/${ligne.id}`} base={p.base} ligne={ligne} niveau={mep.contenus} chemin={[`${p.base}/${ligne.id}`]} ouvrir={p.ouvrir} />
+  )
 
   return (
     <Cadre pleinEcran={p.pleinEcran}>
@@ -113,12 +115,18 @@ export function Page(p: Props) {
         )}
 
         {actif.type === 'proprietes' && <Proprietes depot={depot} ligne={ligne} mep={mep} />}
-        {actif.type === 'corps' && <Corps depot={depot} ligne={ligne} />}
+        {actif.type === 'corps' && (
+          <>
+            <Corps depot={depot} ligne={ligne} />
+            {contenus}
+          </>
+        )}
         {actif.type === 'relation' && (
           <OngletRelation key={actif.relation} base={p.base} schema={depot.schema} ligne={ligne} onglet={actif} ouvrir={p.ouvrir} />
         )}
         {/* Sans onglet dédié, le corps reste sous les onglets, quel que soit l'onglet actif. */}
         {!corpsSeul && !(lecture && ligne.corps.trim() === '') && <Corps depot={depot} ligne={ligne} />}
+        {!corpsSeul && contenus}
       </div>
     </Cadre>
   )
@@ -266,33 +274,6 @@ function Proprietes({ depot, ligne, mep }: { depot: DepotBase; ligne: LigneCharg
   )
 }
 
-function Corps({ depot, ligne }: { depot: DepotBase; ligne: LigneChargee }) {
-  // Le chemin peut changer (renommage) : on retrouve toujours la ligne par son id au moment d'écrire.
-  const idLigne = ligne.id
-  // Corps changé sur le disque (autre machine) : l'éditeur est remonté, sinon
-  // il garderait l'ancien texte et le réécrirait à la frappe suivante.
-  const emis = useRef(ligne.corps)
-  const [suivi, setSuivi] = useState({ corps: ligne.corps, version: 0 })
-  const lecture = useConsultation()
-  if (ligne.corps !== suivi.corps) setSuivi({ corps: ligne.corps, version: suivi.version + (ligne.corps === emis.current ? 0 : 1) })
-  return (
-    <div className="corps-page">
-      <Suspense fallback={<div className="discret">Chargement de l'éditeur…</div>}>
-        <EditeurCorps
-          key={`${idLigne}:${suivi.version}`}
-          initial={ligne.corps}
-          lecture={lecture}
-          changer={(md) => {
-            emis.current = md
-            const actuelle = depot.lignes().find((l) => l.id === idLigne)
-            if (actuelle) depot.modifierCorps(actuelle.chemin, md)
-          }}
-        />
-      </Suspense>
-    </div>
-  )
-}
-
 /**
  * Onglet relation (spec §9) : une vue tableau de la base liée, filtrée sur
  * « lié à cette page ». Son « + » crée une ligne déjà liée par l'héritage des
@@ -367,6 +348,7 @@ function ReglagesPage(p: {
   const champs = champsOrdonnes(schema, mep).filter((c) => c.colonne.cle !== schema.champTitre)
   const relationsOnglet = mep.onglets.flatMap((o) => (o.type === 'relation' ? [{ relation: o.relation, colonnes: o.colonnes }] : []))
   const corps = corpsEnOnglet(mep)
+  const premiereRelation = schema.colonnes.find((c) => c.type === 'relation')?.cle
   const modifier = (m: Parameters<typeof espace.modifierMiseEnPage>[2]) => void lancer(espace.modifierMiseEnPage(p.base, mep.id, m))
   const ecrireChamps = (liste: typeof champs) => modifier({ champs: liste.map((c) => ({ cle: c.colonne.cle, affichage: c.affichage })) })
   const deplacer = (i: number, delta: number) => {
@@ -489,6 +471,15 @@ function ReglagesPage(p: {
                 coche={corps}
                 changer={(v) => modifier({ onglets: ongletsDe(relationsOnglet, v) })}
               />
+            </Section>
+            <Section titre="Contenus liés" aide="Sous le corps, le contenu des lignes liées, dépliable et modifiable sur place. Chaque texte reste dans le fichier de sa ligne.">
+              <Interrupteur
+                libelle="Afficher le contenu des lignes liées"
+                coche={mep.contenus !== undefined}
+                desactive={premiereRelation === undefined}
+                changer={(v) => modifier({ contenus: v && premiereRelation ? { relation: premiereRelation, champs: [] } : null })}
+              />
+              {mep.contenus && <ReglageContenus schema={schema} niveau={mep.contenus} changer={(n) => modifier({ contenus: n })} />}
             </Section>
           </div>
         </Flottant>

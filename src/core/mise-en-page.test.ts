@@ -130,3 +130,43 @@ describe('ongletsDe', () => {
     ])
   })
 })
+
+describe('contenus liés', () => {
+  const AVEC = `id: suivi
+nom: Suivi
+contenus:
+  relation: taches
+  champs: [ statut, echeance ]
+  puis:
+    relation: sous_taches
+`
+
+  it('lit les niveaux, champs vides par défaut', () => {
+    const { miseEnPage, avertissements } = lireMiseEnPage(AVEC, 'suivi')
+    expect(avertissements).toEqual([])
+    expect(miseEnPage?.contenus).toEqual({ relation: 'taches', champs: ['statut', 'echeance'], puis: { relation: 'sous_taches', champs: [] } })
+  })
+
+  it('écarte des contenus sans relation, avec un avertissement', () => {
+    const { miseEnPage, avertissements } = lireMiseEnPage('contenus:\n  champs: [a]\n', 'm')
+    expect(miseEnPage?.contenus).toBeUndefined()
+    expect(avertissements).toHaveLength(1)
+  })
+
+  it('tronque au-delà de la profondeur maximale', () => {
+    let n = 'relation: r6\n'
+    for (let i = 5; i >= 1; i--) n = `relation: r${i}\npuis:\n${n.replace(/^/gm, '  ')}`
+    const contenus = lireMiseEnPage(`contenus:\n${n.replace(/^/gm, '  ')}`, 'm').miseEnPage!.contenus!
+    let profondeur = 0
+    for (let x: typeof contenus | undefined = contenus; x; x = x.puis) profondeur++
+    expect(profondeur).toBe(5)
+  })
+
+  it('écrit les champs en ligne, sans clé vide, et `null` retire la clé', () => {
+    const texte = modifierMiseEnPage('id: suivi\nnom: Suivi\n', lireMiseEnPage(AVEC, 'suivi').miseEnPage!, {
+      contenus: { relation: 'taches', champs: ['statut', 'echeance'], puis: { relation: 'sous_taches', champs: [] } },
+    })
+    expect(texte).toBe(AVEC)
+    expect(modifierMiseEnPage(texte, lireMiseEnPage(texte, 'suivi').miseEnPage!, { contenus: null })).toBe('id: suivi\nnom: Suivi\n')
+  })
+})
