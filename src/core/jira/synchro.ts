@@ -7,7 +7,7 @@ import { colonne, estObjet, lireSchema, type Schema } from '../schema'
 import { modifierSchema } from '../schema-ecriture'
 import { listerBases } from '../espace'
 import type { Valeur } from '../valeurs'
-import { champsDemandes, changement, memeValeur, valeursTicket, type TicketJira } from './ticket'
+import { champsDemandes, COLONNES_JIRA, changement, memeValeur, valeursTicket, type TicketJira } from './ticket'
 
 // Synchro d'une base Jira (§16) : lit Jira par un client injecté (le cœur ne
 // fait pas de réseau) et écrit les tickets en lignes, en ne réécrivant que ce
@@ -126,9 +126,18 @@ async function synchroniserSansEtat(a: AdaptateurFichiers, base: string, client:
   if (!source.site) throw new Error('Site Jira manquant dans les réglages de la base')
   if (source.projets.length === 0) throw new Error('Aucun projet suivi : choisis-en dans les réglages de la base Jira')
 
+  // 0. Colonnes ajoutées au script depuis la création de la base (ex. Projet) :
+  // posées dans le schéma, et une synchro complète les remplit pour tous les tickets.
+  let schema = chargement.base.schema
+  let texteSchema = await a.lire(joindre(base, '_schema.yaml'))
+  const avant = texteSchema
+  const manquantes = COLONNES_JIRA.filter((c) => !schema.colonnes.some((x) => x.cle === c.cle))
+  for (const colonne of manquantes) texteSchema = modifierSchema(texteSchema, { type: 'ajouter_colonne', colonne })
+  if (manquantes.length > 0) schema = lireSchema(texteSchema, base).schema!
+
   const maintenant = o.maintenant()
   const signature = JSON.stringify([source.site, source.projets, source.jql ?? ''])
-  const complete = o.complete || !etat.derniere || etat.signature !== signature
+  const complete = o.complete || !etat.derniere || etat.signature !== signature || manquantes.length > 0
   const depuis = complete ? undefined : depuisPour(etat.derniere!)
 
   // 1. Lecture de Jira, page par page.
@@ -145,9 +154,6 @@ async function synchroniserSansEtat(a: AdaptateurFichiers, base: string, client:
 
   // 2. Options des select : complétées dans le schéma avant d'écrire les lignes.
   const converties = tickets.map((t) => ({ t, ...valeursTicket(t, source.site, champSprint) }))
-  let schema = chargement.base.schema
-  let texteSchema = await a.lire(joindre(base, '_schema.yaml'))
-  const avant = texteSchema
   for (const c of schema.colonnes) {
     if (c.type !== 'select' && c.type !== 'multiselect') continue
     const connues = new Set(c.options.map((x) => x.label))
@@ -194,7 +200,9 @@ async function synchroniserSansEtat(a: AdaptateurFichiers, base: string, client:
     for (const [cle, v] of Object.entries(valeurs)) if (!memeValeur(actuelles[cle], v)) modifs[cle] = v
     const nouveauCorps = corps.trim() === ligne.corps.trim() ? undefined : corps
     if (Object.keys(modifs).length === 0 && nouveauCorps === undefined) continue
-    const quoi = changement(actuelles, { ...actuelles, ...valeurs }) ?? (actuelles.suivi !== true ? 'De retour dans la sélection' : null)
+    // Une colonne tout juste ajoutée se remplit sans compter comme un mouvement du ticket.
+    const reference = { ...actuelles, ...Object.fromEntries(manquantes.map((c) => [c.cle, valeurs[c.cle]])) }
+    const quoi = changement(reference, { ...actuelles, ...valeurs }) ?? (actuelles.suivi !== true ? 'De retour dans la sélection' : null)
     if (quoi) Object.assign(modifs, gardees(schema, { bouge: maintenant, changement: quoi }))
     await ecrireLigne(a, base, schema, ligne, modifs, nouveauCorps)
     bilan.modifies++

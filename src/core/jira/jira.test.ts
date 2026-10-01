@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { chargerBase } from '../base'
 import { AdaptateurCompteur, aleatoire } from '../fixtures/outils'
 import { lireSchema } from '../schema'
+import { modifierSchema } from '../schema-ecriture'
 import { adfEnMarkdown } from './adf'
 import { basesJira, depuisPour, jqlSelection, lireEtatSynchro, synchroniser, type ClientJira } from './synchro'
 import { changement, schemaJira, valeursTicket, type TicketJira } from './ticket'
@@ -205,6 +206,21 @@ describe('synchro d’une base Jira', () => {
     const un = (await lignes()).find((l) => l.id === idAvant)!
     expect(un.cellules.bouge).toEqual({ etat: 'ok', valeur: '2026-10-01T09:01' })
     expect(un.cellules.changement).toEqual({ etat: 'ok', valeur: 'Statut : En cours (était À faire)' })
+  })
+
+  it('colonne ajoutée au script (Projet) : posée dans une base existante, remplie par une synchro complète, sans compter comme un mouvement', async () => {
+    const { a, client, o, lignes } = await espace([ticket('1', 'PRVE-1')])
+    await synchroniser(a, 'jira', client, o)
+    // Base créée par une version du script qui n'avait pas encore la colonne.
+    await a.ecrire('jira/_schema.yaml', modifierSchema(await a.lire('jira/_schema.yaml'), { type: 'supprimer_colonne', cle: 'projet' }))
+    client.tickets = [ticket('1', 'PRVE-1', { project: { key: 'PRVE', name: 'Prévente' } })]
+    const bilan = await synchroniser(a, 'jira', client, o)
+    expect(bilan).toMatchObject({ modifies: 1, complete: true })
+    expect(await a.lire('jira/_schema.yaml')).toContain('cle: projet')
+    const [l] = await lignes()
+    expect(l!.cellules.projet).toEqual({ etat: 'ok', valeur: 'Prévente' })
+    expect(l!.cellules.changement).toEqual({ etat: 'ok', valeur: 'Nouveau' })
+    expect(l!.cellules.bouge).toEqual({ etat: 'ok', valeur: '2026-10-01T09:00' })
   })
 
   it('résumé changé : fichier renommé, même id ; une date de mise à jour seule ne compte pas comme « bougé »', async () => {

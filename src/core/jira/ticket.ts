@@ -13,6 +13,7 @@ export type TicketJira = { id: string; key: string; fields: Record<string, unkno
 export const COLONNES_JIRA: readonly Colonne[] = [
   { cle: 'titre', nom: 'Ticket', type: 'text' },
   { cle: 'cle', nom: 'Clé', type: 'text' },
+  { cle: 'projet', nom: 'Projet', type: 'select', options: [] },
   { cle: 'resume', nom: 'Résumé', type: 'text' },
   { cle: 'statut', nom: 'Statut', type: 'select', options: [] },
   {
@@ -44,6 +45,7 @@ export const COLONNES_JIRA: readonly Colonne[] = [
 
 /** Champs dont un changement compte comme « le ticket a bougé », avec leur libellé. */
 export const CHAMPS_SUIVIS: readonly (readonly [string, string])[] = [
+  ['projet', 'Projet'],
   ['statut', 'Statut'],
   ['assigne', 'Assigné'],
   ['priorite', 'Priorité'],
@@ -61,7 +63,7 @@ const COULEUR_ETAT: Record<string, string> = { 'À faire': 'gris', 'En cours': '
 
 /** Champs Jira à demander à la recherche ; `sprint` est un champ personnalisé, propre à chaque site. */
 export function champsDemandes(champSprint?: string): string[] {
-  return ['summary', 'status', 'issuetype', 'priority', 'assignee', 'fixVersions', 'duedate', 'parent', 'labels', 'created', 'updated', 'description', ...(champSprint ? [champSprint] : [])]
+  return ['summary', 'project', 'status', 'issuetype', 'priority', 'assignee', 'fixVersions', 'duedate', 'parent', 'labels', 'created', 'updated', 'description', ...(champSprint ? [champSprint] : [])]
 }
 
 /** Texte du schéma d'une nouvelle base Jira. */
@@ -80,7 +82,7 @@ export function schemaJira(id: string, nom: string, source: Source): string {
 export const VUE_JIRA = `id: tableau
 nom: Tableau
 type: tableau
-colonnes: [ titre, statut, changement, bouge, assigne, priorite, type, sprint ]
+colonnes: [ titre, projet, statut, changement, bouge, assigne, priorite, type, sprint ]
 colonnes_masquees: [ cle, resume, etat, versions, echeance, parent, labels, cree, maj, lien, suivi, jira_id ]
 tris:
   - { colonne: bouge, sens: desc }
@@ -101,6 +103,7 @@ export function valeursTicket(t: TicketJira, site: string, champSprint?: string)
     valeurs: {
       titre: `${t.key} ${resume}`.trim(),
       cle: t.key,
+      projet: texte(objet(f.project)?.name),
       resume: resume || undefined,
       statut: nomStatut,
       etat,
