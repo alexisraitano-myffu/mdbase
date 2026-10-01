@@ -43,6 +43,26 @@ export type Schema = {
   colonnes: Colonne[]
   /** Ordre des onglets de vues (clé `vues`) ; les vues non citées suivent, par nom de fichier. */
   ordreVues: string[]
+  /** Base remplie par une source externe (§16, Jira) : en lecture seule dans l'app. */
+  source?: Source
+}
+
+/**
+ * Source d'une base (§16). Tout type inconnu garde la base en lecture seule :
+ * mieux vaut ne pas écrire là où un script écrit.
+ */
+export type Source = { type: string; site: string; projets: string[]; jql?: string }
+
+function lireSource(brut: unknown): Source | undefined {
+  if (brut === undefined) return undefined
+  const o = estObjet(brut) ? brut : {}
+  const projets = Array.isArray(o.projets) ? o.projets.filter((p): p is string => typeof p === 'string' && p.trim() !== '') : []
+  return {
+    type: typeof o.type === 'string' ? o.type : 'inconnue',
+    site: typeof o.site === 'string' ? o.site : '',
+    projets,
+    ...(typeof o.jql === 'string' && o.jql.trim() !== '' && { jql: o.jql }),
+  }
 }
 
 /** Calculs de rollup (spec §5). */
@@ -190,6 +210,7 @@ export function lireSchema(texte: string, idBase: string): LectureSchema {
       champTitre,
       colonnes: typees,
       ordreVues: Array.isArray(brut.vues) ? brut.vues.filter((v): v is string => typeof v === 'string') : [],
+      ...(brut.source !== undefined && { source: lireSource(brut.source) }),
     },
     avertissements,
   }

@@ -643,10 +643,91 @@ Avancer jalon par jalon, chaque jalon livrable et testé avant le suivant.
 
 ---
 
+## 16. Intégration Jira [PROPOSÉ, demandé par Alex le 01/10/2026]
+
+But : relier des lignes à des tickets Jira Cloud et en faire des rollups (statut des tickets d'un projet, tickets non terminés, prochaine échéance). **Lecture seule** : rien n'est jamais écrit dans Jira.
+
+### Principe
+- Jira Cloud refuse les appels venant d'une page web (CORS) : la page ne parle jamais à Jira. Un **script de synchro** (`mdbase-jira.mjs`, un seul fichier, Node seul requis, téléchargeable depuis le site) lit Jira et écrit les tickets dans l'espace, en fichiers ordinaires.
+- Une **base Jira** : une base comme les autres (§3), marquée par une clé `source` dans son schéma. Un fichier par ticket. L'app l'affiche, la filtre, la relie et en fait des rollups comme toute base, mais la garde **en lecture seule**.
+- La correspondance ticket → ligne est une fonction pure du cœur (`src/core/jira/`), séparée de l'accès réseau : le script l'utilise aujourd'hui, une app desktop pourra l'utiliser demain.
+
+### Schéma d'une base Jira
+
+```yaml
+version: 1
+id: jira
+nom: Jira
+champ_titre: titre
+source:
+  type: jira
+  site: exemple.atlassian.net
+  projets: [PRVE, ABC]          # choisis dans l'app (réglages de la base)
+  jql: "status != Abandonné"    # optionnel : filtre ajouté à la sélection par projets
+colonnes:
+  - { cle: titre, nom: Ticket, type: text }                 # « PRVE-123 Résumé »
+  - { cle: cle, nom: Clé, type: text }                      # PRVE-123
+  - { cle: resume, nom: Résumé, type: text }
+  - { cle: statut, nom: Statut, type: select, options: [...] }
+  - { cle: etat, nom: État, type: select, options: [À faire, En cours, Terminé] }
+  - { cle: type, nom: Type, type: select, options: [...] }
+  - { cle: priorite, nom: Priorité, type: select, options: [...] }
+  - { cle: assigne, nom: Assigné, type: text }
+  - { cle: sprint, nom: Sprint, type: multiselect, options: [...] }
+  - { cle: versions, nom: Versions corrigées, type: multiselect, options: [...] }
+  - { cle: echeance, nom: Échéance, type: date }
+  - { cle: parent, nom: Epic parent, type: text }           # « PRVE-10 Refonte du portail »
+  - { cle: labels, nom: Labels, type: multiselect, options: [...] }
+  - { cle: cree, nom: Créé le, type: date }
+  - { cle: maj, nom: Mis à jour le, type: date }                # date et heure, côté Jira (un commentaire compte)
+  - { cle: bouge, nom: Bougé le, type: date }                   # date et heure de la synchro qui a vu changer un champ suivi
+  - { cle: changement, nom: Dernier changement, type: text }    # « Statut : En revue (était En cours) »
+  - { cle: lien, nom: Lien, type: url }
+  - { cle: suivi, nom: Suivi, type: checkbox }
+  - { cle: jira_id, nom: Id Jira, type: text }              # id interne Jira : sert à retrouver le ticket
+```
+
+- `source` : la seule nouvelle clé. Sa présence rend la base **en lecture seule** dans l'app (cellules, corps, création et suppression de lignes, colonnes) ; vues, filtres, tris, mises en page et relations **vers** elle restent libres.
+- Le script crée la base si elle manque, et complète les options des select au fil des tickets. `etat` est la catégorie de statut de Jira (À faire, En cours, Terminé), stable quel que soit le workflow : c'est elle qui sert aux rollups « non terminés ». Couleurs : gris, bleu, vert.
+- **Voir ce qui a bougé** [demandé par Alex le 01/10/2026] : quand une synchro trouve un champ suivi modifié (statut, assigné, sprint, échéance…), elle note `bouge` (date et heure de la synchro) et `changement` (les champs modifiés, nouvelle valeur puis l'ancienne entre parenthèses, séparés par « ; »). Trier par « Bougé le », ou filtrer « Bougé le = aujourd'hui », donne les tickets qui ont bougé. Un ticket nouveau dans la sélection : `changement: Nouveau`. `maj` reste la date de Jira, qui avance aussi pour un simple commentaire.
+- Colonnes propres à l'utilisateur : refusées dans une base Jira (lecture seule). Une colonne retirée du schéma n'est plus écrite par le script.
+
+### Fichier d'un ticket
+```markdown
+---
+id: k3f9a2xq                 # id de ligne mdbase, aléatoire, stable (§3)
+jira_id: "10423"             # id interne Jira, stable même si le ticket change de projet
+titre: PRVE-123 Export des factures en PDF
+cle: PRVE-123
+statut: En revue
+etat: En cours
+...
+suivi: true
+---
+Description du ticket, convertie en Markdown.
+```
+- Le script retrouve un ticket par `jira_id`, jamais par nom de fichier : l'id de ligne ne change pas, les relations tiennent.
+- Corps : la description Jira (format ADF) convertie en Markdown (titres, listes, gras, italique, code, liens, tableaux simples). Le reste devient du texte.
+- Un ticket qui sort de la sélection (projet retiré, filtre, ticket supprimé dans Jira) **n'est jamais effacé** : il garde ses valeurs et passe à `suivi: false`. Les relations vers lui restent. Le supprimer reste un geste de l'utilisateur.
+
+### Dans l'app
+- Créer : « Nouvelle base Jira » (site, projets). Réglages de la base : site, projets suivis, filtre JQL.
+- Relier : une colonne relation vers la base Jira. La recherche de la relation trouve un ticket par son numéro (`123` ou `PRVE-123`), puisque la clé est dans le titre.
+- Ce que l'app affiche d'une base Jira : la date de dernière synchro, lue dans `jira/_synchro.yaml` (écrit par le script : date, nombre de tickets, dernière erreur).
+
+### Le script
+- `node mdbase-jira.mjs <dossier de l'espace>` : une synchro. `--suivre` : reste ouvert, resynchronise toutes les 5 minutes et relit les réglages de la base à chaque passage.
+- Synchro incrémentale : seuls les tickets mis à jour depuis la dernière synchro (avec une marge d'une minute) sont relus ; une synchro complète au premier passage et après un changement de projets ou de filtre. Un fichier n'est réécrit que si une valeur a changé.
+- API : Jira Cloud REST v3, recherche JQL paginée, authentification e-mail + token d'API (token classique ou à portées `read:jira-work`).
+- **Le token ne va jamais dans l'espace ni dans le dépôt.** Demandé au premier lancement avec l'e-mail, puis gardé hors de l'espace : chiffré par Windows pour la session (DPAPI) sous `%APPDATA%\mdbase\`, dans le trousseau sur macOS. `--oublier` l'efface.
+- [PLUS TARD] raccourci `.cmd`, lancement à l'ouverture de session, plusieurs scripts sur un même espace partagé (verrou), app desktop qui appelle Jira directement.
+
+---
+
 ## 15. Questions ouvertes
 
 - Nom du produit.
 - Cible au-delà de l'usage personnel d'Alex (positionnement exact, distribution).
 - Cardinalité configurable des relations : UX de conversion d'une relation existante.
 - Stratégie d'import / export.
-- Moment de passer à Tauri (probablement quand la surveillance du dossier en temps réel devient nécessaire).
+- Moment de passer à Tauri (probablement quand la surveillance du dossier en temps réel devient nécessaire, ou pour appeler Jira sans script, §16).
