@@ -34,7 +34,7 @@ function CaseCalcul(p: { colonne: Colonne; largeur: number; lignes: readonly Lig
   const ancre = useRef<HTMLDivElement>(null)
   const { colonne, calcul } = p
   const resultat = calcul ? agreger(calcul, colonne, p.lignes.map((l) => l.cellules[colonne.cle])) : undefined
-  const choix = calculsPour(colonne).filter((c) => c !== 'afficher')
+  const choix = calculsPour(colonne).filter((c) => c !== 'afficher' && c !== 'afficher_uniques')
 
   return (
     <div

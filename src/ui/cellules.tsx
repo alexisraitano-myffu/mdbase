@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
-import { colonne as colonneDe, estSaisie, natureDe, type Colonne, type ColonneChoix, type ColonneRelation } from '../core/schema'
+import { colonneOrigine, estSaisie, natureDe, type Colonne, type ColonneChoix, type ColonneRelation } from '../core/schema'
 import { lireNombre, type Cellule as ValeurCellule, type Valeur } from '../core/valeurs'
 import { couleurOption } from './couleurs'
 import { Flottant } from './flottant'
@@ -408,7 +408,7 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
         ) : champ?.type === 'select' || champ?.type === 'multiselect' ? (
           <Pastille key={i} label={x} couleur={champ.options.find((o) => o.label === x)?.couleur} />
         ) : (
-          <span key={i}>{i > 0 ? `, ${x}` : x}</span>
+          <span key={i}>{(i > 0 ? ', ' : '') + (champ && natureDe(champ) === 'date' ? formaterDate(x) : x)}</span>
         ),
       )
       break
@@ -417,14 +417,13 @@ function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; 
   return <div className="cellule calculee">{contenu}</div>
 }
 
-/** Colonne de la base liée que remonte un rollup. */
+/**
+ * Colonne d'où viennent les valeurs d'un rollup qui les affiche, au bout de la
+ * chaîne des rollups de rollups : une relation y donne des titres, pas des ids.
+ */
 export function champRemonte(etat: ReturnType<typeof useEspace>['etat'], base: string, c: Colonne): Colonne | undefined {
   if (c.type !== 'rollup') return undefined
-  const schema = etat.bases.get(base)?.depot?.schema
-  const relation = schema && colonneDe(schema, c.relation)
-  if (relation?.type !== 'relation') return undefined
-  const cible = etat.bases.get(relation.cible)?.depot?.schema
-  return cible && colonneDe(cible, c.champ)
+  return colonneOrigine((b) => etat.bases.get(b)?.depot?.schema, base, c)
 }
 
 const normaliser = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()

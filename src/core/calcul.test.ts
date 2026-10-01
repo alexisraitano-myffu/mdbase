@@ -120,6 +120,13 @@ describe('agreger', () => {
     expect(v(agreger('afficher', caseC, [ok(true), ok(false)]))).toEqual(['☑'])
   })
 
+  it('valeurs uniques : chacune une fois, dans l’ordre d’apparition', () => {
+    const cs = [ok(['v1', 'v2']), ok(['v1']), undefined, ok(['v3', 'v2'])]
+    expect(v(agreger('afficher', date, cs))).toEqual(['v1', 'v2', 'v1', 'v3', 'v2'])
+    expect(v(agreger('afficher_uniques', date, cs))).toEqual(['v1', 'v2', 'v3'])
+    expect(agreger('afficher_uniques', date, [undefined])).toBeUndefined()
+  })
+
   it('signale un calcul inconnu', () => {
     expect(agreger('moyenne_geometrique', nombre, [])).toMatchObject({ etat: 'invalide' })
   })

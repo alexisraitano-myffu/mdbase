@@ -225,6 +225,7 @@ function ReglagesRollup({ espace, base, colonne }: { espace: DepotEspace; base: 
 
 export const LIBELLES_CALCULS: Record<Calcul, string> = {
   afficher: 'Afficher les valeurs',
+  afficher_uniques: 'Afficher les valeurs uniques',
   compter: 'Compter les lignes',
   compter_valeurs: 'Compter les valeurs',
   compter_uniques: 'Compter les valeurs uniques',

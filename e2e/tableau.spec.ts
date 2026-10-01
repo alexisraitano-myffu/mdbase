@@ -108,6 +108,33 @@ test.describe('relations et rollups', () => {
   })
 })
 
+test.describe('rollups qui affichent des valeurs', () => {
+  test('rollup de rollup d’une relation : des titres, jamais des ids ; valeurs uniques ; groupement par ses valeurs', async ({ espace, page }) => {
+    // Projets : les projets du client ; Tâches : ceux du client de leur projet, remontés par deux rollups.
+    // Les colonnes s'insèrent avant la clé `vues`, qui suit la liste.
+    const ajouter = async (chemin: string, lignes: string) => espace.ecrire(chemin, (await espace.lire(chemin)).replace('\nvues:', `\n${lignes}vues:`))
+    await ajouter('projets/_schema.yaml', '  - { cle: projets_client, nom: Projets du client, type: rollup, relation: client, champ: projets, calcul: afficher }\n')
+    await ajouter(
+      'taches/_schema.yaml',
+      '  - { cle: tous, nom: Tous, type: rollup, relation: projet, champ: projets_client, calcul: afficher }\n' +
+        '  - { cle: uniques, nom: Uniques, type: rollup, relation: projet, champ: projets_client, calcul: afficher_uniques }\n',
+    )
+    await espace.ecrire('taches/_vues/par-projet-du-client.yaml', 'id: par-projet-du-client\nnom: Par projet du client\ntype: tableau\ngroupe: uniques\ncolonnes: [ titre, tous, uniques ]\n')
+    await page.getByRole('button', { name: 'Relire le dossier' }).click()
+    await espace.base('Tâches')
+    await page.locator('.onglet', { hasText: 'Par projet du client' }).click()
+
+    // Intégration (Site vitrine, client Acme) : les deux projets d'Acme, par leur titre.
+    await expect((await cellule(page, 'Intégration', 'Uniques')).locator('.pastille-relation')).toHaveText(['Application mobile', 'Site vitrine'])
+    await expect(await cellule(page, 'Intégration', 'Tous')).not.toContainText('psite001')
+
+    const groupes = page.locator('.rangee-groupe .libelle-groupe')
+    await expect(groupes).toContainText(['Application mobile', 'Audit sécurité', 'Boutique en ligne', 'Site vitrine'])
+    // Une tâche d'Acme est dans le groupe de chacun de ses projets ; « + » d'un groupe ne peut rien y écrire.
+    await expect(page.locator('.rangee', { hasText: 'Intégration' })).toHaveCount(2)
+  })
+})
+
 /** Coche une ligne : sa case n'apparaît qu'au survol, comme dans Notion. */
 async function cocher(page: Page, titre: string, etendre = false) {
   const rangee = page.locator('.rangee', { hasText: titre }).first()

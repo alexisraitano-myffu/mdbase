@@ -141,8 +141,11 @@ export function Tableau(p: Props) {
   const aDesCalculs = Object.keys(calculs).length > 0
   const elements = useMemo<Element[]>(() => {
     if (!colonneGroupe) return lignesVue.map((lv) => ({ type: 'ligne', lv }))
-    const cible = colonneGroupe.type === 'relation' ? colonneGroupe.cible : null
-    const groupes = grouper(lignesVue, colonneGroupe, (id) => (cible ? titreDe(etat, cible, id) : null))
+    // Un rollup se groupe par les valeurs de sa colonne d'origine (titres d'une relation, options d'un select).
+    const origine = champRemonte(etat, base, colonneGroupe)
+    const relation = colonneGroupe.type === 'relation' ? colonneGroupe : origine
+    const cible = relation?.type === 'relation' ? relation.cible : null
+    const groupes = grouper(lignesVue, colonneGroupe, (id) => (cible ? titreDe(etat, cible, id) : null), false, origine)
     return groupes.flatMap((g): Element[] => {
       const replie = replies.has(g.cle)
       if (replie) return [{ type: 'groupe', groupe: g, replie }]

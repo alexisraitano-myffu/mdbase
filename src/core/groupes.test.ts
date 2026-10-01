@@ -46,6 +46,24 @@ describe('grouper', () => {
     expect(parClient[0]!.valeur).toEqual(['c1'])
   })
 
+  it('rollup qui affiche des valeurs : une ligne par valeur, lue comme sa colonne d’origine, sans valeur à écrire', () => {
+    const rollup = { cle: 'clients_lies', nom: 'Clients liés', type: 'rollup', relation: 'x', champ: 'client', calcul: 'afficher' } as const
+    const avec = (ids: string[] | undefined): LigneVue => {
+      const l = lv({})
+      return ids ? { ...l, ligne: { ...l.ligne, cellules: { ...l.ligne.cellules, clients_lies: { etat: 'ok', valeur: ids } } } } : l
+    }
+    const lignes = [avec(['c2', 'c1', 'c2']), avec(['c2']), avec(undefined)]
+    const parRelation = grouper(lignes, rollup, titres, false, col('client'))
+    expect(resume(parRelation)).toEqual(['Acme:1', 'Globex:2', 'Sans clients liés:1'])
+    expect(parRelation[0]!.valeur).toBeUndefined()
+    // Origine select : ordre et couleur des options.
+    const statuts = [avec(['Terminé', 'À faire'])]
+    const parStatut = grouper(statuts, rollup, titres, false, col('statut'))
+    expect(resume(parStatut)).toEqual(['À faire:1', 'Terminé:1'])
+    expect(parStatut[0]).toMatchObject({ couleur: 'gris' })
+    expect(parStatut[0]!.valeur).toBeUndefined()
+  })
+
   it('texte : alphabétique', () => {
     expect(resume(grouper([lv({ titre: 'b' }), lv({ titre: 'A' }), lv({ titre: 'b' })], col('titre'), titres))).toEqual(['A:1', 'b:2'])
   })

@@ -241,7 +241,7 @@ C'est la fonctionnalité prioritaire. Elle doit être solide et parfaitement int
 - Un rollup référence une colonne `relation` de sa base et une colonne (`champ`) de la base liée.
 - **N'importe quelle colonne** de la base liée peut être remontée, y compris un rollup ou une formule.
 - Calculs disponibles :
-  - `afficher` (valeurs brutes)
+  - `afficher` (valeurs brutes), `afficher_uniques` (chaque valeur une fois, dans l'ordre d'apparition) [DÉCIDÉ, demandé par Alex le 01/10/2026]
   - `compter`, `compter_valeurs`, `compter_uniques`, `compter_vides`, `compter_non_vides`
   - `pourcent_coches`, `pourcent_non_coches`
   - `somme`, `moyenne`, `mediane`, `min`, `max`, `amplitude`
@@ -249,6 +249,8 @@ C'est la fonctionnalité prioritaire. Elle doit être solide et parfaitement int
 - Filtre optionnel sur les lignes liées avant calcul (ex. ne compter que les tâches non terminées).
 - **Rollups de rollups autorisés**, sans limite de profondeur.
 - Le résultat d'un rollup a un type (nombre, date, liste…) et se comporte **exactement comme une colonne saisie** pour les filtres, tris, groupements et calculs.
+- Un rollup qui affiche des valeurs les montre **comme sa colonne d'origine**, au bout de la chaîne des rollups de rollups : les titres des lignes d'une relation (jamais leurs ids), les pastilles colorées d'un select, les dates au format court.
+- **Grouper par un rollup** qui affiche des valeurs (tableau, timeline) : une ligne apparaît dans le groupe de chacune de ses valeurs, comme pour un multiselect, avec les titres ou les couleurs de la colonne d'origine. Un rollup ne s'écrit pas : une ligne créée dans un tel groupe n'en reçoit pas la valeur, et le kanban, dont les déplacements écrivent, ne propose pas les rollups.
 
 ### Graphe de dépendances et boucles
 - Toutes les colonnes calculées (relations inverses, rollups, formules) forment un graphe de dépendances.

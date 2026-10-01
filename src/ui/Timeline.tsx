@@ -27,7 +27,7 @@ import {
 } from '../core/temps'
 import type { ModificationVue, Niveau, Vue } from '../core/vue'
 import { useLancer } from './actions'
-import { ValeurCompacte } from './cellules'
+import { champRemonte, ValeurCompacte } from './cellules'
 import { dateCourte, Echelles, plageEnTexte, titreLigne } from './Calendrier'
 import { titreDe, useEspace } from './contexte-espace'
 import { glisser, usePose } from './glisser'
@@ -441,9 +441,12 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     const ajout: Element[] = lecture ? [] : [{ type: 'ajout' }]
     if (!colGroupe) return [...rangees.flatMap((r) => premierNiveau(r)), ...ajout]
     const parChemin = new Map(rangees.map((r) => [r.ligne.chemin, r]))
-    const cible = colGroupe.type === 'relation' ? colGroupe.cible : null
+    // Un rollup se groupe par les valeurs de sa colonne d'origine (titres d'une relation, options d'un select).
+    const origine = champRemonte(etat, base, colGroupe)
+    const relation = colGroupe.type === 'relation' ? colGroupe : origine
+    const cible = relation?.type === 'relation' ? relation.cible : null
     return [
-      ...grouper(lignesVue, colGroupe, (id) => (cible ? titreDe(etat, cible, id) : null)).flatMap((g): Element[] => {
+      ...grouper(lignesVue, colGroupe, (id) => (cible ? titreDe(etat, cible, id) : null), false, origine).flatMap((g): Element[] => {
         const siennes = g.lignes.map((l) => parChemin.get(l.ligne.chemin)!)
         const replie = replies.has(g.cle)
         const entete: Element = { type: 'groupe', groupe: g, plage: enveloppe(siennes.map((r) => r.plage)), replie }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TEXTE_SCHEMA_PROJETS, schemaProjets } from './fixtures/schema-projets'
-import { estSaisie, lireSchema } from './schema'
+import { colonneOrigine, estSaisie, lireSchema, type Schema } from './schema'
 
 describe('lireSchema', () => {
   it('lit toutes les colonnes du schéma d’exemple', () => {
@@ -62,5 +62,44 @@ describe('lireSchema', () => {
 
   it('refuse un YAML illisible sans lever d’exception', () => {
     expect(lireSchema('colonnes: [\n', 'b').schema).toBeNull()
+  })
+})
+
+describe('colonneOrigine', () => {
+  // Tâches → Lot → Version → Projet : le projet d'une tâche remonte par deux rollups.
+  const lire = (texte: string) => lireSchema(texte, /id: (\w+)/.exec(texte)![1]!).schema!
+  const schemas = new Map<string, Schema>([
+    ['projets', lire('version: 1\nid: projets\nnom: Projets\nchamp_titre: titre\ncolonnes:\n  - { cle: titre, nom: Titre, type: text }\n')],
+    [
+      'versions',
+      lire(
+        'version: 1\nid: versions\nnom: Versions\nchamp_titre: titre\ncolonnes:\n  - { cle: titre, nom: Titre, type: text }\n  - { cle: projet, nom: Projet, type: relation, cible: projets, proprietaire: true, inverse: versions }\n',
+      ),
+    ],
+    [
+      'lots',
+      lire(
+        'version: 1\nid: lots\nnom: Lots\nchamp_titre: titre\ncolonnes:\n  - { cle: titre, nom: Titre, type: text }\n  - { cle: version, nom: Version, type: relation, cible: versions, proprietaire: true, inverse: lots }\n  - { cle: projet, nom: Projet, type: rollup, relation: version, champ: projet, calcul: afficher }\n  - { cle: nb, nom: Nb, type: rollup, relation: version, champ: projet, calcul: compter }\n',
+      ),
+    ],
+    [
+      'taches',
+      lire(
+        'version: 1\nid: taches\nnom: Tâches\nchamp_titre: titre\ncolonnes:\n  - { cle: titre, nom: Titre, type: text }\n  - { cle: lot, nom: Lot, type: relation, cible: lots, proprietaire: true, inverse: taches }\n  - { cle: projet, nom: Projet, type: rollup, relation: lot, champ: projet, calcul: afficher_uniques }\n  - { cle: perdu, nom: Perdu, type: rollup, relation: lot, champ: disparu, calcul: afficher }\n',
+      ),
+    ],
+  ])
+  const de = (b: string) => schemas.get(b)
+  const col = (b: string, cle: string) => schemas.get(b)!.colonnes.find((c) => c.cle === cle)!
+
+  it('remonte une chaîne de rollups jusqu’à la relation d’origine', () => {
+    expect(colonneOrigine(de, 'taches', col('taches', 'projet'))).toMatchObject({ type: 'relation', cible: 'projets' })
+    expect(colonneOrigine(de, 'lots', col('lots', 'projet'))).toMatchObject({ type: 'relation', cible: 'projets' })
+  })
+
+  it('une colonne qui n’affiche pas de valeurs est sa propre origine ; un maillon manquant, aucune', () => {
+    expect(colonneOrigine(de, 'lots', col('lots', 'nb'))).toBe(col('lots', 'nb'))
+    expect(colonneOrigine(de, 'taches', col('taches', 'titre'))).toBe(col('taches', 'titre'))
+    expect(colonneOrigine(de, 'taches', col('taches', 'perdu'))).toBeUndefined()
   })
 })

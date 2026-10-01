@@ -48,6 +48,7 @@ export type Schema = {
 /** Calculs de rollup (spec §5). */
 export const CALCULS = [
   'afficher',
+  'afficher_uniques',
   'compter',
   'compter_valeurs',
   'compter_uniques',
@@ -73,6 +74,37 @@ export type Calcul = (typeof CALCULS)[number]
  */
 export type Nature = 'texte' | 'nombre' | 'date' | 'case' | 'choix' | 'liste'
 
+/** Rollup qui montre les valeurs remontées (toutes, ou chacune une fois) plutôt qu'un calcul. */
+export function afficheValeurs(c: Colonne): boolean {
+  return c.type === 'rollup' && (c.calcul === 'afficher' || c.calcul === 'afficher_uniques')
+}
+
+/**
+ * Colonne d'origine des valeurs d'un rollup qui les affiche : on remonte la
+ * chaîne des rollups (rollup de rollup…) jusqu'à la colonne saisie ou calculée
+ * qui les produit, pour les montrer comme elle (titres d'une relation, couleurs
+ * d'un select). Toute autre colonne est sa propre origine ; `undefined` si un
+ * maillon manque.
+ */
+export function colonneOrigine(schemaDe: (base: string) => Schema | undefined, base: string, c: Colonne): Colonne | undefined {
+  const dans = (b: string, cle: string) => {
+    const s = schemaDe(b)
+    return s && colonne(s, cle)
+  }
+  let courante = c
+  let baseCourante = base
+  // Le graphe refuse les boucles ; la borne protège d'un fichier modifié à la main.
+  for (let i = 0; i < 20 && courante.type === 'rollup' && afficheValeurs(courante); i++) {
+    const relation = dans(baseCourante, courante.relation)
+    if (relation?.type !== 'relation') return undefined
+    const champ = dans(relation.cible, courante.champ)
+    if (!champ) return undefined
+    courante = champ
+    baseCourante = relation.cible
+  }
+  return courante
+}
+
 export function natureDe(c: Colonne): Nature {
   switch (c.type) {
     case 'text':
@@ -90,7 +122,7 @@ export function natureDe(c: Colonne): Nature {
     case 'relation':
       return 'liste'
     case 'rollup':
-      if (c.calcul === 'afficher') return 'liste'
+      if (afficheValeurs(c)) return 'liste'
       if (c.calcul === 'date_plus_tot' || c.calcul === 'date_plus_tard') return 'date'
       return 'nombre'
     case 'formula':

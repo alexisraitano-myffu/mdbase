@@ -170,7 +170,11 @@ export function agreger(calcul: string, champ: Colonne, cellules: (Cellule | und
 
   switch (calcul) {
     case 'afficher':
-      return nonVides.length === 0 ? undefined : ok(nonVides.map((v) => (typeof v === 'boolean' ? (v ? '☑' : '☐') : String(v))))
+    case 'afficher_uniques': {
+      const textes = nonVides.map((v) => (typeof v === 'boolean' ? (v ? '☑' : '☐') : String(v)))
+      if (textes.length === 0) return undefined
+      return ok(calcul === 'afficher' ? textes : [...new Set(textes)])
+    }
     case 'compter':
       return ok(cellules.length)
     case 'compter_valeurs':
@@ -215,7 +219,7 @@ export function agreger(calcul: string, champ: Colonne, cellules: (Cellule | und
  * (colonne remontée) comme pour le pied d'une colonne de tableau.
  */
 export function calculsPour(c: Colonne): Calcul[] {
-  const comptes: Calcul[] = ['afficher', 'compter', 'compter_valeurs', 'compter_uniques', 'compter_vides', 'compter_non_vides']
+  const comptes: Calcul[] = ['afficher', 'afficher_uniques', 'compter', 'compter_valeurs', 'compter_uniques', 'compter_vides', 'compter_non_vides']
   switch (natureDe(c)) {
     case 'nombre':
       return [...comptes, 'somme', 'moyenne', 'mediane', 'min', 'max', 'amplitude']

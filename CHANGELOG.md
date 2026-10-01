@@ -114,9 +114,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Timeline : titres des bandes en haut ou en bas (sous la dernière rangée), jamais coupés : un titre plus long que sa bande déborde, et deux titres qui se toucheraient passent sur deux rangées. Bandes plus lisibles, fond plus dense et bords marqués.
 - Couleurs des options : quand les barres ou les bandes prennent la couleur d'une colonne, le réglage « Couleur » montre ses options, dont la couleur se change sur place (elle vaut partout dans l'espace).
 - Timeline : le titre des barres se retire comme un autre champ (« Champs sur la barre » de la vue, « Champs affichés » d'un niveau), quand la légende des couleurs suffit ; il reste dans l'infobulle. Clé `sans_titre: true`.
+- Rollups : calcul « Afficher les valeurs uniques » (`afficher_uniques`), chaque valeur une fois. Grouper par un rollup qui affiche des valeurs dans le tableau et la timeline (titres d'une relation, couleurs d'un select).
 - Petites animations, toutes sous 250 ms : les menus grandissent depuis leur bouton, les fenêtres se posent au centre, le panneau de page arrive de la droite (pas en passant d'une ligne à l'autre), les boutons d'action et les pilules s'enfoncent à l'appui, les chevrons de groupe tournent, et une barre relâchée dans la timeline ou le calendrier glisse jusqu'à son jour. Rien ne bouge sur les raccourcis clavier (recherche, assistant, consultation) ; avec « réduire les animations », de simples fondus.
 
 ### Fixed
+- Rollup de rollup d'une relation (le projet d'une tâche remonté par son lot) : la cellule, la copie et l'export montraient les identifiants des lignes au lieu de leurs titres.
 - Assistant IA : une vue proposée entrait dans l'état de l'espace dès la proposition (un onglet sans fichier pouvait apparaître, même en annulant), et la vraie était ensuite créée avec un suffixe « -2 ».
 - Accueil : « Essayer avec la démo » devient l'action principale ; avec un dossier mémorisé, l'écran « Rouvrir » garde la démo et « Ouvrir un autre dossier », et explique un refus d'autorisation du navigateur (auparavant le clic ne faisait rien).
 - La démo est mémorisée par une marque et non par son dossier OPFS : relire ce dossier depuis IndexedDB faisait planter Chromium en navigation privée au rechargement.
