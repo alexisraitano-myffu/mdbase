@@ -3,7 +3,7 @@ import { estConfiguration } from './espace'
 import { FichierIntrouvable, joindre, parent, type AdaptateurFichiers } from './fichiers'
 import { genererId, nomFichierLigne, type Aleatoire } from './identifiants'
 import { changerIdentifiant, creerLigne, ErreurEcriture, lireLigne, type Modifications } from './ligne'
-import { colonne, estSaisie, type Schema } from './schema'
+import { colonne, estSaisie, nomSource, type Schema } from './schema'
 import type { Changement } from './historique'
 import { encoder, type Cellule, type Valeur } from './valeurs'
 
@@ -75,6 +75,7 @@ export class DepotBase {
 
   /** Modifie une cellule : affichage immédiat, écriture après le délai de regroupement. */
   modifier(chemin: string, cle: string, valeur: Valeur | undefined): void {
+    this.verifierModifiable()
     const c = colonne(this.schema, cle)
     if (!c || !estSaisie(c)) throw new ErreurEcriture(`Colonne non modifiable : ${cle}`)
     const entree = this.trouver(chemin)
@@ -94,11 +95,20 @@ export class DepotBase {
 
   /** Modifie le corps Markdown : même regroupement des écritures que les cellules. */
   modifierCorps(chemin: string, corps: string): void {
+    this.verifierModifiable()
     const entree = this.trouver(chemin)
     this.options.journal({ type: 'corps', base: this.schema.id, id: entree.persistee.id, avant: entree.affichee.corps, apres: corps })
     entree.corpsEnAttente = corps
     entree.affichee = afficher(entree, this.schema)
     this.planifierEcriture(entree)
+  }
+
+  /**
+   * Base synchronisée depuis un outil externe (`source`, spec §16) : ses
+   * lignes ne s'écrivent que par le script de synchro, jamais par l'app.
+   */
+  private verifierModifiable(): void {
+    if (this.schema.source) throw new ErreurEcriture(`Base synchronisée depuis ${nomSource(this.schema.source.type)} : lecture seule dans mdbase`)
   }
 
   private planifierEcriture(entree: Entree) {
@@ -109,6 +119,7 @@ export class DepotBase {
 
   /** Crée une ligne et l'écrit immédiatement (spec §8). Elle s'ajoute en fin de liste. */
   async creer(valeurs: Modifications = {}): Promise<LigneChargee> {
+    this.verifierModifiable()
     this.generation++
     const id = genererId(this.options.aleatoire, new Set(this.entrees.map((e) => e.persistee.id)))
     const titre = valeurs[this.schema.champTitre]
@@ -130,6 +141,7 @@ export class DepotBase {
    * puis les modifications qui n'avaient pas encore été écrites.
    */
   async restaurer(chemin: string, source: string, enAttente: Modifications = {}): Promise<void> {
+    this.verifierModifiable()
     if (await this.existe(chemin)) throw new ErreurEcriture(`Un fichier porte déjà ce nom : ${chemin}`)
     this.generation++
     await this.adaptateur.ecrire(chemin, source)
@@ -150,7 +162,8 @@ export class DepotBase {
    * Aligne le nom du fichier sur le titre (spec §3). À appeler à la sortie du
    * champ titre, jamais à chaque frappe.
    */
-  renommerSelonTitre(chemin: string): Promise<void> {
+  async renommerSelonTitre(chemin: string): Promise<void> {
+    this.verifierModifiable()
     const entree = this.trouver(chemin)
     this.lancerEcriture(entree)
     return this.enchainer(entree, async () => {
@@ -170,7 +183,8 @@ export class DepotBase {
    * Supprime le fichier d'une ligne. Les modifications en attente sont
    * abandonnées ; les liens qui pointaient vers elle deviennent des liens cassés.
    */
-  supprimer(chemin: string): Promise<void> {
+  async supprimer(chemin: string): Promise<void> {
+    this.verifierModifiable()
     const e = this.trouver(chemin)
     this.options.journal({
       type: 'supprimee',
@@ -207,6 +221,7 @@ export class DepotBase {
    * (et le nom de fichier qui va avec). Les liens existants restent sur l'autre.
    */
   async separer(chemin: string): Promise<string> {
+    this.verifierModifiable()
     const e = this.trouver(chemin)
     this.lancerEcriture(e)
     const id = genererId(this.options.aleatoire, new Set(this.entrees.map((x) => x.persistee.id)))
@@ -262,6 +277,7 @@ export class DepotBase {
    * aux changements de schéma. Renvoie le nombre de fichiers réécrits.
    */
   async reecrireColonne(cle: string, valeurs: ReadonlyMap<string, Valeur>): Promise<number> {
+    this.verifierModifiable()
     await this.vider()
     let n = 0
     for (const e of this.entrees) {

@@ -13,7 +13,7 @@ async function menuColonne(page: Page, nom: string) {
 
 test.describe('bases, groupes et colonnes', () => {
   test('nouvelle base : dossier et schéma créés, base ouverte', async ({ espace, page }) => {
-    await page.getByRole('button', { name: 'Nouvelle base' }).click()
+    await page.getByRole('button', { name: 'Nouvelle base', exact: true }).click()
     await page.keyboard.type('Fournisseurs')
     await page.keyboard.press('Enter')
     await expect(page.locator('h1', { hasText: 'Fournisseurs' })).toBeVisible()

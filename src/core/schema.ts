@@ -53,6 +53,11 @@ export type Schema = {
  */
 export type Source = { type: string; site: string; projets: string[]; jql?: string }
 
+/** Nom affiché d'une source : « Jira », ou le type tel qu'écrit. */
+export function nomSource(type: string): string {
+  return type === 'jira' ? 'Jira' : type
+}
+
 function lireSource(brut: unknown): Source | undefined {
   if (brut === undefined) return undefined
   const o = estObjet(brut) ? brut : {}

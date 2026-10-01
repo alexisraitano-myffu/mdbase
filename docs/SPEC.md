@@ -711,13 +711,13 @@ Description du ticket, convertie en Markdown.
 - Un ticket qui sort de la sélection (projet retiré, filtre, ticket supprimé dans Jira) **n'est jamais effacé** : il garde ses valeurs et passe à `suivi: false`. Les relations vers lui restent. Le supprimer reste un geste de l'utilisateur.
 
 ### Dans l'app
-- Créer : « Nouvelle base Jira » (site, projets). Réglages de la base : site, projets suivis, filtre JQL.
+- Créer : « Nouvelle base Jira » (site, projets, filtre JQL facultatif). Une vue tableau est écrite avec la base : les tickets qui ont bougé en tête (« Bougé le » décroissant), titre, statut, dernier changement, assigné, priorité, type et sprint ; les autres colonnes restent dans les pages. Réglages de la base (bandeau en haut de la base) : site, projets suivis, filtre JQL.
 - Relier : une colonne relation vers la base Jira. La recherche de la relation trouve un ticket par son numéro (`123` ou `PRVE-123`), puisque la clé est dans le titre.
-- Ce que l'app affiche d'une base Jira : la date de dernière synchro, lue dans `jira/_synchro.yaml` (écrit par le script : date, nombre de tickets, dernière erreur).
+- Ce que l'app affiche d'une base Jira : un bandeau avec la dernière synchro, lue dans `jira/_synchro.yaml` (écrit par le script : date, nombre de tickets, dernière erreur), l'erreur du dernier passage s'il a échoué, et un doute si la synchro date de plus de 30 minutes. Tant que la base n'a jamais été synchronisée, il explique comment lancer le script et propose de le télécharger (publié à côté de l'app).
 
 ### Le script
 - `node mdbase-jira.mjs <dossier de l'espace>` : une synchro. `--suivre` : reste ouvert, resynchronise toutes les 5 minutes et relit les réglages de la base à chaque passage.
-- Synchro incrémentale : seuls les tickets mis à jour depuis la dernière synchro (avec une marge d'une minute) sont relus ; une synchro complète au premier passage et après un changement de projets ou de filtre. Un fichier n'est réécrit que si une valeur a changé.
+- Synchro incrémentale : seuls les tickets mis à jour depuis la dernière synchro sont relus (avec une marge de 24 heures : le fuseau horaire de Jira peut différer de celui du poste) ; une synchro complète au premier passage, après un changement de projets ou de filtre, et toutes les heures avec `--suivre` (pour voir les tickets sortis de la sélection). Un fichier n'est réécrit que si une valeur a changé.
 - API : Jira Cloud REST v3, recherche JQL paginée, authentification e-mail + token d'API (token classique ou à portées `read:jira-work`).
 - **Le token ne va jamais dans l'espace ni dans le dépôt.** Demandé au premier lancement avec l'e-mail, puis gardé hors de l'espace : chiffré par Windows pour la session (DPAPI) sous `%APPDATA%\mdbase\`, dans le trousseau sur macOS. `--oublier` l'efface.
 - [PLUS TARD] raccourci `.cmd`, lancement à l'ouverture de session, plusieurs scripts sur un même espace partagé (verrou), app desktop qui appelle Jira directement.

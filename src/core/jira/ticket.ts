@@ -72,6 +72,20 @@ export function schemaJira(id: string, nom: string, source: Source): string {
   return texte
 }
 
+/**
+ * Vue tableau d'une base Jira neuve : les tickets qui ont bougé en tête, sans
+ * les colonnes qui redisent le titre ou servent à la correspondance (toutes
+ * restent dans les pages, et se réaffichent dans les options de la vue).
+ */
+export const VUE_JIRA = `id: tableau
+nom: Tableau
+type: tableau
+colonnes: [ titre, statut, changement, bouge, assigne, priorite, type, sprint ]
+colonnes_masquees: [ cle, resume, etat, versions, echeance, parent, labels, cree, maj, lien, suivi, jira_id ]
+tris:
+  - { colonne: bouge, sens: desc }
+`
+
 /** Valeurs d'une ligne pour un ticket, et son corps (la description). */
 export function valeursTicket(t: TicketJira, site: string, champSprint?: string): { valeurs: Record<string, Valeur | undefined>; corps: string; couleurs: Map<string, string> } {
   const f = t.fields

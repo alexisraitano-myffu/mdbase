@@ -11,7 +11,7 @@ import { Choix } from './Choix'
 import { useEspace } from './contexte-espace'
 import { Corps } from './Corps'
 import { Icone, ICONES } from './icones'
-import { useConsultation } from './mode'
+import { DonneesDe, useConsultation } from './mode'
 import { Reglage, Visibilite } from './reglages'
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown, TriangleAlert } from 'lucide-react'
 
@@ -56,6 +56,7 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
   const basculer = (id: string) => setOuverts((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])))
 
   return (
+    <DonneesDe schema={depot.schema}>
     <section className="contenus-lies">
       <div className="titre-contenus">
         <span>{relation.nom}</span>
@@ -104,6 +105,7 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
         )
       })}
     </section>
+    </DonneesDe>
   )
 }
 

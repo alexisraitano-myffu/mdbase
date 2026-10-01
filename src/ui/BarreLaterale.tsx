@@ -4,9 +4,10 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Ellipsis, Plus, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
+import { Ellipsis, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
+import { FenetreBaseJira } from './Jira'
 import { useConsultation } from './mode'
 
 type Props = {
@@ -35,6 +36,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
   const choisie = selection?.type === 'base' ? selection.id : null
   const [cible, setCible] = useState<string | null>(null)
   const [importCsv, setImport] = useState(false)
+  const [jira, setJira] = useState(false)
   // Consultation : on navigue, on cherche, rien ne se crée ni ne se range.
   const lecture = useConsultation()
 
@@ -198,6 +200,9 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
             <button className="discret ajout-barre" onClick={() => setImport(true)}>
               <Icone de={Upload} /> Importer un CSV
             </button>
+            <button className="discret ajout-barre" onClick={() => setJira(true)}>
+              <Icone de={RefreshCw} /> Nouvelle base Jira
+            </button>
           </>
         )
       )}
@@ -213,6 +218,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         {relu.enCours ? 'Relecture…' : relu.a ? `Relu à ${relu.a.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Relire le dossier'}
       </button>
       {importCsv && <FenetreImport espace={espace} fermer={() => setImport(false)} ouvrir={choisir} />}
+      {jira && <FenetreBaseJira espace={espace} fermer={() => setJira(false)} ouvrir={choisir} />}
       <button className="discret changer" onClick={changerDossier}>
         Changer de dossier
       </button>

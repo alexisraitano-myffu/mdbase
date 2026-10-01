@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import type { DepotBase } from '../core/depot-base'
 import { TYPES_CREABLES, type DepotEspace, type TypeCreable } from '../core/depot-espace'
 import { calculsPour } from '../core/calcul'
-import { CALCULS, type Calcul, type Colonne, type ColonneRelation, type ColonneRollup } from '../core/schema'
+import { CALCULS, nomSource, type Calcul, type Colonne, type ColonneRelation, type ColonneRollup } from '../core/schema'
 import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { EditeurFormule } from './EditeurFormule'
@@ -97,6 +97,27 @@ export function MenuColonne({
             </button>
           </div>
         </div>
+      </Flottant>
+    )
+  }
+
+  // Base synchronisée : la colonne vient de la source, seul son affichage dans la vue se règle.
+  const source = depot.schema.source
+  if (source) {
+    return (
+      <Flottant ancre={ancre} fermer={fermer}>
+        <div className="option discret">Colonne synchronisée depuis {nomSource(source.type)}</div>
+        {masquer && !estTitre && (
+          <button
+            className="option"
+            onClick={() => {
+              masquer()
+              fermer()
+            }}
+          >
+            Masquer dans cette vue
+          </button>
+        )}
       </Flottant>
     )
   }

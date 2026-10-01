@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import type { Schema } from '../core/schema'
 import { BookOpen, Maximize2, Minimize2, PenLine } from 'lucide-react'
 import { Icone } from './icones'
 
@@ -9,9 +10,31 @@ const CLE = 'mdbase.mode'
 
 export const ContexteMode = createContext(false)
 
-/** Vrai en mode consultation : rien ne se modifie, les outils disparaissent. */
+/** Données d'une base synchronisée (`source`, spec §16) : figées comme en consultation, sans toucher au reste. */
+const ContexteFige = createContext(false)
+
+/**
+ * Vrai en mode consultation, ou dans les données d'une base synchronisée :
+ * rien ne se modifie, les outils disparaissent.
+ */
 export function useConsultation(): boolean {
+  const consultation = useContext(ContexteMode)
+  const fige = useContext(ContexteFige)
+  return consultation || fige
+}
+
+/** Vrai en mode consultation seulement : les réglages de vue d'une base synchronisée restent permis. */
+export function useModeConsultation(): boolean {
   return useContext(ContexteMode)
+}
+
+/**
+ * Enveloppe les données d'une base : figées si elle est synchronisée. Remplace
+ * le réglage du dessus, pour qu'une base libre affichée dans une page Jira
+ * (onglet relation, contenus) reste modifiable.
+ */
+export function DonneesDe({ schema, children }: { schema: Schema | undefined; children: ReactNode }) {
+  return <ContexteFige.Provider value={!!schema?.source}>{children}</ContexteFige.Provider>
 }
 
 /** Mode gardé d'une visite à l'autre (localStorage, sans échec si indisponible). */

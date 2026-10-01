@@ -27,7 +27,7 @@ import { AjoutColonne, MenuColonne } from './EnteteColonne'
 import { FenetreImport } from './Echange'
 import { Icone, ICONES } from './icones'
 import { PiedTableau } from './PiedTableau'
-import { useConsultation } from './mode'
+import { useConsultation, useModeConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronRight, Plus } from 'lucide-react'
 
 const HAUTEUR_LIGNE = 34
@@ -89,6 +89,8 @@ export function Tableau(p: Props) {
   const vue = reglages?.vue
   // Consultation : rien ne se modifie, ni cellules, ni colonnes, ni lignes.
   const lecture = useConsultation()
+  // Ordre, largeur et masquage des colonnes : réglages de la vue, permis sur une base synchronisée.
+  const vueFigee = useModeConsultation()
   // Sélection de lignes (vue principale seulement) : cases dans la gouttière, barre d'actions.
   const selectionnable = !!reglages && !lecture
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
@@ -547,7 +549,7 @@ export function Tableau(p: Props) {
                 className={`cellule-entete ${survol === c.cle ? 'cible' : ''}`}
                 style={{ width: h.getSize() }}
                 onDragOver={(e) => {
-                  if (!reglages || lecture) return
+                  if (!reglages || vueFigee) return
                   e.preventDefault()
                   setSurvol(c.cle)
                 }}
@@ -559,15 +561,15 @@ export function Tableau(p: Props) {
               >
                 <span
                   className="libelle-entete"
-                  draggable={!!reglages && !lecture}
+                  draggable={!!reglages && !vueFigee}
                   onDragStart={(e) => e.dataTransfer.setData('text/colonne', c.cle)}
-                  onClick={(e) => !lecture && setMenu({ cle: c.cle, ancre: e.currentTarget.parentElement! })}
+                  onClick={(e) => !vueFigee && setMenu({ cle: c.cle, ancre: e.currentTarget.parentElement! })}
                 >
                   <Icone de={ICONES[c.type]} />
                   {c.nom}
                   {tri && <Icone de={tri.sens === 'asc' ? ArrowUp : ArrowDown} className="indicateur-tri" taille={13} />}
                 </span>
-                {!lecture && (
+                {!vueFigee && (
                   <div
                     className={`poignee ${h.column.getIsResizing() ? 'active' : ''}`}
                     onMouseDown={h.getResizeHandler()}
@@ -692,12 +694,12 @@ export function Tableau(p: Props) {
             <Icone de={Plus} /> Nouvelle ligne
           </button>
         )}
-        {reglages && !(lecture && !aDesCalculs) && (
+        {reglages && !(vueFigee && !aDesCalculs) && (
           <PiedTableau
             colonnes={tailles}
             lignes={lignes}
             calculs={calculs}
-            changer={lecture ? undefined : (cle, calcul?: Calcul) => {
+            changer={vueFigee ? undefined : (cle, calcul?: Calcul) => {
               const suivants = { ...calculs }
               if (calcul) suivants[cle] = calcul
               else delete suivants[cle]
