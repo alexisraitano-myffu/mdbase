@@ -119,6 +119,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Dashboards : la hauteur d'une rangée se règle en tirant son bord bas (double-clic : hauteur par défaut). Clé `hauteur` sur la rangée.
 - Dupliquer une base ou un dashboard depuis son menu ⋯ (ou le clic droit) : la copie se place juste après l'original. Une base copiée garde ses lignes, vues et pages ; chacune de ses relations reçoit sa propre colonne miroir dans la base reliée, et les liens d'un côté non propriétaire sont écrits dans la copie.
 - Dashboards réordonnables par glisser-déposer dans la barre latérale (ordre dans `_espace.yaml`).
+- Application installable (PWA) : « Installer mdbase » dans Chrome ou Edge ouvre l'app dans sa propre fenêtre, avec son icône dans le menu Démarrer et la barre des tâches. Elle s'ouvre aussi hors ligne.
 - Petites animations, toutes sous 250 ms : les menus grandissent depuis leur bouton, les fenêtres se posent au centre, le panneau de page arrive de la droite (pas en passant d'une ligne à l'autre), les boutons d'action et les pilules s'enfoncent à l'appui, les chevrons de groupe tournent, et une barre relâchée dans la timeline ou le calendrier glisse jusqu'à son jour. Rien ne bouge sur les raccourcis clavier (recherche, assistant, consultation) ; avec « réduire les animations », de simples fondus.
 
 ### Fixed

@@ -1,0 +1,16 @@
+{
+  "name": "mdbase",
+  "short_name": "mdbase",
+  "description": "Des bases de données comme dans Notion, rangées dans un dossier de fichiers Markdown + YAML que tu gardes.",
+  "lang": "fr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#eceef1",
+  "theme_color": "#eceef1",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icone-masquable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -572,6 +572,7 @@ Précisions d'implémentation :
 - Le handle du dossier est conservé dans IndexedDB pour ne pas redemander le dossier à chaque ouverture (seule la permission est redemandée).
 - **Changements externes** (synchro OneDrive depuis une autre machine) : le navigateur ne peut pas surveiller le dossier. À chaque retour sur l'onglet (`visibilitychange` / `focus`), rescanner les dates de modification et recharger les fichiers modifiés. Bouton de rafraîchissement manuel en complément. (Jalon 12 : relecture de tout l'espace, dates des lignes comparées, fichiers de configuration relus ; une relecture croisée par une écriture de l'app est jetée et refaite au coup suivant.)
 - Application **100 % statique** : aucun appel réseau, aucune télémétrie.
+- **Application installable (PWA)** [DÉCIDÉ, demandé par Alex le 01/10/2026] : Chrome et Edge proposent « Installer mdbase » (icône dans la barre d'adresse) : fenêtre à part, icône dans le menu Démarrer et la barre des tâches, sans signature ni installeur. Un service worker (`pwa/sw.js`, liste des fichiers injectée au build) garde le build pour ouvrir l'app hors ligne : la page passe par le réseau d'abord, les fichiers du build (noms hachés) par le cache d'abord, un cache par version. Il n'intercepte que l'app elle-même : ni les fichiers de l'espace (lus par l'API de fichiers), ni les appels de l'assistant IA. Une installation reste dans le cadre du navigateur : elle ne lève aucune restriction réseau (CORS).
 
 ### Module IA [DÉCIDÉ]
 Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, après la V1).

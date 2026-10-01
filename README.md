@@ -68,7 +68,7 @@ Les valeurs calculées (relations inverses, rollups, formules) ne sont jamais é
 
 ## Navigateurs
 
-Chrome et Edge sur ordinateur : ce sont les seuls navigateurs qui donnent à une page web l'accès à un dossier local (File System Access API). Firefox et Safari affichent un message d'incompatibilité. L'app est 100 % statique : aucune télémétrie, et aucun appel réseau tant que l'assistant IA n'est pas activé (il n'appelle alors que le service que tu as choisi).
+Chrome et Edge sur ordinateur : ce sont les seuls navigateurs qui donnent à une page web l'accès à un dossier local (File System Access API). Firefox et Safari affichent un message d'incompatibilité. Pour l'avoir comme une application (sa fenêtre, son icône dans la barre des tâches, ouverture hors ligne), clique sur l'icône « Installer » au bout de la barre d'adresse. L'app est 100 % statique : aucune télémétrie, et aucun appel réseau tant que l'assistant IA n'est pas activé (il n'appelle alors que le service que tu as choisi).
 
 ## Développer
 
