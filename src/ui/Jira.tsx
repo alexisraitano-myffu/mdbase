@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, RefreshCw, Settings2, TriangleAlert } from 'lucide-react'
+import { Check, Copy, Download, RefreshCw, Settings2, Terminal, TriangleAlert } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
 import type { Schema, Source } from '../core/schema'
 import { useLancer } from './actions'
@@ -124,6 +124,8 @@ export function BandeauSynchro({ espace, base, schema }: { espace: DepotEspace; 
   const consultation = useModeConsultation()
   const [reglages, setReglages] = useState(false)
   const ancre = useRef<HTMLButtonElement>(null)
+  const [script, setScript] = useState(false)
+  const ancreScript = useRef<HTMLButtonElement>(null)
   if (!schema.source) return null
 
   const age = synchro.derniere ? quand(synchro.derniere, maintenant) : null
@@ -140,6 +142,11 @@ export function BandeauSynchro({ espace, base, schema }: { espace: DepotEspace; 
         ) : (
           <span>Pas encore synchronisée</span>
         )}
+        {age && (
+          <button ref={ancreScript} className="discret" onClick={() => setScript(true)} title="Télécharger le script, le lancer avec Windows">
+            <Icone de={Terminal} /> Script
+          </button>
+        )}
         {!consultation && (
           <button ref={ancre} className="discret" onClick={() => setReglages(true)} title="Site, projets suivis, filtre JQL">
             <Icone de={Settings2} /> Réglages
@@ -148,12 +155,36 @@ export function BandeauSynchro({ espace, base, schema }: { espace: DepotEspace; 
       </div>
       {synchro.erreur && <div className="erreur-synchro">Dernier passage du script en échec : {synchro.erreur}</div>}
       {!age && !synchro.erreur && <LancerScript />}
+      {script && (
+        <Flottant ancre={ancreScript.current} fermer={() => setScript(false)}>
+          <div className="titre-panneau">Script de synchro</div>
+          <LancerScript />
+        </Flottant>
+      )}
       {reglages && <ReglagesSource espace={espace} base={base} source={schema.source} ancre={ancre.current} fermer={() => setReglages(false)} />}
     </div>
   )
 }
 
-/** Comment lancer le script, tant que la base n'a jamais été synchronisée. */
+/** Une commande à taper, avec de quoi la copier. */
+function Commande({ texte }: { texte: string }) {
+  const [copiee, setCopiee] = useState(false)
+  const copier = () =>
+    void navigator.clipboard.writeText(texte).then(
+      () => setCopiee(true),
+      () => undefined,
+    )
+  return (
+    <div className="commande">
+      <code>{texte}</code>
+      <button className="discret" onClick={copier} title="Copier la commande" aria-label={`Copier : ${texte}`}>
+        <Icone de={copiee ? Check : Copy} />
+      </button>
+    </div>
+  )
+}
+
+/** Comment lancer le script : le télécharger, le lancer, ou l'installer au démarrage de Windows. */
 function LancerScript() {
   return (
     <div className="lancer-script">
@@ -164,7 +195,10 @@ function LancerScript() {
       <a className="bouton" href={SCRIPT} download="mdbase-jira.mjs">
         <Icone de={Download} /> Télécharger le script
       </a>
-      <code>node mdbase-jira.mjs "dossier de l’espace" --suivre</code>
+      <p>Dans un terminal ouvert dans le dossier du script, en remplaçant le chemin par celui du dossier de l’espace :</p>
+      <Commande texte={'node .\\mdbase-jira.mjs "C:\\chemin\\vers\\espace" --suivre'} />
+      <p>Pour qu’il se lance tout seul à chaque ouverture de session Windows (une fois pour toutes, sans droits administrateur) :</p>
+      <Commande texte={'node .\\mdbase-jira.mjs "C:\\chemin\\vers\\espace" --demarrage'} />
     </div>
   )
 }

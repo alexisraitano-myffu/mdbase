@@ -820,11 +820,15 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 }
 .bandeau-synchro.en-erreur { background: var(--erreur-fond); color: var(--erreur-texte); }
 .etat-synchro { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-.etat-synchro > button { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; }
+.etat-synchro > button:first-of-type { margin-left: auto; }
+.etat-synchro > button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; }
 .erreur-synchro { overflow-wrap: anywhere; }
 .lancer-script { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 .lancer-script p { margin: 0; flex-basis: 100%; line-height: 1.45; }
-.lancer-script code { font-size: 0.95em; background: var(--fond); border: 1px solid var(--bordure); border-radius: 4px; padding: 2px 6px; overflow-wrap: anywhere; }
+.commande { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.commande code { font-size: 0.95em; background: var(--fond); border: 1px solid var(--bordure); border-radius: 4px; padding: 2px 6px; overflow-wrap: anywhere; }
+.commande button { padding: 2px 4px; }
+.flottant .lancer-script { max-width: 460px; padding: 0 6px 6px; font-size: 0.9em; color: var(--texte-doux); }
 a.bouton {
   display: inline-flex;
   align-items: center;
