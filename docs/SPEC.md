@@ -720,6 +720,7 @@ Description du ticket, convertie en Markdown.
 - Synchro incrémentale : seuls les tickets mis à jour depuis la dernière synchro sont relus (avec une marge de 24 heures : le fuseau horaire de Jira peut différer de celui du poste) ; une synchro complète au premier passage, après un changement de projets ou de filtre, et toutes les heures avec `--suivre` (pour voir les tickets sortis de la sélection). Un fichier n'est réécrit que si une valeur a changé.
 - API : Jira Cloud REST v3, recherche JQL paginée, authentification e-mail + token d'API (token classique ou à portées `read:jira-work`).
 - **Le token ne va jamais dans l'espace ni dans le dépôt.** Demandé au premier lancement avec l'e-mail, puis gardé hors de l'espace : chiffré par Windows pour la session (DPAPI) sous `%APPDATA%\mdbase\`, dans le trousseau sur macOS. `--oublier` l'efface.
+- Une colonne ajoutée au script après la création d'une base (ex. Projet) est posée dans son schéma au passage suivant, qui relit alors tous les tickets ; la remplir ne compte pas comme un mouvement (« Bougé le » inchangé).
 - [PLUS TARD] raccourci `.cmd`, lancement à l'ouverture de session, plusieurs scripts sur un même espace partagé (verrou), app desktop qui appelle Jira directement.
 
 ---
