@@ -76,6 +76,19 @@ test('supprimer une base : portée montrée, relations converties en texte, doss
   expect(await espace.lire('_dashboards/pilotage.yaml')).not.toContain('base: clients')
 })
 
+test('dupliquer une base : copie placée après l’original, lignes et relations reprises', async ({ espace, page }) => {
+  await espace.base('Clients')
+  await page.locator('.entree-base', { hasText: 'Clients' }).click({ button: 'right' })
+  await page.getByRole('button', { name: 'Dupliquer' }).click()
+  await expect(page.locator('h1')).toHaveText('Clients (copie)')
+  await expect(page.locator('.entree-base').nth(2)).toHaveText('Clients (copie)')
+  await expect.poll(() => espace.lire('_espace.yaml')).toContain('bases: [ clients, clients-copie, projets, taches ]')
+  expect(await espace.lire('clients-copie/_schema.yaml')).toContain('nom: Clients (copie)')
+  expect(await espace.lire('projets/_schema.yaml')).toContain('cle: clients_copie')
+  // Les rollups de la copie suivent les liens repris : mêmes valeurs que l'original.
+  await expect(page.locator('.carte', { hasText: 'Acme' })).toContainText('24')
+})
+
 test.describe('filtres et tris', () => {
   test('filtre rapide « parmi » : lignes filtrées, pastille active, valeur enregistrée dans la vue', async ({ espace, page }) => {
     await espace.base('Projets')

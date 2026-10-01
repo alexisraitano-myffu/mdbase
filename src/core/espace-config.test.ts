@@ -93,3 +93,8 @@ describe('modifierEspace', () => {
     expect(c).toEqual({ dashboards: [], groupes: [{ nom: 'Travail', bases: ['projets'] }], horsGroupe: [] })
   })
 })
+
+it('ordre_dashboards réécrit la liste complète, sans doublon', () => {
+  const texte = modifierEspace('version: 1\nbarre_laterale:\n  dashboards: [a, b]\n', { type: 'ordre_dashboards', ids: ['c', 'b', 'a', 'b'] })
+  expect(lireEspace(texte).dashboards).toEqual(['c', 'b', 'a'])
+})

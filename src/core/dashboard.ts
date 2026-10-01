@@ -112,6 +112,15 @@ export function nouveauDashboard(id: string, nom: string): string {
   return new Document({ id, nom, rangees: [] }).toString(OPTIONS_SORTIE_CONFIG)
 }
 
+/** Fichier d'une copie de dashboard : même contenu, autre identifiant et autre nom. */
+export function copierDashboard(texte: string, id: string, nom: string): string {
+  const doc = parseDocument(texte)
+  if (doc.errors.length > 0 || !isMap(doc.contents)) throw new ErreurDashboard('Dashboard illisible : copie refusée')
+  doc.set('id', id)
+  doc.set('nom', nom)
+  return doc.toString(OPTIONS_SORTIE_CONFIG)
+}
+
 /** Applique l'opération au fichier (relu sur le disque), en ne touchant qu'à la partie concernée. */
 export function modifierDashboard(texte: string, op: OperationDashboard): string {
   const doc = parseDocument(texte)

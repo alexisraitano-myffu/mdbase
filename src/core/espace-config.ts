@@ -17,6 +17,8 @@ export type OperationEspace =
   | { type: 'supprimer_groupe'; nom: string }
   | { type: 'ajouter_dashboard'; id: string }
   | { type: 'retirer_dashboard'; id: string }
+  /** Réécrit l'ordre complet des dashboards (glisser-déposer, duplication). */
+  | { type: 'ordre_dashboards'; ids: string[] }
   /** Retire une base supprimée de tous les groupes. */
   | { type: 'retirer_base'; base: string }
 
@@ -87,6 +89,9 @@ export function modifierEspace(texte: string | null, op: OperationEspace): strin
       break
     case 'retirer_dashboard':
       dashboards.items = dashboards.items.filter((n) => valeur(n) !== op.id)
+      break
+    case 'ordre_dashboards':
+      dashboards.items = [...new Set(op.ids)].map((id) => doc.createNode(id))
       break
     case 'ajouter_groupe': {
       if (noms().includes(op.nom)) throw new ErreurEspace(`Le groupe « ${op.nom} » existe déjà`)

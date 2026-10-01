@@ -13,6 +13,7 @@ import {
   lireDashboard,
   modifierDashboard,
   nouveauDashboard,
+  copierDashboard,
   type Dashboard,
   type OperationDashboard,
 } from './dashboard'
@@ -25,7 +26,7 @@ import { MemoireAssistant } from './ia/memoire'
 import { ErreurEcriture, type Modifications } from './ligne'
 import type { Valeur } from './valeurs'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema } from './schema'
-import { ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
+import { copierSchema, ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
 import { CHAMPS_MODIFIABLES, lireVue, modifierVue, vueParDefaut, type ModificationVue, type TypeVue, type Vue } from './vue'
 import {
   lireMiseEnPage,
@@ -300,6 +301,64 @@ export class DepotEspace {
     })
   }
 
+  /**
+   * Duplique une base (spec §5) : lignes, vues et mises en page copiées telles
+   * quelles (mêmes ids de ligne, propres à la base), le schéma écrit en dernier
+   * pour qu'une coupure laisse un dossier qui n'est pas encore une base. Chaque
+   * relation de la copie devient propriétaire avec sa propre colonne miroir
+   * dans la base cible : les liens d'un côté non propriétaire, calculés, sont
+   * écrits dans les lignes de la copie. La copie se place juste après l'original.
+   */
+  dupliquerBase(id: string): Promise<string> {
+    return this.enFile(async () => {
+      const schema = this.schema(id)
+      const relations = schema.colonnes.filter((c): c is ColonneRelation => c.type === 'relation')
+      for (const c of relations) this.schema(c.cible)
+      const nom = `${schema.nom} (copie)`
+      const copie = idBase(nom, (await this.adaptateur.lister('')).map((e) => e.nom))
+      // Liens calculés des relations non propriétaires, lus avant toute écriture.
+      const liens = new Map<string, Map<string, Valeur>>()
+      for (const c of relations.filter((r) => !r.proprietaire)) {
+        const valeurs = new Map<string, Valeur>()
+        for (const l of this.depot(id).lignes()) {
+          const ids = this.idsCalcules(id, l.id, c.cle)
+          if (ids.length > 0) valeurs.set(l.id, ids)
+        }
+        liens.set(c.cle, valeurs)
+      }
+      await this.copierDossier(id, copie)
+      let texte = copierSchema(await this.adaptateur.lire(joindre(id, FICHIER_SCHEMA)), copie, nom)
+      const miroirs: [string, Colonne][] = []
+      const prises = new Map<string, string[]>()
+      for (const c of relations) {
+        const cles = prises.get(c.cible) ?? this.schema(c.cible).colonnes.map((x) => x.cle)
+        const cleMiroir = cleColonne(nom, cles)
+        prises.set(c.cible, [...cles, cleMiroir])
+        texte = modifierSchema(texte, { type: 'modifier_colonne', cle: c.cle, proprietes: { proprietaire: true, inverse: cleMiroir } })
+        miroirs.push([c.cible, { cle: cleMiroir, nom, type: 'relation', cible: copie, proprietaire: false, inverse: c.cle }])
+      }
+      await this.adaptateur.ecrire(joindre(copie, FICHIER_SCHEMA), texte)
+      for (const [cible, miroir] of miroirs) await this.modifierSchema(cible, { type: 'ajouter_colonne', colonne: miroir })
+      await this.chargerBase(copie)
+      for (const [cle, valeurs] of liens) await this.depot(copie).reecrireColonne(cle, valeurs)
+      const { groupes, horsGroupe } = barreLaterale(this.config, [...this.bases.keys()])
+      const groupe = groupes.find((g) => g.bases.includes(id))
+      const liste = groupe?.bases ?? horsGroupe
+      await this.modifierEspace({ type: 'placer_base', base: copie, groupe: groupe?.nom ?? null, index: liste.indexOf(id) + 1 })
+      return copie
+    })
+  }
+
+  /** Copie récursive d'un dossier de base, sans son `_schema.yaml` (écrit à part). */
+  private async copierDossier(de: string, vers: string, racine = true): Promise<void> {
+    for (const e of await this.adaptateur.lister(de)) {
+      if (e.nom.startsWith('.') || (racine && e.nom === FICHIER_SCHEMA)) continue
+      const source = joindre(de, e.nom)
+      if (e.type === 'dossier') await this.copierDossier(source, joindre(vers, e.nom), false)
+      else await this.adaptateur.ecrire(joindre(vers, e.nom), await this.adaptateur.lire(source))
+    }
+  }
+
   renommerBase(id: string, nom: string): Promise<void> {
     return this.enFile(() => this.modifierSchema(id, { type: 'renommer_base', nom }))
   }
@@ -413,6 +472,32 @@ export class DepotEspace {
       this.dashboards.set(id, { id, ...lireDashboard(texte, id) })
       await this.modifierEspace({ type: 'ajouter_dashboard', id })
       return id
+    })
+  }
+
+  /** Duplique un dashboard, placé juste après l'original dans la barre latérale. */
+  dupliquerDashboard(id: string): Promise<string> {
+    return this.enFile(async () => {
+      const d = this.dashboards.get(id)
+      if (!d) throw new ErreurDashboard(`Dashboard introuvable : ${id}`)
+      const nom = `${d.dashboard?.nom ?? id} (copie)`
+      const copie = idBase(nom, [...this.dashboards.keys()])
+      const texte = copierDashboard(await this.adaptateur.lire(cheminDashboard(id)), copie, nom)
+      await this.adaptateur.ecrire(cheminDashboard(copie), texte)
+      const ordre = ordreDashboards(this.config, [...this.dashboards.keys()])
+      this.dashboards.set(copie, { id: copie, ...lireDashboard(texte, copie) })
+      ordre.splice(ordre.indexOf(id) + 1, 0, copie)
+      await this.modifierEspace({ type: 'ordre_dashboards', ids: ordre })
+      return copie
+    })
+  }
+
+  /** Déplace un dashboard à `index` dans l'ordre de la barre latérale. */
+  deplacerDashboard(id: string, index: number): Promise<void> {
+    return this.enFile(async () => {
+      const ordre = ordreDashboards(this.config, [...this.dashboards.keys()]).filter((x) => x !== id)
+      ordre.splice(Math.max(0, Math.min(index, ordre.length)), 0, id)
+      await this.modifierEspace({ type: 'ordre_dashboards', ids: ordre })
     })
   }
 

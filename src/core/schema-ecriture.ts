@@ -43,6 +43,15 @@ export function nouveauSchema(id: string, nom: string): string {
   return doc.toString(OPTIONS_SORTIE_CONFIG)
 }
 
+/** Schéma d'une copie de base : même texte, autre identifiant et autre nom. */
+export function copierSchema(texte: string, id: string, nom: string): string {
+  const doc = parseDocument(texte)
+  if (doc.errors.length > 0 || !isMap(doc.contents)) throw new ErreurSchema('_schema.yaml illisible : copie refusée')
+  doc.set('id', id)
+  doc.set('nom', nom)
+  return doc.toString(OPTIONS_SORTIE_CONFIG)
+}
+
 export function modifierSchema(texte: string, op: OperationSchema): string {
   const doc = parseDocument(texte)
   if (doc.errors.length > 0 || !isMap(doc.contents)) throw new ErreurSchema('_schema.yaml illisible : modification refusée')

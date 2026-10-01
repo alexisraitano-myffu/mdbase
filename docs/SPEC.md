@@ -237,6 +237,12 @@ C'est la fonctionnalité prioritaire. Elle doit être solide et parfaitement int
   - Ordre : relations converties, blocs de dashboard retirés, puis le dossier effacé en commençant par `_schema.yaml`. Une coupure laisse un dossier qui n'est plus une base, jamais une base à moitié vide.
 - **Colonnes dépendantes** (rollups, formules qui utilisent ce qu'on supprime) : la liste est affichée au moment de la confirmation, et ces colonnes passent en erreur. Pas de suppression en cascade.
 
+### Dupliquer une base [DÉCIDÉ, demandé par Alex le 01/10/2026]
+- Depuis le ⋯ de la base (ou le clic droit). Nouveau dossier `<id>-copie`, nommé « <nom> (copie) », placé juste après l'original dans son groupe.
+- Lignes, vues et mises en page copiées telles quelles (champs inconnus et corps compris). Les ids de ligne sont gardés : ils sont propres à une base, et les vues de la copie qui citent des lignes restent justes.
+- Relations : chaque relation de la copie devient **propriétaire** et reçoit sa propre colonne miroir dans la base reliée (« Projets (copie) » dans Clients). Les liens d'un côté non propriétaire, calculés dans l'original, sont écrits dans les lignes de la copie. L'original et ses liens ne changent pas.
+- Ordre : fichiers de la copie, puis son `_schema.yaml`, puis les colonnes miroirs. Une coupure avant le schéma laisse un dossier qui n'est pas encore une base.
+
 ### Rollups
 - Un rollup référence une colonne `relation` de sa base et une colonne (`champ`) de la base liée.
 - **N'importe quelle colonne** de la base liée peut être remontée, y compris un rollup ou une formule.
@@ -476,7 +482,8 @@ onglets:
 
 ## 10. Dashboards
 
-- Listés en haut de la barre latérale.
+- Listés en haut de la barre latérale, dans l'ordre de `barre_laterale.dashboards` (`_espace.yaml`), puis ceux qu'il ne cite pas. **Réordonnables par glisser-déposer** [DÉCIDÉ, demandé par Alex le 01/10/2026] : un dépôt réécrit la liste complète.
+- **Dupliquer** [DÉCIDÉ, demandé par Alex le 01/10/2026] : depuis le ⋯ (ou le clic droit), le fichier est copié tel quel sous un nouvel id, nommé « <nom> (copie) », placé juste après l'original.
 - Un dashboard = une suite de **blocs empilés verticalement**, chaque bloc pouvant être seul ou à deux côte à côte sur une rangée.
 - **Hauteur d'une rangée** [DÉCIDÉ, demandé par Alex le 01/10/2026] : tirer le bord bas d'une rangée règle la hauteur de ses blocs (une timeline longue, un tableau de beaucoup de lignes) ; un double-clic revient à la hauteur par défaut (380 px). Bornée entre 160 et 2400 px. Fichier : `hauteur` sur la rangée, en pixels.
 - Un bloc = une vue d'une base : soit une **référence** à une vue existante de la base, soit une **vue propre au dashboard**, écrite directement dans le fichier du dashboard, au même format qu'un fichier `_vues/*.yaml`. Une vue propre n'apparaît pas dans la liste des vues de la base.

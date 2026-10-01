@@ -470,6 +470,18 @@ test.describe('dashboards et recherche', () => {
     expect(await page.evaluate(() => localStorage.getItem('mdbase.mode'))).toBe('edition')
   })
 
+  test('dupliquer un dashboard, puis le remonter par glisser-déposer', async ({ espace, page }) => {
+    await page.locator('.entree-base', { hasText: 'Pilotage' }).click({ button: 'right' })
+    await page.getByRole('button', { name: 'Dupliquer' }).click()
+    await expect(page.locator('h1')).toHaveText('Pilotage (copie)')
+    await expect.poll(() => espace.lire('_espace.yaml')).toContain('dashboards: [ pilotage, pilotage-copie ]')
+    expect(await espace.lire('_dashboards/pilotage-copie.yaml')).toContain('nom: Pilotage (copie)')
+    const entrees = page.locator('.dashboards .entree-base')
+    await entrees.nth(1).dragTo(entrees.nth(0))
+    await expect(entrees.nth(0)).toHaveText('Pilotage (copie)')
+    await expect.poll(() => espace.lire('_espace.yaml')).toContain('dashboards: [ pilotage-copie, pilotage ]')
+  })
+
   test('hauteur d’une rangée : tirer son bord bas l’agrandit et l’écrit, double-clic revient au défaut', async ({ espace, page }) => {
     await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
     const contenu = page.locator('.rangee-dashboard').first().locator('.contenu-bloc')

@@ -46,7 +46,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
   /** Zone de dépôt : un groupe (null = hors groupe), à une position donnée. */
   const deposable = (cleCible: string, groupe: string | null, index?: number) => ({
     onDragOver: (e: DragEvent) => {
-      if (lecture) return
+      if (lecture || !e.dataTransfer.types.includes('text/base')) return
       e.preventDefault()
       e.stopPropagation()
       setCible(cleCible)
@@ -61,6 +61,24 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
     },
   })
 
+  /** Zone de dépôt d'un dashboard : sa place dans la liste (absente = à la fin). */
+  const deposableDashboard = (cleCible: string, index?: number) => ({
+    onDragOver: (e: DragEvent) => {
+      if (lecture || !e.dataTransfer.types.includes('text/dashboard')) return
+      e.preventDefault()
+      e.stopPropagation()
+      setCible(cleCible)
+    },
+    onDragLeave: () => setCible(null),
+    onDrop: (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setCible(null)
+      const id = e.dataTransfer.getData('text/dashboard')
+      if (id) void lancer(espace.deplacerDashboard(id, index ?? etat.dashboards.length))
+    },
+  })
+
   const entrees = (bases: string[], groupe: string | null) =>
     bases.map((id, index) => (
       <EntreeBase
@@ -70,6 +88,10 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         cible={cible === `base:${id}`}
         choisir={() => choisir(id)}
         renommer={(nom) => void lancer(espace.renommerBase(id, nom))}
+        dupliquer={async () => {
+          const copie = await lancer(espace.dupliquerBase(id))
+          if (copie) choisir(copie)
+        }}
         portee={() => espace.porteeSuppressionBase(id)}
         supprimer={() => {
           const autre = [...etat.groupes.flatMap((g) => g.bases), ...etat.horsGroupe].find((x) => x !== id)
@@ -97,7 +119,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         </button>
       )}
 
-      <section className="groupe dashboards">
+      <section className={`groupe dashboards ${cible === 'dashboards' ? 'cible' : ''}`} {...deposableDashboard('dashboards')}>
         <div className="titre-groupe">
           <span>Dashboards</span>
           {!lecture && (
@@ -106,14 +128,21 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
             </button>
           )}
         </div>
-        {etat.dashboards.map((d) => (
+        {etat.dashboards.map((d, index) => (
           <EntreeDashboard
             key={d.id}
             nom={d.dashboard?.nom ?? d.id}
             active={selection?.type === 'dashboard' && selection.id === d.id}
+            cible={cible === `dashboard:${d.id}`}
             choisir={() => choisirDashboard(d.id)}
             renommer={(nom) => void lancer(espace.modifierDashboard(d.id, { type: 'renommer', nom }))}
+            dupliquer={async () => {
+              const copie = await lancer(espace.dupliquerDashboard(d.id))
+              if (copie) choisirDashboard(copie)
+            }}
             supprimer={() => void lancer(espace.supprimerDashboard(d.id))}
+            glisser={(e) => e.dataTransfer.setData('text/dashboard', d.id)}
+            {...deposableDashboard(`dashboard:${d.id}`, index)}
           />
         ))}
         {creation === 'dashboard' && (
@@ -197,6 +226,7 @@ function EntreeBase(p: {
   cible: boolean
   choisir: () => void
   renommer: (nom: string) => void
+  dupliquer: () => void
   portee: () => PorteeSuppressionBase
   supprimer: () => void
   glisser: (e: DragEvent) => void
@@ -253,6 +283,9 @@ function EntreeBase(p: {
               <button className="option" onClick={() => (setMenu(null), setEdition(true))}>
                 Renommer
               </button>
+              <button className="option" onClick={() => (setMenu(null), p.dupliquer())}>
+                Dupliquer
+              </button>
               <button className="option danger-texte" onClick={() => setMenu(p.portee())}>
                 Supprimer la base…
               </button>
@@ -296,7 +329,7 @@ function BoutonMenuEntree(p: { ouvert: boolean; ouvrir: () => void; libelle: str
       className="discret menu-entree"
       aria-label={p.libelle}
       aria-expanded={p.ouvert}
-      title="Renommer, supprimer"
+      title="Renommer, dupliquer, supprimer"
       onClick={(e) => {
         e.stopPropagation()
         p.ouvrir()
@@ -308,7 +341,19 @@ function BoutonMenuEntree(p: { ouvert: boolean; ouvrir: () => void; libelle: str
   )
 }
 
-function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void; renommer: (nom: string) => void; supprimer: () => void }) {
+function EntreeDashboard(p: {
+  nom: string
+  active: boolean
+  cible: boolean
+  choisir: () => void
+  renommer: (nom: string) => void
+  dupliquer: () => void
+  supprimer: () => void
+  glisser: (e: DragEvent) => void
+  onDragOver: (e: DragEvent) => void
+  onDragLeave: () => void
+  onDrop: (e: DragEvent) => void
+}) {
   const [edition, setEdition] = useState(false)
   const [menu, setMenu] = useState<'options' | 'confirmer' | null>(null)
   const ancre = useRef<HTMLDivElement>(null)
@@ -336,7 +381,12 @@ function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void;
   return (
     <div
       ref={ancre}
-      className={`entree-base ${p.active ? 'active' : ''}`}
+      className={`entree-base ${p.active ? 'active' : ''} ${p.cible ? 'cible' : ''}`}
+      draggable
+      onDragStart={p.glisser}
+      onDragOver={p.onDragOver}
+      onDragLeave={p.onDragLeave}
+      onDrop={p.onDrop}
       onClick={p.choisir}
       onDoubleClick={() => setEdition(true)}
       onContextMenu={(e) => {
@@ -354,6 +404,9 @@ function EntreeDashboard(p: { nom: string; active: boolean; choisir: () => void;
             <>
               <button className="option" onClick={() => (setMenu(null), setEdition(true))}>
                 Renommer
+              </button>
+              <button className="option" onClick={() => (setMenu(null), p.dupliquer())}>
+                Dupliquer
               </button>
               <button className="option danger-texte" onClick={() => setMenu('confirmer')}>
                 Supprimer le dashboard…
