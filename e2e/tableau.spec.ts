@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, test } from './espace'
+import { choisir, expect, test } from './espace'
 
 // Jalons 2, 3 et 6 : lecture/écriture des fichiers depuis le tableau,
 // édition des cellules par type, relations et rollups.
@@ -132,6 +132,44 @@ test.describe('rollups qui affichent des valeurs', () => {
     await expect(groupes).toContainText(['Application mobile', 'Audit sécurité', 'Boutique en ligne', 'Site vitrine'])
     // Une tâche d'Acme est dans le groupe de chacun de ses projets ; « + » d'un groupe ne peut rien y écrire.
     await expect(page.locator('.rangee', { hasText: 'Intégration' })).toHaveCount(2)
+  })
+})
+
+test.describe('sous-groupes', () => {
+  test('tableau puis timeline : par projet puis par priorité ; le « + » d’un sous-groupe donne les deux valeurs', async ({ espace, page }) => {
+    await espace.base('Tâches')
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await choisir(page.getByRole('button', { name: 'Grouper par' }), 'Projet')
+    await choisir(page.getByRole('button', { name: 'Sous-groupe' }), 'Priorité')
+    await page.keyboard.press('Escape')
+    await expect.poll(() => espace.lire('taches/_vues/tableau.yaml')).toMatch(/^groupe: projet\n(.*\n)*sous_groupe: priorite\n/m)
+
+    const sousGroupes = page.locator('.rangee-groupe.sous-groupe')
+    // Site vitrine : Intégration et Mise en ligne, toutes deux de priorité normale (Maquettes, faite, est cachée par la pastille « Fait »).
+    const site = page.locator('.rangee-groupe:not(.sous-groupe)', { hasText: 'Site vitrine' })
+    await expect(site.locator('.compte-groupe')).toHaveText('2')
+    await expect(sousGroupes.filter({ hasText: 'Haute' }).first()).toBeVisible()
+
+    // Replier un sous-groupe ne cache que ses lignes.
+    const avant = await page.locator('.rangee').count()
+    await sousGroupes.first().click()
+    await expect(page.locator('.rangee')).toHaveCount(avant - Number(await sousGroupes.first().locator('.compte-groupe').textContent()))
+    await sousGroupes.first().click()
+
+    const fichiers = await espace.lister('taches')
+    await page.locator('.rangee-ajout.dans-sous-groupe').first().getByRole('button', { name: 'Nouvelle ligne' }).click()
+    await expect.poll(async () => (await espace.lister('taches')).length).toBe(fichiers.length + 1)
+    const nouveau = (await espace.lister('taches')).find((f) => !fichiers.includes(f))!
+    await expect.poll(() => espace.lire(`taches/${nouveau}`)).toMatch(/projet: \w+\n(.*\n)*priorite: Haute\n|priorite: Haute\n(.*\n)*projet: \w+/)
+
+    // Timeline : mêmes réglages, sous-groupes sous chaque projet.
+    await page.locator('.onglet', { hasText: 'Planning' }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await choisir(page.getByRole('button', { name: 'Grouper par' }), 'Projet')
+    await choisir(page.getByRole('button', { name: 'Sous-groupe' }), 'Priorité')
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.tl-groupe:not(.tl-sous-groupe)', { hasText: 'Site vitrine' })).toBeVisible()
+    await expect(page.locator('.tl-sous-groupe', { hasText: 'Normale' }).first()).toBeVisible()
   })
 })
 

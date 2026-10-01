@@ -462,12 +462,30 @@ test.describe('dashboards et recherche', () => {
     // Le dashboard aussi : plus d'ajout de bloc.
     await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
     await expect(page.locator('.bloc-dashboard').first()).toBeVisible()
-    await expect(page.locator('.ajout-bloc, .deplacer-rangee')).toHaveCount(0)
+    await expect(page.locator('.ajout-bloc, .deplacer-rangee, .poignee-hauteur')).toHaveCount(0)
 
     await page.locator('body').press('Control+e')
     await expect(page.getByRole('button', { name: 'Passer en consultation (Ctrl+E)' })).toBeVisible()
     await expect(page.locator('.ajout-bloc').first()).toBeVisible()
     expect(await page.evaluate(() => localStorage.getItem('mdbase.mode'))).toBe('edition')
+  })
+
+  test('hauteur d’une rangée : tirer son bord bas l’agrandit et l’écrit, double-clic revient au défaut', async ({ espace, page }) => {
+    await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
+    const contenu = page.locator('.rangee-dashboard').first().locator('.contenu-bloc')
+    await expect(contenu).toBeVisible()
+    const avant = (await contenu.boundingBox())!.height
+    const poignee = page.locator('.rangee-dashboard').first().locator('.poignee-hauteur')
+    const b = (await poignee.boundingBox())!
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(b.x + b.width / 2, b.y + 220, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(async () => Math.round((await contenu.boundingBox())!.height)).toBe(Math.round(avant + 220 - b.height / 2))
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toMatch(/kanban|par-statut \}\n    hauteur: \d+\n/)
+    await poignee.dblclick()
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).not.toContain('hauteur')
+    await expect.poll(async () => Math.round((await contenu.boundingBox())!.height)).toBe(Math.round(avant))
   })
 
   test('raccourcis clavier : le bouton et « ? » ouvrent la liste, Échap la ferme, jamais pendant une saisie', async ({ espace, page }) => {

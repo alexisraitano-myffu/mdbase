@@ -102,13 +102,26 @@ rangees:
     expect(() => modifierDashboard(PILOTAGE, { type: 'ajouter_bloc', rangee: 1, bloc: { base: 'x', vue: 'y' } })).toThrow('2 blocs au plus')
   })
 
+  it('hauteur d’une rangée : écrite sur la rangée, bornée, retirée pour revenir au défaut', () => {
+    const haute = modifierDashboard(PILOTAGE, { type: 'hauteur_rangee', rangee: 1, hauteur: 701.4 })
+    expect(haute).toContain('  - blocs:\n      - base: taches')
+    expect(haute).toMatch(/\n    hauteur: 701\n/)
+    expect(lireDashboard(haute, 'p').dashboard!.rangees[1]!.hauteur).toBe(701)
+    expect(lireDashboard(haute, 'p').dashboard!.rangees[0]!.hauteur).toBeUndefined()
+    expect(lireDashboard(modifierDashboard(PILOTAGE, { type: 'hauteur_rangee', rangee: 0, hauteur: 20 }), 'p').dashboard!.rangees[0]!.hauteur).toBe(160)
+    expect(modifierDashboard(haute, { type: 'hauteur_rangee', rangee: 1, hauteur: null })).not.toContain('hauteur')
+    expect(lireDashboard('rangees:\n  - { hauteur: grande, blocs: [ { base: a, vue: b } ] }\n', 'p').dashboard!.rangees[0]).toEqual({ blocs: [{ base: 'a', vue: 'b' }] })
+  })
+
   it('la mémoire suit exactement le fichier', () => {
     const ops: OperationDashboard[] = [
       { type: 'renommer', nom: 'Pilotage 2' },
       { type: 'modifier_vue', place: { rangee: 1, bloc: 0 }, modifs: { nom: 'Retards' } },
       { type: 'ajouter_bloc', rangee: 0, bloc: { base: 'clients', vue: 'cartes' } },
+      { type: 'hauteur_rangee', rangee: 0, hauteur: 640 },
       { type: 'deplacer_rangee', de: 0, vers: 1 },
       { type: 'retirer_bloc', place: { rangee: 0, bloc: 1 } },
+      { type: 'hauteur_rangee', rangee: 1, hauteur: null },
     ]
     let memoire = lireDashboard(PILOTAGE, 'pilotage').dashboard!
     let texte = PILOTAGE

@@ -67,11 +67,12 @@ type Props = {
 type Case = { l: number; c: number }
 
 /** Ce que la liste virtualisée affiche, ligne après ligne. */
+/** `cle` : chemin du groupe (groupe, puis sous-groupe), clé de repli. */
 type Element =
-  | { type: 'groupe'; groupe: Groupe; replie: boolean }
+  | { type: 'groupe'; groupe: Groupe; replie: boolean; cle: string; colonne: Colonne; sous: boolean }
   | { type: 'ligne'; lv: LigneVue; groupe?: string }
-  | { type: 'ajout'; groupe: Groupe }
-  | { type: 'pied'; groupe: Groupe }
+  | { type: 'ajout'; groupe: Groupe; sousGroupe?: Groupe; cle: string }
+  | { type: 'pied'; groupe: Groupe; cle: string }
 
 /** Vue tableau d'une base (spec §7) : lignes virtualisées, édition dans les cellules. */
 export function Tableau(p: Props) {
@@ -136,27 +137,44 @@ export function Tableau(p: Props) {
   const tailles = entetes.map((h) => ({ colonne: colonneDe(h.column.id), largeur: h.getSize() }))
 
   // Groupement (spec §7) : en-tête repliable, lignes, « + » du groupe, pied du groupe.
+  // Sous-groupement (`sous_groupe`) : des groupes dans chaque groupe.
   const colonneGroupe = vue?.groupe ? colonneDuSchema(depot.schema, vue.groupe) : undefined
+  const colonneSous = colonneGroupe && vue?.sousGroupe ? colonneDuSchema(depot.schema, vue.sousGroupe) : undefined
   const calculs = vue?.calculs ?? {}
   const aDesCalculs = Object.keys(calculs).length > 0
   const elements = useMemo<Element[]>(() => {
     if (!colonneGroupe) return lignesVue.map((lv) => ({ type: 'ligne', lv }))
-    // Un rollup se groupe par les valeurs de sa colonne d'origine (titres d'une relation, options d'un select).
-    const origine = champRemonte(etat, base, colonneGroupe)
-    const relation = colonneGroupe.type === 'relation' ? colonneGroupe : origine
-    const cible = relation?.type === 'relation' ? relation.cible : null
-    const groupes = grouper(lignesVue, colonneGroupe, (id) => (cible ? titreDe(etat, cible, id) : null), false, origine)
-    return groupes.flatMap((g): Element[] => {
-      const replie = replies.has(g.cle)
-      if (replie) return [{ type: 'groupe', groupe: g, replie }]
+    const grouperPar = (lignes: readonly LigneVue[], colonne: Colonne) => {
+      // Un rollup se groupe par les valeurs de sa colonne d'origine (titres d'une relation, options d'un select).
+      const origine = champRemonte(etat, base, colonne)
+      const relation = colonne.type === 'relation' ? colonne : origine
+      const cible = relation?.type === 'relation' ? relation.cible : null
+      return grouper(lignes, colonne, (id) => (cible ? titreDe(etat, cible, id) : null), false, origine)
+    }
+    /** Lignes d'un groupe (ou d'un sous-groupe), son « + » et son pied. */
+    const contenu = (g: Groupe, cle: string, sousGroupe?: Groupe): Element[] => {
+      const dernier = sousGroupe ?? g
       return [
-        { type: 'groupe', groupe: g, replie },
-        ...g.lignes.map((lv): Element => ({ type: 'ligne', lv, groupe: g.cle })),
-        ...(lecture ? [] : [{ type: 'ajout', groupe: g } as Element]),
-        ...(aDesCalculs ? [{ type: 'pied', groupe: g } as Element] : []),
+        ...dernier.lignes.map((lv): Element => ({ type: 'ligne', lv, groupe: cle })),
+        ...(lecture ? [] : [{ type: 'ajout', groupe: g, cle, ...(sousGroupe && { sousGroupe }) } as Element]),
+        ...(aDesCalculs ? [{ type: 'pied', groupe: dernier, cle } as Element] : []),
       ]
+    }
+    return grouperPar(lignesVue, colonneGroupe).flatMap((g): Element[] => {
+      const cle = g.cle
+      const entete: Element = { type: 'groupe', groupe: g, replie: replies.has(cle), cle, colonne: colonneGroupe, sous: false }
+      if (replies.has(cle)) return [entete]
+      if (!colonneSous) return [entete, ...contenu(g, cle)]
+      const sous = grouperPar(g.lignes, colonneSous).flatMap((s): Element[] => {
+        const cleSous = `${cle}\n${s.cle}`
+        const replie = replies.has(cleSous)
+        const enteteSous: Element = { type: 'groupe', groupe: s, replie, cle: cleSous, colonne: colonneSous, sous: true }
+        return replie ? [enteteSous] : [enteteSous, ...contenu(g, cleSous, s)]
+      })
+      // Le pied du groupe totalise tous ses sous-groupes.
+      return [entete, ...sous, ...(aDesCalculs ? [{ type: 'pied', groupe: g, cle } as Element] : [])]
     })
-  }, [lignesVue, colonneGroupe, replies, aDesCalculs, etat, lecture])
+  }, [lignesVue, colonneGroupe, colonneSous, replies, aDesCalculs, etat, lecture])
 
   const retourLigne = vue?.retourLigne === true
   const virtuel = useVirtualizer({
@@ -478,10 +496,11 @@ export function Tableau(p: Props) {
   }
   const recopiable = (c: Colonne) => c.cle !== depot.schema.champTitre && (estSaisie(c) || c.type === 'relation')
 
-  async function nouvelleLigne(groupe?: Groupe) {
+  async function nouvelleLigne(groupe?: Groupe, sousGroupe?: Groupe) {
     const valeurs = { ...p.valeursCreation() }
-    // « + » d'un groupe : la ligne prend la valeur du groupe (spec §8).
+    // « + » d'un groupe : la ligne prend la valeur du groupe, et celle du sous-groupe (spec §8).
     if (groupe && colonneGroupe && groupe.valeur !== undefined) valeurs[colonneGroupe.cle] = groupe.valeur
+    if (sousGroupe && colonneSous && sousGroupe.valeur !== undefined) valeurs[colonneSous.cle] = sousGroupe.valeur
     const ligne = await lancer(espace.creerLigne(base, valeurs))
     if (!ligne) return
     retenir(ligne.id)
@@ -579,9 +598,9 @@ export function Tableau(p: Props) {
             const commun = { 'data-index': v.index, ref: virtuel.measureElement, style: { transform: `translateY(${v.start}px)` } }
             if (e.type === 'groupe') {
               return (
-                <div key={`g:${e.groupe.cle}`} {...commun} className="rangee-groupe" onClick={() => basculerGroupe(e.groupe.cle)}>
+                <div key={`g:${e.cle}`} {...commun} className={`rangee-groupe ${e.sous ? 'sous-groupe' : ''}`} onClick={() => basculerGroupe(e.cle)}>
                   <Icone de={ChevronRight} className={`triangle pli ${e.replie ? '' : 'ouvert'}`} />
-                  {colonneGroupe && (colonneGroupe.type === 'select' || colonneGroupe.type === 'multiselect') && e.groupe.cle !== '∅' ? (
+                  {(e.colonne.type === 'select' || e.colonne.type === 'multiselect' || e.groupe.couleur !== undefined) && e.groupe.cle !== '∅' ? (
                     <Pastille label={e.groupe.libelle} couleur={e.groupe.couleur} />
                   ) : (
                     <span className="libelle-groupe">{e.groupe.libelle}</span>
@@ -592,8 +611,8 @@ export function Tableau(p: Props) {
             }
             if (e.type === 'ajout') {
               return (
-                <div key={`a:${e.groupe.cle}`} {...commun} className="rangee-ajout">
-                  <button className="nouvelle-ligne" onClick={() => void nouvelleLigne(e.groupe)}>
+                <div key={`a:${e.cle}`} {...commun} className={`rangee-ajout ${e.sousGroupe ? 'dans-sous-groupe' : ''}`}>
+                  <button className="nouvelle-ligne" onClick={() => void nouvelleLigne(e.groupe, e.sousGroupe)}>
                     <Icone de={Plus} /> Nouvelle ligne
                   </button>
                 </div>
@@ -601,7 +620,7 @@ export function Tableau(p: Props) {
             }
             if (e.type === 'pied') {
               return (
-                <div key={`p:${e.groupe.cle}`} {...commun} className="rangee-pied">
+                <div key={`p:${e.cle}`} {...commun} className="rangee-pied">
                   <PiedTableau colonnes={tailles} lignes={e.groupe.lignes.map((l) => l.ligne)} calculs={calculs} />
                 </div>
               )

@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { BLOCS_PAR_RANGEE, estPropre, type Bloc, type Dashboard, type PlaceBloc } from '../core/dashboard'
+import { useMemo, useRef, useState, type CSSProperties, type PointerEvent as PointerReact } from 'react'
+import { BLOCS_PAR_RANGEE, estPropre, HAUTEUR_BLOC, hauteurBornee, type Bloc, type Dashboard, type PlaceBloc } from '../core/dashboard'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatDashboard } from '../core/depot-espace'
 import { idBase } from '../core/identifiants'
@@ -94,7 +94,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
         />
         {d.rangees.length === 0 && <p className="discret">Dashboard vide : ajoute un premier bloc, une vue d'une de tes bases.</p>}
         {d.rangees.map((r, i) => (
-          <div key={i} className="rangee-dashboard">
+          <div key={i} className="rangee-dashboard" style={{ '--hauteur-bloc': `${r.hauteur ?? HAUTEUR_BLOC.defaut}px` } as CSSProperties}>
             {r.blocs.map((b, j) => (
               <BlocDashboard
                 key={`${b.base}/${estPropre(b) ? `propre:${b.vue.id}` : b.vue}/${j}`}
@@ -126,6 +126,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
                 </button>
               </div>
             )}
+            {!lecture && <PoigneeHauteur changer={(hauteur) => modifier({ type: 'hauteur_rangee', rangee: i, hauteur })} />}
           </div>
         ))}
         {!lecture && <AjoutBloc idsPropres={idsPropres} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: null, bloc })} />}
@@ -340,4 +341,34 @@ function AjoutBloc({ idsPropres, ajouter, compact }: { idsPropres: string[]; ajo
       )}
     </>
   )
+}
+
+/**
+ * Bord bas d'une rangée : tirer règle la hauteur de ses blocs (la rangée suit le
+ * pointeur, le fichier n'est écrit qu'au relâcher) ; un double-clic revient à
+ * la hauteur par défaut.
+ */
+function PoigneeHauteur({ changer }: { changer: (hauteur: number | null) => void }) {
+  const commencer = (e: PointerReact<HTMLDivElement>) => {
+    const rangee = e.currentTarget.parentElement
+    const contenu = rangee?.querySelector<HTMLElement>('.contenu-bloc')
+    if (!rangee || !contenu) return
+    e.preventDefault()
+    const depart = { y: e.clientY, hauteur: contenu.getBoundingClientRect().height }
+    let hauteur = depart.hauteur
+    const suivre = (ev: PointerEvent) => {
+      hauteur = hauteurBornee(depart.hauteur + ev.clientY - depart.y) ?? depart.hauteur
+      rangee.style.setProperty('--hauteur-bloc', `${hauteur}px`)
+    }
+    const finir = () => {
+      window.removeEventListener('pointermove', suivre)
+      window.removeEventListener('pointerup', finir)
+      document.body.classList.remove('redimensionne-hauteur')
+      if (Math.round(hauteur) !== Math.round(depart.hauteur)) changer(hauteur)
+    }
+    document.body.classList.add('redimensionne-hauteur')
+    window.addEventListener('pointermove', suivre)
+    window.addEventListener('pointerup', finir)
+  }
+  return <div className="poignee-hauteur" role="separator" aria-orientation="horizontal" aria-label="Hauteur de la rangée" title="Tirer pour changer la hauteur ; double-clic : hauteur par défaut" onPointerDown={commencer} onDoubleClick={() => changer(null)} />
 }

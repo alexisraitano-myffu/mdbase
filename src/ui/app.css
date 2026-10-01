@@ -145,6 +145,9 @@ button:hover { background: var(--survol); }
 .retour-ligne .cellule { white-space: normal; height: auto; min-height: 100%; align-items: flex-start; padding-top: 7px; padding-bottom: 7px; overflow-wrap: anywhere; }
 .rangee-groupe { align-items: center; gap: 8px; height: 40px; padding: 0 0.25rem; margin-top: 0; cursor: pointer; font-weight: 500; border-bottom: 1px solid var(--bordure); }
 .rangee-groupe:hover { background: var(--survol-leger); }
+/* Sous-groupe : en retrait sous son groupe, un cran plus discret. */
+.rangee-groupe.sous-groupe { height: 34px; padding-left: 1.5rem; font-weight: 400; }
+.rangee-ajout.dans-sous-groupe .nouvelle-ligne { padding-left: 1.5rem; }
 .triangle { width: 1em; color: var(--discret); }
 .compte-groupe { font-size: 0.85em; font-weight: 400; }
 .rangee-ajout .nouvelle-ligne { border-bottom: none; }
@@ -640,6 +643,10 @@ button.tl-titre { border-radius: 0; border-top: none; border-left: none; text-al
 /* Timeline groupée */
 .tl-groupe .tl-titre { display: flex; align-items: center; gap: 6px; font-weight: 500; background: var(--survol-leger); }
 .tl-groupe .tl-piste { background: var(--survol-leger); }
+/* Sous-groupe : en retrait sous son groupe, un cran plus discret. */
+.tl-sous-groupe .tl-titre { padding-left: 26px; font-weight: 400; background: var(--fond); }
+.tl-sous-groupe .tl-titre:hover { background: var(--survol); }
+.tl-sous-groupe .tl-piste { background: transparent; }
 .tl-titre.dans-groupe { padding-left: 26px; }
 .ajout-groupe { visibility: hidden; margin-left: auto; padding: 0 6px; line-height: 22px; }
 .tl-groupe .tl-titre:hover .ajout-groupe { visibility: visible; }
@@ -714,13 +721,17 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .nom-vue-bloc { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .etiquette-bloc { font-size: 0.75em; color: var(--discret); border: 1px solid var(--bordure); border-radius: 10px; padding: 0 6px; white-space: nowrap; }
 .etiquette-bloc.propre { color: var(--propre-texte); border-color: var(--propre-bordure); background: var(--propre-fond); }
-.contenu-bloc { height: 380px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.contenu-bloc { height: var(--hauteur-bloc, 380px); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .contenu-bloc > * { min-height: 0; }
 .ajout-bloc { align-self: flex-start; }
 .ajout-bloc.compact { align-self: stretch; width: 36px; padding: 0; font-size: 1.2em; border: 1px dashed var(--bordure-forte); border-radius: 8px; }
 .deplacer-rangee { width: 24px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; visibility: hidden; }
 .rangee-dashboard:hover .deplacer-rangee { visibility: visible; }
 .deplacer-rangee button { padding: 0 6px; }
+/* Bord bas d'une rangée : tirer règle la hauteur de ses blocs. */
+.poignee-hauteur { position: absolute; left: 0; right: 24px; bottom: -10px; height: 8px; cursor: ns-resize; border-radius: 4px; }
+.poignee-hauteur:hover, .redimensionne-hauteur .poignee-hauteur:active { background: rgba(var(--accent-rgb), 0.12); }
+.redimensionne-hauteur, .redimensionne-hauteur * { cursor: ns-resize !important; user-select: none; }
 
 /* Recherche globale */
 .bouton-recherche { display: flex; align-items: center; gap: 6px; text-align: left; padding: 0.3rem 0.5rem; margin-bottom: 0.5rem; }

@@ -304,9 +304,11 @@ function OptionsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modif
             entrees={entreesAvecVide('aucun groupement', groupables(schema))}
             libelle="Grouper par"
             inconnue={`${vue.groupe} (disparue)`}
-            changer={(v) => modifier({ groupe: v || undefined })}
+            // Sans groupe, plus de sous-groupe.
+            changer={(v) => modifier({ groupe: v || undefined, ...(!v && { sousGroupe: undefined }) })}
           />
         </Reglage>
+        <ReglageSousGroupe schema={schema} vue={vue} modifier={modifier} />
         <Interrupteur libelle="Retour à la ligne dans les cellules" coche={vue.retourLigne === true} changer={(v) => modifier({ retourLigne: v })} />
       </Section>
       <Section titre="Colonnes affichées">
@@ -412,10 +414,11 @@ function OptionsTemps({ schema, vue, modifier }: { schema: Schema; vue: Vue; mod
               entrees={entreesAvecVide('aucun groupement', groupables(schema))}
               libelle="Grouper par"
               inconnue={`${vue.groupe} (disparue)`}
-              changer={(v) => modifier({ groupe: v || undefined })}
+              changer={(v) => modifier({ groupe: v || undefined, ...(!v && { sousGroupe: undefined }) })}
             />
           </Reglage>
         )}
+        {timeline && <ReglageSousGroupe schema={schema} vue={vue} modifier={modifier} />}
       </Section>
       {timeline && (
         <Section titre="Jalons" aide="Des points sur la barre, aux dates cochées.">
@@ -764,6 +767,22 @@ function OptionsBandes(p: { bandes: Bande[]; changer: (b: Bande[]) => void }) {
         />
       )}
     </>
+  )
+}
+
+/** Tableau et timeline : sous-groupe dans chaque groupe (`sous_groupe`), proposé une fois la vue groupée. */
+function ReglageSousGroupe({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
+  if (!vue.groupe) return null
+  return (
+    <Reglage libelle="Puis par">
+      <Choix
+        valeur={vue.sousGroupe ?? ''}
+        entrees={entreesAvecVide('pas de sous-groupe', groupables(schema).filter((c) => c.cle !== vue.groupe))}
+        libelle="Sous-groupe"
+        inconnue={`${vue.sousGroupe} (disparue)`}
+        changer={(v) => modifier({ sousGroupe: v || undefined })}
+      />
+    </Reglage>
   )
 }
 

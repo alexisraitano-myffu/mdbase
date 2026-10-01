@@ -10,7 +10,11 @@ import { appliquerModificationsVue, lireVueDepuis, OPERATEURS, type Filtre, type
 export type BlocReference = { base: string; vue: string }
 export type BlocPropre = { base: string; vue: Vue }
 export type Bloc = BlocReference | BlocPropre
-export type Rangee = { blocs: Bloc[] }
+/** `hauteur` : hauteur des blocs de la rangée en pixels ; absente, la hauteur par défaut. */
+export type Rangee = { blocs: Bloc[]; hauteur?: number }
+
+/** Hauteur des blocs d'une rangée : par défaut, et bornes d'une hauteur réglée. */
+export const HAUTEUR_BLOC = { defaut: 380, min: 160, max: 2400 } as const
 /** Filtre global (spec §10) : sur une base ; les blocs des autres bases suivent leurs relations vers elle. */
 export type FiltreGlobal = Filtre & { base: string }
 /**
@@ -36,6 +40,8 @@ export type OperationDashboard =
   | { type: 'retirer_bloc'; place: PlaceBloc }
   /** Monte ou descend une rangée entière. */
   | { type: 'deplacer_rangee'; de: number; vers: number }
+  /** Hauteur des blocs d'une rangée ; `null` revient à la hauteur par défaut. */
+  | { type: 'hauteur_rangee'; rangee: number; hauteur: number | null }
   /** Modifie la vue propre d'un bloc (une référence se modifie dans le fichier de sa vue). */
   | { type: 'modifier_vue'; place: PlaceBloc; modifs: ModificationVue }
   | { type: 'filtres'; filtres: FiltreGlobal[] }
@@ -72,9 +78,10 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
       return [{ base: b.base, vue: lue.vue }]
     })
     if (blocs.length > BLOCS_PAR_RANGEE) avertissements.push(`Dashboard ${id}, rangée ${i + 1} : plus de ${BLOCS_PAR_RANGEE} blocs, les suivants passent à la ligne`)
+    const hauteur = estObjet(r) ? hauteurBornee(r.hauteur) : undefined
     // Au-delà de deux blocs, on coupe en rangées plutôt que de perdre un bloc.
     const coupees: Rangee[] = []
-    for (let k = 0; k < blocs.length; k += BLOCS_PAR_RANGEE) coupees.push({ blocs: blocs.slice(k, k + BLOCS_PAR_RANGEE) })
+    for (let k = 0; k < blocs.length; k += BLOCS_PAR_RANGEE) coupees.push({ blocs: blocs.slice(k, k + BLOCS_PAR_RANGEE), ...(hauteur && { hauteur }) })
     return coupees
   })
   const filtres = (Array.isArray(brut.filtres) ? brut.filtres : []).flatMap((f): FiltreGlobal[] => {
@@ -93,6 +100,12 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
     return [{ base: p.base, ...(typeof p.colonne === 'string' && { colonne: p.colonne }), ...(operateur && { operateur }), ...(p.valeur !== undefined && { valeur: p.valeur }) }]
   })
   return { dashboard: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, rangees, filtres, filtresRapides }, avertissements }
+}
+
+/** Hauteur lue ou demandée, ramenée dans les bornes ; rien si ce n'est pas un nombre. */
+export function hauteurBornee(x: unknown): number | undefined {
+  if (typeof x !== 'number' || !Number.isFinite(x)) return undefined
+  return Math.round(Math.min(HAUTEUR_BLOC.max, Math.max(HAUTEUR_BLOC.min, x)))
 }
 
 export function nouveauDashboard(id: string, nom: string): string {
@@ -133,6 +146,13 @@ export function modifierDashboard(texte: string, op: OperationDashboard): string
       rangees.items.splice(Math.max(0, Math.min(op.vers, rangees.items.length)), 0, r)
       break
     }
+    case 'hauteur_rangee': {
+      const r = rangee(rangees, op.rangee)
+      const hauteur = hauteurBornee(op.hauteur)
+      if (hauteur === undefined) r.delete('hauteur')
+      else r.set('hauteur', hauteur)
+      break
+    }
     case 'modifier_vue': {
       const b = liste(doc, rangee(rangees, op.place.rangee), 'blocs').items[op.place.bloc]
       const vue = isMap(b) ? b.get('vue') : undefined
@@ -164,7 +184,7 @@ export function modifierDashboard(texte: string, op: OperationDashboard): string
  * suite, et deux modifications rapides partent de la bonne base.
  */
 export function appliquerEnMemoire(d: Dashboard, op: OperationDashboard): Dashboard {
-  const rangees = d.rangees.map((r) => ({ blocs: [...r.blocs] }))
+  const rangees = d.rangees.map((r) => ({ ...r, blocs: [...r.blocs] }))
   switch (op.type) {
     case 'renommer':
       return { ...d, nom: op.nom }
@@ -181,6 +201,12 @@ export function appliquerEnMemoire(d: Dashboard, op: OperationDashboard): Dashbo
     case 'deplacer_rangee': {
       const [r] = rangees.splice(op.de, 1)
       if (r) rangees.splice(Math.max(0, Math.min(op.vers, rangees.length)), 0, r)
+      break
+    }
+    case 'hauteur_rangee': {
+      const r = rangees[op.rangee]
+      const hauteur = hauteurBornee(op.hauteur)
+      if (r) rangees[op.rangee] = hauteur === undefined ? { blocs: r.blocs } : { ...r, hauteur }
       break
     }
     case 'modifier_vue': {

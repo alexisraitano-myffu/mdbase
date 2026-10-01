@@ -123,7 +123,8 @@ type Axe = {
 type Rangee = { ligne: LigneChargee; sortira: boolean; axe: Axe; plage: Plage | null; jalons: { colonne: Colonne; jour: string }[]; /** Couleur nommée de la barre, ou neutre. */ couleur: string | undefined }
 /** Rangées affichées : en-têtes de groupe (repliables), lignes (et leurs niveaux dépliés), et la rangée « + Nouvelle ». */
 type Element =
-  | { type: 'groupe'; groupe: Groupe; plage: Plage | null; replie: boolean }
+  /** `cle` : chemin du groupe (groupe, puis sous-groupe séparés par un saut de ligne), clé de repli ; `parent` : le groupe d'un sous-groupe. */
+  | { type: 'groupe'; groupe: Groupe; plage: Plage | null; replie: boolean; cle: string; parent?: Groupe }
   | {
       type: 'ligne'
       rangee: Rangee
@@ -261,6 +262,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
   )
   const colDebut = axe.debut
   const colGroupe = vue.groupe ? groupables(schema).find((c) => c.cle === vue.groupe) : undefined
+  const colSous = colGroupe && vue.sousGroupe ? groupables(schema).find((c) => c.cle === vue.sousGroupe) : undefined
 
   const rangees = useMemo(() => lignesVue.map((lv) => rangeeDe(lv.ligne, lv.sortira, axe)), [lignesVue, axe])
 
@@ -441,20 +443,24 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     const ajout: Element[] = lecture ? [] : [{ type: 'ajout' }]
     if (!colGroupe) return [...rangees.flatMap((r) => premierNiveau(r)), ...ajout]
     const parChemin = new Map(rangees.map((r) => [r.ligne.chemin, r]))
-    // Un rollup se groupe par les valeurs de sa colonne d'origine (titres d'une relation, options d'un select).
-    const origine = champRemonte(etat, base, colGroupe)
-    const relation = colGroupe.type === 'relation' ? colGroupe : origine
-    const cible = relation?.type === 'relation' ? relation.cible : null
-    return [
-      ...grouper(lignesVue, colGroupe, (id) => (cible ? titreDe(etat, cible, id) : null), false, origine).flatMap((g): Element[] => {
-        const siennes = g.lignes.map((l) => parChemin.get(l.ligne.chemin)!)
-        const replie = replies.has(g.cle)
-        const entete: Element = { type: 'groupe', groupe: g, plage: enveloppe(siennes.map((r) => r.plage)), replie }
-        return replie ? [entete] : [entete, ...siennes.flatMap((rangee) => premierNiveau(rangee, g.cle))]
-      }),
-      ...ajout,
-    ]
-  }, [rangees, lignesVue, colGroupe, replies, etat, arbres, rangeesNoeuds, lignesRepliees, base, axe, deplier, lecture])
+    const grouperPar = (lignes: readonly LigneVue[], colonne: Colonne) => {
+      // Un rollup se groupe par les valeurs de sa colonne d'origine (titres d'une relation, options d'un select).
+      const origine = champRemonte(etat, base, colonne)
+      const relation = colonne.type === 'relation' ? colonne : origine
+      const cible = relation?.type === 'relation' ? relation.cible : null
+      return grouper(lignes, colonne, (id) => (cible ? titreDe(etat, cible, id) : null), false, origine)
+    }
+    /** Un groupe (ou un sous-groupe) : son en-tête, qui porte la barre de ses lignes, puis ses lignes ou ses sous-groupes. */
+    const groupe = (g: Groupe, cle: string, parent?: Groupe): Element[] => {
+      const siennes = g.lignes.map((l) => parChemin.get(l.ligne.chemin)!)
+      const replie = replies.has(cle)
+      const entete: Element = { type: 'groupe', groupe: g, plage: enveloppe(siennes.map((r) => r.plage)), replie, cle, ...(parent && { parent }) }
+      if (replie) return [entete]
+      if (colSous && !parent) return [entete, ...grouperPar(g.lignes, colSous).flatMap((s) => groupe(s, `${cle}\n${s.cle}`, g))]
+      return [entete, ...siennes.flatMap((rangee) => premierNiveau(rangee, cle))]
+    }
+    return [...grouperPar(lignesVue, colGroupe).flatMap((g) => groupe(g, g.cle)), ...ajout]
+  }, [rangees, lignesVue, colGroupe, colSous, replies, etat, arbres, rangeesNoeuds, lignesRepliees, base, axe, deplier, lecture])
   const largeur = (ecartJours(e.debut, e.fin) + 1) * px
   const x = (jour: string) => ecartJours(e.debut, jour) * px
   const enArbre = (deplier?.length ?? 0) > 0
@@ -616,9 +622,12 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     setReplies(s)
   }
 
-  const creer = async (groupe?: Groupe) => {
+  /** « + » d'un groupe : la ligne prend sa valeur ; d'un sous-groupe, aussi celle de son groupe. */
+  const creer = async (groupe?: Groupe, parent?: Groupe) => {
     const valeurs = { ...valeursCreation() }
-    if (colGroupe && groupe?.valeur !== undefined) valeurs[colGroupe.cle] = groupe.valeur
+    const [g, s] = parent ? [parent, groupe] : [groupe, undefined]
+    if (colGroupe && g?.valeur !== undefined) valeurs[colGroupe.cle] = g.valeur
+    if (colSous && s?.valeur !== undefined) valeurs[colSous.cle] = s.valeur
     const ligne = await lancer(espace.creerLigne(base, valeurs))
     if (!ligne) return
     retenir(ligne.id)
@@ -683,8 +692,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
               if (el.type === 'groupe') {
                 const g = el.groupe
                 return (
-                  <div key={`groupe/${g.cle}`} className="tl-ligne tl-groupe" style={{ transform: `translateY(${v.start}px)` }}>
-                    <div className="tl-titre" onClick={() => basculer(g.cle)}>
+                  <div key={`groupe/${el.cle}`} className={`tl-ligne tl-groupe ${el.parent ? 'tl-sous-groupe' : ''}`} style={{ transform: `translateY(${v.start}px)` }}>
+                    <div className="tl-titre" onClick={() => basculer(el.cle)}>
                       <Icone de={ChevronRight} className={`triangle pli ${el.replie ? '' : 'ouvert'}`} />
                       <span className="libelle-groupe">{g.libelle}</span>
                       <span className="discret compte-groupe">{g.lignes.length}</span>
@@ -694,7 +703,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
                           title="Nouvelle ligne dans ce groupe"
                           onClick={(ev) => {
                             ev.stopPropagation()
-                            void creer(g)
+                            void creer(g, el.parent)
                           }}
                         >
                           <Icone de={Plus} />
@@ -731,7 +740,8 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
               const modifiable = !lecture && r.axe.debut !== undefined && estSaisie(r.axe.debut)
               const aPlacer = !r.plage && !cedee && modifiable
               const titre = titreLigne(ligne, r.axe.schema.champTitre)
-              const retrait = (el.groupe !== undefined ? 26 : 8) + el.profondeur * RETRAIT + (enArbre ? RETRAIT : 0)
+              // Dans un sous-groupe (clé à deux étages), un cran de plus.
+              const retrait = (el.groupe === undefined ? 8 : el.groupe.includes('\n') ? 44 : 26) + el.profondeur * RETRAIT + (enArbre ? RETRAIT : 0)
               return (
                 <div
                   key={`${el.groupe ?? ''}/${el.cle}`}

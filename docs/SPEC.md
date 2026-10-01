@@ -311,6 +311,7 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 
 ### Par type
 - **Tableau** : groupement optionnel (repliable), largeur des colonnes, retour à la ligne, calculs en pied de colonne (et par groupe).
+- **Sous-groupement** (tableau et timeline) [DÉCIDÉ, demandé par Alex le 01/10/2026] : une vue groupée peut grouper encore chaque groupe par une seconde colonne (« Puis par » dans « Options », par exemple par projet puis par version). Chaque sous-groupe se replie, a son « + » (la ligne créée prend les deux valeurs) et, dans le tableau, son pied de calculs ; le pied du groupe totalise ses sous-groupes. Dans la timeline, l'en-tête d'un sous-groupe porte aussi la barre qui couvre ses lignes. Fichier : `sous_groupe`, la clé des couloirs du kanban.
 - **Tableau, plusieurs lignes à la fois [DÉCIDÉ]** :
   - **Sélection** : case dans la gouttière de chaque ligne (visible au survol), Maj+clic pour une plage, case d'en-tête pour toutes les lignes de la vue. Une barre d'actions apparaît : copier, dupliquer, supprimer. Échap vide la sélection, Suppr propose la suppression.
   - **Modification en lot** : dans une sélection de plusieurs lignes, une cellule modifiée l'est sur toutes (comme Notion), sauf le titre, propre à chaque ligne.
@@ -477,6 +478,7 @@ onglets:
 
 - Listés en haut de la barre latérale.
 - Un dashboard = une suite de **blocs empilés verticalement**, chaque bloc pouvant être seul ou à deux côte à côte sur une rangée.
+- **Hauteur d'une rangée** [DÉCIDÉ, demandé par Alex le 01/10/2026] : tirer le bord bas d'une rangée règle la hauteur de ses blocs (une timeline longue, un tableau de beaucoup de lignes) ; un double-clic revient à la hauteur par défaut (380 px). Bornée entre 160 et 2400 px. Fichier : `hauteur` sur la rangée, en pixels.
 - Un bloc = une vue d'une base : soit une **référence** à une vue existante de la base, soit une **vue propre au dashboard**, écrite directement dans le fichier du dashboard, au même format qu'un fichier `_vues/*.yaml`. Une vue propre n'apparaît pas dans la liste des vues de la base.
 
 ```yaml
@@ -485,6 +487,7 @@ nom: Pilotage
 rangees:
   - blocs:
       - { base: projets, vue: kanban-statut }        # référence
+    hauteur: 600                                     # optionnel : hauteur des blocs de la rangée, en pixels
   - blocs:
       - base: taches                                 # vue propre au dashboard
         vue:
