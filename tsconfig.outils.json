@@ -1,0 +1,13 @@
+{
+  // Outils en ligne de commande (Node) : le script de synchro Jira (§16). Ils
+  // utilisent le cœur, jamais l'UI ; seul endroit où le réseau et le disque
+  // sont touchés depuis Node.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.outils.tsbuildinfo",
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["src/outils", "vite.jira.config.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}
