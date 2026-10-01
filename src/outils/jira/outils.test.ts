@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FichierIntrouvable } from '../../core/fichiers'
 import { clientHttp } from './client-http'
+import { texteCmd } from './demarrage'
 import { AdaptateurNode } from './fichiers-node'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -62,5 +63,20 @@ describe('adaptateur disque', () => {
     await a.supprimer('jira')
     expect(await a.lister('')).toEqual([])
     await expect(a.ecrire('../dehors.md', 'x')).rejects.toThrow('Chemin refusé')
+  })
+})
+
+describe('lancement au démarrage (Windows)', () => {
+  it('écrit un .cmd qui lance la synchro réduite, chemins entre guillemets, % doublé, UTF-8 pour les accents', () => {
+    const t = texteCmd('C:\\Program Files\\nodejs\\node.exe', 'C:\\Users\\a\\AppData\\Local\\mdbase\\mdbase-jira.mjs', 'C:\\Users\\a\\OneDrive - Société\\100%\\espace', 5)
+    expect(t.split('\r\n')).toEqual([
+      '@echo off',
+      'chcp 65001 >nul',
+      'rem Synchro Jira de mdbase, installee par "mdbase-jira.mjs --demarrage".',
+      'rem Supprimer ce fichier arrete le lancement automatique.',
+      'start "mdbase Jira" /min "C:\\Program Files\\nodejs\\node.exe" "C:\\Users\\a\\AppData\\Local\\mdbase\\mdbase-jira.mjs" "C:\\Users\\a\\OneDrive - Société\\100%%\\espace" --suivre',
+      '',
+    ])
+    expect(texteCmd('node', 's', 'e', 10)).toContain('--suivre --intervalle 10')
   })
 })

@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { basesJira, synchroniser, type Bilan } from '../../core/jira/synchro'
 import { clientHttp } from './client-http'
+import { installerDemarrage, retirerDemarrage } from './demarrage'
 import { AdaptateurNode } from './fichiers-node'
 import { garderIdentifiants, lireIdentifiants, oublierIdentifiants, type Identifiants } from './secret'
 
@@ -11,12 +12,16 @@ import { garderIdentifiants, lireIdentifiants, oublierIdentifiants, type Identif
 // dans la base Jira de l'espace. Lecture seule côté Jira.
 //
 //   node mdbase-jira.mjs <dossier de l'espace> [--suivre] [--complete] [--intervalle 5]
+//   node mdbase-jira.mjs <dossier de l'espace> --demarrage   (Windows : lancement à l'ouverture de session)
 //   node mdbase-jira.mjs --oublier
 
 const AIDE = `Synchro Jira de mdbase (lecture seule : rien n'est écrit dans Jira).
 
   node mdbase-jira.mjs "<dossier de l'espace>"            une synchro
   node mdbase-jira.mjs "<dossier de l'espace>" --suivre   reste ouvert, resynchronise toutes les 5 minutes
+  node mdbase-jira.mjs "<dossier de l'espace>" --demarrage
+                                                           Windows : lance la synchro à chaque ouverture de session
+  node mdbase-jira.mjs --sans-demarrage                    retire ce lancement automatique
   node mdbase-jira.mjs --oublier                           efface l'e-mail et le token gardés sur ce poste
 
 Options : --complete (tout relire), --intervalle <minutes>.
@@ -27,6 +32,7 @@ const COMPLETE_TOUTES_LES = 60 * 60 * 1000
 async function principal(args: string[]): Promise<number> {
   if (args.includes('--aide') || args.includes('-h') || args.includes('--help')) return (console.log(AIDE), 0)
   if (args.includes('--oublier')) return (console.log(`Identifiants effacés (${await oublierIdentifiants()}).`), 0)
+  if (args.includes('--sans-demarrage')) return (console.log(`Lancement au démarrage retiré (${await retirerDemarrage()}).`), 0)
 
   const dossier = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--intervalle')
   if (!dossier) return (console.log(AIDE), 1)
@@ -68,6 +74,16 @@ async function principal(args: string[]): Promise<number> {
     return ok
   }
 
+  if (args.includes('--demarrage')) {
+    // Un premier passage d'abord : il demande le token s'il manque, et prouve que tout marche.
+    if (!(await passe())) return (console.error('Lancement au démarrage non installé : corrige d’abord l’erreur ci-dessus.'), 1)
+    const { cmd, script } = await installerDemarrage(resolve(process.argv[1]!), racine, intervalle)
+    console.log(`La synchro se lancera à chaque ouverture de session (fenêtre « mdbase Jira » réduite dans la barre des tâches).`)
+    console.log(`  lanceur : ${cmd}`)
+    console.log(`  script  : ${script} (copie gardée hors des Téléchargements)`)
+    console.log('Pour la lancer dès maintenant, double-clique sur le lanceur ou ouvre une nouvelle session. Pour l’arrêter : --sans-demarrage.')
+    return 0
+  }
   if (!suivre) return (await passe()) ? 0 : 1
   console.log(`Synchro toutes les ${intervalle} min. Ctrl+C pour arrêter.`)
   for (;;) {

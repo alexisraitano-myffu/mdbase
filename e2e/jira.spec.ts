@@ -68,6 +68,12 @@ test('les tickets écrits par le script s’affichent en lecture seule ; vues et
   await expect(bandeau).toContainText('3 tickets suivis')
   await expect(espace.rangee('PRVE-101 Corriger la connexion SSO')).toBeVisible()
 
+  // Le script reste à portée : téléchargement et commande d'installation au démarrage de Windows.
+  await bandeau.getByRole('button', { name: 'Script' }).click()
+  await expect(page.locator('.flottant .commande code').last()).toHaveText('node .\\mdbase-jira.mjs "C:\\chemin\\vers\\espace" --demarrage')
+  await expect(page.locator('.flottant').getByRole('link', { name: 'Télécharger le script' })).toBeVisible()
+  await page.mouse.click(5, 5)
+
   // Données figées : pas de nouvelle ligne, pas d'ajout de colonne, cases non éditables.
   await expect(page.getByRole('button', { name: 'Nouvelle ligne' })).toHaveCount(0)
   await expect(espace.tableau.locator('.cellule-entete.ajout')).toHaveCount(0)
