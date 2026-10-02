@@ -11,6 +11,7 @@ import { Flottant } from './flottant'
 import { useEspace } from './contexte-espace'
 import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
+import { OrdreGroupes } from './OrdreGroupes'
 import { Pastilles } from './Pastilles'
 import { ArrowDown, ArrowUp, ChartGantt, ChevronRight, Plus, Tag, X } from 'lucide-react'
 import { Choix, type EntreeChoix } from './Choix'
@@ -345,7 +346,8 @@ function OptionsCartes({ schema, vue, modifier }: { schema: Schema; vue: Vue; mo
                 entrees={entreesColonnes(candidats)}
                 libelle="Colonnes selon"
                 inconnue={`${vue.groupe} (disparue)`}
-                changer={(v) => modifier({ groupe: v || undefined })}
+                // L'ordre réglé valait pour les valeurs de l'ancienne colonne.
+                changer={(v) => modifier({ groupe: v || undefined, ordreGroupes: undefined })}
               />
             </Reglage>
             <Reglage libelle="Couloirs selon">
@@ -363,6 +365,7 @@ function OptionsCartes({ schema, vue, modifier }: { schema: Schema; vue: Vue; mo
           <Interrupteur libelle="Afficher le début du contenu" coche={vue.apercuCorps === true} changer={(v) => modifier({ apercuCorps: v })} />
         )}
       </Section>
+      {vue.type === 'kanban' && <OrdreGroupes schema={schema} vue={vue} modifier={modifier} />}
       <ChampsAffiches schema={schema} vue={vue} modifier={modifier} titre="Champs sur la carte" />
     </div>
   )

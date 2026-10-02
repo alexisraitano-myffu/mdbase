@@ -216,6 +216,23 @@ test.describe('kanban', () => {
     // Les cartes suivent leur colonne.
     await expect(page.locator('.kanban-colonne').nth(0).locator('.carte').first()).toBeVisible()
   })
+
+  test('« Options » : l’ordre des colonnes se range en glissant une ligne de la liste, et revient à l’ordre des options', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Par statut' }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    const liste = page.getByRole('list', { name: 'Ordre des colonnes' }).locator('li')
+    await expect(liste).toHaveText(['À faire', 'En cours', 'Terminé', 'Sans statut'])
+    const [termine, premier] = [(await liste.nth(2).boundingBox())!, (await liste.nth(0).boundingBox())!]
+    await glisser(page, liste.nth(2), 0, premier.y - termine.y - 4)
+    await expect(liste).toHaveText(['Terminé', 'À faire', 'En cours', 'Sans statut'])
+    await expect.poll(() => espace.lire('projets/_vues/par-statut.yaml')).toContain('ordre_groupes: [ Terminé, À faire, En cours, ∅ ]\n')
+    await expect(page.locator('.kanban-entetes .kanban-entete').first()).toHaveText(/^Terminé/)
+
+    await page.getByRole('button', { name: 'Revenir à l’ordre des options' }).click()
+    await expect.poll(() => espace.lire('projets/_vues/par-statut.yaml')).not.toContain('ordre_groupes')
+    await expect(liste).toHaveText(['À faire', 'En cours', 'Terminé', 'Sans statut'])
+  })
 })
 
 test.describe('vues temporelles', () => {

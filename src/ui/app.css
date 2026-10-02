@@ -537,6 +537,13 @@ button:hover { background: var(--survol); }
 .kanban-entete.mobile { cursor: grab; border-radius: 6px; padding-block: 3px; }
 .kanban-entete.mobile:hover { background: var(--survol); }
 .kanban-entete.entete-fantome { opacity: 0.4; }
+.ordre-groupes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 16rem; overflow-y: auto; }
+.ligne-ordre { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: grab; user-select: none; }
+.ligne-ordre:hover { background: var(--survol); }
+.ligne-ordre.fantome { opacity: 0.4; }
+.ligne-ordre-deplacee { background: var(--surface); box-shadow: var(--ombre); cursor: grabbing; }
+.poignee-ordre { color: var(--tres-discret-texte); }
+.retablir-ordre { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin-top: 6px; font-size: 0.9em; }
 .kanban-entete.entete-deplace { background: var(--surface); box-shadow: var(--ombre); border-radius: 6px; padding-block: 3px; cursor: grabbing; }
 .kanban-colonne {
   display: flex;
