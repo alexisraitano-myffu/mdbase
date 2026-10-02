@@ -52,6 +52,12 @@ export class Brouillon {
       })
       if (!titres.has(b.id)) titres.set(b.id, new Map())
     }
+    // Lignes que le plan crée : un id prévu chacune, pour qu'une relation puisse les viser par leur titre.
+    for (const [base, creees] of this.creees) {
+      const t = new Map(titres.get(base))
+      creees.forEach((titre, i) => t.set(idLignePrevu(base, i), titre))
+      titres.set(base, t)
+    }
     for (const id of [...bases.keys()]) if (!this.bases.has(id) && this.source.bases.get(id)?.depot) bases.delete(id)
     return { ...this.source, bases, titres }
   }
@@ -73,6 +79,10 @@ export class Brouillon {
     this.creees.set(base, [...(this.creees.get(base) ?? []), ...titres])
   }
 }
+
+/** Id prévu de la n-ième ligne que le plan crée dans une base, remplacé par l'id réel à l'application. */
+export const idLignePrevu = (base: string, n: number) => `+${base}:${n}`
+const estIdPrevu = (v: string) => /^\+.+:\d+$/.test(v)
 
 /** Colonne à créer, telle que validée. */
 export type NouvelleColonne =
@@ -516,12 +526,16 @@ export class Correspondances {
   private readonly bases = new Map<string, string>()
   private readonly cles = new Map<string, string>()
   private readonly vues = new Map<string, string>()
+  private readonly lignes = new Map<string, string>()
   base = (id: string) => this.bases.get(id) ?? id
   cle = (base: string, cle: string) => this.cles.get(`${base}\u0000${cle}`) ?? cle
   vue = (base: string, vue: string) => this.vues.get(`${base}\u0000${vue}`) ?? vue
   noterBase = (prevu: string, reel: string) => void this.bases.set(prevu, reel)
   noterCle = (base: string, prevue: string, reelle: string) => void this.cles.set(`${base}\u0000${prevue}`, reelle)
   noterVue = (base: string, prevue: string, reelle: string) => void this.vues.set(`${base}\u0000${prevue}`, reelle)
+  noterLigne = (prevu: string, reel: string) => void this.lignes.set(prevu, reel)
+  /** Ids d'une relation : les lignes créées par le plan prennent leur id réel ; une ligne pas encore créée est laissée de côté. */
+  liens = (ids: readonly string[]): string[] => ids.map((id) => this.lignes.get(id) ?? id).filter((id) => !estIdPrevu(id))
 
   /** Réglages de vue dont les colonnes suivent les clés réelles. */
   reglages(base: string, r: ModificationVue): ModificationVue {

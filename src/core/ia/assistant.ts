@@ -1,5 +1,5 @@
 import type { DepotEspace } from '../depot-espace'
-import type { MessageIA, ModeleIA, RequeteIA } from './modele'
+import type { AppelOutil, MessageIA, ModeleIA, RequeteIA } from './modele'
 import { estLecture, lire, OUTILS_LECTURE } from './lecture'
 import { CONSIGNE, decrireEspace, OUTILS } from './outils'
 import { ErreurProposition, validerAppel, type ActionMemoire, type AppelValide, type Operation, type Plan, type SkillPropose } from './plan'
@@ -64,6 +64,8 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
   ]
   let relances = 0
   let lectures = 0
+  // Appels d'une proposition de structure seule, gardés pendant le tour donné au modèle pour enchaîner les lignes.
+  let acquis: AppelOutil[] = []
   for (;;) {
     const reponse = await modele({ messages, outils: [...OUTILS_LECTURE, ...OUTILS], signal: o.signal, progression: o.progression })
     // Réponse coupée par le service : ses derniers appels sont incomplets, on la redemande plus courte.
@@ -90,7 +92,8 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
       }
       continue
     }
-    const appels = reponse.appels.filter((a) => !estLecture(a))
+    const nouveaux = reponse.appels.filter((a) => !estLecture(a))
+    const appels = [...acquis, ...nouveaux]
     if (appels.length === 0) {
       const texte = sansReflexion(reponse.texte)
       const fin = reponse.coupee ? 'Réponse coupée par le service, même après relance : redemande en plus petit.' : aLire.length > 0 ? 'Limite de lectures atteinte avant une réponse : précise la demande.' : 'Le modèle n’a rien proposé.'
@@ -110,12 +113,13 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
     const erreurs = resultats.filter((r): r is ErreurProposition => r instanceof ErreurProposition)
     if (erreurs.length > 0 && relances < RELANCES) {
       relances++
-      messages.push({ role: 'assistant', contenu: reponse.texte, appels })
-      appels.forEach((appel, i) => {
-        const r = resultats[i]!
+      messages.push({ role: 'assistant', contenu: reponse.texte, appels: nouveaux })
+      nouveaux.forEach((appel, i) => {
+        const r = resultats[acquis.length + i]!
         messages.push({ role: 'tool', idAppel: appel.id, contenu: r instanceof ErreurProposition ? `Erreur : ${r.message}.` : 'Valide.' })
       })
-      messages.push({ role: 'user', contenu: 'Rien n’a été appliqué. Corrige et renvoie tous les appels, y compris ceux qui étaient valides.' })
+      const ceux = acquis.length > 0 ? 'tous les appels de ta dernière réponse (la structure notée avant reste)' : 'tous les appels'
+      messages.push({ role: 'user', contenu: `Rien n’a été appliqué. Corrige et renvoie ${ceux}, y compris ceux qui étaient valides.` })
       continue
     }
     const valides = resultats.filter((r): r is AppelValide => !(r instanceof ErreurProposition))
@@ -131,6 +135,18 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
     // Le texte écrit à côté des appels a été montré au fil de l'eau : il reste, à défaut d'une réponse explicite.
     const texte = valides.flatMap((r) => (r.type === 'reponse' && r.texte ? [r.texte] : [])).join('\n') || sansReflexion(reponse.texte)
     const message = [texte, refus, coupe].filter(Boolean).join('\n\n')
+    // Structure seule : le modèle s'arrête souvent là en croyant voir le résultat, avant les lignes
+    // à créer ou modifier. Un tour de plus pour les envoyer ; la structure notée est gardée.
+    if (acquis.length === 0 && erreurs.length === 0 && structure.length > 0 && operations.length === 0 && suite.length === 0) {
+      acquis = appels
+      messages.push({ role: 'assistant', contenu: reponse.texte, appels: nouveaux })
+      for (const appel of nouveaux) messages.push({ role: 'tool', idAppel: appel.id, contenu: 'Noté (rien n’est encore appliqué).' })
+      messages.push({
+        role: 'user',
+        contenu: 'Structure notée. Si la demande comporte aussi des lignes à créer, modifier ou relier, envoie maintenant ces appels seulement (désigne une base nouvelle par son nom, une ligne nouvelle par son titre). Sinon, réponds sans appel.',
+      })
+      continue
+    }
     if (operations.length > 0 || skills.length > 0 || structure.length > 0 || suite.length > 0) {
       return { type: 'plan', plan: { structure, operations, suite, skills }, message, memoire }
     }
