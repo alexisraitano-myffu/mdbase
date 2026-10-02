@@ -45,8 +45,8 @@ function versOpenAI(m: MessageIA): Record<string, unknown> {
 }
 
 type AppelOpenAI = { index?: number; id?: string; function?: { name?: string; arguments?: unknown } }
-type ReponseOpenAI = { choices?: { message?: { content?: string | null; tool_calls?: AppelOpenAI[] } }[] }
-type MorceauOpenAI = { choices?: { delta?: { content?: string | null; tool_calls?: AppelOpenAI[] } }[]; error?: { message?: string } | string }
+type ReponseOpenAI = { choices?: { message?: { content?: string | null; tool_calls?: AppelOpenAI[] }; finish_reason?: string | null }[] }
+type MorceauOpenAI = { choices?: { delta?: { content?: string | null; tool_calls?: AppelOpenAI[] }; finish_reason?: string | null }[]; error?: { message?: string } | string }
 
 /** Certains serveurs renvoient les arguments déjà décodés. */
 const argumentsBruts = (a: unknown) => (typeof a === 'string' ? a : JSON.stringify(a ?? {}))
@@ -56,6 +56,7 @@ function lireMessage(json: ReponseOpenAI): ReponseIA {
   const message = json.choices?.[0]?.message
   if (!message) throw new Error('Réponse du service illisible : aucun message.')
   return {
+    ...(json.choices?.[0]?.finish_reason === 'length' && { coupee: true }),
     texte: message.content ?? '',
     appels: (message.tool_calls ?? []).map((t, i) => ({ id: t.id || `appel${i}`, nom: t.function?.name ?? '', arguments: argumentsBruts(t.function?.arguments) })),
   }
@@ -71,6 +72,7 @@ async function lireFlux(corps: ReadableStream<Uint8Array>, recu: () => void, pro
   const decodeur = new TextDecoder()
   let reste = ''
   let texte = ''
+  let coupee = false
   const appels: { id?: string; nom: string; arguments: string }[] = []
   for (;;) {
     const { done, value } = await lecteur.read()
@@ -91,6 +93,7 @@ async function lireFlux(corps: ReadableStream<Uint8Array>, recu: () => void, pro
         continue // ligne coupée ou commentaire du service : ignorée
       }
       if (morceau.error) throw new Error(`Le service a répondu : ${typeof morceau.error === 'string' ? morceau.error : (morceau.error.message ?? 'erreur')}`)
+      if (morceau.choices?.[0]?.finish_reason === 'length') coupee = true
       const delta = morceau.choices?.[0]?.delta
       if (!delta) continue
       if (delta.content) {
@@ -110,6 +113,7 @@ async function lireFlux(corps: ReadableStream<Uint8Array>, recu: () => void, pro
     if (nouveau) progression?.({ texte, outils: appels.flatMap((a) => (a?.nom ? [a.nom] : [])) })
   }
   return {
+    ...(coupee && { coupee: true }),
     texte,
     appels: appels.flatMap((a, i) => (a ? [{ id: a.id || `appel${i}`, nom: a.nom, arguments: a.arguments || '{}' }] : [])),
   }

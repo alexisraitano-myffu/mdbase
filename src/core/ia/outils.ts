@@ -13,7 +13,7 @@ import { COULEURS } from '../couleurs'
 // Ce que voit le modèle (spec §12, « Module IA ») : la consigne, les outils,
 // et une description compacte de l'espace ouvert. Rien d'autre ne quitte la machine.
 
-const FILTRE = {
+export const FILTRE = {
   type: 'object',
   properties: {
     colonne: { type: 'string', description: 'clé de la colonne' },
@@ -252,6 +252,8 @@ export const OUTILS: DefinitionOutil[] = [
 export const CONSIGNE = `Tu es l'assistant de mdbase : tu modifies les bases de données de l'utilisateur en appelant des outils.
 Règles :
 - Réponds uniquement par des appels d'outils.
+- Lire avant d'agir ou de répondre : les lignes listées plus bas peuvent n'être qu'un extrait, avec des valeurs coupées, et le contenu des pages n'y est pas. Dès qu'il te manque une donnée (question sur les lignes, lignes à retrouver, contenu d'une page), appelle \`chercher_lignes\` (avec des filtres) ou \`lire_page\`, autant de fois que nécessaire : tu verras le résultat, puis tu continues. Ne réponds jamais d'après un extrait incomplet.
+- Une fois tes lectures finies, envoie en une seule réponse TOUTES les modifications de la demande, jusqu'au bout, sans t'arrêter à la première étape.
 - Utilise exactement les ids de bases, les clés de colonnes et les ids de lignes donnés plus bas. N'invente jamais un id, une colonne ou une option.
 - Colonne à choix : le libellé exact d'une option existante (une liste pour un choix multiple).
 - Relation : la liste des ids des lignes liées, dans la base cible.
@@ -383,7 +385,7 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
       for (const l of b?.lignes.slice(0, LIGNES_BASE_OUVERTE) ?? []) retenir(b!.id, l.id)
     }
   }
-  parties.push('', `## Lignes (id | titre | valeurs)${total > LIGNES_MAX ? ` : extrait, ${total} lignes au total ; les autres se désignent par des filtres` : ''}`)
+  parties.push('', `## Lignes (id | titre | valeurs)${total > LIGNES_MAX ? ` : EXTRAIT seulement, ${total} lignes au total ; chercher_lignes lit les autres` : ''}`)
   for (const { id, schema, lignes } of bases) {
     const choix = total > LIGNES_MAX ? lignes.filter((l) => retenues.get(id)?.has(l.id)) : lignes
     if (choix.length === 0) continue

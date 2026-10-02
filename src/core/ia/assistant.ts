@@ -1,13 +1,15 @@
 import type { DepotEspace } from '../depot-espace'
 import type { MessageIA, ModeleIA, RequeteIA } from './modele'
+import { estLecture, lire, OUTILS_LECTURE } from './lecture'
 import { CONSIGNE, decrireEspace, OUTILS } from './outils'
 import { ErreurProposition, validerAppel, type ActionMemoire, type AppelValide, type Operation, type Plan, type SkillPropose } from './plan'
 import { Brouillon, type ActionStructure, type ActionSuite } from './structure'
 
 // Une demande à l'assistant (spec §12, « Module IA »), dans une conversation
-// dont les derniers échanges sont relus par le modèle : un appel au modèle,
-// validation de ses appels d'outils, et une seule relance si le cœur en refuse
-// un (le modèle reçoit l'erreur et corrige). Le plan n'est jamais appliqué ici.
+// dont les derniers échanges sont relus par le modèle. Le modèle peut d'abord
+// lire (lignes, pages) sur plusieurs tours, en voyant chaque résultat ; puis
+// ses appels de modification sont validés, avec deux relances si le cœur en
+// refuse ou si la réponse est coupée. Le plan n'est jamais appliqué ici.
 
 export type Proposition = (
   | { type: 'plan'; plan: Plan; /** Texte d'accompagnement éventuel (outil `repondre`). */ message: string }
@@ -37,7 +39,11 @@ export type OptionsDemande = {
 /** Échanges renvoyés au modèle : assez pour suivre une conversation, sans alourdir chaque demande. */
 export const ECHANGES_MAX = 10
 
-const RELANCES = 1
+/** Relances après un refus ou une réponse coupée ; au-delà, ce qui est valide est gardé. */
+const RELANCES = 2
+/** Tours où le modèle lit des lignes ou des pages avant de proposer. */
+export const LECTURES_MAX = 8
+
 
 /** Certains modèles écrivent leur raisonnement entre balises `<think>` : il n'est pas montré. */
 export const sansReflexion = (texte: string) => texte.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim()
@@ -56,15 +62,44 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
     ]),
     { role: 'user', contenu: avecSkill(demande, o.skill) },
   ]
-  for (let essai = 0; ; essai++) {
-    const reponse = await modele({ messages, outils: OUTILS, signal: o.signal, progression: o.progression })
-    if (reponse.appels.length === 0) {
-      return { type: 'reponse', texte: sansReflexion(reponse.texte) || 'Le modèle n’a rien proposé.', memoire: [] }
+  let relances = 0
+  let lectures = 0
+  for (;;) {
+    const reponse = await modele({ messages, outils: [...OUTILS_LECTURE, ...OUTILS], signal: o.signal, progression: o.progression })
+    // Réponse coupée par le service : ses derniers appels sont incomplets, on la redemande plus courte.
+    if (reponse.coupee && relances < RELANCES) {
+      relances++
+      messages.push({ role: 'assistant', contenu: reponse.texte, appels: [] })
+      messages.push({ role: 'user', contenu: 'Ta réponse a été coupée : trop longue. Rien n’a été appliqué. Renvoie-la en plus court : moins de texte, des appels groupés (plusieurs lignes par appel, des filtres plutôt que des listes d’ids).' })
+      continue
+    }
+    const aLire = reponse.appels.filter(estLecture)
+    if (aLire.length > 0 && lectures < LECTURES_MAX) {
+      lectures++
+      // L'état est relu à chaque tour : les lectures voient l'espace tel qu'il est.
+      const etat = espace.etat()
+      messages.push({ role: 'assistant', contenu: reponse.texte, appels: reponse.appels })
+      for (const appel of reponse.appels) {
+        messages.push({
+          role: 'tool',
+          idAppel: appel.id,
+          contenu: estLecture(appel)
+            ? lire(etat, appel, { aujourdhui: o.aujourdhui })
+            : 'Pas retenu : propose les modifications dans une réponse sans lecture, une fois tes lectures finies.',
+        })
+      }
+      continue
+    }
+    const appels = reponse.appels.filter((a) => !estLecture(a))
+    if (appels.length === 0) {
+      const texte = sansReflexion(reponse.texte)
+      const fin = reponse.coupee ? 'Réponse coupée par le service, même après relance : redemande en plus petit.' : aLire.length > 0 ? 'Limite de lectures atteinte avant une réponse : précise la demande.' : 'Le modèle n’a rien proposé.'
+      return { type: 'reponse', texte: texte || fin, memoire: [] }
     }
     // L'état est relu à chaque essai : il a pu changer pendant l'appel. Les appels
     // se valident dans l'ordre sur un brouillon : une colonne créée peut être remplie ensuite.
     const brouillon = new Brouillon(espace.etat())
-    const resultats = reponse.appels.map((appel): AppelValide | ErreurProposition => {
+    const resultats = appels.map((appel): AppelValide | ErreurProposition => {
       try {
         return validerAppel(brouillon, appel, { aujourdhui: o.aujourdhui }, assistant)
       } catch (e) {
@@ -73,28 +108,34 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
       }
     })
     const erreurs = resultats.filter((r): r is ErreurProposition => r instanceof ErreurProposition)
-    if (erreurs.length === 0) {
-      const valides = resultats as AppelValide[]
-      const operations = valides.flatMap((r): Operation[] => (r.type === 'operation' && r.operation.lignes.length > 0 ? [r.operation] : []))
-      const skills = valides.flatMap((r): SkillPropose[] => (r.type === 'skill' ? [r.skill] : []))
-      const structure = valides.flatMap((r): ActionStructure[] => (r.type === 'structure' ? r.actions : []))
-      const suite = valides.flatMap((r): ActionSuite[] => (r.type === 'suite' ? [r.action] : []))
-      const memoire = valides.flatMap((r): ActionMemoire[] => (r.type === 'memoire' ? [r.action] : []))
-      // Le texte écrit à côté des appels a été montré au fil de l'eau : il reste, à défaut d'une réponse explicite.
-      const message = valides.flatMap((r) => (r.type === 'reponse' && r.texte ? [r.texte] : [])).join('\n') || sansReflexion(reponse.texte)
-      if (operations.length > 0 || skills.length > 0 || structure.length > 0 || suite.length > 0) {
-        return { type: 'plan', plan: { structure, operations, suite, skills }, message, memoire }
-      }
-      const aucunChangement = valides.some((r) => r.type === 'operation')
-      const vide = memoire.length > 0 ? '' : aucunChangement ? 'Rien à changer : les valeurs sont déjà celles demandées.' : 'Le modèle n’a rien proposé.'
-      return { type: 'reponse', texte: message || vide, memoire }
+    if (erreurs.length > 0 && relances < RELANCES) {
+      relances++
+      messages.push({ role: 'assistant', contenu: reponse.texte, appels })
+      appels.forEach((appel, i) => {
+        const r = resultats[i]!
+        messages.push({ role: 'tool', idAppel: appel.id, contenu: r instanceof ErreurProposition ? `Erreur : ${r.message}.` : 'Valide.' })
+      })
+      messages.push({ role: 'user', contenu: 'Rien n’a été appliqué. Corrige et renvoie tous les appels, y compris ceux qui étaient valides.' })
+      continue
     }
-    if (essai >= RELANCES) throw new ErreurProposition(`Proposition refusée : ${erreurs.map((e) => e.message).join(' ; ')}`)
-    messages.push({ role: 'assistant', contenu: reponse.texte, appels: reponse.appels })
-    reponse.appels.forEach((appel, i) => {
-      const r = resultats[i]!
-      messages.push({ role: 'tool', idAppel: appel.id, contenu: r instanceof ErreurProposition ? `Erreur : ${r.message}.` : 'Valide.' })
-    })
-    messages.push({ role: 'user', contenu: 'Rien n’a été appliqué. Corrige et renvoie tous les appels, y compris ceux qui étaient valides.' })
+    const valides = resultats.filter((r): r is AppelValide => !(r instanceof ErreurProposition))
+    if (valides.length === 0) throw new ErreurProposition(`Proposition refusée : ${erreurs.map((e) => e.message).join(' ; ')}`)
+    // Après les relances, ce qui reste refusé est signalé ; le reste est proposé quand même.
+    const refus = erreurs.length > 0 ? `Non retenu (refusé après ${RELANCES} relances) : ${erreurs.map((e) => e.message).join(' ; ')}.` : ''
+    const coupe = reponse.coupee ? 'Réponse coupée par le service : la fin de la demande manque peut-être.' : ''
+    const operations = valides.flatMap((r): Operation[] => (r.type === 'operation' && r.operation.lignes.length > 0 ? [r.operation] : []))
+    const skills = valides.flatMap((r): SkillPropose[] => (r.type === 'skill' ? [r.skill] : []))
+    const structure = valides.flatMap((r): ActionStructure[] => (r.type === 'structure' ? r.actions : []))
+    const suite = valides.flatMap((r): ActionSuite[] => (r.type === 'suite' ? [r.action] : []))
+    const memoire = valides.flatMap((r): ActionMemoire[] => (r.type === 'memoire' ? [r.action] : []))
+    // Le texte écrit à côté des appels a été montré au fil de l'eau : il reste, à défaut d'une réponse explicite.
+    const texte = valides.flatMap((r) => (r.type === 'reponse' && r.texte ? [r.texte] : [])).join('\n') || sansReflexion(reponse.texte)
+    const message = [texte, refus, coupe].filter(Boolean).join('\n\n')
+    if (operations.length > 0 || skills.length > 0 || structure.length > 0 || suite.length > 0) {
+      return { type: 'plan', plan: { structure, operations, suite, skills }, message, memoire }
+    }
+    const aucunChangement = valides.some((r) => r.type === 'operation')
+    const vide = memoire.length > 0 ? '' : aucunChangement ? 'Rien à changer : les valeurs sont déjà celles demandées.' : 'Le modèle n’a rien proposé.'
+    return { type: 'reponse', texte: message || vide, memoire }
   }
 }
