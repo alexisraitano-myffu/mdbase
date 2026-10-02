@@ -193,6 +193,25 @@ describe('synchro d’une base Jira', () => {
     expect(lireEtatSynchro(await a.lire('jira/_synchro.yaml'))).toEqual({ derniere: '2026-10-01T09:00', signature: '["exemple.atlassian.net",["PRVE"],""]', tickets: 3 })
   })
 
+  it('statuts rangés par étape (à faire, en cours, terminé), quel que soit l’ordre où ils arrivent ; dans une étape, l’ordre d’arrivée', async () => {
+    const statut = (name: string, key: string) => ({ status: { name, statusCategory: { key } } })
+    const { a, client, o } = await espace([
+      ticket('1', 'PRVE-1', statut('Fait', 'done')),
+      ticket('2', 'PRVE-2', statut('En revue', 'indeterminate')),
+      ticket('3', 'PRVE-3'),
+      ticket('4', 'PRVE-4', statut('En cours', 'indeterminate')),
+    ])
+    await synchroniser(a, 'jira', client, o)
+    const labels = () => a.lire('jira/_schema.yaml').then((t) => lireSchema(t, 'jira').schema!.colonnes.find((c) => c.cle === 'statut'))
+    const avant = await labels()
+    expect(avant?.type === 'select' && avant.options.map((x) => x.label)).toEqual(['À faire', 'En revue', 'En cours', 'Fait'])
+    // Un nouveau statut « à faire » rejoint son étape, devant ceux en cours.
+    client.tickets = [ticket('5', 'PRVE-5', statut('Backlog', 'new'))]
+    await synchroniser(a, 'jira', client, { ...o, complete: true })
+    const apres = await labels()
+    expect(apres?.type === 'select' && apres.options.map((x) => x.label)).toEqual(['À faire', 'Backlog', 'En revue', 'En cours', 'Fait'])
+  })
+
   it('synchro suivante : incrémentale, ne réécrit que ce qui a bougé, note « Bougé le » et le changement, garde l’id', async () => {
     const { a, client, o, lignes } = await espace([ticket('1', 'PRVE-1'), ticket('2', 'PRVE-2')])
     await synchroniser(a, 'jira', client, o)

@@ -202,6 +202,20 @@ test.describe('kanban', () => {
     await expect(termine.locator('.carte', { hasText: 'Application mobile' })).toBeVisible()
     await expect.poll(() => espace.lire('projets/application-mobile--pmobi002.md')).toContain('statut: Terminé\n')
   })
+
+  test('glisser l’en-tête d’une colonne sur une autre change l’ordre des colonnes, écrit dans la vue', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.onglet', { hasText: 'Par statut' }).click()
+    const entetes = page.locator('.kanban-entetes .kanban-entete')
+    await expect(entetes).toHaveText([/^À faire/, /^En cours/, /^Terminé/])
+    const termine = entetes.nth(2)
+    const [depart, cible] = [(await termine.boundingBox())!, (await entetes.nth(0).boundingBox())!]
+    await glisser(page, termine, cible.x + 20 - depart.x, 0)
+    await expect(entetes).toHaveText([/^Terminé/, /^À faire/, /^En cours/])
+    await expect.poll(() => espace.lire('projets/_vues/par-statut.yaml')).toContain('ordre_groupes: [ Terminé, À faire, En cours ]\n')
+    // Les cartes suivent leur colonne.
+    await expect(page.locator('.kanban-colonne').nth(0).locator('.carte').first()).toBeVisible()
+  })
 })
 
 test.describe('vues temporelles', () => {

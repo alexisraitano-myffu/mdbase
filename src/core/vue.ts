@@ -98,6 +98,8 @@ export type Vue = {
   groupe?: string
   /** Kanban : couloirs horizontaux. */
   sousGroupe?: string
+  /** Kanban : ordre des colonnes, par valeur (libellé d'option, id de ligne liée) ; les autres suivent dans l'ordre habituel. */
+  ordreGroupes?: string[]
   /** Kanban, collection, calendrier et timeline : champs affichés sous le titre. */
   champsCarte?: string[]
   /** Collection : premières lignes du corps sur la carte. */
@@ -142,6 +144,7 @@ const REGLAGES = {
   calculs: 'calculs',
   groupe: 'groupe',
   sousGroupe: 'sous_groupe',
+  ordreGroupes: 'ordre_groupes',
   champsCarte: 'champs_carte',
   apercuCorps: 'apercu_corps',
   champDebut: 'champ_debut',
@@ -191,6 +194,8 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   if (groupe) r.groupe = groupe
   const sousGroupe = texte(brut.sous_groupe)
   if (sousGroupe) r.sousGroupe = sousGroupe
+  const ordreGroupes = chaines(brut.ordre_groupes)
+  if (ordreGroupes?.length) r.ordreGroupes = ordreGroupes
   const champsCarte = chaines(brut.champs_carte)
   if (champsCarte) r.champsCarte = champsCarte
   if (brut.apercu_corps === true) r.apercuCorps = true
