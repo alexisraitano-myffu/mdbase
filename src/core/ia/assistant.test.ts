@@ -59,7 +59,7 @@ describe('contexte envoyé au modèle', () => {
     for (let i = 0; i < 160; i++) fichiers[`taches/t${i}--x${String(i).padStart(7, '0')}.md`] = `---\nid: x${String(i).padStart(7, '0')}\ntitre: Tâche ${i}\n---\n`
     const { espace } = await ouvrir(fichiers)
     const texte = decrireEspace(espace.etat(), { aujourdhui: AUJOURDHUI, baseOuverte: 'projets', candidats: espace.candidats('relancer Globex') })
-    expect(texte).toContain('extrait, 168 lignes au total')
+    expect(texte).toContain('EXTRAIT seulement, 168 lignes au total ; chercher_lignes lit les autres')
     expect(texte).toContain('p0000003 | Seul')
     expect(texte).toContain('c0000002 | Globex')
     expect(texte).not.toContain('Acme')
@@ -148,6 +148,8 @@ describe('proposer', () => {
     expect(p.type).toBe('plan')
     expect(modele.requetes).toHaveLength(1)
     expect(modele.requetes[0]!.outils.map((o) => o.nom)).toEqual([
+      'chercher_lignes',
+      'lire_page',
       'modifier_lignes',
       'creer_lignes',
       'supprimer_lignes',
@@ -186,10 +188,25 @@ describe('proposer', () => {
     expect(relance[3]).toMatchObject({ role: 'tool', idAppel: faux.id, contenu: expect.stringContaining('option parmi [À faire, Terminé]') })
   })
 
-  it('deux refus de suite : erreur montrée à l’utilisateur, rien d’appliqué', async () => {
+  it('trois refus de suite (deux relances) sans rien de valide : erreur montrée à l’utilisateur, rien d’appliqué', async () => {
     const { espace } = await ouvrir()
     const faux = () => ({ texte: '', appels: [appel('modifier_lignes', { base: 'taches', lignes: ['zz'], valeurs: { fait: true } })] })
-    await expect(proposer(modeleScripte(faux(), faux()), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })).rejects.toThrow(/Proposition refusée : ligne inconnue/)
+    await expect(proposer(modeleScripte(faux(), faux(), faux()), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })).rejects.toThrow(/Proposition refusée : ligne inconnue/)
+  })
+
+  it('après les relances, les appels valides sont gardés et le refus est signalé dans le message', async () => {
+    const { espace } = await ouvrir()
+    const reponse = () => ({
+      texte: '',
+      appels: [
+        appel('modifier_lignes', { base: 'taches', lignes: ['t0000003'], valeurs: { statut: 'Terminé' } }),
+        appel('modifier_lignes', { base: 'taches', lignes: ['zz'], valeurs: { fait: true } }),
+      ],
+    })
+    const p = await proposer(modeleScripte(reponse(), reponse(), reponse()), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    if (p.type !== 'plan') throw new Error('plan attendu')
+    expect(p.plan.operations).toHaveLength(1)
+    expect(p.message).toMatch(/Non retenu \(refusé après 2 relances\) : ligne inconnue/)
   })
 
   it('texte sans appel ou outil `repondre` : une réponse, raisonnement <think> retiré', async () => {
@@ -316,5 +333,53 @@ describe('application d’un plan confirmé', () => {
     expect(await a.lire('projets/seul--p0000003.md')).toContain('client: c0000002')
     const nouvelle = taches.find((t) => t.startsWith('relancer-globex--'))!
     expect(await a.lire(`taches/${nouvelle}`)).toMatch(/titre: Relancer Globex\nprojet: p0000003\necheance: 2026-10-02/)
+  })
+})
+
+describe('lectures et réponses coupées', () => {
+  it('le modèle lit des lignes filtrées, voit le résultat, puis propose : une modification par tour au plus', async () => {
+    const { espace } = await ouvrir()
+    const modele = modeleScripte(
+      { texte: '', appels: [appel('chercher_lignes', { base: 'taches', filtres: [{ colonne: 'statut', operateur: 'egal', valeur: 'À faire' }] })] },
+      { texte: '', appels: [appel('modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { fait: false } })] },
+    )
+    const p = await proposer(modele, espace, 'Décoche les tâches à faire', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    expect(p.type).toBe('plan')
+    expect(modele.requetes).toHaveLength(2)
+    const resultat = modele.requetes[1]!.messages.at(-1)!
+    expect(resultat.role).toBe('tool')
+    expect(resultat.role === 'tool' && resultat.contenu).toMatch(/^\d+ lignes? dans taches :\nt0000001 \| A \| .*statut: À faire/)
+  })
+
+  it('lire_page renvoie le contenu ; une modification envoyée avec une lecture n’est pas retenue à ce tour', async () => {
+    const { espace } = await ouvrir()
+    const modele = modeleScripte(
+      { texte: '', appels: [appel('lire_page', { base: 'taches', ligne: 't0000001' }), appel('modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { fait: false } })] },
+      { texte: 'Rien à faire.', appels: [] },
+    )
+    await proposer(modele, espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    const outils = modele.requetes[1]!.messages.filter((m) => m.role === 'tool').map((m) => (m.role === 'tool' ? m.contenu : ''))
+    expect(outils[1]).toMatch(/^Pas retenu/)
+  })
+
+  it('erreur de lecture renvoyée au modèle, sans arrêter la demande', async () => {
+    const { espace } = await ouvrir()
+    const modele = modeleScripte({ texte: '', appels: [appel('chercher_lignes', { base: 'inconnue' })] }, { texte: 'Base introuvable.', appels: [] })
+    const p = await proposer(modele, espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    expect(p).toEqual({ type: 'reponse', texte: 'Base introuvable.', memoire: [] })
+    const r = modele.requetes[1]!.messages.at(-1)!
+    expect(r.role === 'tool' && r.contenu).toMatch(/^Erreur : base inconnue/)
+  })
+
+  it('réponse coupée par le service : redemandée plus courte', async () => {
+    const { espace } = await ouvrir()
+    const modele = modeleScripte(
+      { texte: '', appels: [appel('modifier_lignes', { base: 'taches', lignes: ['t0000003'] })], coupee: true },
+      { texte: '', appels: [appel('modifier_lignes', { base: 'taches', lignes: ['t0000003'], valeurs: { statut: 'Terminé' } })] },
+    )
+    const p = await proposer(modele, espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    expect(p.type).toBe('plan')
+    const relance = modele.requetes[1]!.messages.at(-1)!
+    expect(relance.role === 'user' && relance.contenu).toMatch(/coupée/)
   })
 })

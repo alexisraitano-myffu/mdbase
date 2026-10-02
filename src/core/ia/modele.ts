@@ -31,7 +31,12 @@ export type RequeteIA = {
   /** Appelé à chaque morceau reçu, quand le service envoie sa réponse au fil de l'eau. */
   progression?: (p: Progression) => void
 }
-export type ReponseIA = { texte: string; appels: AppelOutil[] }
+export type ReponseIA = {
+  texte: string
+  appels: AppelOutil[]
+  /** Réponse coupée par le service (longueur maximale atteinte) : ses derniers appels peuvent être incomplets. */
+  coupee?: boolean
+}
 
 /** Levée quand l'utilisateur arrête une demande : ce n'est pas une panne, rien n'est à signaler. */
 export class DemandeArretee extends Error {

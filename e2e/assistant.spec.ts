@@ -373,3 +373,23 @@ test('modèle changé depuis le panneau ; historique : reprendre une conversatio
   await expect(page.getByRole('list', { name: 'Conversations précédentes' }).locator('li')).toHaveCount(1)
   expect(espace).toBeTruthy()
 })
+
+test('le modèle lit les lignes qui lui manquent, voit le résultat, puis répond', async ({ espace, page }) => {
+  const recues = await simulerService(
+    page,
+    appel('chercher_lignes', { base: 'projets', filtres: [{ colonne: 'statut', operateur: 'egal', valeur: 'En cours' }] }),
+    appel('repondre', { texte: 'Deux projets en cours : Site vitrine, Boutique en ligne.' }),
+  )
+  await espace.base('Projets')
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Quels projets sont en cours ?')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.reponse-ia')).toHaveText('Deux projets en cours : Site vitrine, Boutique en ligne.')
+  // La seconde requête porte le résultat de la lecture, calculé par l'app sur toutes les lignes.
+  const messages = (recues[1]!.postDataJSON() as { messages: { role: string; content: string }[] }).messages
+  const lu = messages.find((m) => m.role === 'tool')!
+  expect(lu.content).toMatch(/^2 lignes dans projets :/)
+  expect(lu.content).toContain('psite001 | Site vitrine')
+  expect(lu.content).toContain('pbout003 | Boutique en ligne')
+  expect(lu.content).not.toContain('Application mobile')
+})

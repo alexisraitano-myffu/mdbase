@@ -119,6 +119,15 @@ describe('connecteur compatible OpenAI', () => {
     expect(vus.at(-1)).toEqual({ texte: 'Je propose', outils: ['modifier_lignes', 'repondre'] })
   })
 
+  it('réponse coupée par le service (finish_reason length) : signalée, au fil de l’eau comme d’un bloc', async () => {
+    const { envoyer } = flux([evt({ content: 'Je cré' }), `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] })}\n\n`, 'data: [DONE]\n\n'])
+    expect(await modeleCompatibleOpenAI(CONNEXION, envoyer)({ messages: [], outils: [] })).toEqual({ coupee: true, texte: 'Je cré', appels: [] })
+    const bloc = faux(json({ choices: [{ message: { content: 'x' }, finish_reason: 'length' }] }))
+    expect(await modeleCompatibleOpenAI(CONNEXION, bloc.envoyer)({ messages: [], outils: [] })).toMatchObject({ coupee: true })
+    const complet = faux(json({ choices: [{ message: { content: 'x' }, finish_reason: 'stop' }] }))
+    expect(await modeleCompatibleOpenAI(CONNEXION, complet.envoyer)({ messages: [], outils: [] })).not.toHaveProperty('coupee')
+  })
+
   it('erreur envoyée dans le flux : levée en français', async () => {
     const f = flux([evt({ content: 'a' }), `data: ${JSON.stringify({ error: { message: 'quota dépassé' } })}\n\n`])
     await expect(modeleCompatibleOpenAI(CONNEXION, f.envoyer)({ messages: [], outils: [] })).rejects.toThrow('Le service a répondu : quota dépassé')

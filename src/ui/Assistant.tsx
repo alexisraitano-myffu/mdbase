@@ -583,12 +583,15 @@ export function IndicateurIA({ session }: { session: SessionAssistant }) {
 function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat; appliquer: () => void; annuler: () => void }) {
   if (r.type === 'envoi') {
     const texte = sansReflexion(r.progression?.texte ?? '')
-    const outils = r.progression?.outils.length ?? 0
+    const noms = r.progression?.outils ?? []
+    // Les lectures (lignes, pages) ne sont pas des propositions : le modèle va chercher ce qu'il lui manque.
+    const lectures = noms.filter((n) => n === 'chercher_lignes' || n === 'lire_page').length
+    const outils = noms.length - lectures
     return (
       <div className="bulle-ia">
         {texte && <ContenuMarkdown className="reponse-ia" texte={texte} />}
         <div className="etat-ia discret">
-          <Icone de={Sparkles} /> {outils > 0 ? `Prépare ${pluriel(outils, 'proposition')}…` : texte ? 'Écrit…' : 'Réflexion…'} {secondes(performance.now() - r.depuis)}
+          <Icone de={Sparkles} /> {outils > 0 ? `Prépare ${pluriel(outils, 'proposition')}…` : lectures > 0 ? 'Lit les données…' : texte ? 'Écrit…' : 'Réflexion…'} {secondes(performance.now() - r.depuis)}
         </div>
       </div>
     )
