@@ -1032,6 +1032,8 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .avertissement-ia { background: var(--fond-doux); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.9em; line-height: 1.5; }
 .avertissement-ia p { margin: 0.25rem 0; }
 .champ-ia { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; }
+.lien-cle-ia { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin-top: -4px; font-size: 0.85em; color: var(--accent); text-decoration: none; }
+.lien-cle-ia:hover { text-decoration: underline; }
 .champ-ia span { color: var(--discret); }
 .champ-ia input { font: inherit; padding: 6px 8px; border: 1px solid var(--bordure); border-radius: 8px; background: var(--fond); color: inherit; }
 .etat-ia { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 0.9em; }

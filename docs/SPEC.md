@@ -616,7 +616,7 @@ Précisions d'implémentation :
 ### Module IA [DÉCIDÉ]
 Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, après la V1).
 - **Désactivé par défaut.** L'activer affiche d'abord un avertissement qui dit quelles données partent et vers quelle adresse ; rien n'est envoyé avant l'activation.
-- **Connecteur générique** : tout service compatible OpenAI (`/chat/completions` avec appels d'outils), distant ou local. L'utilisateur fournit l'adresse, sa clé et le nom du modèle ; la clé reste dans son navigateur. Aucun fournisseur imposé, aucune clé embarquée.
+- **Connecteur générique** : tout service compatible OpenAI (`/chat/completions` avec appels d'outils), distant ou local. L'utilisateur fournit l'adresse, sa clé et le nom du modèle ; la clé reste dans son navigateur. Aucun fournisseur imposé, aucune clé embarquée. Les principaux services sont préremplis [DÉCIDÉ, demandé par Alex le 02/10/2026] : un clic sur Anthropic, Google Gemini, OpenAI, Mistral, OVH, Ollama ou LM Studio remplit l'adresse et un modèle par défaut, avec un lien vers la page où créer sa clé ; il ne reste qu'à coller la clé. Le modèle se change parmi ceux que le service liste.
 - **Périmètre** : le modèle ne voit et ne modifie que l'espace ouvert. Il ne touche jamais aux fichiers : il propose des opérations typées (outils), que le cœur valide comme une saisie de l'interface (colonnes, types, options, lignes existantes).
 - **Aperçu obligatoire** : toute écriture proposée est montrée (lignes, colonnes, avant → après) et n'est appliquée qu'après confirmation. Une proposition invalide est refusée en entier, jamais appliquée à moitié.
 - Le cœur définit l'interface du modèle et les outils ; l'appel réseau vit dans un adaptateur.

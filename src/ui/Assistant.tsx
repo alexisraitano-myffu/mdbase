@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Check,
   Copy,
+  ExternalLink,
   History,
   LoaderCircle,
   Pencil,
@@ -39,11 +40,18 @@ import { useLargeurPanneau } from './useLargeurPanneau'
 const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
 /** Services préréglés : un clic remplit l'adresse. Aucun n'est imposé (spec §12). */
-const SERVICES = [
-  { nom: 'OVH (Europe)', adresse: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1' },
-  { nom: 'Mistral (Europe)', adresse: 'https://api.mistral.ai/v1' },
-  { nom: 'Ollama (local)', adresse: 'http://localhost:11434/v1' },
-  { nom: 'LM Studio (local)', adresse: 'http://localhost:1234/v1' },
+/**
+ * Services préremplis : un clic remplit l'adresse et un modèle par défaut, il
+ * ne reste qu'à coller la clé. Haiku est celui que le banc de l'assistant mesure.
+ */
+const SERVICES: { nom: string; adresse: string; modele: string; cle?: string; pageCle?: string }[] = [
+  { nom: 'Anthropic', adresse: 'https://api.anthropic.com/v1', modele: 'claude-haiku-4-5', cle: 'sk-ant-…', pageCle: 'https://console.anthropic.com/settings/keys' },
+  { nom: 'Google Gemini', adresse: 'https://generativelanguage.googleapis.com/v1beta/openai', modele: 'gemini-3.6-flash', pageCle: 'https://aistudio.google.com/apikey' },
+  { nom: 'OpenAI', adresse: 'https://api.openai.com/v1', modele: 'gpt-5-mini', cle: 'sk-…', pageCle: 'https://platform.openai.com/api-keys' },
+  { nom: 'Mistral (Europe)', adresse: 'https://api.mistral.ai/v1', modele: 'mistral-small-latest', pageCle: 'https://console.mistral.ai/api-keys' },
+  { nom: 'OVH (Europe)', adresse: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', modele: 'Qwen3.8-27B' },
+  { nom: 'Ollama (local)', adresse: 'http://localhost:11434/v1', modele: '' },
+  { nom: 'LM Studio (local)', adresse: 'http://localhost:1234/v1', modele: '' },
 ]
 
 /** Activation et réglages : l'avertissement est toujours affiché avant d'activer. `enregistrer` ferme la fenêtre. */
@@ -67,6 +75,7 @@ export function FenetreReglagesIA(p: { espace: DepotEspace; reglages: ReglagesIA
     </label>
   )
   const complet = r.adresse.trim() !== '' && r.modele.trim() !== ''
+  const service = SERVICES.find((sv) => sv.adresse === r.adresse.trim())
   return (
     <Fenetre titre="Assistant IA" fermer={p.fermer}>
       <div className="reglages-ia">
@@ -84,13 +93,24 @@ export function FenetreReglagesIA(p: { espace: DepotEspace; reglages: ReglagesIA
         </div>
         <div className="services-ia">
           {SERVICES.map((sv) => (
-            <button key={sv.nom} className={`pilule${r.adresse === sv.adresse ? ' active' : ''}`} onClick={() => setR({ ...r, adresse: sv.adresse })}>
+            <button
+              key={sv.nom}
+              className={`pilule${r.adresse === sv.adresse ? ' active' : ''}`}
+              // Changer de service vide la clé : celle d'un autre service y serait refusée.
+              onClick={() => setR({ ...r, adresse: sv.adresse, modele: sv.modele, cle: r.adresse === sv.adresse ? r.cle : '' })}
+            >
               {sv.nom}
             </button>
           ))}
         </div>
         {champ('adresse', 'Adresse du service', 'https://…/v1 (compatible OpenAI)')}
-        {champ('cle', 'Clé d’API', 'vide pour un serveur local', 'password')}
+        {champ('cle', 'Clé d’API', service?.cle ?? (r.adresse.includes('://localhost') ? 'vide pour un serveur local' : 'colle ta clé ici'), 'password')}
+        {service?.pageCle && (
+          <a className="lien-cle-ia" href={service.pageCle} target="_blank" rel="noopener noreferrer">
+            <Icone de={ExternalLink} />
+            Créer une clé {service.nom}
+          </a>
+        )}
         {champ('modele', 'Modèle', modeles.length > 0 ? `choisir parmi ${modeles.length} modèles` : 'nom du modèle', 'text', 'modeles-ia')}
         <datalist id="modeles-ia">
           {modeles.map((m) => (
