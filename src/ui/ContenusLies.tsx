@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { LigneChargee } from '../core/base'
+import type { EtatEspace } from '../core/depot-espace'
 import { PROFONDEUR_CONTENUS, type NiveauContenus } from '../core/mise-en-page'
 import { appliquerVue } from '../core/filtres'
 import { colonne as colonneDe, type ColonneRelation, type Schema } from '../core/schema'
@@ -27,11 +28,8 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
   const { etat } = useEspace()
   const [ouverts, setOuverts] = useState<ReadonlySet<string>>(new Set())
   const aujourdhui = useAujourdhui()
-  const schema = etat.bases.get(p.base)?.depot?.schema
-  const relation = schema ? colonneDe(schema, p.niveau.relation) : undefined
-  const cible = relation?.type === 'relation' ? etat.bases.get(relation.cible) : undefined
-  const depot = cible?.depot
-  if (relation?.type !== 'relation' || !cible || !depot) {
+  const niveau = lignesDuNiveau(etat, p.base, p.ligne, p.niveau, p.chemin, aujourdhui)
+  if (!niveau) {
     return (
       <p className="invalide">
         <Icone de={TriangleAlert} className="alerte" />
@@ -39,18 +37,8 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
       </p>
     )
   }
-
-  const parId = new Map(depot.lignes().map((l) => [l.id, l]))
-  const calculs = etat.calculs.get(cible.id)
-  const liees = idsLies(p.ligne, relation).flatMap((id) => {
-    const l = parId.get(id)
-    if (!l || p.chemin.includes(`${cible.id}/${id}`)) return []
-    const c = calculs?.get(id)
-    return [c ? { ...l, cellules: { ...l.cellules, ...c } } : l]
-  })
-  // Sans tri, l'ordre de la relation est gardé (le tri est stable).
-  const lignes = appliquerVue(liees, depot.schema, p.niveau.filtres ?? [], p.niveau.tris ?? [], { aujourdhui }).map((v) => v.ligne)
-  const masquees = liees.length - lignes.length
+  const { relation, cible, depot, lignes, masquees } = niveau
+  const total = lignes.length + masquees
   const champs = p.niveau.champs.flatMap((k) => colonneDe(depot.schema, k) ?? [])
   const tousOuverts = lignes.length > 0 && lignes.every((l) => ouverts.has(l.id))
   const basculer = (id: string) => setOuverts((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])))
@@ -61,7 +49,7 @@ export function ContenusLies(p: { base: string; ligne: LigneChargee; niveau: Niv
       <div className="titre-contenus">
         <span>{relation.nom}</span>
         <span className="discret" title={masquees > 0 ? `${masquees} masquée${masquees > 1 ? 's' : ''} par le filtre` : undefined}>
-          {masquees > 0 ? `${lignes.length} sur ${liees.length}` : lignes.length}
+          {masquees > 0 ? `${lignes.length} sur ${total}` : lignes.length}
         </span>
         {lignes.length > 1 && (
           <button
@@ -113,6 +101,31 @@ function CorpsLie(p: Parameters<typeof Corps>[0]) {
   const lecture = useConsultation()
   if (lecture && p.ligne.corps.trim() === '') return <div className="discret vide-contenus">Pas de contenu</div>
   return <Corps {...p} />
+}
+
+/**
+ * Lignes d'un niveau de contenus liés (ou de tâches liées) : celles que la
+ * relation lie à `ligne`, enrichies de leurs colonnes calculées, filtrées et
+ * triées comme le dit le niveau, sans celles déjà affichées au-dessus
+ * (`chemin`). `null` si la relation n'existe plus.
+ */
+export function lignesDuNiveau(etat: EtatEspace, base: string, ligne: LigneChargee, niveau: NiveauContenus, chemin: readonly string[], aujourdhui: string) {
+  const schema = etat.bases.get(base)?.depot?.schema
+  const relation = schema ? colonneDe(schema, niveau.relation) : undefined
+  const cible = relation?.type === 'relation' ? etat.bases.get(relation.cible) : undefined
+  const depot = cible?.depot
+  if (relation?.type !== 'relation' || !cible || !depot) return null
+  const parId = new Map(depot.lignes().map((l) => [l.id, l]))
+  const calculs = etat.calculs.get(cible.id)
+  const liees = idsLies(ligne, relation).flatMap((id) => {
+    const l = parId.get(id)
+    if (!l || chemin.includes(`${cible.id}/${id}`)) return []
+    const c = calculs?.get(id)
+    return [c ? { ...l, cellules: { ...l.cellules, ...c } } : l]
+  })
+  // Sans tri, l'ordre de la relation est gardé (le tri est stable).
+  const lignes = appliquerVue(liees, depot.schema, niveau.filtres ?? [], niveau.tris ?? [], { aujourdhui }).map((v) => v.ligne)
+  return { relation, cible, depot, lignes, masquees: liees.length - lignes.length }
 }
 
 /** Ids liés par la relation : stockés (propriétaire) ou calculés, déjà fusionnés dans les cellules de la ligne. */

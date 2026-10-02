@@ -464,6 +464,13 @@ mise_en_page: suivi
 - Activé par la mise en page (réglage « Contenus liés »), donc par base et au choix : clé `contenus`, absente par défaut.
 - Auto-relation (sous-tâches dans la base des tâches) : [PLUS TARD], avec l'auto-relation elle-même (§5). Le dépliage récursif s'en servira tel quel.
 
+### Tâches [DÉCIDÉ, demandé par Alex le 02/10/2026]
+- Une tâche est une case à cocher Markdown du corps d'une page : `- [ ] texte` ou `- [x] texte`, à n'importe quel retrait (sous-tâches). Une case dans un bloc de code n'en est pas une. Rien d'autre n'est lu (ni échéance ni priorité, [PLUS TARD]).
+- **Les tâches ne vivent que dans le texte** : aucune clé YAML, aucun fichier à part. Cocher une tâche ailleurs que dans l'éditeur réécrit seulement le caractère de sa case dans le corps de sa ligne, après avoir vérifié que la ligne est toujours cette tâche (sinon rien n'est écrit) ; Ctrl+Z l'annule comme une frappe.
+- **Onglet Tâches** d'une page, activé par la mise en page (onglet `type: taches`) : les tâches de la page sous le titre de leur section, une saisie « Ajouter une tâche » (écrite sous la dernière tâche du corps, ou à la fin), puis, au choix, les tâches des **lignes liées** (`liees`), au même format que les contenus liés (relation, champs, filtres, tris, `puis` sur 5 niveaux). Une ligne liée sans tâche, ni plus bas, n'apparaît pas. L'onglet affiche le nombre de tâches restantes, lignes liées comprises.
+- **Toutes les tâches** : une entrée de la barre latérale, sous la recherche et l'assistant, ouvre la liste des tâches de toutes les pages de l'espace, par base puis par ligne (le titre ouvre la page). Filtre « À faire » (par défaut) ou « Toutes », et une recherche sur le texte des tâches et le titre des pages. Une tâche cochée là reste affichée jusqu'au départ de la page, pour ne pas disparaître sous le clic.
+- Base synchronisée (§16) ou consultation : les cases se lisent, rien ne se coche.
+
 ### Exemple `_pages/suivi.yaml`
 
 ```yaml
@@ -480,6 +487,11 @@ onglets:
   - type: relation
     relation: taches
     colonnes: [titre, statut, echeance]
+  - type: taches                           # cases à cocher du corps
+    liees:                                 # optionnel : celles des lignes liées
+      relation: taches
+      filtres:
+        - { colonne: fait, operateur: egal, valeur: false }
   - type: corps
 contenus:                                  # optionnel : contenus liés sous le corps
   relation: taches

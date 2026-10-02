@@ -131,6 +131,45 @@ describe('ongletsDe', () => {
   })
 })
 
+describe('onglet des tâches', () => {
+  const TACHES = `id: suivi
+nom: Suivi
+onglets:
+  - type: proprietes
+  - type: taches
+    liees:
+      relation: taches
+      filtres:
+        - { colonne: fait, operateur: egal, valeur: false }
+      puis:
+        relation: livrables
+`
+  it('se lit avec ses lignes liées, et se réécrit à l’identique', () => {
+    const mep = lireMiseEnPage(TACHES, 'suivi').miseEnPage!
+    expect(mep.onglets[1]).toEqual({
+      type: 'taches',
+      liees: { relation: 'taches', champs: [], filtres: [{ colonne: 'fait', operateur: 'egal', valeur: false }], puis: { relation: 'livrables', champs: [] } },
+    })
+    const texte = modifierMiseEnPage(TACHES, mep, { onglets: mep.onglets })
+    expect(texte).toBe(TACHES)
+  })
+  it('sans lignes liées, un onglet nu ; une relation manquante est signalée', () => {
+    expect(lireMiseEnPage('onglets:\n  - type: taches\n', 'm').miseEnPage!.onglets).toEqual([{ type: 'taches' }])
+    const { miseEnPage, avertissements } = lireMiseEnPage('onglets:\n  - type: taches\n    liees: { champs: [a] }\n', 'm')
+    expect(miseEnPage!.onglets).toEqual([{ type: 'taches' }])
+    expect(avertissements[0]).toContain('tâches des lignes liées ignorées')
+  })
+  it('se place entre les relations et le corps', () => {
+    expect(ongletsDe([{ relation: 'r', colonnes: [] }], true, { type: 'taches' })).toEqual([
+      { type: 'proprietes' },
+      { type: 'relation', relation: 'r', colonnes: [] },
+      { type: 'taches' },
+      { type: 'corps' },
+    ])
+    expect(ongletsDe([], false, { type: 'taches' })).toEqual([{ type: 'proprietes' }, { type: 'taches' }])
+  })
+})
+
 describe('contenus liés', () => {
   const AVEC = `id: suivi
 nom: Suivi

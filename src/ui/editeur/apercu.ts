@@ -73,7 +73,8 @@ const ligne = (classe: string) => Decoration.line({ class: classe })
 const TITRES = [1, 2, 3, 4, 5, 6].map((n) => ligne(`cm-titre cm-titre-${n}`))
 const CITATION = ligne('cm-citation')
 const CODE = ligne('cm-bloc-code')
-const FAITE = ligne('cm-tache-faite')
+// Le texte seulement : barrer toute la ligne barrerait aussi le retrait d'une sous-tâche.
+const FAITE = Decoration.mark({ class: 'cm-tache-faite' })
 
 /** Les plages de la sélection, ou aucune quand l'éditeur n'a pas le focus (tout s'affiche mis en forme). */
 function plagesActives(view: EditorView): { from: number; to: number }[] {
@@ -196,8 +197,9 @@ function puceOuCase(state: EditorState, item: SyntaxNode, plages: { from: number
   const tache = item.getChild('Task')?.getChild('TaskMarker')
   if (tache) {
     const cochee = /x/i.test(state.doc.sliceString(tache.from, tache.to))
-    if (cochee) deco.push(FAITE.range(state.doc.lineAt(tache.from).from))
     const fin = state.doc.sliceString(tache.to, tache.to + 1) === ' ' ? tache.to + 1 : tache.to
+    const finLigne = state.doc.lineAt(tache.from).to
+    if (cochee && finLigne > fin) deco.push(FAITE.range(fin, finLigne))
     if (touche(plages, marque.from, fin)) return
     deco.push(Decoration.replace({ widget: new Case(cochee, marque.from) }).range(marque.from, fin))
     return
