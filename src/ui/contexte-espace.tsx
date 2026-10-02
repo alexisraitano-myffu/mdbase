@@ -6,6 +6,9 @@ import type { DepotEspace, EtatEspace } from '../core/depot-espace'
 
 export const ContexteEspace = createContext<{ espace: DepotEspace; etat: EtatEspace } | null>(null)
 
+/** Ouvre la page d'une ligne, depuis n'importe où (une référence `[[…]]` du corps). */
+export const ContexteOuvrir = createContext<((base: string, id: string) => void) | null>(null)
+
 export function useEspace() {
   const c = useContext(ContexteEspace)
   if (!c) throw new Error('useEspace hors d’un espace ouvert')

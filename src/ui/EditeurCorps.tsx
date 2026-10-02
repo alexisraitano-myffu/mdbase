@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { apercu } from './editeur/apercu'
 import { langageMarkdown } from './editeur/langage'
 import { menu, raccourcisMiseEnForme } from './editeur/mise-en-forme'
+import { menuReferences, pastillesReferences, type SourceLiens } from './editeur/references'
 import { repli } from './editeur/repli'
 
 // Mise en forme du texte : les tailles de titre viennent des classes de ligne
@@ -30,10 +31,13 @@ const styleMarkdown = HighlightStyle.define([
  * Le texte n'est jamais normalisé : seul ce que l'utilisateur tape change le
  * fichier, et ouvrir une page ne le réécrit jamais.
  */
-export function EditeurCorps({ initial, changer, lecture = false }: { initial: string; changer: (markdown: string) => void; lecture?: boolean }) {
+export function EditeurCorps({ initial, changer, lecture = false, liens }: { initial: string; changer: (markdown: string) => void; lecture?: boolean; liens?: SourceLiens }) {
   const racine = useRef<HTMLDivElement>(null)
   const changerCourant = useRef(changer)
   changerCourant.current = changer
+  // Relu à chaque usage : l'espace change pendant que la page est ouverte.
+  const liensCourants = useRef(liens)
+  liensCourants.current = liens
   const vue = useRef<EditorView | null>(null)
   const modifiable = useRef(new Compartment())
   const lectureInitiale = useRef(lecture)
@@ -50,10 +54,11 @@ export function EditeurCorps({ initial, changer, lecture = false }: { initial: s
           syntaxHighlighting(styleMarkdown),
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({ 'aria-label': 'Contenu de la page', spellcheck: 'true', lang: 'fr' }),
-          placeholder('Écris ici, ou tape « / » pour insérer un bloc'),
+          placeholder('Écris ici, tape « / » pour insérer un bloc ou « @ » pour citer une page'),
           apercu,
+          pastillesReferences(() => liensCourants.current ?? null),
           repli,
-          menu,
+          menu(menuReferences(() => liensCourants.current ?? null)),
           keymap.of([...raccourcisMiseEnForme, ...defaultKeymap, ...historyKeymap, indentWithTab]),
           modifiable.current.of(etatLecture(lectureInitiale.current)),
           EditorView.updateListener.of((u) => {

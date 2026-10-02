@@ -93,6 +93,27 @@ test.describe('pages', () => {
     await expect.poll(() => espace.lire(fichier)).toContain('Rien.\n### Suite\n')
   })
 
+  test('références : « @ » écrit un lien wiki vers une ligne, affiché en pastille au titre actuel, qui ouvre la page', async ({ espace, page }) => {
+    const fichier = 'taches/integration--tinte002.md'
+    await espace.remplacer(fichier, /\n---\n[\s\S]*$/, '\n---\nVoir [[projets/ancien-nom--pmobi002|Ancien titre]] et [[projets/disparu--zzzz0000|Disparu]].\n\nRien.\n')
+    await espace.retourSurOnglet()
+    await espace.ouvrirPage('Tâches', 'Intégration')
+    const corps = page.locator('.editeur-corps .cm-content')
+    // Résolu par l'id malgré l'ancien nom de fichier : le titre actuel s'affiche ; un lien cassé garde son alias, barré.
+    await expect(corps.locator('.cm-reference:not(.cassee)')).toHaveText('Application mobile')
+    await expect(corps.locator('.cm-reference.cassee')).toHaveText('Disparu')
+
+    await corps.locator('.cm-line', { hasText: 'Rien.' }).click()
+    await page.keyboard.press('End')
+    await page.keyboard.type(' Lié à @site vi')
+    await page.getByRole('option', { name: /Site vitrine/ }).click()
+    await expect.poll(() => espace.lire(fichier)).toContain('Rien. Lié à [[projets/site-vitrine--psite001|Site vitrine]]\n')
+
+    await page.mouse.click(5, 5) // hors de l'éditeur : tout s'affiche mis en forme
+    await corps.locator('.cm-reference', { hasText: 'Site vitrine' }).click()
+    await expect(page.locator('.titre-page')).toHaveValue('Site vitrine')
+  })
+
   test('contenus liés : le corps des tâches se déplie sous le projet et s’écrit dans le fichier de la tâche', async ({ espace, page }) => {
     await espace.ouvrirPage('Projets', 'Site vitrine')
     const section = page.locator('.contenus-lies')

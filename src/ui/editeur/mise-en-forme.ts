@@ -1,4 +1,4 @@
-import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete'
+import { autocompletion, type Completion, type CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete'
 import { EditorSelection, type EditorState } from '@codemirror/state'
 import { EditorView, tooltips, type KeyBinding } from '@codemirror/view'
 import { Code, Heading1, Heading2, Heading3, List, ListChecks, ListOrdered, Minus, Pilcrow, TextQuote, type IconNode } from 'lucide'
@@ -101,7 +101,7 @@ function menuBlocs(ctx: CompletionContext): CompletionResult | null {
   }
 }
 
-function estDansCode(state: EditorState, pos: number): boolean {
+export function estDansCode(state: EditorState, pos: number): boolean {
   const ligne = state.doc.lineAt(pos)
   let ouvert = false
   for (let n = 1; n < ligne.number; n++) if (/^\s*```/.test(state.doc.line(n).text)) ouvert = !ouvert
@@ -116,15 +116,19 @@ const themeMenu = EditorView.theme({
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': { background: 'var(--survol)', color: 'var(--texte)' },
   '.cm-completionDetail': { marginLeft: 'auto', paddingLeft: '1.5em', fontStyle: 'normal', fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: '0.85em', color: 'var(--tres-discret-texte)' },
   '.cm-completionMatchedText': { textDecoration: 'none', fontWeight: '600' },
+  // Menu « @ » : le détail est le nom de la base, pas un raccourci.
+  '.option-reference .cm-completionDetail': { fontFamily: 'inherit', fontSize: '0.9em' },
 })
 
-export const menu = [
+/** Menus de l'éditeur : « / » pour les blocs, et les autres sources données (« @ » des références). */
+export const menu = (...autres: CompletionSource[]) => [
   themeMenu,
   // Dans le body : le panneau de la page ne coupe plus le menu.
   tooltips({ parent: document.body }),
   autocompletion({
-  override: [menuBlocs],
+  override: [menuBlocs, ...autres],
   icons: false,
+  optionClass: (c) => (c as Completion & { classe?: string }).classe ?? '',
   addToOptions: [
     {
       render: (c) => iconeDom((c as Completion & { icone: IconNode }).icone),
