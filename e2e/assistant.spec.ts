@@ -27,7 +27,7 @@ async function activer(page: Page, modeles: string[] = []) {
   const fenetre = page.getByRole('dialog', { name: 'Assistant IA' })
   await expect(fenetre).toContainText('À chaque demande, l’assistant envoie au service choisi')
   await fenetre.getByPlaceholder(/compatible OpenAI/).fill(SERVICE)
-  await fenetre.getByPlaceholder(/serveur local/).fill('cle-de-test')
+  await fenetre.getByLabel('Clé d’API').fill('cle-de-test')
   await fenetre.getByPlaceholder(/modèle/).fill('qwen-test')
   await fenetre.getByRole('button', { name: 'J’ai compris, activer' }).click()
   await expect(page.getByPlaceholder(/passe les tâches en retard/)).toBeFocused()
@@ -106,6 +106,24 @@ test('champ de demande : grandit avec le texte, Maj+Entrée va à la ligne', asy
   await expect(champ).toHaveValue('ligne 1\nligne 2\nligne 3\nligne 4')
   expect((await champ.boundingBox())!.height).toBeGreaterThan(avant * 2.5)
   expect(espace).toBeTruthy()
+})
+
+test('services préremplis : un clic remplit l’adresse et le modèle, la clé reste à coller', async ({ espace: _, page }) => {
+  await page.getByRole('button', { name: /Assistant IA/ }).click()
+  const fenetre = page.getByRole('dialog', { name: 'Assistant IA' })
+  await fenetre.getByRole('button', { name: 'Anthropic' }).click()
+  await expect(fenetre.getByLabel('Adresse du service')).toHaveValue('https://api.anthropic.com/v1')
+  await expect(fenetre.getByLabel('Modèle')).toHaveValue('claude-haiku-4-5')
+  await expect(fenetre.getByLabel('Clé d’API')).toHaveAttribute('placeholder', 'sk-ant-…')
+  await expect(fenetre.getByRole('link', { name: 'Créer une clé Anthropic' })).toHaveAttribute('href', 'https://console.anthropic.com/settings/keys')
+  await fenetre.getByLabel('Clé d’API').fill('sk-ant-test')
+  await expect(fenetre.getByRole('button', { name: 'J’ai compris, activer' })).toBeEnabled()
+
+  // Changer de service : son modèle, et la clé de l'autre service est retirée.
+  await fenetre.getByRole('button', { name: 'Google Gemini' }).click()
+  await expect(fenetre.getByLabel('Modèle')).toHaveValue('gemini-3.6-flash')
+  await expect(fenetre.getByLabel('Clé d’API')).toHaveValue('')
+  await expect(fenetre.getByRole('button', { name: 'Google Gemini' })).toHaveClass(/active/)
 })
 
 test('désactivé par défaut : l’avertissement s’affiche et rien n’est envoyé sans activation', async ({ espace, page }) => {
