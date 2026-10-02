@@ -26,6 +26,6 @@ test('captures du README', async ({ page }) => {
   const rangee = page.locator('.rangee', { hasText: 'Site vitrine' })
   await rangee.hover()
   await rangee.locator('.bouton-ouvrir').click()
-  await page.locator('.editeur-corps .ProseMirror').waitFor()
+  await page.locator('.editeur-corps .cm-content').waitFor()
   await capture('page')
 })

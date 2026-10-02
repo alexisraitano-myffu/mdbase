@@ -34,7 +34,7 @@ test.describe('relecture du dossier', () => {
   test('le contenu d’une page ouverte suit un changement fait ailleurs', async ({ espace, page }) => {
     await espace.ouvrirPage('Tâches', 'Intégration')
     const editeur = page.locator('.editeur-corps')
-    await expect(editeur.locator('.ProseMirror')).toBeVisible()
+    await expect(editeur.locator('.cm-content')).toBeVisible()
     await espace.remplacer('taches/integration--tinte002.md', /\n---\n[\s\S]*$/, '\n---\nTexte écrit sur une autre machine.\n')
     await espace.retourSurOnglet()
     await expect(editeur.getByText('Texte écrit sur une autre machine.')).toBeVisible()

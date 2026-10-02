@@ -38,10 +38,10 @@ test.describe('pages', () => {
     await budget.locator('input').press('Enter')
     await expect.poll(() => espace.lire('projets/site-vitrine--psite001.md')).toContain('budget: 9000\n')
 
-    const corps = page.locator('.editeur-corps .ProseMirror')
-    await corps.locator('p', { hasText: 'Refaire le site vitrine' }).click()
+    const corps = page.locator('.editeur-corps .cm-content')
+    await corps.locator('.cm-line', { hasText: 'Refaire le site vitrine' }).click()
     // curseur en fin de paragraphe (la touche Fin n'y va pas sous macOS)
-    await corps.locator('p', { hasText: 'Refaire le site vitrine' }).evaluate((p) => {
+    await corps.locator('.cm-line', { hasText: 'Refaire le site vitrine' }).evaluate((p) => {
       const r = document.createRange()
       r.selectNodeContents(p)
       r.collapse(false)
@@ -56,9 +56,41 @@ test.describe('pages', () => {
   test('ouvrir une page ne réécrit pas le fichier', async ({ espace, page }) => {
     const avant = await espace.lire('projets/site-vitrine--psite001.md')
     await espace.ouvrirPage('Projets', 'Site vitrine')
-    await expect(page.locator('.editeur-corps .ProseMirror')).toContainText('Refaire le site vitrine')
+    await expect(page.locator('.editeur-corps .cm-content')).toContainText('Refaire le site vitrine')
     await page.waitForTimeout(600)
     expect(await espace.lire('projets/site-vitrine--psite001.md')).toBe(avant)
+  })
+
+  test('contenu : syntaxe visible sur la ligne du curseur, case cochée dans le texte, titre replié, menu « / »', async ({ espace, page }) => {
+    const fichier = 'taches/integration--tinte002.md'
+    await espace.remplacer(fichier, /\n---\n[\s\S]*$/, '\n---\n## Reste à faire\n\n- [ ] Formulaire de **contact**\n- [x] Gabarits\n\n## Notes\n\nRien.\n')
+    await espace.retourSurOnglet()
+    await espace.ouvrirPage('Tâches', 'Intégration')
+    const corps = page.locator('.editeur-corps .cm-content')
+    const titre = corps.locator('.cm-titre-2', { hasText: 'Reste à faire' })
+    await expect(titre).toHaveText('Reste à faire') // la syntaxe est masquée hors du curseur
+    await expect(corps.locator('.cm-line', { hasText: 'Formulaire' })).toHaveText('Formulaire de contact')
+    await titre.click()
+    await expect(titre).toHaveText('## Reste à faire')
+
+    const cases = page.locator('.editeur-corps .cm-case')
+    await expect(cases).toHaveCount(2)
+    await cases.first().click()
+    await expect.poll(() => espace.lire(fichier)).toContain('- [x] Formulaire de **contact**\n')
+
+    await page.locator('.editeur-corps').hover()
+    await page.locator('.cm-foldGutter .cm-repli-ouvert').first().click()
+    await expect(corps.getByText('Gabarits')).toHaveCount(0)
+    await page.locator('.cm-replie').click()
+    await expect(corps.getByText('Gabarits')).toBeVisible()
+
+    await corps.locator('.cm-line', { hasText: 'Rien.' }).click()
+    await page.keyboard.press('End')
+    await page.keyboard.press('Enter')
+    await page.keyboard.type('/tit')
+    await page.getByRole('option', { name: /Titre 3/ }).click()
+    await page.keyboard.type('Suite')
+    await expect.poll(() => espace.lire(fichier)).toContain('Rien.\n### Suite\n')
   })
 
   test('contenus liés : le corps des tâches se déplie sous le projet et s’écrit dans le fichier de la tâche', async ({ espace, page }) => {
@@ -67,10 +99,10 @@ test.describe('pages', () => {
     await expect(section.locator('.titre-contenus')).toContainText('Tâches')
     await expect(section.locator('.bloc-contenu')).toHaveCount(3)
     await expect(section.locator('.bloc-contenu', { hasText: 'Mise en ligne' })).toContainText('vide')
-    await expect(section.locator('.ProseMirror')).toHaveCount(0) // replié : aucun éditeur chargé
+    await expect(section.locator('.cm-content')).toHaveCount(0) // replié : aucun éditeur chargé
 
     await page.getByRole('button', { name: 'Déplier Intégration' }).click()
-    const paragraphe = section.locator('.bloc-contenu', { hasText: 'Intégration' }).locator('.ProseMirror p').first()
+    const paragraphe = section.locator('.bloc-contenu', { hasText: 'Intégration' }).locator('.cm-line').first()
     await expect(paragraphe).toContainText('formulaire de contact')
     await paragraphe.click()
     await paragraphe.evaluate((p) => {
@@ -122,9 +154,9 @@ test.describe('pages', () => {
 
     await page.getByRole('button', { name: 'Déplier Site vitrine' }).click()
     const projet = page.locator('.contenus-lies .bloc-contenu', { hasText: 'Site vitrine' })
-    await expect(projet.locator('.ProseMirror').first()).toContainText('Refaire le site vitrine')
+    await expect(projet.locator('.cm-content').first()).toContainText('Refaire le site vitrine')
     await page.getByRole('button', { name: 'Déplier Maquettes' }).click()
-    await expect(projet.locator('.bloc-contenu', { hasText: 'Maquettes' }).locator('.ProseMirror')).toContainText('bleu nuit et sable')
+    await expect(projet.locator('.bloc-contenu', { hasText: 'Maquettes' }).locator('.cm-content')).toContainText('bleu nuit et sable')
   })
 
   test('↓ passe à la ligne suivante de la vue, Échap ferme', async ({ espace, page }) => {
