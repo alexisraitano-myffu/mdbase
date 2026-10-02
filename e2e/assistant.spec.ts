@@ -250,6 +250,7 @@ test('skill : aperçu, écrit seulement après « Appliquer », listé dans les 
   const recues = await simulerService(
     page,
     appel('creer_skill', { nom: 'Revue du lundi', description: 'le lundi matin', instructions: 'Tâches en retard en priorité haute.' }),
+    { content: 'fait' }, // la suite après « Appliquer » : rien de plus à faire
     { content: 'ok' },
   )
   await activer(page)
@@ -262,12 +263,14 @@ test('skill : aperçu, écrit seulement après « Appliquer », listé dans les 
   await page.getByRole('button', { name: 'Appliquer (1 skill)' }).click()
   await expect(page.locator('.applique-ia')).toBeVisible()
   await expect.poll(() => espace.lire('_assistant/skills/revue-du-lundi.md')).toContain('nom: Revue du lundi')
+  await expect.poll(() => recues.length).toBe(2)
+  await expect(page.locator('.tour-ia')).toHaveCount(1)
 
   // La demande suivante envoie le skill au modèle.
   await page.getByPlaceholder('Répondre…').fill('merci')
   await page.keyboard.press('Enter')
   await expect(page.locator('.reponse-ia').last()).toHaveText('ok')
-  expect((recues[1]!.postDataJSON() as { messages: { content: string }[] }).messages[0]!.content).toContain('### Revue du lundi')
+  expect((recues[2]!.postDataJSON() as { messages: { content: string }[] }).messages[0]!.content).toContain('### Revue du lundi')
 
   await page.getByRole('button', { name: 'Réglages' }).click()
   const reglages = page.getByRole('dialog', { name: 'Assistant IA' })
