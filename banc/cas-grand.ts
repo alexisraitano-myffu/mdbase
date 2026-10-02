@@ -232,4 +232,13 @@ export const CAS_GRAND: Cas[] = [
       return vue.reglages.groupe === 'statut' ? null : `groupée par ${String(vue.reglages.groupe)}`
     },
   },
+  // ── Conversation ──
+  {
+    avant: ['Quels tickets Data sont bloqués ?'],
+    demande: 'Crée une action « Débloquer » pour chacun, avec la clé du ticket dans la colonne Ticket, responsable Karim',
+    verifier: creeActionsPour(
+      tickets.filter((t) => t.projet === 'Data' && t.statut === 'Bloqué'),
+      { responsable: 'Karim Benali' },
+    ),
+  },
 ]

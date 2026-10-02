@@ -8,6 +8,11 @@ import type { Valeur } from '../src/core/valeurs'
 export type Cas = {
   demande: string
   historique?: Echange[]
+  /**
+   * Demandes jouées avant, par le modèle, dans la même conversation : leurs plans
+   * sont appliqués, leur déroulé rejoué comme dans l'app. La demande vérifiée s'y réfère.
+   */
+  avant?: string[]
   /** Base ouverte dans l'app au moment de la demande. */
   base?: string
   verifier: (p: Proposition) => string | null
@@ -124,5 +129,28 @@ export const CAS: Cas[] = [
     demande: 'Crée un skill « Clôture » : quand un projet est terminé, cocher toutes ses tâches',
     verifier: (p) =>
       p.type === 'plan' && p.plan.operations.length === 0 && p.plan.skills?.length === 1 && /cl[ôo]ture/i.test(p.plan.skills[0]!.nom) ? null : 'un skill seul attendu',
+  },
+  // ── Conversation : la demande se réfère aux précédentes, jouées par le modèle ──
+  {
+    avant: ['Quelles tâches du site vitrine ne sont pas encore faites ?'],
+    demande: 'Passe-les en priorité haute',
+    verifier: modifie('taches', { tinte002: { priorite: 'Haute' }, tmise003: { priorite: 'Haute' } }),
+  },
+  {
+    avant: ['Crée une tâche Relancer Acme pour le site vitrine'],
+    demande: 'Finalement mets-la en priorité haute avec 3 heures',
+    verifier: (p) => {
+      if (p.type !== 'plan') return `plan attendu, reçu : ${p.type === 'reponse' ? p.texte.slice(0, 120) : ''}`
+      const lignes = p.plan.operations.flatMap((o) => o.lignes.map((l) => ({ ...l, op: `${o.type} ${o.base}` })))
+      if (lignes.length !== 1 || lignes[0]!.op !== 'modifier taches') return `opérations : ${lignes.map((l) => `${l.op} ${l.titre}`).join(', ')}`
+      const l = lignes[0]!
+      if (!/relancer acme/i.test(l.titre)) return `ligne modifiée : ${l.titre}`
+      return l.valeurs.priorite === 'Haute' && l.valeurs.heures === 3 ? null : `valeurs : ${JSON.stringify(l.valeurs)}`
+    },
+  },
+  {
+    avant: ['Passe la tâche Intégration en priorité basse'],
+    demande: 'Non, annule : remets-la comme avant',
+    verifier: modifie('taches', { tinte002: { priorite: 'Normale' } }),
   },
 ]

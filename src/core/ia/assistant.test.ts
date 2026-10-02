@@ -217,9 +217,9 @@ describe('proposer', () => {
   it('texte sans appel ou outil `repondre` : une réponse, raisonnement <think> retiré', async () => {
     const { espace } = await ouvrir()
     const texte = await proposer(modeleScripte({ texte: '<think>hmm</think>\nQuelle tâche ?', appels: [] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
-    expect(texte).toEqual({ type: 'reponse', texte: 'Quelle tâche ?', memoire: [] })
+    expect(texte).toMatchObject({ type: 'reponse', texte: 'Quelle tâche ?', memoire: [] })
     const outil = await proposer(modeleScripte({ texte: '', appels: [appel('repondre', { texte: 'Laquelle des deux ?' })] }), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
-    expect(outil).toEqual({ type: 'reponse', texte: 'Laquelle des deux ?', memoire: [] })
+    expect(outil).toMatchObject({ type: 'reponse', texte: 'Laquelle des deux ?', memoire: [] })
   })
 
   it('texte écrit à côté des appels : gardé comme message du plan (il a été montré au fil de l’eau) ; arrêt et suivi transmis au modèle', async () => {
@@ -290,7 +290,7 @@ describe('mémoire et skills', () => {
       'x',
       { aujourdhui: AUJOURDHUI, baseOuverte: null },
     )
-    expect(r).toEqual({
+    expect(r).toMatchObject({
       type: 'reponse',
       texte: '',
       memoire: [
@@ -367,11 +367,34 @@ describe('lectures et réponses coupées', () => {
     expect(outils[1]).toMatch(/^Pas retenu/)
   })
 
+  it('conversation : les derniers échanges sont rejoués en entier (lectures, appels proposés, ce que l’utilisateur en a fait)', async () => {
+    const { espace } = await ouvrir()
+    const lecture = appel('chercher_lignes', { base: 'taches' })
+    const modif = appel('modifier_lignes', { base: 'taches', lignes: ['t0000003'], valeurs: { statut: 'Terminé' } })
+    const p = await proposer(modeleScripte({ texte: '', appels: [lecture] }, { texte: 'Je passe C en terminé.', appels: [modif] }), espace, 'Termine C', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    if (p.type !== 'plan') throw new Error('plan attendu')
+    expect(p.deroule?.map((m) => m.role)).toEqual(['assistant', 'tool', 'assistant'])
+
+    const modele = modeleScripte({ texte: 'ok', appels: [] })
+    const ancien = { demande: 'vieux', reponse: 'vieille réponse' }
+    await proposer(modele, espace, 'et la tâche B ?', {
+      aujourdhui: AUJOURDHUI,
+      baseOuverte: null,
+      historique: [ancien, { demande: 'Termine C', reponse: 'Proposé : …', deroule: p.deroule, suite: 'Appliqué.' }],
+    })
+    const [, ...messages] = modele.requetes[0]!.messages
+    expect(messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'tool', 'assistant', 'tool', 'user'])
+    const lu = messages[4]!
+    expect(lu.role === 'tool' && lu.contenu).toContain('t0000003')
+    const fait = messages[6]!
+    expect(fait.role === 'tool' && fait.idAppel === modif.id && fait.contenu).toBe('Appliqué.')
+  })
+
   it('erreur de lecture renvoyée au modèle, sans arrêter la demande', async () => {
     const { espace } = await ouvrir()
     const modele = modeleScripte({ texte: '', appels: [appel('chercher_lignes', { base: 'inconnue' })] }, { texte: 'Base introuvable.', appels: [] })
     const p = await proposer(modele, espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null })
-    expect(p).toEqual({ type: 'reponse', texte: 'Base introuvable.', memoire: [] })
+    expect(p).toMatchObject({ type: 'reponse', texte: 'Base introuvable.', memoire: [] })
     const r = modele.requetes[1]!.messages.at(-1)!
     expect(r.role === 'tool' && r.contenu).toMatch(/^Erreur : base inconnue/)
   })
