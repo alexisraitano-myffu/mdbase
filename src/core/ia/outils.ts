@@ -1,7 +1,7 @@
 import type { LigneChargee } from '../base'
 import type { EtatEspace } from '../depot-espace'
-import { estSaisie, type Colonne, type Schema } from '../schema'
-import { jourSemaine } from '../temps'
+import { estSaisie, nomSource, type Colonne, type Schema } from '../schema'
+import { decaler, jourSemaine, lundiDe } from '../temps'
 import type { Cellule } from '../valeurs'
 import { OPERATEURS, type Niveau, type Vue } from '../vue'
 import type { Skill } from './memoire'
@@ -260,7 +260,10 @@ Règles :
 - Dates au format AAAA-MM-JJ. Nombres en chiffres. Case à cocher : true ou false. null vide un champ.
 - Les colonnes calculées sont en lecture seule.
 - Pour modifier toutes les lignes qui répondent à un critère, utilise \`filtres\` plutôt qu'une liste d'ids.
-- Structure : pour créer ou modifier des bases, colonnes, vues et dashboards, utilise leurs outils. Tu peux enchaîner dans les mêmes appels : créer une colonne puis la remplir (désigne-la par son nom), créer des lignes puis écrire le contenu de leurs pages.
+- Structure : pour créer ou modifier des bases, colonnes, vues et dashboards, utilise leurs outils. Enchaîne dans les mêmes appels tout ce que la demande contient : créer une base puis y créer des lignes (désigne la nouvelle base par son nom), créer une colonne puis la remplir (désigne-la par son nom), créer des lignes puis écrire le contenu de leurs pages. Ne t'arrête jamais après la structure si la demande parle aussi de lignes.
+- Chercher un mot ou un sujet (« quels tickets parlent de… ») : \`chercher_texte\`, qui lit aussi le contenu des pages ; un filtre \`contient\` sur une colonne ne voit pas les pages.
+- Jours nommés (« lundi », « vendredi prochain », « cette semaine ») : prends la date dans le calendrier plus bas, ne la calcule pas. « Vendredi prochain » : le vendredi de la semaine prochaine.
+- Base marquée LECTURE SEULE (synchronisée depuis Jira) : n'y propose jamais de modification ; dis-le avec \`repondre\`.
 - Suppressions (lignes, colonnes, vues, dashboards, bases) : seulement quand l'utilisateur les demande explicitement, jamais pour « faire de la place » ou réorganiser ; l'utilisateur confirme toujours avant qu'elles soient faites.
 - Si la demande est ambiguë ou impossible, appelle \`repondre\` avec une question courte, sans rien modifier.
 - Mémoire : quand l'utilisateur te demande de retenir quelque chose, ou exprime une préférence durable, appelle \`retenir\` (en plus des autres appels). \`oublier\` quand il le demande. Tiens compte de la section Mémoire.
@@ -357,7 +360,7 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
   const bases = [...etat.bases.values()].flatMap((b) => (b.depot ? [{ id: b.id, schema: b.depot.schema, lignes: b.depot.lignes() }] : []))
   const parties: string[] = ['## Bases']
   for (const { id, schema } of bases) {
-    parties.push(`${id} « ${schema.nom} »`)
+    parties.push(`${id} « ${schema.nom} »${schema.source ? ` (synchronisée depuis ${nomSource(schema.source.type)} : LECTURE SEULE)` : ''}`)
     for (const c of schema.colonnes) parties.push(`- ${c.cle} « ${c.nom} » : ${typeLisible(c)}${c.cle === schema.champTitre ? ' (titre de la ligne)' : ''}`)
     const vues = etat.bases.get(id)?.vues ?? []
     parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type}${detailTemps(v)})`).join(', ')}`)
@@ -372,6 +375,10 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
     for (const s of o.skills) parties.push(`### ${s.nom}`, s.description, s.instructions)
   }
   parties.push('', `Aujourd'hui : ${o.aujourdhui} (${JOURS[jourSemaine(o.aujourdhui)]})`)
+  // Les jours nommés (« lundi », « vendredi prochain ») se lisent ici plutôt que de se calculer : source d'erreurs.
+  const lundi = lundiDe(o.aujourdhui)
+  const semaine = (debut: string) => Array.from({ length: 7 }, (_, i) => decaler(debut, i)).map((j) => `${JOURS[jourSemaine(j)]} ${j}`).join(', ')
+  parties.push(`Cette semaine : ${semaine(lundi)}`, `Semaine prochaine : ${semaine(decaler(lundi, 7))}`)
   if (o.baseOuverte) parties.push(`Base ouverte : ${o.baseOuverte}`)
   if (o.basesCitees?.length) parties.push(`Bases citées par l'utilisateur : ${o.basesCitees.join(', ')}`)
 

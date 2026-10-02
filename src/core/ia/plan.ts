@@ -3,7 +3,7 @@ import type { DepotEspace, EtatEspace } from '../depot-espace'
 import { lireDate } from '../echange'
 import { correspond, type Contexte } from '../filtres'
 import type { Modifications } from '../ligne'
-import { estSaisie, estObjet, type Colonne } from '../schema'
+import { estSaisie, estObjet, nomSource, type Colonne } from '../schema'
 import { lireNombre, type Cellule, type Valeur } from '../valeurs'
 import type { Assistant, Skill } from './memoire'
 import { appliquerStructure, appliquerSuite, Brouillon, Correspondances, decrireAction, validerStructure, type ActionStructure, type ActionSuite } from './structure'
@@ -160,6 +160,9 @@ function creer(etat: EtatEspace, args: Record<string, unknown>): Operation {
  * `Brouillon`, les appels d'un même plan se valident dans l'ordre : chacun voit
  * les bases et colonnes que les précédents créent.
  */
+/** Outils qui écrivent dans les lignes ou le schéma d'une base existante. */
+const ECRITURES_DE_BASE = new Set(['modifier_lignes', 'creer_lignes', 'supprimer_lignes', 'ecrire_contenu', 'ajouter_colonnes', 'renommer_colonne', 'supprimer_colonne'])
+
 export function validerAppel(espace: EtatEspace | Brouillon, appel: AppelOutil, ctx: Contexte, assistant: Assistant = { memoire: [], skills: [] }): AppelValide {
   const brouillon = espace instanceof Brouillon ? espace : new Brouillon(espace)
   const etat = brouillon.etat()
@@ -170,6 +173,11 @@ export function validerAppel(espace: EtatEspace | Brouillon, appel: AppelOutil, 
     return erreur(`${appel.nom} : arguments illisibles (JSON attendu)`)
   }
   if (!estObjet(args)) return erreur(`${appel.nom} : objet d'arguments attendu`)
+  // Base synchronisée (spec §16) : ses lignes et son schéma ne s'écrivent que par le script de synchro.
+  if (ECRITURES_DE_BASE.has(appel.nom)) {
+    const { schema } = brouillon.base(args.base)
+    if (schema.source) erreur(`la base « ${schema.nom} » est synchronisée depuis ${nomSource(schema.source.type)} : en lecture seule, rien ne peut y être modifié (réponds avec \`repondre\`)`)
+  }
   switch (appel.nom) {
     case 'modifier_lignes':
       return { type: 'operation', operation: modifier(etat, args, ctx) }

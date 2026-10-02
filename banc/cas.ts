@@ -104,7 +104,14 @@ export const CAS: Cas[] = [
   },
   // ── Ne rien écrire ──
   { demande: 'Mets la tâche Paiement en priorité critique', verifier: rienEcrit },
-  { demande: 'Supprime la tâche Rapport', verifier: rienEcrit },
+  {
+    // Suppression demandée explicitement : proposée, l'utilisateur confirme avant qu'elle soit faite.
+    demande: 'Supprime la tâche Rapport',
+    verifier: (p) =>
+      p.type === 'plan' && p.plan.operations.length === 0 && p.plan.suite?.length === 1 && p.plan.suite[0]!.type === 'supprimer_lignes' && p.plan.suite[0]!.lignes.map((l) => l.id).join() === 'trapp009'
+        ? null
+        : 'suppression de trapp009 seule attendue',
+  },
   { demande: 'Modifie la tâche', verifier: rienEcrit },
   { demande: 'Change la priorité de la tâche Cadrage', verifier: rienEcrit },
   { demande: 'Les heures totales d’Acme passent à 50', verifier: rienEcrit },
