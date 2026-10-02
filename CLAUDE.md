@@ -55,6 +55,7 @@ src/
     echange.ts             import/export : grille d'une vue, CSV (écriture, lecture), Markdown (écriture, lecture),
                            HTML, tableau collé, types devinés d'un CSV
     conflits.ts            ids en double, copies de conflit de synchro (suffixe de machine OneDrive)
+    liens-internes.ts      références à une ligne dans le corps (`[[chemin--id|Titre]]`) : lecture, écriture, résolution par l'id
     taches.ts              cases à cocher du corps (`- [ ]`) : lecture, cocher en vérifiant la ligne, ajout ; affichées par l'onglet Tâches et « Toutes les tâches »
     historique.ts          annuler / rétablir : changements notés par DepotBase (journal), étapes groupées par DepotEspace.enUneEtape
     ia/                    assistant IA (spec §12, « Module IA ») : modele.ts (interface ModeleIA,
@@ -80,7 +81,7 @@ src/
   - `src/core/architecture.test.ts` refuse tout import hors du cœur, sauf la liste fermée `LIBRAIRIES_AUTORISEES` (à étendre explicitement quand une librairie sans DOM est ajoutée, ex. `yaml`, `minisearch`).
 - **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
 - Le cœur n'a ni minuteur, ni `crypto`, ni horloge : `Planifier`, `Aleatoire` et la date du jour (`Contexte.aujourdhui`) lui sont injectés.
-- Corps des pages : CodeMirror 6 en aperçu en direct (`src/ui/EditeurCorps.tsx`, extensions dans `src/ui/editeur/`), chargé à la demande. Il ne normalise jamais le texte. Langage assemblé dans `editeur/langage.ts` et non par `markdown()`, qui embarque HTML/CSS/JS (le double du poids). Icônes des widgets : paquet `lucide` (sans React) via `iconeDom`. Le style du menu « / » passe par un thème CodeMirror (injecté après `app.css`, il l'emporterait). En e2e : `.cm-content`, `.cm-line`.
+- Corps des pages : CodeMirror 6 en aperçu en direct (`src/ui/EditeurCorps.tsx`, extensions dans `src/ui/editeur/`), chargé à la demande. Il ne normalise jamais le texte. Langage assemblé dans `editeur/langage.ts` et non par `markdown()`, qui embarque HTML/CSS/JS (le double du poids). Icônes des widgets : paquet `lucide` (sans React) via `iconeDom`. « @ » et les pastilles de référence : `editeur/references.ts`, qui relit l'espace par `SourceLiens` (fournie par `Corps` depuis `ContexteEspace` et `ContexteOuvrir`). Le style du menu « / » passe par un thème CodeMirror (injecté après `app.css`, il l'emporterait). En e2e : `.cm-content`, `.cm-line`.
 - Colonnes calculées : jamais stockées, recalculées dans `DepotEspace` à chaque modification de lignes, sur tout l'espace (écart assumé au « recalcul incrémental » du §12 : simple et assez rapide pour quelques milliers de lignes ; à revoir si ça rame). L'UI lit des lignes « enrichies » (cellules stockées + calculées).
 - Filtres, tris et affichage s'appuient sur la **nature** d'une colonne (`natureDe` : texte, nombre, date, case, choix, liste), pas sur son type : un rollup se comporte comme son résultat.
 - Écart assumé à la spec §8 : une ligne **modifiée** dans la vue reste visible (« sortira de la vue ») comme une ligne créée, sinon elle disparaîtrait en pleine édition.

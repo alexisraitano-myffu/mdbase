@@ -13,7 +13,7 @@ import { aleatoire, aujourdhui, maintenant, planifier } from '../adapters/naviga
 import { DepotEspace } from '../core/depot-espace'
 import { FournisseurActions, useLancer } from './actions'
 import { BarreLaterale } from './BarreLaterale'
-import { ContexteEspace } from './contexte-espace'
+import { ContexteEspace, ContexteOuvrir } from './contexte-espace'
 import { VueBase } from './VueBase'
 import { VueDashboard } from './Dashboard'
 import { RechercheGlobale } from './RechercheGlobale'
@@ -285,6 +285,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
 
   return (
     <ContexteEspace.Provider value={{ espace, etat }}>
+      <ContexteOuvrir.Provider value={ouvrirResultat}>
       <ContexteMode.Provider value={consultation}>
         <div className={`espace ${consultation ? 'consultation' : ''} ${pleinEcran ? 'vue-plein-ecran' : ''}`}>
           <BarreLaterale
@@ -343,6 +344,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
           </div>
         )}
       </ContexteMode.Provider>
+      </ContexteOuvrir.Provider>
     </ContexteEspace.Provider>
   )
 }

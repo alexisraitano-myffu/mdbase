@@ -411,6 +411,9 @@ button:hover { background: var(--survol); }
 .editeur-corps .cm-bloc-code .cm-code-en-ligne { background: none; padding: 0; }
 .editeur-corps .cm-citation { border-left: 3px solid var(--bordure-forte); padding-left: 12px; color: var(--texte-doux); }
 .editeur-corps .cm-lien { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(var(--accent-rgb), 0.4); cursor: pointer; }
+.editeur-corps .cm-reference { padding: 1px 8px; border-radius: 999px; background: var(--survol); font-size: 0.92em; white-space: nowrap; cursor: pointer; }
+.editeur-corps .cm-reference:hover { background: var(--bordure); }
+.editeur-corps .cm-reference.cassee { color: var(--discret); text-decoration: line-through; cursor: default; }
 .editeur-corps .cm-puce { display: inline-block; width: 1.1em; text-align: center; vertical-align: middle; }
 .editeur-corps .cm-puce::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--texte-doux); vertical-align: middle; }
 .editeur-corps .cm-case { width: 13px; height: 13px; margin: 0 6px 0 2px; vertical-align: -2px; cursor: pointer; }

@@ -511,6 +511,10 @@ contenus:                                  # optionnel : contenus liés sous le 
   - Les titres se replient (chevron dans la marge) jusqu'au titre suivant de même niveau ou plus haut ; le repli n'est pas mémorisé.
   - Une case `- [ ]` se coche d'un clic, qui écrit `- [x]` dans le texte. Un lien s'ouvre au clic, dans un nouvel onglet.
   - « / » ouvre le menu des blocs (titres, tâche, listes, citation, bloc de code, séparateur) ; Ctrl+B et Ctrl+I mettent en gras et en italique.
+- **Références à une ligne** [DÉCIDÉ, demandé par Alex le 02/10/2026] : « @ » dans le corps ouvre la liste des lignes de tout l'espace (titre, et nom de la base), filtrée par la suite de la saisie ; choisir une ligne écrit un lien wiki à la manière d'Obsidian, `[[projets/site-vitrine--psite001|Site vitrine]]` : le chemin du fichier sans `.md`, le titre en alias. Aucune clé YAML.
+  - Le lien se résout par l'**id** qui termine le nom du fichier : cherché dans la base du dossier, puis dans toutes les bases. Une ligne renommée (fichier renommé) ou une base renommée reste donc trouvée ; le texte du lien n'est jamais réécrit.
+  - Dans l'éditeur, le lien s'affiche comme une pastille au **titre actuel** de la ligne (l'alias sert seulement si la ligne est introuvable, la pastille est alors barrée) ; un clic ouvre la page, la syntaxe revient quand le curseur la touche. Un lien dans un bloc de code reste du texte.
+  - [PLUS TARD] Liste des pages qui citent une ligne (rétroliens).
 - Pas d'images en V1.
 
 ---
