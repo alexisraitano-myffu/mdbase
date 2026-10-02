@@ -8,6 +8,7 @@ import {
   choisirMiseEnPage,
   corpsEnOnglet,
   ongletsDe,
+  ongletTaches,
   proprietesVisibles,
   type Affichage,
   type MiseEnPage,
@@ -25,11 +26,12 @@ import { Tableau } from './Tableau'
 import { useAujourdhui } from './useAujourdhui'
 import { useLargeurPanneau } from './useLargeurPanneau'
 import { DonneesDe, useConsultation } from './mode'
-import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Maximize2, Minimize2, Plus, TriangleAlert, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, ListChecks, Maximize2, Minimize2, Plus, TriangleAlert, X } from 'lucide-react'
 import { Choix } from './Choix'
 import { ContenusLies, ReglageContenus } from './ContenusLies'
 import { Corps } from './Corps'
 import { Interrupteur, Reglage, Section } from './reglages'
+import { compterTaches, OngletTaches } from './Taches'
 
 type Props = {
   base: string
@@ -105,6 +107,8 @@ export function Page(p: Props) {
                   'Propriétés'
                 ) : o.type === 'corps' ? (
                   'Contenu'
+                ) : o.type === 'taches' ? (
+                  <LibelleTaches base={p.base} ligne={ligne} onglet={o} />
                 ) : (
                   colonneDe(depot.schema, o.relation)?.nom ?? (
                     <>
@@ -131,18 +135,36 @@ export function Page(p: Props) {
             {contenus}
           </>
         )}
+        {actif.type === 'taches' && (
+          <DonneesDe schema={depot.schema}>
+            <OngletTaches base={p.base} depot={depot} ligne={ligne} onglet={actif} ouvrir={p.ouvrir} />
+          </DonneesDe>
+        )}
         {actif.type === 'relation' && (
           <OngletRelation key={actif.relation} base={p.base} schema={depot.schema} ligne={ligne} onglet={actif} ouvrir={p.ouvrir} />
         )}
-        {/* Sans onglet dédié, le corps reste sous les onglets, quel que soit l'onglet actif. */}
-        {!corpsSeul && !((lecture || depot.schema.source) && ligne.corps.trim() === '') && (
+        {/* Sans onglet dédié, le corps reste sous les onglets, sauf sous les tâches : elles en viennent, on les verrait deux fois. */}
+        {!corpsSeul && actif.type !== 'taches' && !((lecture || depot.schema.source) && ligne.corps.trim() === '') && (
           <DonneesDe schema={depot.schema}>
             <Corps depot={depot} ligne={ligne} />
           </DonneesDe>
         )}
-        {!corpsSeul && contenus}
+        {!corpsSeul && actif.type !== 'taches' && contenus}
       </div>
     </Cadre>
+  )
+}
+
+/** « Tâches », et ce qui reste à faire (les lignes liées comprises). */
+function LibelleTaches(p: { base: string; ligne: LigneChargee; onglet: Extract<OngletPage, { type: 'taches' }> }) {
+  const { etat } = useEspace()
+  const aujourdhui = useAujourdhui()
+  const { restantes } = compterTaches(etat, p.base, p.ligne, p.onglet.liees, [`${p.base}/${p.ligne.id}`], aujourdhui)
+  return (
+    <>
+      <Icone de={ListChecks} />
+      Tâches{restantes > 0 && <span className="compte-onglet">{restantes}</span>}
+    </>
   )
 }
 
@@ -364,6 +386,7 @@ function ReglagesPage(p: {
   const champs = champsOrdonnes(schema, mep).filter((c) => c.colonne.cle !== schema.champTitre)
   const relationsOnglet = mep.onglets.flatMap((o) => (o.type === 'relation' ? [{ relation: o.relation, colonnes: o.colonnes }] : []))
   const corps = corpsEnOnglet(mep)
+  const taches = ongletTaches(mep) ?? null
   const premiereRelation = schema.colonnes.find((c) => c.type === 'relation')?.cle
   const modifier = (m: Parameters<typeof espace.modifierMiseEnPage>[2]) => void lancer(espace.modifierMiseEnPage(p.base, mep.id, m))
   const ecrireChamps = (liste: typeof champs) => modifier({ champs: liste.map((c) => ({ cle: c.colonne.cle, affichage: c.affichage })) })
@@ -470,6 +493,7 @@ function ReglagesPage(p: {
                                 ? [...relationsOnglet, { relation: c.colonne.cle, colonnes: [] }]
                                 : relationsOnglet.filter((r) => r.relation !== c.colonne.cle),
                               corps,
+                              taches,
                             ),
                           })
                         }
@@ -485,8 +509,28 @@ function ReglagesPage(p: {
               <Interrupteur
                 libelle="Contenu (corps de la page) dans son propre onglet"
                 coche={corps}
-                changer={(v) => modifier({ onglets: ongletsDe(relationsOnglet, v) })}
+                changer={(v) => modifier({ onglets: ongletsDe(relationsOnglet, v, taches) })}
               />
+            </Section>
+            <Section titre="Tâches" aide="Les cases à cocher du contenu, rassemblées dans un onglet. Cocher depuis l’onglet écrit la case dans le contenu.">
+              <Interrupteur
+                libelle="Onglet Tâches"
+                coche={taches !== null}
+                changer={(v) => modifier({ onglets: ongletsDe(relationsOnglet, corps, v ? { type: 'taches' } : null) })}
+              />
+              {taches && (
+                <Interrupteur
+                  libelle="Ajouter les tâches des lignes liées"
+                  coche={taches.liees !== undefined}
+                  desactive={premiereRelation === undefined}
+                  changer={(v) =>
+                    modifier({ onglets: ongletsDe(relationsOnglet, corps, v && premiereRelation ? { type: 'taches', liees: { relation: premiereRelation, champs: [] } } : { type: 'taches' }) })
+                  }
+                />
+              )}
+              {taches?.liees && (
+                <ReglageContenus schema={schema} niveau={taches.liees} changer={(n) => modifier({ onglets: ongletsDe(relationsOnglet, corps, { type: 'taches', liees: n }) })} />
+              )}
             </Section>
             <Section titre="Contenus liés" aide="Sous le corps, le contenu des lignes liées, dépliable et modifiable sur place. Chaque texte reste dans le fichier de sa ligne.">
               <Interrupteur

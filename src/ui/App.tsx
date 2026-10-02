@@ -23,8 +23,9 @@ import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/
 import { estChampDeSaisie } from './clavier'
 import { BasculeMode, BasculePleinEcran, ContexteMode, useModeMemorise, usePleinEcran } from './mode'
 import { AideRaccourcis } from './Raccourcis'
+import { ToutesLesTaches } from './Taches'
 
-export type Selection = { type: 'base' | 'dashboard'; id: string }
+export type Selection = { type: 'base' | 'dashboard'; id: string } | { type: 'taches' }
 
 type Etat =
   | { type: 'incompatible' }
@@ -293,6 +294,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             selection={selection}
             choisir={choisir}
             choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
+            toutesLesTaches={() => setSelection({ type: 'taches' })}
             changerDossier={changer}
             chercher={() => setRecherche(true)}
             assistant={basculerAssistant}
@@ -307,7 +309,8 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
               <BasculeMode consultation={consultation} basculer={basculerMode} />
             </div>
             {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}
-            {!base && !dashboard && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
+            {selection?.type === 'taches' && <ToutesLesTaches ouvrir={ouvrirResultat} />}
+            {!base && !dashboard && selection?.type !== 'taches' && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
             {base && !base.chargement.ok && (
               <p className="erreur">
                 « {base.id} » n'est pas une base : {base.chargement.raison}

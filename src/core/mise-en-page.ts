@@ -18,6 +18,8 @@ export type OngletPage =
   | { type: 'corps' }
   /** Vue tableau de la base liée, filtrée sur « lié à cette page ». */
   | { type: 'relation'; relation: string; colonnes: string[] }
+  /** Cases à cocher du corps, puis celles des lignes liées (mêmes niveaux que les contenus liés). */
+  | { type: 'taches'; liees?: NiveauContenus }
 
 /**
  * Contenus liés (spec §9) : sous le corps de la page, le corps des lignes
@@ -102,6 +104,11 @@ export function lireMiseEnPage(texte: string, id: string): { miseEnPage: MiseEnP
   const onglets = (Array.isArray(brut.onglets) ? brut.onglets : []).flatMap((o): OngletPage[] => {
     if (!estObjet(o)) return []
     if (o.type === 'proprietes' || o.type === 'corps') return [{ type: o.type }]
+    if (o.type === 'taches') {
+      const liees = lireNiveau(o.liees, 1)
+      if (o.liees !== undefined && !liees) avertissements.push(`Mise en page ${id} : tâches des lignes liées ignorées (relation manquante)`)
+      return [{ type: 'taches', ...(liees && { liees }) }]
+    }
     if (o.type === 'relation' && typeof o.relation === 'string') {
       const colonnes = Array.isArray(o.colonnes) ? o.colonnes.filter((x): x is string => typeof x === 'string') : []
       return [{ type: 'relation', relation: o.relation, colonnes }]
@@ -117,28 +124,34 @@ export function lireMiseEnPage(texte: string, id: string): { miseEnPage: MiseEnP
   }
 }
 
+/** Les champs d'un niveau tiennent sur une ligne, comme les colonnes d'un onglet ; un filtre ou un tri par ligne. */
+function formaterNiveau(noeud: unknown) {
+  for (let n: unknown = noeud; isMap(n); n = n.get('puis', true)) {
+    const champs = n.get('champs', true)
+    if (isSeq(champs)) champs.flow = true
+    for (const cle of ['filtres', 'tris']) {
+      const liste = n.get(cle, true)
+      if (isSeq(liste)) for (const item of liste.items) if (isMap(item)) item.flow = true
+    }
+  }
+}
+
+function noeudNiveau(doc: Document, n: NiveauContenus) {
+  const noeud = doc.createNode(niveauEcrit(n))
+  formaterNiveau(noeud)
+  return noeud
+}
+
 export function modifierMiseEnPage(texte: string | null, mep: MiseEnPage, modifs: ModificationMiseEnPage): string {
   const doc = texte === null ? new Document({ id: mep.id, nom: mep.nom, defaut: mep.defaut }) : parseDocument(texte)
   if (doc.errors.length > 0 || !isMap(doc.contents)) throw new Error(`Mise en page ${mep.id} illisible : modification refusée`)
   if (modifs.nom !== undefined) doc.set('nom', modifs.nom)
   if (modifs.defaut !== undefined) doc.set('defaut', modifs.defaut)
   if (modifs.contenus === null) doc.delete('contenus')
-  else if (modifs.contenus !== undefined) {
-    const noeud = doc.createNode(niveauEcrit(modifs.contenus))
-    // Les champs d'un niveau tiennent sur une ligne, comme les colonnes d'un onglet ; un filtre ou un tri par ligne.
-    for (let n: unknown = noeud; isMap(n); n = n.get('puis', true)) {
-      const champs = n.get('champs', true)
-      if (isSeq(champs)) champs.flow = true
-      for (const cle of ['filtres', 'tris']) {
-        const liste = n.get(cle, true)
-        if (isSeq(liste)) for (const item of liste.items) if (isMap(item)) item.flow = true
-      }
-    }
-    doc.set('contenus', noeud)
-  }
+  else if (modifs.contenus !== undefined) doc.set('contenus', noeudNiveau(doc, modifs.contenus))
   const listes: [string, unknown[] | undefined][] = [
     ['champs', modifs.champs],
-    ['onglets', modifs.onglets],
+    ['onglets', modifs.onglets?.map((o) => (o.type === 'taches' ? { type: 'taches', ...(o.liees && { liees: niveauEcrit(o.liees) }) } : o))],
   ]
   for (const [cle, valeur] of listes) {
     if (valeur === undefined) continue
@@ -153,6 +166,7 @@ export function modifierMiseEnPage(texte: string | null, mep: MiseEnPage, modifs
       if (cle === 'champs') item.flow = true
       const colonnes = item.get('colonnes', true)
       if (isSeq(colonnes)) colonnes.flow = true
+      formaterNiveau(item.get('liees', true))
     }
     doc.set(cle, noeud)
   }
@@ -211,11 +225,21 @@ export function corpsEnOnglet(mep: MiseEnPage): boolean {
  * Onglets d'une mise en page à partir des réglages : dès qu'une relation ou le
  * corps a son onglet, les propriétés deviennent le premier onglet.
  */
-export function ongletsDe(relations: readonly { relation: string; colonnes: string[] }[], corpsDansUnOnglet: boolean): OngletPage[] {
-  if (relations.length === 0 && !corpsDansUnOnglet) return []
+export function ongletsDe(
+  relations: readonly { relation: string; colonnes: string[] }[],
+  corpsDansUnOnglet: boolean,
+  taches?: Extract<OngletPage, { type: 'taches' }> | null,
+): OngletPage[] {
+  if (relations.length === 0 && !corpsDansUnOnglet && !taches) return []
   return [
     { type: 'proprietes' },
     ...relations.map((r) => ({ type: 'relation' as const, relation: r.relation, colonnes: r.colonnes })),
+    ...(taches ? [taches] : []),
     ...(corpsDansUnOnglet ? [{ type: 'corps' as const }] : []),
   ]
+}
+
+/** L'onglet des tâches, s'il y en a un. */
+export function ongletTaches(mep: MiseEnPage): Extract<OngletPage, { type: 'taches' }> | undefined {
+  return mep.onglets.find((o): o is Extract<OngletPage, { type: 'taches' }> => o.type === 'taches')
 }

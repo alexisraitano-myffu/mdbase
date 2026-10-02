@@ -4,7 +4,7 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Ellipsis, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
+import { Ellipsis, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 import { FenetreBaseJira } from './Jira'
@@ -24,13 +24,15 @@ type Props = {
   indicateurIA?: ReactNode
   /** Ouvre la recherche globale. */
   chercher: () => void
+  /** Affiche la page « Toutes les tâches ». */
+  toutesLesTaches: () => void
   /** Relit le dossier (changements faits ailleurs), et l'état de la dernière relecture. */
   relire: () => void
   relu: { enCours: boolean; a: Date | null }
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, assistant, indicateurIA, relire, relu }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -120,6 +122,10 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
           <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘J' : 'Ctrl+J'}</kbd>
         </button>
       )}
+      <button className={`entree-taches ${selection?.type === 'taches' ? 'active' : ''}`} onClick={toutesLesTaches} aria-current={selection?.type === 'taches' ? 'page' : undefined}>
+        <Icone de={ListChecks} />
+        Toutes les tâches
+      </button>
 
       <section className={`groupe dashboards ${cible === 'dashboards' ? 'cible' : ''}`} {...deposableDashboard('dashboards')}>
         <div className="titre-groupe">
