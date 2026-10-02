@@ -4,7 +4,9 @@ import { FICHIERS_RELATIONS } from '../fixtures/espace-relations'
 import { AdaptateurCompteur, aleatoire, minuteur } from '../fixtures/outils'
 import { proposer, type Proposition } from './assistant'
 import type { AppelOutil, ModeleIA, ReponseIA } from './modele'
+import type { EtatEspace } from '../depot-espace'
 import { appliquerPlan, resumerPlan, type Plan } from './plan'
+import { trouverLigne } from './references'
 
 // Outils de structure de l'assistant : validés dans l'ordre sur un brouillon,
 // rien d'écrit avant l'application ; une colonne créée peut être remplie aussitôt.
@@ -70,6 +72,46 @@ describe('assistant : structure', () => {
     expect(texte).toContain('projet: p0000001\n')
     expect(texte).toContain('## Contact\n\nJean, 06…')
     expect(await a.lire('projets/_schema.yaml')).toContain('cible: fournisseurs')
+  })
+
+  it('relier des lignes à une ligne créée par le même plan : désignée par son titre, son id réel à l’application', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(
+      espace,
+      appel('creer_base', { nom: 'Versions', colonnes: [{ nom: 'Sortie', type: 'date' }] }),
+      appel('creer_lignes', { base: 'Versions', lignes: [{ titre: '2026.10', Sortie: '2026-10-15' }, { titre: '2026.11' }] }),
+      appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Version', type: 'relation', cible: 'Versions' }] }),
+      appel('modifier_lignes', { base: 'taches', lignes: ['t0000001', 't0000002'], valeurs: { Version: ['2026.11'] } }),
+    )
+    expect(resumerPlan(p)).toContain('2026.11')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    const fichier = (await a.lister('versions')).find((e) => e.nom.startsWith('2026-11--'))!
+    const id = fichier.nom.slice('2026-11--'.length, -'.md'.length)
+    expect(await a.lire('taches/a--t0000001.md')).toContain(`version: ${id}\n`)
+    expect(await a.lire('taches/b--t0000002.md')).toContain(`version: ${id}\n`)
+  })
+
+  it('une proposition de structure seule laisse un tour au modèle pour envoyer les lignes', async () => {
+    const { espace } = await ouvrir()
+    const reponses: ReponseIA[] = [
+      { texte: 'Je crée la base, puis la ligne.', appels: [appel('creer_base', { nom: 'Risques', colonnes: [{ nom: 'Gravité', type: 'select', options: ['Haute'] }] })] },
+      { texte: '', appels: [appel('creer_lignes', { base: 'Risques', lignes: [{ titre: 'Retard', Gravité: 'Haute' }] })] },
+    ]
+    const p = await proposer(async () => reponses.shift() ?? { texte: '', appels: [] }, espace, 'demande', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    if (p.type !== 'plan') throw new Error('plan attendu')
+    expect((p.plan.structure ?? []).map((s) => s.type)).toContain('creer_base')
+    expect(p.plan.operations.flatMap((o) => o.lignes.map((l) => l.titre))).toEqual(['Retard'])
+    // Le modèle n'a rien d'autre à faire : la structure seule est proposée.
+    const seule = await plan(espace, appel('creer_base', { nom: 'Notes' }))
+    expect((seule.structure ?? []).map((s) => s.type)).toEqual(['creer_base'])
+  })
+
+  it('une ligne se désigne par le premier mot de son titre s’il ne désigne qu’elle (clé Jira)', () => {
+    const etat = { titres: new Map([['tickets', new Map([['10066', 'DATA-515 Afficher les droits'], ['10067', 'DATA-5150 Autre'], ['10068', 'OPS-1 Un'], ['10069', 'OPS-1 Deux']])]]) } as unknown as EtatEspace
+    expect(trouverLigne(etat, 'tickets', 'DATA-515')).toBe('10066')
+    expect(trouverLigne(etat, 'tickets', 'data-515')).toBe('10066')
+    expect(() => trouverLigne(etat, 'tickets', 'OPS-1')).toThrow(/ligne inconnue/)
   })
 
   it('relation puis rollup, et formule écrite avec les noms de colonnes', async () => {

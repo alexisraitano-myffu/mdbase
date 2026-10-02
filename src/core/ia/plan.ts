@@ -6,7 +6,7 @@ import type { Modifications } from '../ligne'
 import { estSaisie, estObjet, nomSource, type Colonne } from '../schema'
 import { lireNombre, type Cellule, type Valeur } from '../valeurs'
 import type { Assistant, Skill } from './memoire'
-import { appliquerStructure, appliquerSuite, Brouillon, Correspondances, decrireAction, validerStructure, type ActionStructure, type ActionSuite } from './structure'
+import { appliquerStructure, appliquerSuite, Brouillon, Correspondances, decrireAction, idLignePrevu, validerStructure, type ActionStructure, type ActionSuite } from './structure'
 import { erreur, ErreurProposition, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne, type BaseOuverte } from './references'
 import type { AppelOutil } from './modele'
 
@@ -236,15 +236,26 @@ export async function appliquerPlan(espace: DepotEspace, plan: Plan): Promise<nu
   const corr = new Correspondances()
   await appliquerStructure(espace, plan.structure ?? [], corr)
   let n = 0
+  const creees = new Map<string, number>()
   for (const op of plan.operations) {
     const base = corr.base(op.base)
     const depot = espace.etat().bases.get(base)?.depot
     if (!depot) continue
     for (const l of op.lignes) {
-      // Les clés prévues à la validation suivent celles obtenues pour les colonnes créées par le plan.
-      const valeurs = Object.fromEntries(Object.entries(l.valeurs).map(([cle, v]) => [corr.cle(op.base, cle), v]))
+      // Les clés prévues à la validation suivent celles obtenues pour les colonnes créées par le plan,
+      // et les relations vers une ligne créée par le plan, son id réel.
+      const valeurs = Object.fromEntries(
+        Object.entries(l.valeurs).map(([cle, v]) => {
+          const reelle = corr.cle(op.base, cle)
+          const relation = depot.schema.colonnes.find((x) => x.cle === reelle)?.type === 'relation'
+          return [reelle, relation && Array.isArray(v) ? corr.liens(v.map(String)) : v]
+        }),
+      )
       if (op.type === 'creer') {
-        await espace.creerLigne(base, valeurs)
+        const rang = creees.get(op.base) ?? 0
+        creees.set(op.base, rang + 1)
+        const ligne = await espace.creerLigne(base, valeurs)
+        corr.noterLigne(idLignePrevu(op.base, rang), ligne.id)
         n++
         continue
       }

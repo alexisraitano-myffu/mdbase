@@ -49,6 +49,9 @@ export function trouverLigne(etat: EtatEspace, base: string, ref: unknown): stri
   if (titres.has(ref)) return ref
   const memes = [...titres].filter(([, t]) => normaliser(t) === normaliser(ref))
   if (memes.length === 1) return memes[0]![0]
+  // Premier mot du titre, s'il n'en désigne qu'une : la clé d'un ticket Jira (« OPS-301 » pour « OPS-301 Corriger l'export »).
+  const debuts = memes.length === 0 ? [...titres].filter(([, t]) => normaliser(t).startsWith(`${normaliser(ref)} `)) : []
+  if (debuts.length === 1) return debuts[0]![0]
   return erreur(memes.length > 1 ? `plusieurs lignes s'appellent « ${ref} » dans ${base} : donner l'id` : `ligne inconnue dans ${base} : « ${ref} »`)
 }
 
