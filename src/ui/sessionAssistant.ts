@@ -37,9 +37,19 @@ export type Tour = { demande: string; bases?: string[]; skill?: string; resultat
 export const texteMention = (a: ActionMemoire) => `${a.type === 'retenir' ? 'Retenu' : 'Oublié'} : ${a.fait}`
 const mentionsFaites = (t: Tour) => (t.memoire ?? []).filter((m) => m.etat !== 'annule').map((m) => texteMention(m.action))
 
-/** Ce que le modèle relit d'un tour passé, mentions de mémoire comprises. */
+/**
+ * Envoyée au modèle juste après « Appliquer », sans bulle dans le fil : une
+ * demande en plusieurs étapes continue sans qu'on la relance.
+ */
+export const DEMANDE_SUITE =
+  'C’est appliqué. Reprends ma demande d’origine : s’il reste des étapes à faire, propose-les maintenant (ce qui vient d’être créé existe, relis-le si besoin). Si tout est fait, réponds seulement « fait ».'
+
+/** Réponse du modèle quand il n'y avait plus rien à faire : le tour est retiré du fil. */
+const rienDePlus = (texte: string) => /^\s*(?:«\s*)?fait\s*(?:»\s*)?\.?\s*$/i.test(texte) || texte.trim() === ''
+
+/** Ce que le modèle relit d'un tour passé, mentions de mémoire comprises. Un tour sans demande (suite, erreur) se relit comme la suite. */
 function echange(t: Tour): Echange | null {
-  const e = echangeSansMemoire({ ...t, demande: avecSkill(t.demande, t.skill) })
+  const e = echangeSansMemoire({ ...t, demande: t.demande || t.skill ? avecSkill(t.demande, t.skill) : DEMANDE_SUITE })
   const mentions = mentionsFaites(t)
   return e && mentions.length > 0 ? { ...e, reponse: [e.reponse, ...mentions].filter(Boolean).join('\n') } : e
 }
@@ -116,6 +126,8 @@ export class SessionAssistant {
   /** Les autres conversations, telles qu'elles sont gardées. */
   private autres: ConversationGardee[]
   private arret: AbortController | null = null
+  /** Réglages de la dernière demande : la suite après « Appliquer » part avec les mêmes. */
+  private options: { reglages: ReglagesIA; baseOuverte: string | null } | null = null
   private abonnes = new Set<() => void>()
   /** Demande en cours de saisie : retrouvée quand on rouvre le panneau. */
   brouillon: Demande = { texte: '', bases: [] }
@@ -176,9 +188,10 @@ export class SessionAssistant {
     )
   }
 
-  async envoyer(d: Demande, o: { reglages: ReglagesIA; baseOuverte: string | null }) {
-    const texte = d.texte.trim()
+  async envoyer(d: Demande, o: { reglages: ReglagesIA; baseOuverte: string | null }, suite = false) {
+    const texte = suite ? DEMANDE_SUITE : d.texte.trim()
     if ((texte === '' && !d.skill) || this.enCours()) return
+    this.options = o
     // Une proposition restée sans réponse est abandonnée par la nouvelle demande.
     const passes = this.tours.map((t): Tour => (t.resultat.type === 'plan' && t.resultat.statut === 'attente' ? { ...t, resultat: { ...t.resultat, statut: 'annule' } } : t))
     const i = passes.length
@@ -186,7 +199,7 @@ export class SessionAssistant {
     const arret = new AbortController()
     this.arret = arret
     const id = this.id
-    this.changer([...passes, { demande: texte, ...citations(d), resultat: { type: 'envoi', depuis } }])
+    this.changer([...passes, { demande: suite ? '' : texte, ...citations(d), resultat: { type: 'envoi', depuis } }])
     let recu: Progression | undefined
     try {
       const r = await proposer(modeleCompatibleOpenAI(o.reglages), this.espace, texte, {
@@ -205,6 +218,10 @@ export class SessionAssistant {
       // Mémoire : écrite aussitôt, sans confirmation, avec une mention annulable (spec §12).
       for (const a of r.memoire) await (a.type === 'retenir' ? this.espace.assistant.retenir(a.fait) : this.espace.assistant.oublier(a.fait))
       if (this.id !== id) return // impossible en principe : on ne change pas de conversation pendant une demande
+      if (suite && r.type === 'reponse' && r.memoire.length === 0 && rienDePlus(r.texte)) {
+        this.changer(this.tours.filter((_, j) => j !== i))
+        return
+      }
       const memoire = r.memoire.map((action): MentionMemoire => ({ action, etat: 'fait' }))
       this.changer(
         this.tours.map((t, j): Tour =>
@@ -272,6 +289,7 @@ export class SessionAssistant {
       // Un seul Ctrl+Z défait tout ce que l'assistant a écrit.
       await this.espace.enUneEtape(() => appliquerPlan(this.espace, plan))
       this.remplacer(i, { ...r, statut: 'applique' })
+      if (this.options) void this.envoyer({ texte: '', bases: [] }, this.options, true)
     } catch (e) {
       this.remplacer(i, { ...r, statut: 'annule' })
       this.changer([...this.tours, { demande: '', resultat: { type: 'erreur', message: e instanceof Error ? e.message : String(e) } }])
