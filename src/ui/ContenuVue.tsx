@@ -76,7 +76,7 @@ export function ContenuVue({ espace, base, depot, vue, modifierVue, appliquee, o
     case 'tableau':
       return <Tableau key={vue.id} {...communs} reglages={{ vue, modifier: modifierVue }} tris={vue.tris} />
     case 'kanban':
-      return <Kanban key={vue.id} {...communs} vue={vue} />
+      return <Kanban key={vue.id} {...communs} vue={vue} modifierVue={modifierVue} />
     case 'collection':
       return <Collection key={vue.id} {...communs} vue={vue} />
     case 'calendrier':

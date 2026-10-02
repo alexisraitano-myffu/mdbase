@@ -11,6 +11,8 @@ export type OperationSchema =
   | { type: 'supprimer_colonne'; cle: string }
   | { type: 'champ_titre'; cle: string }
   | { type: 'ajouter_option'; cle: string; option: Option }
+  /** Options remises dans l'ordre de `labels` ; celles qu'il ne cite pas suivent, dans leur ordre. */
+  | { type: 'ordonner_options'; cle: string; labels: string[] }
   /** Couleur d'une option existante (une des couleurs nommées de l'espace). */
   | { type: 'couleur_option'; cle: string; label: string; couleur: string }
   | { type: 'renommer_base'; nom: string }
@@ -128,6 +130,17 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
       const noeud = doc.createNode({ label: op.option.label, ...(op.option.couleur && { couleur: op.option.couleur }) })
       noeud.flow = true
       ;(options as YAMLSeq).items.push(noeud)
+      break
+    }
+    case 'ordonner_options': {
+      const options = trouverColonne(doc, op.cle).get('options')
+      if (!isSeq(options)) break
+      const rang = (n: unknown) => {
+        const label = String(isMap(n) ? n.get('label') : isScalar(n) ? n.value : n)
+        const i = op.labels.indexOf(label)
+        return i < 0 ? op.labels.length : i
+      }
+      options.items = options.items.map((n, i) => ({ n, i })).sort((a, b) => rang(a.n) - rang(b.n) || a.i - b.i).map((x) => x.n)
       break
     }
     case 'couleur_option': {

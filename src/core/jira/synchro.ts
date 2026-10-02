@@ -7,7 +7,7 @@ import { colonne, estObjet, lireSchema, type Schema } from '../schema'
 import { modifierSchema } from '../schema-ecriture'
 import { listerBases } from '../espace'
 import type { Valeur } from '../valeurs'
-import { champsDemandes, COLONNES_JIRA, changement, memeValeur, valeursTicket, type TicketJira } from './ticket'
+import { champsDemandes, COLONNES_JIRA, COULEUR_ETAT, changement, memeValeur, valeursTicket, type TicketJira } from './ticket'
 
 // Synchro d'une base Jira (§16) : lit Jira par un client injecté (le cœur ne
 // fait pas de réseau) et écrit les tickets en lignes, en ne réécrivant que ce
@@ -166,6 +166,14 @@ async function synchroniserSansEtat(a: AdaptateurFichiers, base: string, client:
         texteSchema = modifierSchema(texteSchema, { type: 'ajouter_option', cle: c.cle, option: { label, ...(couleur && { couleur }) } })
       }
     }
+  }
+  // Statuts rangés par étape (à faire, en cours, terminé : la couleur de leur catégorie), dans leur ordre au sein d'une étape.
+  const statuts = lireSchema(texteSchema, base).schema?.colonnes.find((c) => c.cle === 'statut')
+  if (statuts?.type === 'select') {
+    const etapes = Object.values(COULEUR_ETAT)
+    const etape = (couleur?: string) => (couleur && etapes.includes(couleur) ? etapes.indexOf(couleur) : 1)
+    const ranges = statuts.options.map((o, i) => ({ o, i })).sort((x, y) => etape(x.o.couleur) - etape(y.o.couleur) || x.i - y.i).map((x) => x.o.label)
+    if (ranges.some((l, i) => l !== statuts.options[i]!.label)) texteSchema = modifierSchema(texteSchema, { type: 'ordonner_options', cle: 'statut', labels: ranges })
   }
   if (texteSchema !== avant) {
     await a.ecrire(joindre(base, '_schema.yaml'), texteSchema)

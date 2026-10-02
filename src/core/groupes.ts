@@ -46,7 +46,8 @@ export type Groupe = {
  * états d'une case sont toujours présents, même sans ligne (colonnes du kanban).
  * Pour un rollup, `origine` est la colonne d'où viennent ses valeurs (titres
  * d'une relation, couleurs d'un select) ; ses groupes n'ont pas de valeur à
- * donner à une ligne créée : un rollup ne s'écrit pas.
+ * donner à une ligne créée : un rollup ne s'écrit pas. `ordre` (clés de
+ * groupe, réglé dans la vue) passe devant ; les autres suivent dans l'ordre habituel.
  */
 export function grouper(
   lignes: readonly LigneVue[],
@@ -54,6 +55,7 @@ export function grouper(
   titre: (id: string) => string | null,
   inclureVides = false,
   origine?: Colonne,
+  ordre: readonly string[] = [],
 ): Groupe[] {
   const groupes = new Map<string, Groupe>()
   const ajouter = (g: Omit<Groupe, 'lignes'>, l?: LigneVue) => {
@@ -100,7 +102,7 @@ export function grouper(
     }
   }
 
-  // Ordre : options du select, non coché puis coché, sinon alphabétique ; le groupe vide en dernier.
+  // Ordre : celui de la vue, puis options du select, non coché puis coché, sinon alphabétique ; le groupe vide en dernier.
   const collateur = new Intl.Collator('fr', { sensitivity: 'base', numeric: true })
   const choix = colonne.type === 'rollup' ? origine : colonne
   const rang = (g: Groupe) => {
@@ -111,7 +113,12 @@ export function grouper(
     if (colonne.type === 'checkbox') return g.cle === 'non' ? 0 : 1
     return 0
   }
+  const regle = (g: Groupe) => {
+    const i = ordre.indexOf(g.cle)
+    return i < 0 ? ordre.length : i
+  }
   return [...groupes.values()].sort((a, b) => {
+    if (regle(a) !== regle(b)) return regle(a) - regle(b)
     if (a.cle === CLE_VIDE || b.cle === CLE_VIDE) return a.cle === b.cle ? 0 : a.cle === CLE_VIDE ? 1 : -1
     return rang(a) - rang(b) || collateur.compare(a.libelle, b.libelle)
   })

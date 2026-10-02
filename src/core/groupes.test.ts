@@ -34,6 +34,11 @@ describe('grouper', () => {
     expect(grouper(lignes, col('statut'), titres)[0]).toMatchObject({ valeur: 'À faire', couleur: 'gris' })
   })
 
+  it('ordre réglé dans la vue : ses groupes devant (même le vide), les autres ensuite dans l’ordre habituel ; une clé inconnue est ignorée', () => {
+    const lignes = [lv({ statut: 'Terminé' }), lv({}), lv({ statut: 'À faire' })]
+    expect(resume(grouper(lignes, col('statut'), titres, true, undefined, ['Terminé', CLE_VIDE, 'Disparu']))).toEqual(['Terminé:1', 'Sans statut:1', 'À faire:1', 'En cours:0'])
+  })
+
   it('checkbox : non coché puis coché, une case absente est décochée', () => {
     expect(resume(grouper([lv({ urgent: true }), lv({})], col('urgent'), titres))).toEqual(['Non coché:1', 'Coché:1'])
   })

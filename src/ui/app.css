@@ -534,6 +534,10 @@ button:hover { background: var(--survol); }
 .kanban-entetes { position: sticky; top: 0; z-index: 2; background: var(--fond); padding: 6px 0; }
 .kanban-entete, .kanban-colonne { width: 260px; flex-shrink: 0; }
 .kanban-entete { display: flex; align-items: center; gap: 8px; padding: 0 6px; }
+.kanban-entete.mobile { cursor: grab; border-radius: 6px; padding-block: 3px; }
+.kanban-entete.mobile:hover { background: var(--survol); }
+.kanban-entete.entete-fantome { opacity: 0.4; }
+.kanban-entete.entete-deplace { background: var(--surface); box-shadow: var(--ombre); border-radius: 6px; padding-block: 3px; cursor: grabbing; }
 .kanban-colonne {
   display: flex;
   flex-direction: column;

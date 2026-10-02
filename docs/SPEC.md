@@ -330,7 +330,7 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
   - **Suppr sur une plage** vide ses cases (Ctrl+Z les remet).
   - **Repères visuels** : ce qui vient d'être copié (plage ou lignes) garde un pointillé qui défile, comme dans un tableur, jusqu'à Échap ou la prochaine action. Après un collage, une recopie, une action en lot, un Ctrl+Z ou un plan de l'assistant, les cases touchées brillent un instant. Rien ne bouge si le système demande moins d'animations.
   - **Recopie** : la poignée au coin d'une cellule, tirée vers le haut ou le bas, donne sa valeur aux lignes survolées (le tableau défile au bord). Pas sur le titre ni sur une colonne calculée.
-- **Kanban** : champ de groupe (`select`, `checkbox`, `relation`), sous-groupe optionnel (couloirs horizontaux), champs affichés sur la carte, glisser-déposer entre colonnes qui modifie la valeur. Sur une relation, le déplacement **remplace** le lien (pas d'ajout). Grouper sur une relation multi-valeurs n'est pas une bonne pratique : ce cas trouvera sa vraie place avec les relations 1-n [PLUS TARD].
+- **Kanban** : champ de groupe (`select`, `checkbox`, `relation`), sous-groupe optionnel (couloirs horizontaux), champs affichés sur la carte, glisser-déposer entre colonnes qui modifie la valeur. **Ordre des colonnes** [DÉCIDÉ, demandé par Alex le 02/10/2026] : celui des options (non coché puis coché, sinon alphabétique, le groupe vide en dernier) ; glisser l'en-tête d'une colonne sur un autre l'y place, et l'ordre complet est écrit dans la vue (`ordre_groupes`, les valeurs des groupes : libellé d'option, id de ligne liée). Une valeur absente de la liste suit, dans l'ordre habituel ; une valeur de la liste qui n'existe plus est ignorée. Marche aussi sur une base en lecture seule (Jira), dont les vues se règlent. Sur une relation, le déplacement **remplace** le lien (pas d'ajout). Grouper sur une relation multi-valeurs n'est pas une bonne pratique : ce cas trouvera sa vraie place avec les relations 1-n [PLUS TARD].
 - **Collection** : cartes affichant les champs choisis et, en option, les premières lignes du corps.
 - **Calendrier** : champ date utilisé, champ de fin optionnel pour les plages, vue mois / semaine, champs affichés sous le titre, glisser-déposer pour changer la date (la ligne suit le pointeur et s'accroche au jour le plus proche au relâcher).
 - **Timeline** : champ de début, champ de fin, **champs jalons** (zéro ou plusieurs colonnes date affichées comme des points sur la ligne), zoom semaine / mois / trimestre, champs affichés sur la barre, groupement optionnel (repliable ; l'en-tête d'un groupe porte une barre calculée qui couvre ses lignes, non déplaçable), date exacte affichée pendant un glisser, redimensionnement et déplacement des barres à la souris (au pixel, accroché au jour au relâcher).
@@ -395,6 +395,7 @@ nom: Par statut
 type: kanban
 groupe: statut
 sous_groupe: client
+ordre_groupes: [À faire, En cours, Terminé]   # optionnel : ordre des colonnes
 champs_carte: [echeance, nb_taches_ouvertes]
 filtres:
   - { colonne: statut, operateur: different_de, valeur: Terminé }
@@ -710,7 +711,7 @@ colonnes:
 ```
 
 - `source` : la seule nouvelle clé. Sa présence rend la base **en lecture seule** dans l'app (cellules, corps, création et suppression de lignes, colonnes) ; vues, filtres, tris, mises en page et relations **vers** elle restent libres.
-- Le script crée la base si elle manque, et complète les options des select au fil des tickets. `etat` est la catégorie de statut de Jira (À faire, En cours, Terminé), stable quel que soit le workflow : c'est elle qui sert aux rollups « non terminés ». Couleurs : gris, bleu, vert.
+- Le script crée la base si elle manque, et complète les options des select au fil des tickets. `etat` est la catégorie de statut de Jira (À faire, En cours, Terminé), stable quel que soit le workflow : c'est elle qui sert aux rollups « non terminés ». Couleurs : gris, bleu, vert. Les options du statut sont rangées par catégorie (à faire, en cours, terminé) à chaque synchro, dans l'ordre d'arrivée au sein d'une catégorie [DÉCIDÉ, demandé par Alex le 02/10/2026] : un kanban par statut a ses colonnes dans l'ordre du travail.
 - **Voir ce qui a bougé** [demandé par Alex le 01/10/2026] : quand une synchro trouve un champ suivi modifié (statut, assigné, sprint, échéance…), elle note `bouge` (date et heure de la synchro) et `changement` (les champs modifiés, nouvelle valeur puis l'ancienne entre parenthèses, séparés par « ; »). Trier par « Bougé le », ou filtrer « Bougé le = aujourd'hui », donne les tickets qui ont bougé. Un ticket nouveau dans la sélection : `changement: Nouveau`. `maj` reste la date de Jira, qui avance aussi pour un simple commentaire.
 - Colonnes propres à l'utilisateur : refusées dans une base Jira (lecture seule). Une colonne retirée du schéma n'est plus écrite par le script.
 

@@ -62,6 +62,14 @@ describe('modifierVue', () => {
     expect(lireVue(apres, 'kanban-statut').vue!.filtres[0]!.valeur).toEqual(['À faire', 'En cours'])
   })
 
+  it('ordre des colonnes du kanban : écrit en liste sous `ordre_groupes`, relu tel quel, retiré quand il est vide', () => {
+    const vue = lireVue(KANBAN, 'kanban-statut').vue!
+    const apres = modifierVue(KANBAN, vue, { ordreGroupes: ['Terminé', 'À faire'] })
+    expect(lireVue(apres, 'kanban-statut').vue!.ordreGroupes).toEqual(['Terminé', 'À faire'])
+    expect(apres).toContain('ordre_groupes:')
+    expect(modifierVue(apres, lireVue(apres, 'kanban-statut').vue!, { ordreGroupes: [] })).not.toContain('ordre_groupes')
+  })
+
   it('écrit une pastille par ligne, réglée ou non', () => {
     const apres = modifierVue(null, vueParDefaut(), {
       filtresRapides: [{ colonne: 'statut', operateur: 'parmi', valeur: ['En cours'] }, { colonne: 'client' }],

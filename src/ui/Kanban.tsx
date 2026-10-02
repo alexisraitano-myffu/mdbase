@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useMemo, useState, type ReactNode } from 'react'
@@ -17,7 +18,7 @@ import type { LigneVue } from '../core/filtres'
 import { grouper, valeurApresDeplacement, type Groupe } from '../core/groupes'
 import type { Modifications } from '../core/ligne'
 import { colonne as colonneDe, type Colonne } from '../core/schema'
-import type { Vue } from '../core/vue'
+import type { ModificationVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { Carte } from './Carte'
 import { Pastille } from './cellules'
@@ -34,6 +35,7 @@ type Props = {
   base: string
   depot: DepotBase
   vue: Vue
+  modifierVue: (m: ModificationVue) => void
   lignesVue: LigneVue[]
   valeursCreation: () => Modifications
   retenir: (id: string) => void
@@ -41,18 +43,24 @@ type Props = {
 }
 
 type Position = { couloir: Groupe; groupe: Groupe }
+/** En-tête de colonne glissé, ou survolé : sa clé de groupe. */
+type Entete = { entete: string }
 
 /**
  * Kanban (spec §7) : une colonne par valeur du champ de groupe, couloirs
  * optionnels par sous-groupe. Glisser une carte change sa valeur ; le « + »
- * d'une colonne crée une ligne qui en porte la valeur (§8).
+ * d'une colonne crée une ligne qui en porte la valeur (§8). Glisser l'en-tête
+ * d'une colonne sur un autre l'y place : l'ordre est écrit dans la vue.
  */
-export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, retenir, ouvrir }: Props) {
+export function Kanban({ espace, base, depot, vue, modifierVue, lignesVue, valeursCreation, retenir, ouvrir }: Props) {
   const lecture = useConsultation()
   const { etat } = useEspace()
   const lancer = useLancer()
   const schema = depot.schema
   const [enCours, setEnCours] = useState<LigneChargee | null>(null)
+  const [enteteEnCours, setEnteteEnCours] = useState<string | null>(null)
+  /** Ordre des colonnes pendant qu'on glisse un en-tête : la colonne prend sa place avant d'être lâchée. */
+  const [apercu, setApercu] = useState<string[] | null>(null)
   const capteurs = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const colGroupe = vue.groupe ? colonneDe(schema, vue.groupe) : undefined
@@ -62,13 +70,13 @@ export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, r
 
   const { groupes, couloirs } = useMemo(() => {
     if (!colGroupe) return { groupes: [], couloirs: [] }
-    const groupes = grouper(lignesVue, colGroupe, titre(colGroupe), true)
+    const groupes = grouper(lignesVue, colGroupe, titre(colGroupe), true, undefined, apercu ?? vue.ordreGroupes)
     const couloirs: Groupe[] = colCouloir
       ? grouper(lignesVue, colCouloir, titre(colCouloir))
       : [{ cle: '*', libelle: '', lignes: lignesVue }]
     return { groupes, couloirs }
     // `etat` : les titres des relations suivent les renommages.
-  }, [lignesVue, colGroupe, colCouloir, etat])
+  }, [lignesVue, colGroupe, colCouloir, etat, vue.ordreGroupes, apercu])
 
   if (!colGroupe || !TYPES_GROUPE_KANBAN.includes(colGroupe.type)) {
     return <p className="discret">Choisis la colonne qui forme les colonnes du kanban dans « Options ».</p>
@@ -87,10 +95,34 @@ export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, r
     }
   }
 
+  /** Ordre des colonnes où l'en-tête glissé prend la place de celui qu'il survole. */
+  const rangees = (cle: string, cible: string) => {
+    const cles = groupes.map((g) => g.cle).filter((k) => k !== cle)
+    const avant = groupes.findIndex((g) => g.cle === cle) < groupes.findIndex((g) => g.cle === cible)
+    cles.splice(cles.indexOf(cible) + (avant ? 1 : 0), 0, cle)
+    return cles
+  }
+
+  const survoler = (e: DragOverEvent) => {
+    const actif = e.active.data.current as Entete | undefined
+    const survol = e.over?.data.current as Entete | undefined
+    if (!actif || !('entete' in actif) || !survol || !('entete' in survol) || actif.entete === survol.entete) return
+    setApercu(rangees(actif.entete, survol.entete))
+  }
+
   const finir = (e: DragEndEvent) => {
     setEnCours(null)
-    const de = e.active.data.current as (Position & { ligne: LigneChargee }) | undefined
-    const vers = e.over?.data.current as Position | undefined
+    setEnteteEnCours(null)
+    const actif = e.active.data.current as (Position & { ligne: LigneChargee }) | Entete | undefined
+    const survol = e.over?.data.current as Position | Entete | undefined
+    if (actif && 'entete' in actif) {
+      // L'aperçu est déjà dans l'ordre voulu : il est écrit dans la vue (lâché hors d'un en-tête, rien ne change).
+      if (apercu && survol && 'entete' in survol) modifierVue({ ordreGroupes: apercu })
+      setApercu(null)
+      return
+    }
+    const de = actif
+    const vers = survol && 'groupe' in survol ? survol : undefined
     if (!de || !vers) return
     deplacer(de.ligne, colGroupe, de.groupe, vers.groupe)
     if (colCouloir) deplacer(de.ligne, colCouloir, de.couloir, vers.couloir)
@@ -111,21 +143,25 @@ export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, r
   return (
     <DndContext
       sensors={capteurs}
-      onDragStart={(e: DragStartEvent) => setEnCours((e.active.data.current as { ligne: LigneChargee }).ligne)}
+      onDragStart={(e: DragStartEvent) => {
+        const d = e.active.data.current as { ligne: LigneChargee } | Entete
+        if ('entete' in d) setEnteteEnCours(d.entete)
+        else setEnCours(d.ligne)
+      }}
+      onDragOver={survoler}
       onDragEnd={finir}
-      onDragCancel={() => setEnCours(null)}
+      onDragCancel={() => {
+        setEnCours(null)
+        setEnteteEnCours(null)
+        setApercu(null)
+      }}
     >
       <div className="kanban">
         <div className="kanban-entetes">
           {groupes.map((g) => (
-            <div key={g.cle} className="kanban-entete">
-              {(colGroupe.type === 'select' || colGroupe.type === 'multiselect') && g.cle !== '∅' ? (
-                <Pastille label={g.libelle} couleur={g.couleur} />
-              ) : (
-                <span className="libelle-groupe">{g.libelle}</span>
-              )}
-              <span className="discret compte-groupe">{g.lignes.length}</span>
-            </div>
+            <EnteteGlissable key={g.cle} cle={g.cle} fixe={lecture}>
+              <LibelleGroupe groupe={g} colonne={colGroupe} />
+            </EnteteGlissable>
           ))}
         </div>
         {couloirs.map((couloir) => (
@@ -159,6 +195,14 @@ export function Kanban({ espace, base, depot, vue, lignesVue, valeursCreation, r
             <Carte base={base} schema={schema} ligne={enCours} champs={champs} ouvrir={() => {}} />
           </div>
         )}
+        {enteteEnCours !== null && (
+          <div className="kanban-entete entete-deplace">
+            {(() => {
+              const g = groupes.find((x) => x.cle === enteteEnCours)
+              return g && <LibelleGroupe groupe={g} colonne={colGroupe} />
+            })()}
+          </div>
+        )}
       </DragOverlay>
     </DndContext>
   )
@@ -188,6 +232,38 @@ function CarteGlissable({ position, ligne, fixe, children }: { position: Positio
   return (
     // Fixe : sans les attributs de dnd-kit, qui la marqueraient « désactivée » pour les lecteurs d'écran.
     <div ref={setNodeRef} {...(!fixe && { ...listeners, ...attributes })} className={isDragging ? 'carte-fantome' : undefined}>
+      {children}
+    </div>
+  )
+}
+
+function LibelleGroupe({ groupe: g, colonne }: { groupe: Groupe; colonne: Colonne }) {
+  return (
+    <>
+      {(colonne.type === 'select' || colonne.type === 'multiselect') && g.cle !== '∅' ? (
+        <Pastille label={g.libelle} couleur={g.couleur} />
+      ) : (
+        <span className="libelle-groupe">{g.libelle}</span>
+      )}
+      <span className="discret compte-groupe">{g.lignes.length}</span>
+    </>
+  )
+}
+
+/** En-tête de colonne : se glisse sur un autre pour changer l'ordre des colonnes ; `fixe` en consultation. */
+function EnteteGlissable({ cle, fixe, children }: { cle: string; fixe: boolean; children: ReactNode }) {
+  const glisse = useDraggable({ id: `entete|${cle}`, data: { entete: cle }, disabled: fixe })
+  const cible = useDroppable({ id: `cible-entete|${cle}`, data: { entete: cle }, disabled: fixe })
+  return (
+    <div
+      ref={(el) => {
+        glisse.setNodeRef(el)
+        cible.setNodeRef(el)
+      }}
+      {...(!fixe && { ...glisse.listeners, ...glisse.attributes, title: 'Glisser pour déplacer la colonne' })}
+      // Pas de surlignage de la cible : les colonnes se rangent en direct pendant le glisser.
+      className={`kanban-entete${fixe ? '' : ' mobile'}${glisse.isDragging ? ' entete-fantome' : ''}`}
+    >
       {children}
     </div>
   )
