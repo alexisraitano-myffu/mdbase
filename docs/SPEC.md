@@ -493,7 +493,12 @@ contenus:                                  # optionnel : contenus liés sous le 
 ```
 
 ### Corps de la page
-- Éditeur Markdown riche qui **produit du Markdown propre** (Milkdown, ou CodeMirror 6 avec aperçu en direct).
+- Éditeur Markdown riche qui **produit du Markdown propre** : CodeMirror 6 en aperçu en direct, à la manière d'Obsidian [DÉCIDÉ, demandé par Alex le 02/10/2026, remplace Milkdown].
+  - Le texte s'affiche mis en forme ; la syntaxe (`#` d'un titre, `**` du gras, crochets d'un lien) réapparaît sur la ligne ou le passage où se trouve le curseur, et s'y modifie comme du texte.
+  - Le fichier n'est jamais normalisé : seul ce que l'utilisateur tape le change, ouvrir une page ne le réécrit pas.
+  - Les titres se replient (chevron dans la marge) jusqu'au titre suivant de même niveau ou plus haut ; le repli n'est pas mémorisé.
+  - Une case `- [ ]` se coche d'un clic, qui écrit `- [x]` dans le texte. Un lien s'ouvre au clic, dans un nouvel onglet.
+  - « / » ouvre le menu des blocs (titres, tâche, listes, citation, bloc de code, séparateur) ; Ctrl+B et Ctrl+I mettent en gras et en italique.
 - Pas d'images en V1.
 
 ---
@@ -581,7 +586,7 @@ Précisions d'implémentation :
 - React ; TanStack Table + TanStack Virtual (tableaux virtualisés) ; dnd-kit (glisser-déposer).
 - Calendrier et timeline : implémentation maison (les librairies gèrent mal les jalons ; les meilleures timelines sont payantes).
 - `yaml` (eemeli/yaml) pour le frontmatter avec préservation du formatage.
-- Éditeur de corps : Milkdown ou CodeMirror 6.
+- Éditeur de corps : CodeMirror 6 (aperçu en direct).
 - MiniSearch pour la recherche.
 - Vitest pour les tests du cœur.
 

@@ -392,16 +392,45 @@ button:hover { background: var(--survol); }
 .vide-contenus { font-size: 0.85em; padding: 0.25rem 0.5rem; }
 .niveau-contenus { display: flex; flex-direction: column; gap: 0.4rem; }
 .niveau-contenus .niveau-contenus { padding-left: 0.75rem; border-left: 1px solid var(--bordure); }
-.editeur-corps .milkdown {
-  background: transparent;
-  /* Mêmes polices que l'interface (Crepe met du Noto Serif / Noto Sans par défaut) */
-  --crepe-font-title: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --crepe-font-default: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --crepe-color-on-background: var(--texte);
-}
-.editeur-corps .milkdown .ProseMirror { padding: 8px 0 60px 48px; }
-/* Dans un contenu lié : la marge des poignées de bloc seulement, sans le grand vide du bas de page. */
-.detail-contenu .editeur-corps .milkdown .ProseMirror { padding: 2px 0 8px 36px; }
+.editeur-corps .cm-editor { background: transparent; color: var(--texte); font-size: 1rem; }
+.editeur-corps .cm-editor.cm-focused { outline: none; }
+.editeur-corps .cm-scroller { font-family: inherit; line-height: 1.6; overflow: visible; }
+.editeur-corps .cm-content { padding: 6px 0 60px; caret-color: var(--texte); }
+.editeur-corps .cm-line { padding: 0 2px; }
+.editeur-corps .cm-placeholder { color: var(--tres-discret-texte); }
+.editeur-corps .cm-selectionBackground, .editeur-corps .cm-focused .cm-selectionBackground { background: var(--selection) !important; }
+/* Titres : proportionnés au texte de l'interface (14 px), sous le titre de la page. */
+.editeur-corps .cm-titre { font-weight: 600; line-height: 1.35; padding-top: 0.6em; padding-bottom: 0.15em; }
+.editeur-corps .cm-titre-1 { font-size: 1.45em; }
+.editeur-corps .cm-titre-2 { font-size: 1.25em; }
+.editeur-corps .cm-titre-3 { font-size: 1.1em; }
+.editeur-corps .cm-titre-4, .editeur-corps .cm-titre-5, .editeur-corps .cm-titre-6 { font-size: 1em; }
+.editeur-corps .cm-syntaxe { color: var(--tres-discret-texte); font-weight: 400; font-style: normal; text-decoration: none; }
+.editeur-corps .cm-code-en-ligne { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9em; background: var(--fond-doux); border-radius: 4px; padding: 1px 3px; }
+.editeur-corps .cm-bloc-code { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9em; background: var(--fond-doux); padding: 0 10px; }
+.editeur-corps .cm-bloc-code .cm-code-en-ligne { background: none; padding: 0; }
+.editeur-corps .cm-citation { border-left: 3px solid var(--bordure-forte); padding-left: 12px; color: var(--texte-doux); }
+.editeur-corps .cm-lien { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(var(--accent-rgb), 0.4); cursor: pointer; }
+.editeur-corps .cm-puce { display: inline-block; width: 1.1em; text-align: center; vertical-align: middle; }
+.editeur-corps .cm-puce::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--texte-doux); vertical-align: middle; }
+.editeur-corps .cm-case { width: 13px; height: 13px; margin: 0 6px 0 2px; vertical-align: -2px; cursor: pointer; }
+.editeur-corps .cm-tache-faite { color: var(--discret); text-decoration: line-through; text-decoration-color: var(--tres-discret-texte); }
+.editeur-corps .cm-separateur { display: inline-block; width: 100%; height: 1px; background: var(--bordure); vertical-align: middle; }
+/* Repli des titres : le chevron apparaît au survol de l'éditeur, reste visible quand le titre est replié. */
+.editeur-corps .cm-gutters { background: transparent; border: 0; color: var(--discret); }
+.editeur-corps .cm-foldGutter .cm-gutterElement { display: flex; align-items: center; justify-content: center; width: 22px; cursor: pointer; }
+.editeur-corps .cm-foldGutter .icone-editeur { display: inline-flex; border-radius: 4px; padding: 1px; }
+.editeur-corps .cm-foldGutter .icone-editeur:hover { background: var(--survol); color: var(--texte); }
+.editeur-corps .cm-repli-ouvert { opacity: 0; }
+.editeur-corps .cm-editor:hover .cm-repli-ouvert { opacity: 1; }
+.editeur-corps .cm-replie { display: inline-flex; vertical-align: middle; margin-left: 6px; padding: 0 4px; border-radius: 4px; background: var(--fond-doux); color: var(--discret); cursor: pointer; }
+.editeur-corps .cm-replie:hover { background: var(--survol); color: var(--texte); }
+.editeur-corps .icone-editeur .icone { opacity: 1; width: auto; }
+/* Menu « / » des blocs (le reste de son style est dans le thème de l'éditeur) */
+.cm-tooltip-autocomplete .icone-editeur { display: inline-flex; color: var(--texte-doux); }
+.cm-tooltip-autocomplete .icone-editeur .icone { opacity: 1; width: auto; }
+/* Dans un contenu lié : sans le grand vide du bas de page. */
+.detail-contenu .editeur-corps .cm-content { padding: 2px 0 8px; }
 
 /* Onglet relation */
 .onglet-relation .tableau { max-height: 60vh; }

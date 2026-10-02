@@ -44,6 +44,16 @@ const GROUPES: Groupe[] = [
     raccourcis: [{ touches: [['haut'], ['bas']], action: 'Passer à la ligne précédente ou suivante de la vue' }],
   },
   {
+    titre: 'Contenu d’une page',
+    raccourcis: [
+      { touches: [['/']], action: 'Insérer un bloc : titre, tâche, liste, citation, code' },
+      { touches: [['mod', 'B'], ['mod', 'I']], action: 'Mettre en gras, en italique', et: true },
+      { touches: [['Entrée']], action: 'Dans une liste ou une tâche : continuer avec un nouvel élément' },
+      { touches: [['Tab'], ['Maj', 'Tab']], action: 'Décaler un élément de liste, et retour', et: true },
+      { touches: [MAC ? ['mod', 'Alt', '['] : ['mod', 'Maj', '['], MAC ? ['mod', 'Alt', ']'] : ['mod', 'Maj', ']']], action: 'Replier, déplier le titre sous le curseur', et: true },
+    ],
+  },
+  {
     titre: 'Timeline',
     raccourcis: [
       { touches: [['mod', 'molette']], action: 'Zoomer sous le pointeur (ou pincer le trackpad)' },
