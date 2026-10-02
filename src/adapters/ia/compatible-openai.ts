@@ -132,11 +132,26 @@ async function messageErreur(r: Response): Promise<string> {
   return `Le service a répondu : ${cause}${detail ? ` (${detail})` : ''}`
 }
 
+/**
+ * En-têtes communs : la clé en Bearer s'il y en a une. L'API d'Anthropic
+ * refuse un appel du navigateur (CORS) sans son en-tête d'accès direct.
+ */
+export function entetes(c: Pick<Connexion, 'adresse' | 'cle'>): Record<string, string> {
+  const cle = c.cle.trim()
+  let anthropic = false
+  try {
+    anthropic = new URL(adresseComplete(c.adresse)).hostname === 'api.anthropic.com'
+  } catch {
+    // adresse illisible : l'appel échouera de lui-même, avec son message
+  }
+  return { ...(cle ? { Authorization: `Bearer ${cle}` } : {}), ...(anthropic ? { 'anthropic-dangerous-direct-browser-access': 'true' } : {}) }
+}
+
 /** Modèles de discussion proposés par le service (`GET …/models`) ; vide si le service ne les liste pas. */
 export async function listerModeles(c: Pick<Connexion, 'adresse' | 'cle'>, envoyer: typeof fetch = (...a) => fetch(...a)): Promise<string[]> {
   const base = adresseComplete(c.adresse).replace(/\/chat\/completions$/, '')
   try {
-    const r = await envoyer(`${base}/models`, { headers: c.cle.trim() ? { Authorization: `Bearer ${c.cle.trim()}` } : {} })
+    const r = await envoyer(`${base}/models`, { headers: entetes(c) })
     if (!r.ok) return []
     const json = (await r.json()) as { data?: { id?: unknown }[] }
     return (json.data ?? [])
@@ -176,7 +191,7 @@ export function modeleCompatibleOpenAI(c: Connexion, envoyer: typeof fetch = (..
       try {
         r = await envoyer(adresseComplete(c.adresse), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(c.cle.trim() ? { Authorization: `Bearer ${c.cle.trim()}` } : {}) },
+          headers: { 'Content-Type': 'application/json', ...entetes(c) },
           body: JSON.stringify({
             model: c.modele.trim(),
             messages: messages.map(versOpenAI),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DemandeArretee } from '../../core/ia/modele'
-import { adresseComplete, listerModeles, modeleCompatibleOpenAI } from './compatible-openai'
+import { adresseComplete, entetes, listerModeles, modeleCompatibleOpenAI } from './compatible-openai'
 
 const CONNEXION = { adresse: 'https://exemple.test/v1/', cle: ' secret ', modele: 'qwen' }
 
@@ -81,6 +81,12 @@ describe('connecteur compatible OpenAI', () => {
     const f = faux(json({ choices: [{ message: { content: 'bonjour' } }] }))
     expect(await modeleCompatibleOpenAI({ ...CONNEXION, cle: '' }, f.envoyer)({ messages: [], outils: [] })).toEqual({ texte: 'bonjour', appels: [] })
     expect(f.requetes[0]!.init.headers).not.toHaveProperty('Authorization')
+  })
+
+  it('API d’Anthropic : en-tête d’accès direct depuis le navigateur, et seulement chez elle', () => {
+    expect(entetes({ adresse: 'https://api.anthropic.com/v1', cle: ' sk-ant-x ' })).toEqual({ Authorization: 'Bearer sk-ant-x', 'anthropic-dangerous-direct-browser-access': 'true' })
+    expect(entetes({ adresse: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', cle: 'k' })).toEqual({ Authorization: 'Bearer k' })
+    expect(entetes({ adresse: 'pas une adresse', cle: '' })).toEqual({})
   })
 
   it('arguments déjà décodés par le serveur : réencodés', async () => {
