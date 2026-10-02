@@ -5,8 +5,8 @@ import { expect, it } from 'vitest'
 import { modeleCompatibleOpenAI } from '../src/adapters/ia/compatible-openai'
 import { AdaptateurMemoire } from '../src/core/adaptateur-memoire'
 import { DepotEspace } from '../src/core/depot-espace'
-import { proposer, type Proposition } from '../src/core/ia/assistant'
-import { ErreurProposition } from '../src/core/ia/plan'
+import { proposer, type Echange, type Proposition } from '../src/core/ia/assistant'
+import { appliquerPlan, ErreurProposition, resumerPlan } from '../src/core/ia/plan'
 import type { MessageIA, ModeleIA } from '../src/core/ia/modele'
 import { CAS, type Cas } from './cas'
 import { CAS_GRAND } from './cas-grand'
@@ -120,7 +120,15 @@ it(`banc ${modeleNom}`, async () => {
       let proposition: Proposition | null = null
       let ecart: string | null
       try {
-        proposition = await proposer(m, espace, cas.demande, { aujourdhui: AUJOURDHUI, baseOuverte: cas.base ?? null, historique: cas.historique })
+        // Demandes précédentes de la conversation : jouées, appliquées, rejouées comme dans l'app.
+        const historique: Echange[] = [...(cas.historique ?? [])]
+        for (const avant of cas.avant ?? []) {
+          const q = await proposer(m, espace, avant, { aujourdhui: AUJOURDHUI, baseOuverte: cas.base ?? null, historique })
+          if (q.type === 'plan') await appliquerPlan(espace, q.plan)
+          const reponse = q.type === 'plan' ? `${q.message ? `${q.message}\n` : ''}Proposé :\n${resumerPlan(q.plan)}\nAppliqué.` : q.texte
+          historique.push({ demande: avant, reponse, ...(q.deroule ? { deroule: q.deroule, suite: 'Appliqué.' } : {}) })
+        }
+        proposition = await proposer(m, espace, cas.demande, { aujourdhui: AUJOURDHUI, baseOuverte: cas.base ?? null, historique })
         ecart = cas.verifier(proposition)
       } catch (e) {
         // Une proposition refusée par le cœur n'écrit rien : c'est juste pour les cas « ne rien écrire ».
@@ -130,7 +138,7 @@ it(`banc ${modeleNom}`, async () => {
       }
       const ms = Math.round(performance.now() - debut)
       resultats.push({ n, jeu: nomJeu, demande: cas.demande, ok: ecart === null, ecart, ms, ...stats, proposition, trace })
-      console.log(`${ecart === null ? '✓' : '✗'} ${String(n).padStart(2)} ${String(ms).padStart(6)} ms  ${stats.appels} appel${stats.appels > 1 ? 's' : ''}  [${nomJeu}] ${cas.demande}${ecart ? `\n        → ${ecart}` : ''}`)
+      console.log(`${ecart === null ? '✓' : '✗'} ${String(n).padStart(2)} ${String(ms).padStart(6)} ms  ${stats.appels} appel${stats.appels > 1 ? 's' : ''}  [${nomJeu}] ${cas.avant ? `${cas.avant.join(' → ')} → ` : ''}${cas.demande}${ecart ? `\n        → ${ecart}` : ''}`)
     }
   }
   const reussis = resultats.filter((r) => r.ok).length

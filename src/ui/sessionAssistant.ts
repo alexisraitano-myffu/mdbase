@@ -1,6 +1,6 @@
 import type { DepotEspace } from '../core/depot-espace'
 import { avecSkill, proposer, type Echange } from '../core/ia/assistant'
-import { DemandeArretee, type Progression } from '../core/ia/modele'
+import { DemandeArretee, type MessageIA, type Progression } from '../core/ia/modele'
 import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../core/ia/plan'
 import { modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
 import { enregistrerConversations, lireConversations, type ConversationGardee, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
@@ -12,7 +12,7 @@ import { aujourdhui } from '../adapters/navigateur'
 
 export type Resultat =
   | { type: 'envoi'; depuis: number; progression?: Progression }
-  | { type: 'reponse'; texte: string; duree?: number }
+  | { type: 'reponse'; texte: string; duree?: number; deroule?: MessageIA[] }
   | {
       type: 'plan'
       /** `null` pour un plan relu d'une session précédente : il n'est plus proposé à l'application. */
@@ -21,6 +21,8 @@ export type Resultat =
       message: string
       statut: 'attente' | 'application' | 'applique' | 'annule'
       duree?: number
+      /** Lectures et appels du modèle pendant ce tour, rejoués aux demandes suivantes (pas gardés d'une session à l'autre). */
+      deroule?: MessageIA[]
     }
   | { type: 'erreur'; message: string }
   /** Arrêtée par l'utilisateur ; `texte` est ce qui était déjà arrivé. */
@@ -60,14 +62,18 @@ function echangeSansMemoire(t: Tour): Echange | null {
     case 'envoi':
       return null
     case 'reponse':
-      return { demande: t.demande, reponse: r.texte }
+      return { demande: t.demande, reponse: r.texte, ...(r.deroule ? { deroule: r.deroule } : {}) }
     case 'erreur':
       return { demande: t.demande, reponse: `Erreur : ${r.message}` }
     case 'arrete':
       return { demande: t.demande, reponse: `${r.texte ? `${r.texte}\n` : ''}(Arrêté par l’utilisateur avant la fin de la réponse.)` }
     case 'plan': {
       const suite = r.statut === 'applique' ? 'Appliqué.' : r.statut === 'annule' ? 'Annulé par l’utilisateur.' : 'Pas appliqué.'
-      return { demande: t.demande, reponse: `${r.message ? `${r.message}\n` : ''}Proposé :\n${r.resume}\n${suite}` }
+      return {
+        demande: t.demande,
+        reponse: `${r.message ? `${r.message}\n` : ''}Proposé :\n${r.resume}\n${suite}`,
+        ...(r.deroule ? { deroule: r.deroule, suite } : {}),
+      }
     }
   }
 }
@@ -232,8 +238,8 @@ export class SessionAssistant {
                 memoire,
                 resultat:
                   r.type === 'plan'
-                    ? { type: 'plan', plan: r.plan, resume: resumerPlan(r.plan), message: r.message, statut: 'attente', duree }
-                    : { type: 'reponse', texte: r.texte, duree },
+                    ? { type: 'plan', plan: r.plan, resume: resumerPlan(r.plan), message: r.message, statut: 'attente', duree, ...(r.deroule ? { deroule: r.deroule } : {}) }
+                    : { type: 'reponse', texte: r.texte, duree, ...(r.deroule ? { deroule: r.deroule } : {}) },
               },
         ),
       )

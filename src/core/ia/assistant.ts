@@ -17,10 +17,20 @@ export type Proposition = (
 ) & {
   /** À écrire aussitôt dans la mémoire, avec une mention annulable : pas de confirmation. */
   memoire: ActionMemoire[]
+  /**
+   * Ce que le modèle a fait pendant la demande, après elle : ses lectures et leurs
+   * résultats, puis sa réponse finale (appels compris). Rejoué aux demandes
+   * suivantes : il retrouve ce qu'il a lu et les lignes exactes qu'il a visées.
+   */
+  deroule?: MessageIA[]
 }
 
 /** Un échange passé de la conversation, tel que le modèle le relit : la demande et ce qui en est résulté. */
-export type Echange = { demande: string; reponse: string }
+/**
+ * Un échange passé. `deroule` (s'il est connu) le rejoue tel quel ; `suite` dit
+ * ce que l'utilisateur a fait des appels de la réponse finale (appliqué, annulé).
+ */
+export type Echange = { demande: string; reponse: string; deroule?: readonly MessageIA[]; suite?: string }
 
 export type OptionsDemande = {
   aujourdhui: string
@@ -38,6 +48,23 @@ export type OptionsDemande = {
 
 /** Échanges renvoyés au modèle : assez pour suivre une conversation, sans alourdir chaque demande. */
 export const ECHANGES_MAX = 10
+/** Échanges récents rejoués en entier (lectures comprises) ; les plus anciens, en texte seulement. */
+export const ECHANGES_DETAILLES = 4
+/** Un résultat de lecture rejoué est coupé au-delà : relire coûte moins que tout renvoyer. */
+const LECTURE_REJOUEE_MAX = 6000
+
+/** Messages d'un échange passé, tel que le modèle le relit. */
+function rejouer(e: Echange, detaille: boolean): MessageIA[] {
+  if (!detaille || !e.deroule?.length) return [{ role: 'user', contenu: e.demande }, { role: 'assistant', contenu: e.reponse, appels: [] }]
+  const messages: MessageIA[] = [
+    { role: 'user', contenu: e.demande },
+    ...e.deroule.map((m): MessageIA => (m.role === 'tool' && m.contenu.length > LECTURE_REJOUEE_MAX ? { ...m, contenu: `${m.contenu.slice(0, LECTURE_REJOUEE_MAX)}\n[… coupé]` } : m)),
+  ]
+  // Les appels de la réponse finale attendent leur résultat : ce que l'utilisateur en a fait.
+  const derniere = e.deroule.at(-1)
+  if (derniere?.role === 'assistant') for (const a of derniere.appels) messages.push({ role: 'tool', idAppel: a.id, contenu: e.suite ?? 'Proposé.' })
+  return messages
+}
 
 /** Relances après un refus ou une réponse coupée ; au-delà, ce qui est valide est gardé. */
 const RELANCES = 2
@@ -56,12 +83,12 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
   const contexte = decrireEspace(espace.etat(), { ...o, candidats: espace.candidats(demande), memoire: assistant.memoire, skills: assistant.skills })
   const messages: MessageIA[] = [
     { role: 'system', contenu: `${CONSIGNE}\n\n${contexte}` },
-    ...(o.historique ?? []).slice(-ECHANGES_MAX).flatMap((e): MessageIA[] => [
-      { role: 'user', contenu: e.demande },
-      { role: 'assistant', contenu: e.reponse, appels: [] },
-    ]),
+    ...(o.historique ?? []).slice(-ECHANGES_MAX).flatMap((e, i, liste) => rejouer(e, i >= liste.length - ECHANGES_DETAILLES)),
     { role: 'user', contenu: avecSkill(demande, o.skill) },
   ]
+  const debut = messages.length
+  /** Le déroulé de cette demande : ses lectures et leurs résultats, sans les relances (consignes et réponses coupées). */
+  const deroule = (fin: MessageIA) => [...messages.slice(debut).filter((m) => m.role === 'tool' || (m.role === 'assistant' && m.appels.length > 0)), fin]
   let relances = 0
   let lectures = 0
   // Appels d'une proposition de structure seule, gardés pendant le tour donné au modèle pour enchaîner les lignes.
@@ -97,7 +124,7 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
     if (appels.length === 0) {
       const texte = sansReflexion(reponse.texte)
       const fin = reponse.coupee ? 'Réponse coupée par le service, même après relance : redemande en plus petit.' : aLire.length > 0 ? 'Limite de lectures atteinte avant une réponse : précise la demande.' : 'Le modèle n’a rien proposé.'
-      return { type: 'reponse', texte: texte || fin, memoire: [] }
+      return { type: 'reponse', texte: texte || fin, memoire: [], deroule: deroule({ role: 'assistant', contenu: texte || fin, appels: [] }) }
     }
     // L'état est relu à chaque essai : il a pu changer pendant l'appel. Les appels
     // se valident dans l'ordre sur un brouillon : une colonne créée peut être remplie ensuite.
@@ -148,10 +175,12 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
       continue
     }
     if (operations.length > 0 || skills.length > 0 || structure.length > 0 || suite.length > 0) {
-      return { type: 'plan', plan: { structure, operations, suite, skills }, message, memoire }
+      // Seuls les appels retenus sont rejoués : ce sont eux que l'utilisateur a vus.
+      const retenus = nouveaux.filter((_, i) => !(resultats[acquis.length + i] instanceof ErreurProposition))
+      return { type: 'plan', plan: { structure, operations, suite, skills }, message, memoire, deroule: deroule({ role: 'assistant', contenu: reponse.texte, appels: retenus }) }
     }
     const aucunChangement = valides.some((r) => r.type === 'operation')
     const vide = memoire.length > 0 ? '' : aucunChangement ? 'Rien à changer : les valeurs sont déjà celles demandées.' : 'Le modèle n’a rien proposé.'
-    return { type: 'reponse', texte: message || vide, memoire }
+    return { type: 'reponse', texte: message || vide, memoire, deroule: deroule({ role: 'assistant', contenu: message || vide, appels: [] }) }
   }
 }
