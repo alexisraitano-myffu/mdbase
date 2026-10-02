@@ -50,6 +50,10 @@ describe('contexte envoyé au modèle', () => {
     expect(texte).toContain('- heures « Heures » : calculée (lecture seule)')
     expect(texte).toContain('- titre « Titre » : texte (titre de la ligne)')
     expect(texte).toContain("Aujourd'hui : 2026-09-25 (vendredi)")
+    // Les jours nommés se lisent dans le calendrier : « lundi », « vendredi prochain ».
+    expect(texte).toContain('Cette semaine : lundi 2026-09-21, mardi 2026-09-22, mercredi 2026-09-23, jeudi 2026-09-24, vendredi 2026-09-25, samedi 2026-09-26, dimanche 2026-09-27')
+    expect(texte).toContain('Semaine prochaine : lundi 2026-09-28,')
+    expect(texte).toContain('vendredi 2026-10-02')
     expect(texte).toContain('t0000001 | A | projet: [p0000001] ; statut: À faire ; heures: 3 ; fait: true ; echeance: 2026-10-01')
     expect(texte).toContain('c0000001 | Acme | projets: [p0000001, p0000002] ; heures: 10')
   })
@@ -149,6 +153,7 @@ describe('proposer', () => {
     expect(modele.requetes).toHaveLength(1)
     expect(modele.requetes[0]!.outils.map((o) => o.nom)).toEqual([
       'chercher_lignes',
+      'chercher_texte',
       'lire_page',
       'modifier_lignes',
       'creer_lignes',
@@ -381,5 +386,47 @@ describe('lectures et réponses coupées', () => {
     expect(p.type).toBe('plan')
     const relance = modele.requetes[1]!.messages.at(-1)!
     expect(relance.role === 'user' && relance.contenu).toMatch(/coupée/)
+  })
+
+  it('chercher_texte trouve un mot dans les valeurs et dans les pages, sans casse ni accents, avec un extrait', async () => {
+    const { espace } = await ouvrir({
+      ...FICHIERS_RELATIONS,
+      'taches/b--t0000002.md': '---\nid: t0000002\ntitre: B\nprojet: p0000001\nstatut: Terminé\n---\nLe client attend une connexion par SAML avec son annuaire.\n',
+      'taches/d--t0000004.md': '---\nid: t0000004\ntitre: Écran SAML\n---\n',
+    })
+    const modele = modeleScripte({ texte: '', appels: [appel('chercher_texte', { texte: 'saml' }), appel('chercher_texte', { texte: 'ECRAN', base: 'taches' }), appel('chercher_texte', { texte: 'kerberos' })] }, { texte: 'Deux tâches.', appels: [] })
+    await proposer(modele, espace, 'Quelles tâches parlent de SAML ?', { aujourdhui: AUJOURDHUI, baseOuverte: null })
+    const [saml, ecran, rien] = modele.requetes[1]!.messages.filter((m) => m.role === 'tool').map((m) => (m.role === 'tool' ? m.contenu : ''))
+    expect(saml).toContain('2 lignes contiennent « saml »')
+    expect(saml).toContain('taches | t0000002 | B | page: Le client attend une connexion par SAML avec son annuaire.')
+    expect(saml).toContain('taches | t0000004 | Écran SAML | titre: Écran SAML')
+    expect(ecran).toContain('1 ligne contient « ECRAN »')
+    expect(rien).toBe('Aucune ligne ne contient « kerberos » (valeurs et pages comprises).')
+  })
+})
+
+describe('base synchronisée (Jira)', () => {
+  const avecSource = () => ({
+    ...FICHIERS_RELATIONS,
+    'taches/_schema.yaml': FICHIERS_RELATIONS['taches/_schema.yaml']!.replace('nom: Tâches\n', 'nom: Tâches\nsource: { type: jira, site: exemple.atlassian.net, projets: [PRVE] }\n'),
+  })
+
+  it('aucune écriture n’est validée dans ses lignes ni son schéma ; la lecture reste permise', async () => {
+    const { espace } = await ouvrir(avecSource())
+    expect(espace.etat().bases.get('taches')!.depot!.schema.source).toBeTruthy()
+    for (const [nom, args] of [
+      ['modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { fait: false } }],
+      ['creer_lignes', { base: 'taches', lignes: [{ titre: 'X' }] }],
+      ['supprimer_lignes', { base: 'taches', lignes: ['t0000001'] }],
+      ['ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Note', type: 'text' }] }],
+    ] as const) {
+      expect(() => valider(espace, nom, args), nom).toThrow(/synchronisée depuis Jira : en lecture seule/)
+    }
+    expect(valider(espace, 'modifier_lignes', { base: 'projets', lignes: ['p0000001'], valeurs: { titre: 'Refonte' } }).type).toBe('operation')
+  })
+
+  it('le contexte la marque en lecture seule', async () => {
+    const { espace } = await ouvrir(avecSource())
+    expect(decrireEspace(espace.etat(), { aujourdhui: AUJOURDHUI, baseOuverte: null, candidats: [] })).toContain('taches « Tâches » (synchronisée depuis Jira : LECTURE SEULE)')
   })
 })
