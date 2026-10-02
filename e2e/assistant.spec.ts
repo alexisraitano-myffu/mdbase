@@ -153,6 +153,36 @@ test('une demande : aperçu avant → après, rien d’écrit avant « Appliquer
   await expect.poll(() => espace.lire(SITE)).toContain('statut: Terminé\n')
 })
 
+test('après « Appliquer », le modèle reprend la demande : il propose l’étape suivante, puis se tait quand tout est fait', async ({ espace, page }) => {
+  const MOBILE = 'projets/application-mobile--pmobi002.md'
+  const recues = await simulerService(
+    page,
+    appel('modifier_lignes', { base: 'projets', lignes: ['psite001'], valeurs: { statut: 'Terminé' } }),
+    appel('modifier_lignes', { base: 'projets', lignes: ['pmobi002'], valeurs: { statut: 'Terminé' } }),
+    { content: 'fait' },
+  )
+  await espace.base('Projets')
+  await activer(page)
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('Le site vitrine puis l’application mobile sont terminés')
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Appliquer (1 ligne)' }).click()
+  await expect.poll(() => espace.lire(SITE)).toContain('statut: Terminé\n')
+
+  // La suite part seule, sans bulle de demande : l'étape suivante est proposée.
+  await expect(page.getByRole('button', { name: 'Appliquer (1 ligne)' })).toBeVisible()
+  await expect(page.locator('.operation-ia').last().locator('li')).toContainText('Application mobile')
+  await expect(page.locator('.bulle-ia.moi')).toHaveCount(1)
+  const suite = recues[1]!.postDataJSON() as { messages: { role: string; content: string }[] }
+  expect(suite.messages.at(-1)!.content).toContain('C’est appliqué. Reprends ma demande d’origine')
+
+  await page.getByRole('button', { name: 'Appliquer (1 ligne)' }).click()
+  await expect.poll(() => espace.lire(MOBILE)).toContain('statut: Terminé\n')
+  // « fait » : rien de plus à montrer, le fil s'arrête sur le plan appliqué.
+  await expect.poll(() => recues.length).toBe(3)
+  await expect(page.locator('.tour-ia')).toHaveCount(2)
+  await expect(page.locator('.applique-ia')).toHaveCount(2)
+})
+
 test('conversation : on répond à la question du modèle, qui relit l’échange ; gardée à la réouverture', async ({ espace, page }) => {
   const recues = await simulerService(
     page,
