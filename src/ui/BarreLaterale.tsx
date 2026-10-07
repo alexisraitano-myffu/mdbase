@@ -4,7 +4,7 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Blocks, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
+import { Blocks, BookOpen, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 import { FenetreBaseJira } from './Jira'
@@ -31,14 +31,16 @@ type Props = {
   relu: { enCours: boolean; a: Date | null }
   /** Modules activés (spec §19) : ce qu'ils montrent dans la barre. */
   assistantActif: boolean
-  modules: { jira: boolean; inbox: boolean }
+  modules: { jira: boolean; inbox: boolean; contexte: boolean }
   /** Entrée Inbox : éléments en attente, panneau ouvert, ouvrir ou fermer. */
   inbox: { compte: number; ouverte: boolean; basculer: () => void }
   ouvrirModules: () => void
+  /** Entrée Documents (module Contexte IA) : documents à jour, panneau ouvert, ouvrir ou fermer. */
+  documents: { compte: number; ouverte: boolean; basculer: () => void }
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules, documents }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -137,6 +139,13 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
           <Icone de={Inbox} />
           Inbox
           {inbox.compte > 0 && <span className="compte-onglet">{inbox.compte}</span>}
+        </button>
+      )}
+      {!lecture && modules.contexte && assistantActif && (
+        <button className={`entree-taches ${documents.ouverte ? 'active' : ''}`} onClick={documents.basculer} aria-expanded={documents.ouverte}>
+          <Icone de={BookOpen} />
+          Documents
+          {documents.compte > 0 && <span className="compte-onglet">{documents.compte}</span>}
         </button>
       )}
 
