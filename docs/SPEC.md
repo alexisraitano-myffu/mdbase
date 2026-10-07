@@ -767,7 +767,10 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 - Aucun appel réseau : le serveur parle au client sur l'entrée et la sortie standard. Ce que le client lit de l'espace part chez le fournisseur de son modèle, comme avec l'assistant.
 
 ### App de bureau [PROPOSÉ]
-- Tauri, Windows en priorité. Un `AdaptateurFichiers` natif remplace File System Access (absent de WebKit sur Mac) et permet de surveiller le dossier.
+- Tauri 2, Windows en priorité. La même app web, dans une fenêtre native ; `src-tauri/` pour le code natif.
+- **Fichiers** : `AdaptateurBureau` (`src/adapters/tauri/`) appelle des commandes natives (`lister`, `lire`, `ecrire`, `renommer`, `supprimer`, `date_modification`) qui n'acceptent que des chemins sous la racine de l'espace, à la place de File System Access (absent de WebKit sur Mac). Le dossier se choisit par la fenêtre du système ; il est retenu dans les réglages de l'app et rouvert au lancement, sans permission à redonner.
+- **Surveillance** : chaque changement dans le dossier (MCP, synchro Jira, autre machine) relit l'espace aussitôt, sans passer par l'indicateur « Relu à » ; la relecture au retour sur la fenêtre reste.
+- Pas de service worker. Installeur Windows NSIS par utilisateur (sans droits administrateur), fabriqué par `.github/workflows/bureau.yml`.
 - Windows : installeur non signé au début (SmartScreen demande « Exécuter quand même »), Microsoft Store plus tard si besoin. Mac : signature et notarisation avec un compte Apple Developer.
 - Plugins installés depuis l'app : Jira d'abord (appel direct, sans CORS ni script au démarrage), puis le serveur MCP (« Connecter à Claude »).
 

@@ -12,3 +12,7 @@ skills-lock.json
 
 # Résultats du banc de l'assistant IA (npm run banc)
 banc/resultats/
+
+# App de bureau : compilation Rust et schémas générés
+src-tauri/target/
+src-tauri/gen/schemas/
