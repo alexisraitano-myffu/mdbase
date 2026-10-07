@@ -121,7 +121,7 @@ test('services préremplis : un clic remplit l’adresse et le modèle, la clé 
   const fenetre = page.getByRole('dialog', { name: 'Assistant IA' })
   await fenetre.getByRole('button', { name: 'Anthropic' }).click()
   await expect(fenetre.getByLabel('Adresse du service')).toHaveValue('https://api.anthropic.com/v1')
-  await expect(fenetre.getByLabel('Modèle')).toHaveValue('claude-haiku-4-5')
+  await expect(fenetre.getByLabel('Modèle')).toHaveValue('claude-haiku-5-5')
   await expect(fenetre.getByLabel('Clé d’API')).toHaveAttribute('placeholder', 'sk-ant-…')
   await expect(fenetre.getByRole('link', { name: 'Créer une clé Anthropic' })).toHaveAttribute('href', 'https://console.anthropic.com/settings/keys')
   await fenetre.getByLabel('Clé d’API').fill('sk-ant-test')
