@@ -28,7 +28,7 @@ export default defineConfig({
   // Sous-dossier de publication (GitHub Pages sert l'app sous /<dépôt>/).
   base: process.env.BASE ?? '/',
   // Le hook graphify réécrit graphify-out/ après chaque commit : sans ça, la page se recharge.
-  server: { watch: { ignored: ['**/graphify-out/**'] } },
+  server: { watch: { ignored: ['**/graphify-out/**', '**/src-tauri/**'] } },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
