@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline'
 import { basesJira, synchroniser, type Bilan } from '../../core/jira/synchro'
 import { clientHttp } from './client-http'
 import { installerDemarrage, retirerDemarrage } from './demarrage'
-import { AdaptateurNode } from './fichiers-node'
+import { AdaptateurNode } from '../commun/fichiers-node'
 import { garderIdentifiants, lireIdentifiants, oublierIdentifiants, type Identifiants } from './secret'
 
 // Script de synchro Jira de mdbase (§16) : lit Jira Cloud, écrit les tickets

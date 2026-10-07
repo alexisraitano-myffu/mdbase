@@ -1,5 +1,5 @@
 {
-  // Outils en ligne de commande (Node) : le script de synchro Jira (§16). Ils
+  // Outils en ligne de commande (Node) : le script de synchro Jira (§16) et le serveur MCP. Ils
   // utilisent le cœur, jamais l'UI ; seul endroit où le réseau et le disque
   // sont touchés depuis Node.
   "extends": "./tsconfig.base.json",
@@ -8,6 +8,6 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["src/outils", "vite.jira.config.ts"],
+  "include": ["src/outils", "vite.jira.config.ts", "vite.mcp.config.ts"],
   "exclude": ["src/**/*.test.ts"]
 }

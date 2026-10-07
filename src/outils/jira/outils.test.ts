@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FichierIntrouvable } from '../../core/fichiers'
 import { clientHttp } from './client-http'
 import { texteCmd } from './demarrage'
-import { AdaptateurNode } from './fichiers-node'
+import { AdaptateurNode } from '../commun/fichiers-node'
 
 afterEach(() => vi.unstubAllGlobals())
 

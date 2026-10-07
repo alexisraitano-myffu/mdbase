@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-mcp
 *.tsbuildinfo
 .DS_Store
 # Graphe de code local (graphify), régénéré à chaque commit
