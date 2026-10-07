@@ -749,10 +749,28 @@ Description du ticket, convertie en Markdown.
 
 ---
 
+## 17. Serveur MCP et app de bureau [DÉCIDÉ, demandé par Alex le 07/10/2026]
+
+But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bureau Tauri (Windows d'abord, puis Mac) qui installe nativement des plugins comme Jira.
+
+### Serveur MCP (premier livrable)
+- Paquet **`mdbase.mcpb`**, publié avec le site : un double-clic l'installe dans Claude Desktop (Mac, Windows), qui fournit lui-même Node ; ni droits administrateur ni installation de Node. À l'installation, on choisit le dossier de l'espace.
+- Il ne dépend pas de l'app : il lit et écrit les fichiers de l'espace par le cœur (`DepotEspace`), l'app peut être ouverte ou non. Source : `src/outils/mcp/`, assemblé par `npm run mcp`.
+- **Mêmes outils que l'assistant (§12)**, avec les mêmes contrôles : `decrire_espace` en plus, sans `repondre`, `retenir`, `oublier` ni `creer_skill` (le client a sa propre réponse et sa propre mémoire). Une base synchronisée (§16) reste en lecture seule.
+- **Chaque appel d'écriture s'applique aussitôt**, sans aperçu : c'est le client qui demande l'accord avant chaque appel. Les outils de suppression sont marqués destructeurs. L'annulation de l'app (Ctrl+Z) ne couvre pas ces écritures.
+- L'espace est relu sur le disque avant chaque appel (changements faits par l'app ou la synchro), et les écritures sont sur le disque avant la réponse. Les appels passent un par un.
+- Aucun appel réseau : le serveur parle au client sur l'entrée et la sortie standard. Ce que le client lit de l'espace part chez le fournisseur de son modèle, comme avec l'assistant.
+
+### App de bureau [PROPOSÉ]
+- Tauri, Windows en priorité. Un `AdaptateurFichiers` natif remplace File System Access (absent de WebKit sur Mac) et permet de surveiller le dossier.
+- Signature Windows par SignPath Foundation (gratuite pour un projet open source : binaires construits par la CI, politique de signature publiée). Mac : signature et notarisation avec un compte Apple Developer.
+- Plugins installés depuis l'app : Jira d'abord (appel direct, sans CORS ni script au démarrage), puis le serveur MCP (« Connecter à Claude »).
+
+---
+
 ## 15. Questions ouvertes
 
 - Nom du produit.
 - Cible au-delà de l'usage personnel d'Alex (positionnement exact, distribution).
 - Cardinalité configurable des relations : UX de conversion d'une relation existante.
 - Stratégie d'import / export.
-- Moment de passer à Tauri (probablement quand la surveillance du dossier en temps réel devient nécessaire, ou pour appeler Jira sans script, §16).

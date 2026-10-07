@@ -12,7 +12,8 @@ npm test            # Vitest, une passe (tests du cœur, dans Node)
 npm run test:watch
 npm run test:e2e    # Playwright : l'interface dans Chrome sans fenêtre (e2e/), réutilise le `npm run dev` lancé
 npm run typecheck   # tsc -b sur les trois projets (core, app, test)
-npm run build       # typecheck + build statique dans dist/ (BASE=/mdbase/ pour le sous-chemin de GitHub Pages)
+npm run build       # typecheck + build statique dans dist/ (BASE=/mdbase/ pour le sous-chemin de GitHub Pages), script Jira et paquet MCP compris
+npm run mcp         # serveur MCP (src/outils/mcp) assemblé en dist/mdbase.mcpb pour Claude Desktop
 CAPTURES=1 npx playwright test captures   # refait les captures du README (docs/captures/)
 ```
 
@@ -72,6 +73,10 @@ src/
                  + démo sans installation (demo.ts : la démo copiée dans l'OPFS)
     ia/          connecteur compatible OpenAI (seul appel réseau de l'app) et réglages (localStorage)
     navigateur.ts  services injectés dans le cœur (aléatoire, minuteur)
+  outils/        outils Node qui utilisent le cœur, jamais l'UI (tsconfig.outils.json)
+    commun/      AdaptateurNode : fichiers de l'espace sur le disque
+    jira/        script de synchro Jira (§16), publié en dist/mdbase-jira.mjs
+    mcp/         serveur MCP (§17) : outils de l'assistant exposés à Claude Desktop, publié en dist/mdbase.mcpb
   ui/            React
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
 ```
