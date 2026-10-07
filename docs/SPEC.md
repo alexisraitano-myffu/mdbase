@@ -60,7 +60,7 @@ MonEspace/
     memoire.md
     skills/
       revue-du-lundi.md
-    contexte.md          (§18 [PROPOSÉ])
+    contexte.md          (§18)
     documents/
     inbox/
   projets/
@@ -87,7 +87,7 @@ Règles :
 - `_assistant/` (module IA, §12) : jamais affiché comme une base.
   - `memoire.md` : ce que l'assistant retient, un fait par ligne de liste (`- …`) ; le reste du fichier est préservé.
   - `skills/<slug>.md` : une procédure nommée, frontmatter `nom` et `description`, corps en Markdown = les instructions.
-  - `contexte.md`, `documents/`, `inbox/` : connaissance de l'assistant (§18 [PROPOSÉ]).
+  - `contexte.md`, `documents/`, `inbox/` : connaissance de l'assistant (§18).
 
 ### Identifiants
 - Chaque ligne, base, vue, mise en page, dashboard et colonne possède un identifiant stable.
@@ -633,7 +633,7 @@ Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, a
 - **Mémoire** (`_assistant/memoire.md`, §3) : le modèle retient un fait quand l'utilisateur le demande ou exprime une préférence durable ; écrit aussitôt, avec une mention « Retenu : … » annulable. Jamais une valeur de ligne.
 - **Skills** (`_assistant/skills/`, §3) : procédures nommées créées à la demande de l'utilisateur, avec confirmation comme une modification de données. Les skills et la mémoire sont envoyés au modèle avec la structure de l'espace, et l'avertissement d'activation le dit.
 - **Structure** : le modèle peut aussi créer une base, ajouter, renommer ou supprimer des colonnes (tous les types, relations avec leur miroir, rollups, formules), créer, régler ou supprimer des vues (filtres, tris, groupement, colonnes affichées), créer ou supprimer des dashboards, supprimer des lignes et écrire le contenu d'une page. Les appels d'une même réponse sont validés dans l'ordre sur un brouillon de l'espace : une colonne ou une base créée peut être remplie aussitôt. Application dans l'ordre structure, puis données, puis suppressions de lignes et contenu.
-- **Connaissance** (contexte, documents, inbox, budget) : §18 [PROPOSÉ].
+- **Connaissance** (contexte, documents, inbox, budget) : §18.
 - **Suppressions** : toujours dans l'aperçu, en rouge, avec leur portée (lignes touchées, liens retirés). Supprimer une base est possible, seulement à la demande explicite de l'utilisateur. Les données s'annulent d'un Ctrl+Z comme une action de l'utilisateur ; une base, une colonne, une vue ou un dashboard supprimé ne revient pas, et l'aperçu le dit (« définitif »).
 
 ---
@@ -766,7 +766,7 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 - L'espace est relu sur le disque avant chaque appel (changements faits par l'app ou la synchro), et les écritures sont sur le disque avant la réponse. Les appels passent un par un.
 - Aucun appel réseau : le serveur parle au client sur l'entrée et la sortie standard. Ce que le client lit de l'espace part chez le fournisseur de son modèle, comme avec l'assistant.
 
-### App de bureau [PROPOSÉ]
+### App de bureau [DÉCIDÉ, livrée le 07/10/2026 pour Windows]
 - Tauri 2, Windows en priorité. La même app web, dans une fenêtre native ; `src-tauri/` pour le code natif.
 - **Fichiers** : `AdaptateurBureau` (`src/adapters/tauri/`) appelle des commandes natives (`lister`, `lire`, `ecrire`, `renommer`, `supprimer`, `date_modification`) qui n'acceptent que des chemins sous la racine de l'espace, à la place de File System Access (absent de WebKit sur Mac). Le dossier se choisit par la fenêtre du système ; il est retenu dans les réglages de l'app et rouvert au lancement, sans permission à redonner.
 - **Surveillance** : chaque changement dans le dossier (MCP, synchro Jira, autre machine) relit l'espace aussitôt, sans passer par l'indicateur « Relu à » ; la relecture au retour sur la fenêtre reste.
@@ -776,7 +776,7 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 
 ---
 
-## 18. Connaissance de l'assistant [PROPOSÉ, demandé par Alex le 07/10/2026]
+## 18. Connaissance de l'assistant [DÉCIDÉ, validé par Alex le 07/10/2026 ; budget et rédaction guidée encore à faire]
 
 But : un assistant pertinent sans réexpliquer à chaque demande l'organisation, les workflows et le vocabulaire ; nourri des documents qui arrivent chaque semaine (présentations surtout) ; qui signale ce qui ne colle plus. Tout se gère depuis l'interface (panneau de l'assistant, page Inbox, fenêtre Modules §19) : rien n'apparaît dans les bases, et l'utilisateur n'a jamais à ouvrir ces fichiers (ils restent lisibles, dans `_assistant/`, synchronisés avec le dossier).
 
@@ -786,7 +786,7 @@ But : un assistant pertinent sans réexpliquer à chaque demande l'organisation,
   - *Propagation* : ce qui découle d'un changement (un lot qui glisse décale la livraison de sa version ; une remarque sur un ticket remonte dans le suivi de sa version…) ;
   - *Remarques* : pour chaque base, où et sous quelle forme noter une remarque dans le corps des pages (ex. section « Remarques », une entrée datée par ligne ; sur une version, « Points d'attention » et « Décisions ») ;
   - *Vocabulaire, rituels, interlocuteurs*.
-  Première rédaction guidée : l'assistant pose des questions (en s'appuyant sur les bases et relations existantes) et propose un texte, que l'utilisateur corrige. Ensuite, il ne change le contexte que par propositions, montrées dans l'aperçu (passage avant → après). Une jauge montre sa taille, avec un plafond indicatif (au-delà, un avertissement, pas un refus).
+  Première rédaction guidée [PROPOSÉ, pas encore faite : aujourd'hui, un modèle prérempli des sections conseillées] : l'assistant pose des questions (en s'appuyant sur les bases et relations existantes) et propose un texte, que l'utilisateur corrige. Ensuite, il ne change le contexte que par propositions, montrées dans l'aperçu (passage avant → après). Une jauge montre sa taille, avec un plafond indicatif (au-delà, un avertissement, pas un refus).
 - **Documents** (`_assistant/documents/`) : ce qui bouge chaque semaine. **Jamais envoyés d'office** : l'assistant y cherche avec deux outils de lecture, `chercher_documents` (mots, du plus récent au plus ancien, passages avec leur document et sa date ; index `minisearch` comme la recherche globale) et `lire_document`. Il cite la source et sa date dans ses réponses.
 
 La mémoire (§12) reste telle quelle : les petits faits et préférences appris en conversation. Le contexte, lui, est le texte de référence de l'utilisateur.
@@ -805,7 +805,7 @@ remplace_par: 2026-10-14--point-hebdo-projet-a  # absent tant qu'il est à jour
 ```
 Un document remplacé reste lisible (`lire_document`) mais n'est plus cherché par défaut.
 
-**Panneau Documents** [PROPOSÉ, demandé par Alex le 07/10/2026] : une entrée « Documents » dans la barre latérale (module Contexte IA, §19), sous « Inbox », avec le nombre de documents à jour. Elle ouvre un panneau à droite, comme l'inbox, avec deux onglets :
+**Panneau Documents** [DÉCIDÉ, validé par Alex le 07/10/2026] : une entrée « Documents » dans la barre latérale (module Contexte IA, §19), sous « Inbox », avec le nombre de documents à jour. Elle ouvre un panneau à droite, comme l'inbox, avec deux onglets :
 - **Documents** : recherche (titre, fichier et texte, sans tenir compte des accents ; l'extrait trouvé s'affiche), regroupement par mois du plus récent au plus ancien, documents remplacés cachés sauf à cocher « Montrer les documents remplacés ». Un clic ouvre la fiche : date, fichier d'origine, date de rangement, lignes concernées (un clic ouvre la ligne dans sa base), document qui le remplace ou qu'il remplace (un clic l'ouvre), puis le texte rendu en Markdown. « Supprimer » après confirmation ; ceux qu'il remplaçait redeviennent à jour.
 - **Contexte** : l'édition du contexte, avec son compteur de taille. Un contexte neuf est prérempli des sections conseillées.
 
@@ -813,7 +813,7 @@ Un document remplacé reste lisible (`lire_document`) mais n'est plus cherché p
 À l'ajout, une fois, dans l'app (navigateur comme bureau), sans Python ni service externe : PDF par pdf.js, Word par mammoth, PowerPoint en lisant le XML du `.pptx` (une section par diapositive, titre, texte des formes, tableaux en tableaux Markdown, graphiques en tableau de leurs valeurs, texte des SmartArt, notes de l'orateur). Bibliothèques chargées seulement à la première conversion. Limites, dites à l'ajout : un PDF scanné ne donne pas de texte ; les images et captures d'une présentation sont ignorées (signalées « image non lue »).
 
 ### Inbox
-**Une page à part** [PROPOSÉ, demandé par Alex le 07/10/2026] : une entrée « Inbox » dans la barre latérale, sous « Toutes les tâches », avec le nombre d'éléments en attente. Elle ouvre un panneau à droite du contenu, comme celui de l'assistant (même place, même poignée ; un seul des deux ouvert à la fois), dédié à l'inbox. L'inbox sert aussi **sans l'assistant** : c'est d'abord un endroit où tout déposer.
+**Une page à part** [DÉCIDÉ, validé par Alex le 07/10/2026] : une entrée « Inbox » dans la barre latérale, sous « Toutes les tâches », avec le nombre d'éléments en attente. Elle ouvre un panneau à droite du contenu, comme celui de l'assistant (même place, même poignée ; un seul des deux ouvert à la fois), dédié à l'inbox. L'inbox sert aussi **sans l'assistant** : c'est d'abord un endroit où tout déposer.
 - **Déposer** : un champ (remarque brute, copier-coller ; `Ctrl+Entrée`), un bouton « Fichier », et tout le panneau comme zone de dépôt (PDF, Word, PowerPoint, texte).
 - **À traiter** : la liste des éléments en attente (`_assistant/inbox/`), du plus récent au plus ancien : icône (note ou fichier), titre, date de réception, début du texte (déplié au clic), question laissée par l'assistant s'il y en a une. Par ligne : « Envoyer à l'IA », « Marquer traité » (sans l'IA), « Supprimer ». En tête : « Tout envoyer à l'IA ».
 - **Envoyer à l'IA** (un élément ou tous) ouvre le panneau de l'assistant sur la demande ; le plan se relit et s'applique là, comme toute proposition (§12). L'assistant :
@@ -833,13 +833,13 @@ Un document remplacé reste lisible (`lire_document`) mais n'est plus cherché p
   ```
   Un élément marqué traité à la main a `bilan: [Marqué traité]`.
 
-### Budget
+### Budget [PROPOSÉ, pas encore fait]
 - **Compteur** : chaque réponse du service donne les jetons consommés ; le panneau affiche le coût du mois (prix du modèle saisi ou prérempli). **Plafond mensuel** entièrement réglable par l'utilisateur : aucun par défaut (désactivé tant qu'il n'est pas saisi), montant et devise libres, prix par million de jetons modifiables pour tout modèle (préremplis seulement pour les services connus, jamais imposés). Une fois réglé : avertissement à 80 %, arrêt au plafond, levable pour le mois en cours. Gardé avec la clé, par machine : la vraie garantie reste la limite de dépense réglée dans la console du fournisseur, que l'écran de réglage recommande.
 - **Cache de prompt** : un connecteur Anthropic natif, à côté du connecteur générique, marque contexte, outils et description de l'espace comme cachables (relus à environ 10 % du prix pendant quelques minutes). Le connecteur compatible OpenAI reste pour les autres services.
 - Documents cherchés et non envoyés ; à l'ajout, seuls le nouveau document et les passages qu'il concerne partent.
 
 
-## 19. Modules [PROPOSÉ, demandé par Alex le 07/10/2026]
+## 19. Modules [DÉCIDÉ, validé par Alex le 07/10/2026]
 
 Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans une fenêtre **Modules** (bouton en bas de la barre latérale, au-dessus de « Changer de dossier »). Un interrupteur par module, avec une phrase qui dit ce qu'il fait, et son réglage quand il en a un :
 

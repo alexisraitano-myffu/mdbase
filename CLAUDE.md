@@ -67,19 +67,23 @@ src/
                            Brouillon où les appels se valident dans l'ordre, Correspondances des ids prévus
                            vers les ids réels), references.ts (retrouver base, colonne, ligne, filtres), assistant.ts (un appel, une relance si refus, historique de
                            conversation), memoire.ts (`_assistant/` : mémoire écrite aussitôt, skills
-                           écrits après confirmation)
+                           écrits après confirmation), connaissance.ts (§18 : contexte, documents cherchés
+                           par minisearch, inbox et historique des traités, outils de l'inbox)
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
                  + démo sans installation (demo.ts : la démo copiée dans l'OPFS)
     ia/          connecteur compatible OpenAI (seul appel réseau de l'app) et réglages (localStorage)
+    conversion/  fichiers déposés dans l'inbox → Markdown : PowerPoint lu dans son XML (fflate), Word (mammoth),
+                 PDF (pdf.js) ; les deux dernières chargées à la demande
     tauri/       app de bureau (§17) : AdaptateurBureau sur les commandes natives, dossier retenu, surveillance
     navigateur.ts  services injectés dans le cœur (aléatoire, minuteur)
   outils/        outils Node qui utilisent le cœur, jamais l'UI (tsconfig.outils.json)
     commun/      AdaptateurNode : fichiers de l'espace sur le disque
     jira/        script de synchro Jira (§16), publié en dist/mdbase-jira.mjs
     mcp/         serveur MCP (§17) : outils de l'assistant exposés à Claude Desktop, publié en dist/mdbase.mcpb
-  ui/            React
+  ui/            React ; panneaux à droite exclusifs (assistant, Inbox.tsx, Documents.tsx : état `panneau` dans App),
+                 modules.tsx (§19 : modules activés par machine, localStorage)
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
 src-tauri/       app de bureau Tauri 2 (Rust) : fichiers.rs (accès au dossier, chemins bornés à la racine, testé par cargo test),
                  lib.rs (commandes, dossier retenu, surveillance notify). Installeur Windows par .github/workflows/bureau.yml
