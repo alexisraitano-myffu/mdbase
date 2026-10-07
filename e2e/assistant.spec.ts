@@ -585,14 +585,17 @@ test('modules : Jira caché par défaut, le contexte s’édite et part avec cha
   await modules.getByRole('switch', { name: 'Contexte IA' }).click()
   await expect(modules.getByRole('switch', { name: 'Contexte IA' })).toBeChecked()
   await page.screenshot({ path: 'test-results/modules.png' })
-  await modules.getByRole('button', { name: 'Éditer le contexte et les documents' }).click()
-  const fenetre = page.getByRole('dialog', { name: 'Contexte IA' })
-  await expect(fenetre.getByLabel('Contexte')).toHaveValue(/## Organisation/)
-  await fenetre.getByLabel('Contexte').fill('## Organisation\nClients → Projets → Tâches.')
-  await fenetre.getByRole('button', { name: 'Enregistrer' }).click()
+  await modules.getByRole('button', { name: 'Éditer le contexte' }).click()
+  // Le contexte s'édite dans le panneau Documents, à la place de l'assistant.
+  const panneau = page.getByRole('complementary', { name: 'Documents' })
+  await expect(panneau.getByRole('tab', { name: 'Contexte' })).toHaveAttribute('aria-selected', 'true')
+  await expect(panneau.getByLabel('Contexte')).toHaveValue(/## Organisation/)
+  await panneau.getByLabel('Contexte').fill('## Organisation\nClients → Projets → Tâches.')
+  await panneau.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(panneau).toContainText('Enregistré.')
   await page.screenshot({ path: 'test-results/contexte.png' })
   await expect.poll(() => espace.lire('_assistant/contexte.md')).toBe('## Organisation\nClients → Projets → Tâches.\n')
-  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: /Assistant IA/ }).click()
 
   await page.getByPlaceholder(/passe les tâches en retard/).fill('bonjour')
   await page.keyboard.press('Enter')
@@ -600,3 +603,45 @@ test('modules : Jira caché par défaut, le contexte s’édite et part avec cha
   const systeme = (recues[0]!.postDataJSON() as { messages: { content: string }[] }).messages[0]!.content
   expect(systeme).toContain('Clients → Projets → Tâches.')
 })
+
+test('documents : une entrée dédiée, chercher, lire une fiche, suivre une ligne, voir les remplacés, supprimer', async ({ espace, page }) => {
+  const doc = (id: string, titre: string, date: string, texte: string, plus = '') =>
+    espace.ecrire(`_assistant/documents/${id}.md`, `---\ntitre: ${titre}\nsource: ${id}.pptx\ndate: ${date}\najoute: ${date}T09:00\nlignes: [projets/psite001]\n${plus}---\n\n${texte}\n`)
+  await doc('2026-09-30--point-s40', 'Point hebdo S40', '2026-09-30', '## Diapositive 1\n\nLivraison prévue le 15/10.', 'remplace_par: 2026-10-07--point-s41\n')
+  await doc('2026-10-07--point-s41', 'Point hebdo S41', '2026-10-07', '## Diapositive 1\n\nLa recette du lot 2 est décalée au 29/10.')
+  await doc('2026-10-02--cr-comite', 'CR comité', '2026-10-02', 'Le budget est validé.')
+  await espace.base('Projets')
+  await activer(page)
+  await allumer(page, 'Contexte IA')
+
+  await page.locator('.barre-laterale').getByRole('button', { name: /^Documents/ }).click()
+  const panneau = page.getByRole('complementary', { name: 'Documents' })
+  // Les documents à jour seulement, regroupés par mois.
+  await expect(panneau.getByRole('tab', { name: /Documents/ })).toContainText('2')
+  await expect(panneau.getByRole('list', { name: 'Documents de octobre 2026' }).locator(':scope > li')).toHaveCount(2)
+  await expect(panneau).not.toContainText('Point hebdo S40')
+  await panneau.getByLabel('Montrer les documents remplacés (1)').check()
+  await expect(panneau.getByRole('list', { name: 'Documents de septembre 2026' })).toContainText('remplacé')
+
+  // Recherche sans accents, dans le texte : le passage trouvé s'affiche.
+  await panneau.getByLabel('Chercher dans les documents').fill('decalee')
+  await expect(panneau.locator('.liste-inbox li')).toHaveCount(1)
+  await expect(panneau.locator('.apercu-element')).toContainText('décalée au 29/10')
+  await page.screenshot({ path: 'test-results/documents.png' })
+
+  await panneau.getByRole('button', { name: 'Point hebdo S41', exact: true }).click()
+  await expect(panneau.locator('.texte-document')).toContainText('La recette du lot 2 est décalée au 29/10.')
+  await expect(panneau.locator('.infos-document')).toContainText('Point hebdo S40')
+  await page.screenshot({ path: 'test-results/document-fiche.png' })
+  // Le document remplacé s'ouvre depuis la fiche ; la ligne concernée s'ouvre dans sa base.
+  await panneau.getByRole('button', { name: 'Point hebdo S40' }).click()
+  await expect(panneau.locator('.texte-document')).toContainText('Livraison prévue le 15/10.')
+  await panneau.getByRole('button', { name: 'Site vitrine' }).click()
+  await expect(page.locator('aside.page')).toContainText("Refaire le site vitrine d'Acme")
+
+  await panneau.getByRole('button', { name: 'Supprimer le document « Point hebdo S40 »' }).click()
+  await panneau.getByRole('button', { name: 'Supprimer', exact: true }).click()
+  await expect(panneau.getByRole('button', { name: 'Tous les documents' })).toHaveCount(0)
+  expect(await espace.lister('_assistant/documents')).not.toContain('2026-09-30--point-s40.md')
+})
+

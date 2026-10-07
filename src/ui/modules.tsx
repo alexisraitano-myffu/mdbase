@@ -1,10 +1,8 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
-import { BookOpen, Inbox, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { useSyncExternalStore } from 'react'
+import { BookOpen, Inbox, RefreshCw, Sparkles } from 'lucide-react'
 import type { EtatEspace } from '../core/depot-espace'
-import type { DocumentConnaissance } from '../core/ia/connaissance'
 import { useEspace } from './contexte-espace'
 import { Fenetre } from './fenetre'
-import { Icone } from './icones'
 import { Interrupteur, Section } from './reglages'
 
 // Modules (spec §19) : les fonctions qui ne servent pas à tout le monde
@@ -57,11 +55,9 @@ export function useModules(etat: EtatEspace): { jira: boolean; inbox: boolean; c
 /** Pour une lecture hors composant (la session de l'assistant). */
 export const contexteActif = () => lireChoix().contexte ?? false
 
-export function FenetreModules(p: { assistantActif: boolean; reglerAssistant: () => void; desactiverAssistant: () => void; fermer: () => void }) {
+export function FenetreModules(p: { assistantActif: boolean; reglerAssistant: () => void; desactiverAssistant: () => void; ouvrirContexte: () => void; fermer: () => void }) {
   const { etat } = useEspace()
   const modules = useModules(etat)
-  const [contexte, setContexte] = useState(false)
-  if (contexte) return <FenetreContexte fermer={() => setContexte(false)} />
   return (
     <Fenetre titre="Modules" fermer={p.fermer}>
       <div className="modules">
@@ -80,84 +76,15 @@ export function FenetreModules(p: { assistantActif: boolean; reglerAssistant: ()
         <Section aide="Un endroit où tout déposer : remarques, mails, présentations, PDF. À traiter toi-même, ou à envoyer à l’assistant, ligne par ligne ou en entier.">
           <Interrupteur libelle="Inbox" icone={Inbox} coche={modules.inbox} changer={(v) => changerModule('inbox', v)} />
         </Section>
-        <Section aide="Le texte qui explique ton organisation à l’assistant, envoyé à chaque demande, et les documents rangés depuis l’inbox, où il cherche.">
+        <Section aide="Le texte qui explique ton organisation à l’assistant, envoyé à chaque demande, et les documents rangés depuis l’inbox, où il cherche. Ajoute l’entrée Documents dans la barre latérale.">
           <Interrupteur libelle="Contexte IA" icone={BookOpen} coche={modules.contexte && p.assistantActif} desactive={!p.assistantActif} changer={(v) => changerModule('contexte', v)} />
           {!p.assistantActif && <p className="discret aide-reglage">Demande l’assistant IA.</p>}
           {modules.contexte && p.assistantActif && (
-            <button className="discret lien-module" onClick={() => setContexte(true)}>
-              Éditer le contexte et les documents
+            <button className="discret lien-module" onClick={p.ouvrirContexte}>
+              Éditer le contexte
             </button>
           )}
         </Section>
-      </div>
-    </Fenetre>
-  )
-}
-
-/** Sections conseillées d'un contexte neuf (spec §18). */
-const MODELE_CONTEXTE = `## Organisation
-Ce que représente chaque base et comment elles s'emboîtent (ex. Projet → Version → Lot → Ticket).
-
-## Propagation
-Ce qui découle d'un changement (ex. un lot qui glisse décale la livraison de sa version).
-
-## Remarques
-Pour chaque base, où noter une remarque dans le corps des pages (ex. section « Remarques », une entrée datée).
-
-## Vocabulaire, rituels, interlocuteurs
-`
-
-const TAILLE_CONSEILLEE = 8000
-
-/** Le contexte (édité ici, jamais ouvert à la main) et les documents rangés depuis l'inbox. */
-function FenetreContexte(p: { fermer: () => void }) {
-  const { espace } = useEspace()
-  const [texte, setTexte] = useState<string | null>(null)
-  const [lu, setLu] = useState('')
-  const [documents, setDocuments] = useState<DocumentConnaissance[]>([])
-  const relire = () =>
-    void espace.assistant.connaissance.lire().then((c) => {
-      setLu(c.contexte)
-      setTexte((t) => t ?? (c.contexte || MODELE_CONTEXTE))
-      setDocuments(c.documents)
-    })
-  useEffect(relire, [espace])
-  if (texte === null) return null
-  const modifie = texte.trim() !== lu.trim() && !(lu === '' && texte === MODELE_CONTEXTE)
-  return (
-    <Fenetre titre="Contexte IA" fermer={p.fermer}>
-      <div className="contexte-ia">
-        <p className="discret">Envoyé à l’assistant à chaque demande : explique ton organisation une fois, il n’aura plus à la redemander.</p>
-        <textarea value={texte} aria-label="Contexte" rows={16} spellCheck onChange={(e) => setTexte(e.target.value)} />
-        <div className="boutons">
-          <span className={`discret ${texte.length > TAILLE_CONSEILLEE ? 'erreur' : ''}`}>
-            {texte.length.toLocaleString('fr-FR')} caractères{texte.length > TAILLE_CONSEILLEE ? ` : au-delà de ${TAILLE_CONSEILLEE.toLocaleString('fr-FR')}, chaque demande coûte plus cher` : ''}
-          </span>
-          <button className="principal" disabled={!modifie} onClick={() => void espace.assistant.connaissance.ecrireContexte(texte).then(relire)}>
-            Enregistrer
-          </button>
-        </div>
-        <div className="titre-section">Documents rangés ({documents.length})</div>
-        {documents.length === 0 ? (
-          <p className="discret">Aucun : les présentations et comptes rendus traités depuis l’inbox arrivent ici.</p>
-        ) : (
-          <ul className="documents-ia">
-            {documents.map((d) => (
-              <li key={d.id} className={d.remplacePar ? 'remplace' : ''}>
-                <span className="element-inbox">
-                  <span className="libelle-choix">{d.titre}</span>
-                  <span className="discret">
-                    {d.date.split('-').reverse().join('/')}
-                    {d.remplacePar ? ' · remplacé' : ''}
-                  </span>
-                </span>
-                <button className="discret" aria-label={`Supprimer le document « ${d.titre} »`} title="Supprimer ce document" onClick={() => void espace.assistant.connaissance.supprimerDocument(d.id).then(relire)}>
-                  <Icone de={Trash2} taille={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </Fenetre>
   )

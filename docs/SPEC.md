@@ -802,6 +802,10 @@ remplace_par: 2026-10-14--point-hebdo-projet-a  # absent tant qu'il est à jour
 ```
 Un document remplacé reste lisible (`lire_document`) mais n'est plus cherché par défaut.
 
+**Panneau Documents** [PROPOSÉ, demandé par Alex le 07/10/2026] : une entrée « Documents » dans la barre latérale (module Contexte IA, §19), sous « Inbox », avec le nombre de documents à jour. Elle ouvre un panneau à droite, comme l'inbox, avec deux onglets :
+- **Documents** : recherche (titre, fichier et texte, sans tenir compte des accents ; l'extrait trouvé s'affiche), regroupement par mois du plus récent au plus ancien, documents remplacés cachés sauf à cocher « Montrer les documents remplacés ». Un clic ouvre la fiche : date, fichier d'origine, date de rangement, lignes concernées (un clic ouvre la ligne dans sa base), document qui le remplace ou qu'il remplace (un clic l'ouvre), puis le texte rendu en Markdown. « Supprimer » après confirmation ; ceux qu'il remplaçait redeviennent à jour.
+- **Contexte** : l'édition du contexte, avec son compteur de taille. Un contexte neuf est prérempli des sections conseillées.
+
 ### Conversion
 À l'ajout, une fois, dans l'app (navigateur comme bureau), sans Python ni service externe : PDF par pdf.js, Word par mammoth, PowerPoint en lisant le XML du `.pptx` (une section par diapositive, titre, texte des formes, tableaux en tableaux Markdown, graphiques en tableau de leurs valeurs, texte des SmartArt, notes de l'orateur). Bibliothèques chargées seulement à la première conversion. Limites, dites à l'ajout : un PDF scanné ne donne pas de texte ; les images et captures d'une présentation sont ignorées (signalées « image non lue »).
 
@@ -841,7 +845,7 @@ Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans u
 | Jira | « Nouvelle base Jira », bandeau de synchro, réglages de la base Jira (§16) | activé si l'espace contient déjà une base Jira |
 | Assistant IA | bouton et panneau de l'assistant, `Ctrl+J` ; réglage : la connexion (§12), avec l'avertissement d'activation | désactivé |
 | Inbox | entrée et page Inbox (§18) ; sans l'assistant, pas de bouton « Envoyer à l'IA » | désactivé |
-| Contexte IA | contexte et documents envoyés ou cherchés par l'assistant (§18) ; réglage : éditer le contexte, voir et retirer les documents rangés. Demande l'assistant | désactivé |
+| Contexte IA | contexte et documents envoyés ou cherchés par l'assistant (§18) ; entrée et panneau Documents (documents rangés, édition du contexte). Demande l'assistant | désactivé |
 
 - Désactiver un module **cache** ce qu'il montre ; aucun fichier n'est touché. Une base Jira existante reste une base lisible quand le module est désactivé (sans bandeau de synchro).
 - Les choix sont gardés **par machine** (dans le navigateur, comme la clé de l'assistant), pas dans le dossier : aucune nouvelle clé dans `_espace.yaml`.

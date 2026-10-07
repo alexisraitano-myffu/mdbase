@@ -62,6 +62,8 @@ export function PanneauInbox(p: {
   const [vider, setVider] = useState(false)
   const choixFichier = useRef<HTMLInputElement>(null)
   const [largeur, saisirPoignee] = useLargeurPanneau('mdbase.largeurInbox', 420)
+  // Relue à l'ouverture : la synchro du dossier a pu apporter des éléments.
+  useEffect(inbox.relire, [inbox.relire])
 
   /** Dépose des fichiers, convertis en Markdown ; les limites de la conversion sont dites. */
   const deposerFichiers = async (fichiers: readonly File[]) => {

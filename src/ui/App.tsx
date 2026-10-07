@@ -25,6 +25,7 @@ import { BasculeMode, BasculePleinEcran, ContexteMode, useModeMemorise, usePlein
 import { AideRaccourcis } from './Raccourcis'
 import { ToutesLesTaches } from './Taches'
 import { PanneauInbox, useInbox } from './Inbox'
+import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
 import { FenetreModules, useModules } from './modules'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string } | { type: 'taches' }
@@ -186,7 +187,8 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   const [reglagesIA, setReglagesIA] = useState(lireReglages)
   const [reglerIA, setReglerIA] = useState(false)
   // Un seul panneau à droite à la fois : l'assistant ou l'inbox (spec §18).
-  const [panneau, setPanneau] = useState<'ia' | 'inbox' | null>(null)
+  const [panneau, setPanneau] = useState<'ia' | 'inbox' | 'documents' | null>(null)
+  const [ongletDocuments, setOngletDocuments] = useState<OngletDocuments>('documents')
   const panneauIA = panneau === 'ia'
   const [fenetreModules, setFenetreModules] = useState(false)
   const modules = useModules(etat)
@@ -195,6 +197,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   const sessionIA = useMemo(() => new SessionAssistant(espace, nom), [espace, nom])
   useEffect(() => () => sessionIA.arreter(), [sessionIA])
   const inbox = useInbox(espace, sessionIA)
+  const documents = useDocuments(espace, sessionIA)
   /** Ctrl+J et le bouton de la barre latérale : ouvre ou ferme le panneau (ou l'activation, la première fois). */
   const basculerAssistant = useCallback(() => {
     if (lireReglages().actif) setPanneau((o) => (o === 'ia' ? null : 'ia'))
@@ -312,6 +315,14 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             modules={modules}
             inbox={{ compte: inbox.attente.length, ouverte: panneau === 'inbox', basculer: () => setPanneau((o) => (o === 'inbox' ? null : 'inbox')) }}
             ouvrirModules={() => setFenetreModules(true)}
+            documents={{
+              compte: documents.documents.filter((d) => !d.remplacePar).length,
+              ouverte: panneau === 'documents',
+              basculer: () => {
+                setOngletDocuments('documents')
+                setPanneau((o) => (o === 'documents' ? null : 'documents'))
+              },
+            }}
             relire={rafraichir}
             relu={relu}
           />
@@ -347,6 +358,9 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
               fermer={() => setPanneau(null)}
             />
           )}
+          {panneau === 'documents' && modules.contexte && reglagesIA.actif && !consultation && (
+            <PanneauDocuments espace={espace} {...documents} onglet={ongletDocuments} changerOnglet={setOngletDocuments} fermer={() => setPanneau(null)} />
+          )}
           {panneau === 'inbox' && modules.inbox && !consultation && (
             <PanneauInbox
               espace={espace}
@@ -370,6 +384,11 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             reglerAssistant={() => {
               setFenetreModules(false)
               setReglerIA(true)
+            }}
+            ouvrirContexte={() => {
+              setFenetreModules(false)
+              setOngletDocuments('contexte')
+              setPanneau('documents')
             }}
             desactiverAssistant={() => {
               const r = { ...reglagesIA, actif: false }

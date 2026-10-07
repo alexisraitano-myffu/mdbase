@@ -1155,15 +1155,31 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .modules { display: flex; flex-direction: column; gap: 0.25rem; }
 .modules > p { margin: 0 0 0.25rem; font-size: 0.9em; }
 .lien-module { align-self: flex-start; font-size: 0.85em; padding: 2px 6px; text-decoration: underline; text-underline-offset: 2px; }
-.contexte-ia { display: flex; flex-direction: column; gap: 0.6rem; }
+/* Documents et contexte de l'assistant (spec §18) : un panneau comme l'inbox */
+.onglets-documents { flex: 1; display: flex; gap: 2px; }
+.onglets-documents button { display: inline-flex; align-items: center; padding: 3px 9px; border: none; border-radius: 7px; background: none; color: var(--discret); font: inherit; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+.onglets-documents button.actif { color: var(--texte); background: var(--fond-doux); }
+.fil-ia.documents { gap: 0.75rem; }
+.recherche-documents { display: flex; align-items: center; gap: 7px; border: 1px solid var(--bordure); border-radius: 10px; padding: 5px 9px; color: var(--discret); }
+.recherche-documents input { flex: 1; min-width: 0; border: none; outline: none; background: none; padding: 0; box-shadow: none; font: inherit; color: var(--texte); }
+.recherche-documents input:focus, .recherche-documents input:focus-visible { outline: none; box-shadow: none; border: none; }
+.recherche-documents:focus-within { border-color: var(--bordure-forte); }
+.filtre-remplaces { margin: 0; font-size: 0.85em; color: var(--texte-doux); }
+.titre-section.mois-documents { padding: 0; margin: 0; }
+.mois-documents::first-letter { text-transform: uppercase; }
+.liste-inbox li.remplace .libelle-choix { color: var(--discret); }
+.titre-document { margin: 0; font-size: 1.05rem; }
+.infos-document { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 0.85em; }
+.infos-document dt { color: var(--discret); }
+.infos-document dd { margin: 0; min-width: 0; }
+.lignes-document { display: flex; flex-wrap: wrap; gap: 4px; }
+.lignes-document .citation-ia { cursor: pointer; }
+.lien-document { padding: 0; border: none; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; text-align: left; }
+.texte-document { border-top: 1px solid var(--bordure); padding-top: 0.75rem; font-size: 0.92em; }
+.fil-ia.contexte-ia { gap: 0.6rem; }
 .contexte-ia > p { margin: 0; font-size: 0.9em; }
-.contexte-ia textarea { flex-shrink: 0; min-height: 40vh; width: 100%; box-sizing: border-box; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; line-height: 1.5; border: 1px solid var(--bordure); border-radius: 10px; padding: 8px 10px; background: var(--fond); color: inherit; }
+.contexte-ia textarea { flex: 1; min-height: 300px; width: 100%; box-sizing: border-box; resize: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; line-height: 1.5; border: 1px solid var(--bordure); border-radius: 10px; padding: 8px 10px; background: var(--fond); color: inherit; }
 .contexte-ia .boutons { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0; font-size: 0.9em; }
-.contexte-ia .titre-section { padding: 0; margin-top: 0.4rem; }
-.documents-ia { list-style: none; margin: 0; padding: 0; max-height: 30vh; overflow-y: auto; }
-.documents-ia li { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid var(--bordure); }
-.documents-ia li.remplace .libelle-choix { color: var(--discret); }
-.documents-ia li > button { display: inline-flex; padding: 3px; }
 .panneau-ia.depot-ia { outline: 2px dashed var(--texte); outline-offset: -6px; }
 .incoherences-ia h3 { display: flex; align-items: center; gap: 5px; }
 .vue-plein-ecran .panneau-ia { margin-left: 0; border-radius: 0; box-shadow: none; border-left: 1px solid var(--bordure); }
