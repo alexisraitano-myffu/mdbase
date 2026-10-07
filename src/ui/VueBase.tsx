@@ -9,6 +9,7 @@ import { useEspace } from './contexte-espace'
 import { BarreVue } from './BarreVue'
 import { ContenuVue, useVueAppliquee } from './ContenuVue'
 import { BandeauSynchro } from './Jira'
+import { useModules } from './modules'
 import { DonneesDe } from './mode'
 import { Page } from './Page'
 import { useErreurDepot } from './useDepot'
@@ -32,6 +33,7 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
   const [idVue, setIdVue] = useState(etat.vues[0]!.id)
   const vue = etat.vues.find((v) => v.id === idVue) ?? etat.vues[0]!
   const appliquee = useVueAppliquee(etat.id, depot, vue)
+  const { jira } = useModules(useEspace().etat)
   const { lignesVue } = appliquee
 
   // La page peut appartenir à une autre base quand on la suit depuis un onglet relation.
@@ -68,7 +70,7 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
           </details>
         )}
         {doublons && <BandeauDoublons depot={depot} doublons={doublons} />}
-        {depot.schema.source && <BandeauSynchro espace={espace} base={etat.id} schema={depot.schema} />}
+        {depot.schema.source && jira && <BandeauSynchro espace={espace} base={etat.id} schema={depot.schema} />}
         <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} lignesVue={lignesVue} />
         <DonneesDe schema={depot.schema}>
           <ContenuVue

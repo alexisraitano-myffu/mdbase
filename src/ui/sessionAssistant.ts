@@ -5,6 +5,7 @@ import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../co
 import { modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
 import { enregistrerConversations, lireConversations, type ConversationGardee, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
 import { aujourdhui, maintenant } from '../adapters/navigateur'
+import { contexteActif } from './modules'
 
 // Conversation avec l'assistant IA (spec §12, « Module IA »), hors de tout
 // composant : fermer ou replier le panneau ne coupe pas une demande en cours.
@@ -32,9 +33,9 @@ export type Resultat =
 export type MentionMemoire = { action: ActionMemoire; etat: 'fait' | 'annule' | 'garde' }
 
 /** Ce que l'utilisateur envoie : son texte, les bases citées avec `@` (ids) et le skill choisi avec `/`. */
-export type Demande = { texte: string; bases: string[]; skill?: string }
+export type Demande = { texte: string; bases: string[]; skill?: string; /** Éléments de l'inbox à traiter (ids). */ inbox?: string[] }
 
-export type Tour = { demande: string; bases?: string[]; skill?: string; resultat: Resultat; memoire?: MentionMemoire[] }
+export type Tour = { demande: string; bases?: string[]; skill?: string; /** Éléments de l'inbox traités (session seulement). */ inbox?: string[]; resultat: Resultat; memoire?: MentionMemoire[] }
 
 export const texteMention = (a: ActionMemoire) => `${a.type === 'retenir' ? 'Retenu' : 'Oublié'} : ${a.fait}`
 const mentionsFaites = (t: Tour) => (t.memoire ?? []).filter((m) => m.etat !== 'annule').map((m) => texteMention(m.action))
@@ -194,12 +195,14 @@ export class SessionAssistant {
     )
   }
 
-  /** Traite l'inbox (spec §18) : une demande ordinaire, accompagnée de ses éléments. */
-  traiterInbox(o: { reglages: ReglagesIA; baseOuverte: string | null }) {
-    return this.envoyer({ texte: 'Traite l’inbox.', bases: [] }, o, false, true)
+  /** Traite des éléments de l'inbox (spec §18) : une demande ordinaire, accompagnée de ces éléments. */
+  traiterInbox(o: { reglages: ReglagesIA; baseOuverte: string | null }, elements: readonly { id: string; titre: string }[]) {
+    if (elements.length === 0) return
+    const texte = elements.length === 1 ? `Traite cet élément de l’inbox : « ${elements[0]!.titre} ».` : `Traite ces ${elements.length} éléments de l’inbox.`
+    return this.envoyer({ texte, bases: [], inbox: elements.map((e) => e.id) }, o)
   }
 
-  async envoyer(d: Demande, o: { reglages: ReglagesIA; baseOuverte: string | null }, suite = false, inbox = false) {
+  async envoyer(d: Demande, o: { reglages: ReglagesIA; baseOuverte: string | null }, suite = false) {
     const texte = suite ? DEMANDE_SUITE : d.texte.trim()
     if ((texte === '' && !d.skill) || this.enCours()) return
     this.options = o
@@ -210,7 +213,7 @@ export class SessionAssistant {
     const arret = new AbortController()
     this.arret = arret
     const id = this.id
-    this.changer([...passes, { demande: suite ? '' : texte, ...citations(d), resultat: { type: 'envoi', depuis } }])
+    this.changer([...passes, { demande: suite ? '' : texte, ...citations(d), ...(!suite && d.inbox?.length ? { inbox: d.inbox } : {}), resultat: { type: 'envoi', depuis } }])
     let recu: Progression | undefined
     try {
       const r = await proposer(modeleCompatibleOpenAI(o.reglages), this.espace, texte, {
@@ -218,7 +221,8 @@ export class SessionAssistant {
         baseOuverte: o.baseOuverte,
         basesCitees: d.bases,
         skill: d.skill,
-        inbox,
+        inbox: suite ? undefined : d.inbox,
+        contexte: contexteActif(),
         historique: passes.flatMap((t) => echange(t) ?? []),
         signal: arret.signal,
         progression: (p) => {
@@ -278,7 +282,7 @@ export class SessionAssistant {
     if (!this.dernierModifiable()) return null
     const t = this.tours.at(-1)!
     this.changer(this.tours.slice(0, -1))
-    return { texte: t.demande, bases: t.bases ?? [], ...(t.skill ? { skill: t.skill } : {}) }
+    return { texte: t.demande, bases: t.bases ?? [], ...(t.skill ? { skill: t.skill } : {}), ...(t.inbox ? { inbox: t.inbox } : {}) }
   }
 
   /** Renvoie la dernière demande telle quelle, à la place de sa réponse. */

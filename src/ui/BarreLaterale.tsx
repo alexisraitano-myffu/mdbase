@@ -4,7 +4,7 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Ellipsis, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
+import { Blocks, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 import { FenetreBaseJira } from './Jira'
@@ -29,10 +29,16 @@ type Props = {
   /** Relit le dossier (changements faits ailleurs), et l'état de la dernière relecture. */
   relire: () => void
   relu: { enCours: boolean; a: Date | null }
+  /** Modules activés (spec §19) : ce qu'ils montrent dans la barre. */
+  assistantActif: boolean
+  modules: { jira: boolean; inbox: boolean }
+  /** Entrée Inbox : éléments en attente, panneau ouvert, ouvrir ou fermer. */
+  inbox: { compte: number; ouverte: boolean; basculer: () => void }
+  ouvrirModules: () => void
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -114,7 +120,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         Rechercher
         <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘K' : 'Ctrl+K'}</kbd>
       </button>
-      {!lecture && (
+      {!lecture && assistantActif && (
         <button className="discret bouton-recherche" onClick={assistant}>
           <Icone de={Sparkles} />
           Assistant IA
@@ -126,6 +132,13 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         <Icone de={ListChecks} />
         Toutes les tâches
       </button>
+      {!lecture && modules.inbox && (
+        <button className={`entree-taches ${inbox.ouverte ? 'active' : ''}`} onClick={inbox.basculer} aria-expanded={inbox.ouverte}>
+          <Icone de={Inbox} />
+          Inbox
+          {inbox.compte > 0 && <span className="compte-onglet">{inbox.compte}</span>}
+        </button>
+      )}
 
       <section className={`groupe dashboards ${cible === 'dashboards' ? 'cible' : ''}`} {...deposableDashboard('dashboards')}>
         <div className="titre-groupe">
@@ -206,14 +219,22 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
             <button className="discret ajout-barre" onClick={() => setImport(true)}>
               <Icone de={Upload} /> Importer un CSV
             </button>
-            <button className="discret ajout-barre" onClick={() => setJira(true)}>
-              <Icone de={RefreshCw} /> Nouvelle base Jira
-            </button>
+            {modules.jira && (
+              <button className="discret ajout-barre" onClick={() => setJira(true)}>
+                <Icone de={RefreshCw} /> Nouvelle base Jira
+              </button>
+            )}
           </>
         )
       )}
 
       <AlerteCopies espace={espace} copies={etat.copiesConflit} />
+      {!lecture && (
+        <button className="discret modules-barre" onClick={ouvrirModules} title="Activer Jira, l’assistant IA, l’inbox, le contexte de l’assistant">
+          <Icone de={Blocks} />
+          Modules
+        </button>
+      )}
       <button
         className="discret relire"
         onClick={relire}

@@ -42,6 +42,10 @@ async function passerLeScript(espace: Espace, base: string, tickets: TicketJira[
 
 async function creerBaseJira(espace: Espace) {
   const page = espace.page
+  // Module Jira (spec §19) : caché tant que l'espace n'a pas de base Jira.
+  await page.getByRole('button', { name: 'Modules' }).click()
+  await page.getByRole('dialog', { name: 'Modules' }).getByRole('switch', { name: 'Jira' }).click()
+  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Nouvelle base Jira' }).click()
   const fenetre = page.locator('.fenetre')
   await fenetre.getByLabel('Site Jira').fill('https://exemple.atlassian.net/jira/software/projects/PRVE/boards/1')

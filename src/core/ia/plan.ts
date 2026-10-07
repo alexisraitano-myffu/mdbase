@@ -186,7 +186,7 @@ export function validerAppel(espace: EtatEspace | Brouillon, appel: AppelOutil, 
     if (schema.source) erreur(`la base « ${schema.nom} » est synchronisée depuis ${nomSource(schema.source.type)} : en lecture seule, rien ne peut y être modifié (réponds avec \`repondre\`)`)
   }
   if (estOutilInbox(appel.nom)) {
-    const c = assistant.connaissance ?? { contexte: '', documents: [], inbox: [] }
+    const c = assistant.connaissance ?? { contexte: '', documents: [], inbox: [], traites: [] }
     const ligneExiste = (base: string, id: string) => etat.bases.get(base)?.depot?.lignes().some((l) => l.id === id) ?? false
     return validerInbox({ nom: appel.nom, args }, { inbox: c.inbox, documents: c.documents, ligneExiste, aujourdhui: ctx.aujourdhui })
   }
@@ -286,6 +286,10 @@ export async function appliquerPlan(espace: DepotEspace, plan: Plan, maintenant 
   }
   await appliquerSuite(espace, plan.suite ?? [], corr)
   for (const { remplace: _, ...skill } of plan.skills ?? []) await espace.assistant.enregistrerSkill(skill)
-  if (plan.connaissance?.length) await espace.assistant.connaissance.appliquer(plan.connaissance, maintenant)
+  if (plan.connaissance?.length) {
+    // Le bilan d'un élément traité : ce que le plan a fait par ailleurs, et ce qu'il signale.
+    const commun = resumerPlan({ ...plan, connaissance: [], incoherences: [] }).split('\n').filter(Boolean)
+    await espace.assistant.connaissance.appliquer(plan.connaissance, maintenant, { commun, incoherences: plan.incoherences ?? [] })
+  }
   return n
 }
