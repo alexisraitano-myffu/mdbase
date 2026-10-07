@@ -1,4 +1,5 @@
 import type { Page, Request } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { choisir, expect, test } from './espace'
 
 // Assistant IA (spec §12, « Module IA ») : désactivé par défaut, avertissement
@@ -478,4 +479,35 @@ test('inbox : une remarque et un fichier déposés, traités en une demande, ran
   await expect(page.locator('.applique-ia')).toBeVisible()
   await expect.poll(() => espace.lire(SITE)).toMatch(/## Remarques\n\n- \d\d\/\d\d\/\d{4} : Recette décalée de deux semaines\./)
   await expect(page.getByRole('button', { name: 'Inbox', exact: true })).toBeVisible()
+})
+
+test('inbox : PowerPoint, Word et PDF lâchés sur le panneau, convertis dans le navigateur', async ({ espace, page }) => {
+  const recues = await simulerService(page, { content: 'Lu.' })
+  await espace.base('Projets')
+  await activer(page)
+
+  // Vrais fichiers Office et PDF (fictifs), lâchés comme depuis l'explorateur.
+  const fichiers = ['Point hebdo Atlas S41.pptx', 'CR comite Atlas.docx', 'Planning Atlas.pdf'].map((nom) => ({ nom, octets: [...readFileSync(`e2e/fichiers/${nom}`)] }))
+  await page.locator('.panneau-ia').evaluate((panneau, fichiers) => {
+    const dt = new DataTransfer()
+    for (const f of fichiers) dt.items.add(new File([new Uint8Array(f.octets)], f.nom))
+    panneau.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }))
+    panneau.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }))
+  }, fichiers)
+  await expect(page.locator('.inbox-ia li')).toHaveCount(3)
+  await expect(page.locator('.inbox-ia')).toContainText('Point hebdo Atlas S41')
+  await expect(page.locator('.inbox-ia')).toContainText('Planning Atlas')
+
+  await page.getByRole('button', { name: 'Traiter (3)' }).click()
+  await expect(page.locator('.bulle-ia').last()).toContainText('Lu.')
+  const demande = (recues[0]!.postDataJSON() as { messages: { content: string }[] }).messages.at(-1)!.content
+  // PowerPoint : titres, puces, notes, tableau et graphique.
+  expect(demande).toContain('## Diapositive 2 : Faits marquants')
+  expect(demande).toContain('- Lot 2 (paiement) : recette décalée au 22/10')
+  expect(demande).toContain('Notes : Annoncer que la date de mise en production de la V1.5 glisse au 12/11.')
+  expect(demande).toContain('| 1.5 | Lot 2 Paiement | En recette | 22/10 |')
+  expect(demande).toContain('| Faits | 34 |')
+  // Word et PDF.
+  expect(demande).toContain('- La V1.5 passe au 12/11.')
+  expect(demande).toContain('## Page 2\n\nLot 3 Notifications : fin prevue le 05/11.')
 })

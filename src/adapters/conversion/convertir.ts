@@ -63,6 +63,37 @@ function tableau(xml: string): string {
   return [ligne(lignes[0]!), `|${' --- |'.repeat(largeur)}`, ...lignes.slice(1).map(ligne)].join('\n')
 }
 
+/** Points d'une série en cache (`c:cat`, `c:val`, `c:tx`), rangés par indice. */
+function points(xml: string): string[] {
+  const r: string[] = []
+  for (const m of xml.matchAll(/<c:pt\s[^>]*idx="(\d+)"[^>]*>\s*<c:v>([\s\S]*?)<\/c:v>/g)) r[Number(m[1])] = decoder(m[2]!)
+  return Array.from(r, (v) => v ?? '')
+}
+
+/** Graphique : les valeurs en cache, en tableau (une ligne par catégorie, une colonne par série). */
+function graphique(xml: string): string {
+  const series = [...xml.matchAll(/<c:ser>[\s\S]*?<\/c:ser>/g)].map((m) => ({
+    nom: points(/<c:tx>[\s\S]*?<\/c:tx>/.exec(m[0])?.[0] ?? '')[0] ?? '',
+    categories: points(/<c:(?:cat|xVal)>[\s\S]*?<\/c:(?:cat|xVal)>/.exec(m[0])?.[0] ?? ''),
+    valeurs: points(/<c:(?:val|yVal)>[\s\S]*?<\/c:(?:val|yVal)>/.exec(m[0])?.[0] ?? ''),
+  }))
+  if (series.length === 0) return ''
+  const titreGraphique = paragraphes(/<c:title>[\s\S]*?<\/c:title>/.exec(xml)?.[0] ?? '').join(' ')
+  const categories = series[0]!.categories.length > 0 ? series[0]!.categories : series[0]!.valeurs.map((_, i) => String(i + 1))
+  const lignes = [['', ...series.map((s, i) => s.nom || `Série ${i + 1}`)], ...categories.map((c, i) => [c, ...series.map((s) => s.valeurs[i] ?? '')])]
+  const ligne = (l: string[]) => `| ${l.map(cellule).join(' | ')} |`
+  return [`Graphique${titreGraphique ? ` : ${titreGraphique}` : ''}`, ligne(lignes[0]!), `|${' --- |'.repeat(lignes[0]!.length)}`, ...lignes.slice(1).map(ligne)].join('\n')
+}
+
+/** SmartArt : le texte de ses nœuds, dans l'ordre du modèle de données. */
+function smartArt(xml: string): string {
+  return [...xml.matchAll(/<dgm:pt\b[^>]*[^/]>[\s\S]*?<\/dgm:pt>/g)]
+    .map((m) => paragraphes(m[0]).join(' '))
+    .filter((t) => t !== '')
+    .map((t) => `- ${t}`)
+    .join('\n')
+}
+
 /** Cible d'une relation, résolue depuis le dossier du fichier qui la porte. */
 function resoudre(dossier: string, cible: string): string {
   const parties = cible.startsWith('/') ? [] : dossier.split('/').filter(Boolean)
@@ -89,12 +120,13 @@ export function convertirPptx(octets: Uint8Array): { texte: string; avertissemen
   const fichiers = unzipSync(octets)
   const lire = (chemin: string) => (fichiers[chemin] ? strFromU8(fichiers[chemin]) : '')
   // Ordre des diapositives : celui de la présentation, pas celui des noms de fichiers.
-  const rels = relations(fichiers, 'ppt/presentation.xml')
-  let diapos = [...lire('ppt/presentation.xml').matchAll(/<p:sldId\s[^>]*r:id="([^"]+)"/g)].flatMap((m) => rels.get(m[1]!)?.cible ?? [])
+  const relsPresentation = relations(fichiers, 'ppt/presentation.xml')
+  let diapos = [...lire('ppt/presentation.xml').matchAll(/<p:sldId\s[^>]*r:id="([^"]+)"/g)].flatMap((m) => relsPresentation.get(m[1]!)?.cible ?? [])
   if (diapos.length === 0) diapos = Object.keys(fichiers).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).sort((a, b) => Number(/\d+/.exec(a)![0]) - Number(/\d+/.exec(b)![0]))
   let images = 0
   const sections = diapos.map((chemin, i) => {
     const xml = lire(chemin)
+    const rels = relations(fichiers, chemin)
     let titre = ''
     const blocs: string[] = []
     // Formes, tableaux et images dans l'ordre du document.
@@ -106,6 +138,14 @@ export function convertirPptx(octets: Uint8Array): { texte: string; avertissemen
       }
       if (forme.startsWith('<p:graphicFrame>')) {
         if (forme.includes('<a:tbl>')) blocs.push(tableau(forme))
+        else {
+          // Graphique (`c:chart r:id`) ou SmartArt (`dgm:relIds r:dm`) : leurs données sont dans un fichier à part.
+          const lien = /<c:chart\b[^>]*\br:id="([^"]+)"/.exec(forme) ?? /<dgm:relIds\b[^>]*\br:dm="([^"]+)"/.exec(forme)
+          const cible = lien && rels.get(lien[1]!)?.cible
+          const bloc = cible ? (lien[0].startsWith('<c:chart') ? graphique(lire(cible)) : smartArt(lire(cible))) : ''
+          if (bloc) blocs.push(bloc)
+          else if (lien) images++
+        }
         continue
       }
       const type = /<p:ph\b[^>]*\btype="([^"]+)"/.exec(forme)?.[1]
@@ -115,7 +155,7 @@ export function convertirPptx(octets: Uint8Array): { texte: string; avertissemen
       if (!titre && (type === 'title' || type === 'ctrTitle')) titre = texte.join(' ')
       else blocs.push(texte.map((t) => (texte.length > 1 ? `- ${t.replace(/\n/g, ' ')}` : t)).join('\n'))
     }
-    const notes = [...relations(fichiers, chemin).values()].find((r) => r.type.endsWith('/notesSlide'))
+    const notes = [...rels.values()].find((r) => r.type.endsWith('/notesSlide'))
     if (notes) {
       const corps = [...lire(notes.cible).matchAll(/<p:sp>[\s\S]*?<\/p:sp>/g)].filter((s) => /<p:ph\b[^>]*\btype="body"/.test(s[0])).flatMap((s) => paragraphes(s[0]))
       if (corps.length > 0) blocs.push(`Notes : ${corps.join(' ')}`)
