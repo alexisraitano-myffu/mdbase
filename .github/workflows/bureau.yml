@@ -1,5 +1,6 @@
 # App de bureau (spec §17) : installeur Windows (NSIS, sans droits administrateur),
-# non signé pour l'instant. À la demande, ou quand le code natif change.
+# non signé pour l'instant. À la demande, quand le code natif change, et en
+# release publique sur un tag bureau-v<version>.
 name: App de bureau
 
 on:
@@ -7,11 +8,12 @@ on:
   push:
     branches: [main]
     paths: ['src-tauri/**', 'src/adapters/tauri/**', '.github/workflows/bureau.yml']
+    tags: ['bureau-v*']
   pull_request:
     paths: ['src-tauri/**', 'src/adapters/tauri/**', '.github/workflows/bureau.yml']
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows:
@@ -40,3 +42,16 @@ jobs:
           name: mdbase-windows-portable
           path: src-tauri/target/release/mdbase.exe
           if-no-files-found: error
+      # Release : noms de fichiers fixes, pour un lien stable vers la dernière version (releases/latest/download/…).
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/bureau-v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${GITHUB_REF_NAME#bureau-v}"
+          test "$v" = "$(node -p "require('./package.json').version")" || { echo "Le tag $GITHUB_REF_NAME ne correspond pas à package.json"; exit 1; }
+          cp src-tauri/target/release/bundle/nsis/*-setup.exe mdbase-windows-installeur.exe
+          cp src-tauri/target/release/mdbase.exe mdbase-windows-portable.exe
+          gh release create "$GITHUB_REF_NAME" mdbase-windows-installeur.exe mdbase-windows-portable.exe \
+            --title "mdbase $v, app de bureau Windows" --notes-file .github/release-bureau.md
