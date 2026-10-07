@@ -763,7 +763,7 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 
 ### App de bureau [PROPOSÉ]
 - Tauri, Windows en priorité. Un `AdaptateurFichiers` natif remplace File System Access (absent de WebKit sur Mac) et permet de surveiller le dossier.
-- Signature Windows par SignPath Foundation (gratuite pour un projet open source : binaires construits par la CI, politique de signature publiée). Mac : signature et notarisation avec un compte Apple Developer.
+- Windows : installeur non signé au début (SmartScreen demande « Exécuter quand même »), Microsoft Store plus tard si besoin. Mac : signature et notarisation avec un compte Apple Developer.
 - Plugins installés depuis l'app : Jira d'abord (appel direct, sans CORS ni script au démarrage), puis le serveur MCP (« Connecter à Claude »).
 
 ---

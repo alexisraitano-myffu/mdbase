@@ -101,7 +101,3 @@ La V1 décrite dans la spec est complète et la structure du produit est stable.
 ## Licence
 
 [MIT](LICENSE)
-
-## Code signing policy
-
-Les binaires de l'app de bureau pour Windows seront signés gratuitement par SignPath Foundation : voir la [politique de signature](CODE_SIGNING.md) (Code signing policy).
