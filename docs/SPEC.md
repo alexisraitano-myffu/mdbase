@@ -60,6 +60,9 @@ MonEspace/
     memoire.md
     skills/
       revue-du-lundi.md
+    contexte.md          (§18 [PROPOSÉ])
+    documents/
+    inbox/
   projets/
     _schema.yaml
     _vues/
@@ -84,6 +87,7 @@ Règles :
 - `_assistant/` (module IA, §12) : jamais affiché comme une base.
   - `memoire.md` : ce que l'assistant retient, un fait par ligne de liste (`- …`) ; le reste du fichier est préservé.
   - `skills/<slug>.md` : une procédure nommée, frontmatter `nom` et `description`, corps en Markdown = les instructions.
+  - `contexte.md`, `documents/`, `inbox/` : connaissance de l'assistant (§18 [PROPOSÉ]).
 
 ### Identifiants
 - Chaque ligne, base, vue, mise en page, dashboard et colonne possède un identifiant stable.
@@ -629,6 +633,7 @@ Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, a
 - **Mémoire** (`_assistant/memoire.md`, §3) : le modèle retient un fait quand l'utilisateur le demande ou exprime une préférence durable ; écrit aussitôt, avec une mention « Retenu : … » annulable. Jamais une valeur de ligne.
 - **Skills** (`_assistant/skills/`, §3) : procédures nommées créées à la demande de l'utilisateur, avec confirmation comme une modification de données. Les skills et la mémoire sont envoyés au modèle avec la structure de l'espace, et l'avertissement d'activation le dit.
 - **Structure** : le modèle peut aussi créer une base, ajouter, renommer ou supprimer des colonnes (tous les types, relations avec leur miroir, rollups, formules), créer, régler ou supprimer des vues (filtres, tris, groupement, colonnes affichées), créer ou supprimer des dashboards, supprimer des lignes et écrire le contenu d'une page. Les appels d'une même réponse sont validés dans l'ordre sur un brouillon de l'espace : une colonne ou une base créée peut être remplie aussitôt. Application dans l'ordre structure, puis données, puis suppressions de lignes et contenu.
+- **Connaissance** (contexte, documents, inbox, budget) : §18 [PROPOSÉ].
 - **Suppressions** : toujours dans l'aperçu, en rouge, avec leur portée (lignes touchées, liens retirés). Supprimer une base est possible, seulement à la demande explicite de l'utilisateur. Les données s'annulent d'un Ctrl+Z comme une action de l'utilisateur ; une base, une colonne, une vue ou un dashboard supprimé ne revient pas, et l'aperçu le dit (« définitif »).
 
 ---
@@ -765,6 +770,53 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 - Tauri, Windows en priorité. Un `AdaptateurFichiers` natif remplace File System Access (absent de WebKit sur Mac) et permet de surveiller le dossier.
 - Windows : installeur non signé au début (SmartScreen demande « Exécuter quand même »), Microsoft Store plus tard si besoin. Mac : signature et notarisation avec un compte Apple Developer.
 - Plugins installés depuis l'app : Jira d'abord (appel direct, sans CORS ni script au démarrage), puis le serveur MCP (« Connecter à Claude »).
+
+---
+
+## 18. Connaissance de l'assistant [PROPOSÉ, demandé par Alex le 07/10/2026]
+
+But : un assistant pertinent sans réexpliquer à chaque demande l'organisation, les workflows et le vocabulaire ; nourri des documents qui arrivent chaque semaine (présentations surtout) ; qui signale ce qui ne colle plus. Tout se gère depuis le panneau de l'assistant (§12) : rien n'apparaît dans la barre latérale ni dans les bases, et l'utilisateur n'a jamais à ouvrir ces fichiers (ils restent lisibles, dans `_assistant/`, synchronisés avec le dossier).
+
+### Deux couches
+- **Contexte** (`_assistant/contexte.md`) : ce qui bouge peu. Markdown libre, **envoyé en entier à chaque demande**. Sections conseillées, proposées à la création :
+  - *Organisation* : la hiérarchie des bases et ce que chaque niveau représente (ex. Projet → Version → Lot → Ticket, les tickets Jira attachés aux tickets) ;
+  - *Propagation* : ce qui découle d'un changement (un lot qui glisse décale la livraison de sa version ; une remarque sur un ticket remonte dans le suivi de sa version…) ;
+  - *Remarques* : pour chaque base, où et sous quelle forme noter une remarque dans le corps des pages (ex. section « Remarques », une entrée datée par ligne ; sur une version, « Points d'attention » et « Décisions ») ;
+  - *Vocabulaire, rituels, interlocuteurs*.
+  Première rédaction guidée : l'assistant pose des questions (en s'appuyant sur les bases et relations existantes) et propose un texte, que l'utilisateur corrige. Ensuite, il ne change le contexte que par propositions, montrées dans l'aperçu (passage avant → après). Une jauge montre sa taille, avec un plafond indicatif (au-delà, un avertissement, pas un refus).
+- **Documents** (`_assistant/documents/`) : ce qui bouge chaque semaine. **Jamais envoyés d'office** : l'assistant y cherche avec deux outils de lecture, `chercher_documents` (mots, du plus récent au plus ancien, passages avec leur document et sa date ; index `minisearch` comme la recherche globale) et `lire_document`. Il cite la source et sa date dans ses réponses.
+
+La mémoire (§12) reste telle quelle : les petits faits et préférences appris en conversation. Le contexte, lui, est le texte de référence de l'utilisateur.
+
+### Fichier d'un document
+`_assistant/documents/<date>--<slug>.md` : le document converti en Markdown, avec un frontmatter (nouvelles clés) :
+```yaml
+---
+titre: Point hebdo projet A
+source: point-hebdo-A-S41.pptx   # nom du fichier d'origine (le fichier lui-même n'est pas copié)
+date: 2026-10-07                 # date de l'information ; à défaut, date de l'ajout
+ajoute: 2026-10-07T09:12
+lignes: [projets/k2x9m4pq, versions/v3a8c2de]   # lignes concernées, trouvées par l'assistant à l'ajout
+remplace_par: 2026-10-14--point-hebdo-projet-a  # absent tant qu'il est à jour
+---
+```
+Un document remplacé reste lisible (`lire_document`) mais n'est plus cherché par défaut.
+
+### Conversion
+À l'ajout, une fois, dans l'app (navigateur comme bureau), sans Python ni service externe : PDF par pdf.js, Word par mammoth, PowerPoint en lisant le XML du `.pptx` (une section par diapositive, titre, texte des formes, tableaux en tableaux Markdown, notes de l'orateur). Bibliothèques chargées seulement à la première conversion. Limites, dites à l'ajout : un PDF scanné ne donne pas de texte ; les images et graphiques d'une présentation sont ignorés (signalés « image non lue »).
+
+### Inbox
+Un champ et une zone de dépôt dans le panneau : une remarque brute, un fichier (PDF, Word, PowerPoint, texte) ou un copier-coller. En attente dans `_assistant/inbox/` jusqu'au traitement. « Traiter » envoie tout ce qui attend en une demande ; l'assistant :
+1. rattache chaque information aux lignes concernées, en suivant l'*Organisation* du contexte ;
+2. propose un plan dans l'aperçu habituel : remarques datées ajoutées au corps des bonnes pages (nouvel outil `ajouter_remarque` : ajoute une entrée à une section sans réécrire le reste de la page), champs à mettre à jour, ce qui en découle selon la *Propagation*, correction du contexte si l'organisation a changé ;
+3. range le fichier en document (frontmatter rempli, `remplace_par` posé sur ceux qu'il remplace, avec confirmation) ;
+4. liste à part les **incohérences**, jamais appliquées : présentation contre bases (date, statut, avancement), contre le statut des tickets Jira attachés, contre la présentation précédente du même projet (une date qui bouge sans explication), contre le contexte.
+Une information qu'il ne sait pas rattacher reste dans l'inbox avec sa question. Une base Jira (§16) reste en lecture seule : une remarque sur un ticket Jira va sur la ligne de l'utilisateur qui l'attache.
+
+### Budget
+- **Compteur** : chaque réponse du service donne les jetons consommés ; le panneau affiche le coût du mois (prix du modèle saisi ou prérempli). **Plafond mensuel** réglable (ex. 10 €) : l'assistant s'arrête au plafond, avec un avertissement à 80 %. Gardé avec la clé, par machine : la vraie garantie reste la limite de dépense réglée dans la console du fournisseur, que l'écran de réglage recommande.
+- **Cache de prompt** : un connecteur Anthropic natif, à côté du connecteur générique, marque contexte, outils et description de l'espace comme cachables (relus à environ 10 % du prix pendant quelques minutes). Le connecteur compatible OpenAI reste pour les autres services.
+- Documents cherchés et non envoyés ; à l'ajout, seuls le nouveau document et les passages qu'il concerne partent.
 
 ---
 
