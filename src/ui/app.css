@@ -864,6 +864,8 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 /* Relecture du dossier */
 .barre-laterale .relire { margin-top: auto; text-align: left; font-size: 0.9em; }
 .barre-laterale .relire + .changer { margin-top: 0; }
+.barre-laterale .modules-barre + .relire { margin-top: 0; }
+.barre-laterale .modules-barre { margin-top: auto; display: inline-flex; align-items: center; gap: 6px; text-align: left; font-size: 0.9em; }
 .tourne { animation: tourner 0.8s linear infinite; }
 @keyframes tourner { to { transform: rotate(360deg); } }
 
@@ -1122,23 +1124,46 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .ouvrir-conversation .discret { font-size: 0.8em; }
 .historique-vide { margin: 0; padding: 0.6rem 0.8rem; }
 
-/* Inbox de l'assistant (spec §18) */
-.bouton-inbox { position: relative; }
-.compte-inbox { position: absolute; top: 0; right: 0; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--texte); color: var(--fond); font-size: 0.65rem; line-height: 14px; text-align: center; }
-.inbox-ia { display: flex; flex-direction: column; gap: 0.5rem; width: 340px; padding: 0.7rem; }
-.inbox-ia > p { margin: 0; font-size: 0.85em; }
-.inbox-ia ul { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; }
-.inbox-ia li { display: flex; align-items: flex-start; gap: 6px; padding: 5px 0; border-top: 1px solid var(--bordure); }
-.inbox-ia li > svg { margin-top: 3px; flex-shrink: 0; }
-.inbox-ia li > button { display: inline-flex; padding: 3px; }
-.element-inbox { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 0.9em; }
+/* Inbox (spec §18) : un panneau à droite, à la place de l'assistant */
+.fil-ia.inbox { gap: 1rem; }
+.depot-inbox { display: flex; flex-direction: column; gap: 0.4rem; }
+.depot-inbox textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; line-height: 1.45; border: 1px solid var(--bordure); border-radius: 10px; padding: 6px 9px; background: var(--fond); color: inherit; }
+.depot-inbox .boutons { display: flex; gap: 6px; justify-content: flex-end; align-items: center; margin-top: 0; }
+.depot-inbox .boutons > button:first-child { margin-right: auto; display: inline-flex; align-items: center; gap: 4px; }
+.note-inbox { margin: 0; font-size: 0.85em; }
+.liste-inbox > p { margin: 0; font-size: 0.9em; }
+.titre-inbox { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+.titre-inbox .titre-section { margin: 0; padding: 0; }
+.titre-section.depli { display: inline-flex; align-items: center; gap: 3px; border: none; background: none; cursor: pointer; }
+.action-inbox { display: inline-flex; align-items: center; gap: 5px; font-size: 0.85em; }
+.confirmer-inbox { display: inline-flex; gap: 6px; font-size: 0.85em; }
+.liste-inbox > ul { list-style: none; margin: 4px 0 0; padding: 0; }
+.liste-inbox > ul > li { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-top: 1px solid var(--bordure); }
+.liste-inbox > ul > li > svg { margin-top: 3px; flex-shrink: 0; color: var(--discret); }
+.element-inbox { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.9em; }
 .element-inbox .libelle-choix { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .element-inbox .discret { font-size: 0.85em; }
+.titre-element { display: flex; min-width: 0; padding: 0; border: none; background: none; text-align: left; color: var(--texte); font: inherit; font-weight: 500; cursor: pointer; }
+.apercu-element { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.texte-element { margin: 4px 0 0; white-space: pre-wrap; font: inherit; font-size: 0.95em; max-height: 50vh; overflow-y: auto; background: var(--fond-doux); border-radius: 8px; padding: 6px 8px; }
 .question-inbox { font-style: italic; }
-.note-inbox { font-size: 0.85em; }
-.inbox-ia textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
-.inbox-ia .boutons { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
-.inbox-ia .boutons > button:first-child { margin-right: auto; display: inline-flex; align-items: center; gap: 4px; }
+.actions-element { display: flex; gap: 1px; flex-shrink: 0; opacity: 0.55; }
+.liste-inbox li:hover .actions-element, .actions-element:focus-within { opacity: 1; }
+.bilan-inbox { margin: 3px 0 0; padding-left: 1.1rem; font-size: 0.95em; color: var(--texte-doux); display: flex; flex-direction: column; gap: 1px; }
+.traites .libelle-choix { color: var(--texte-doux); }
+/* Modules (spec §19) et contexte de l'assistant */
+.modules { display: flex; flex-direction: column; gap: 0.25rem; }
+.modules > p { margin: 0 0 0.25rem; font-size: 0.9em; }
+.lien-module { align-self: flex-start; font-size: 0.85em; padding: 2px 6px; text-decoration: underline; text-underline-offset: 2px; }
+.contexte-ia { display: flex; flex-direction: column; gap: 0.6rem; }
+.contexte-ia > p { margin: 0; font-size: 0.9em; }
+.contexte-ia textarea { flex-shrink: 0; min-height: 40vh; width: 100%; box-sizing: border-box; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; line-height: 1.5; border: 1px solid var(--bordure); border-radius: 10px; padding: 8px 10px; background: var(--fond); color: inherit; }
+.contexte-ia .boutons { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 0; font-size: 0.9em; }
+.contexte-ia .titre-section { padding: 0; margin-top: 0.4rem; }
+.documents-ia { list-style: none; margin: 0; padding: 0; max-height: 30vh; overflow-y: auto; }
+.documents-ia li { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid var(--bordure); }
+.documents-ia li.remplace .libelle-choix { color: var(--discret); }
+.documents-ia li > button { display: inline-flex; padding: 3px; }
 .panneau-ia.depot-ia { outline: 2px dashed var(--texte); outline-offset: -6px; }
 .incoherences-ia h3 { display: flex; align-items: center; gap: 5px; }
 .vue-plein-ecran .panneau-ia { margin-left: 0; border-radius: 0; box-shadow: none; border-left: 1px solid var(--bordure); }
@@ -1614,3 +1639,5 @@ kbd.touche svg.icone { margin: 0; }
   background: var(--barre-fond);
   border: 1px solid color-mix(in srgb, var(--barre-texte) 22%, var(--barre-fond));
 }
+/* Actions d'un élément de l'inbox : plus nettes au survol */
+.actions-element { transition: opacity 150ms var(--ease-out); }

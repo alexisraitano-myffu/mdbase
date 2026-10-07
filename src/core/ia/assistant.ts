@@ -45,8 +45,10 @@ export type OptionsDemande = {
   /** Transmis au modèle : arrêt par l'utilisateur, et réponse suivie au fil de l'eau. */
   signal?: RequeteIA['signal']
   progression?: RequeteIA['progression']
-  /** Traiter l'inbox (spec §18) : ses éléments accompagnent la demande. */
-  inbox?: boolean
+  /** Contexte et documents (spec §18) envoyés ou cherchables ; faux quand le module Contexte IA est désactivé (§19). */
+  contexte?: boolean
+  /** Éléments de l'inbox à traiter (spec §18), ids : ils accompagnent la demande. */
+  inbox?: readonly string[]
 }
 
 /** Échanges renvoyés au modèle : assez pour suivre une conversation, sans alourdir chaque demande. */
@@ -101,11 +103,11 @@ function decrireConnaissance(c: Connaissance): string {
 
 export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: string, o: OptionsDemande): Promise<Proposition> {
   const assistant = await espace.assistant.lire()
-  const connaissance = assistant.connaissance ?? { contexte: '', documents: [], inbox: [] }
+  const connaissance = assistant.connaissance ?? { contexte: '', documents: [], inbox: [], traites: [] }
   const contexte = decrireEspace(espace.etat(), { ...o, candidats: espace.candidats(demande), memoire: assistant.memoire, skills: assistant.skills })
-  const savoir = decrireConnaissance(connaissance)
-  const inbox = o.inbox ? connaissance.inbox : []
-  const outils = [...OUTILS_LECTURE, ...(connaissance.documents.length > 0 ? OUTILS_DOCUMENTS : []), ...OUTILS, ...(inbox.length > 0 ? OUTILS_INBOX : [])]
+  const savoir = o.contexte === false ? '' : decrireConnaissance(connaissance)
+  const inbox = o.inbox ? connaissance.inbox.filter((e) => o.inbox!.includes(e.id)) : []
+  const outils = [...OUTILS_LECTURE, ...(o.contexte !== false && connaissance.documents.length > 0 ? OUTILS_DOCUMENTS : []), ...OUTILS, ...(inbox.length > 0 ? OUTILS_INBOX : [])]
   const messages: MessageIA[] = [
     { role: 'system', contenu: [CONSIGNE, savoir, contexte].filter(Boolean).join('\n\n') },
     ...(o.historique ?? []).slice(-ECHANGES_MAX).flatMap((e, i, liste) => rejouer(e, i >= liste.length - ECHANGES_DETAILLES)),

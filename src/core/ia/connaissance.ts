@@ -8,13 +8,15 @@ import { erreur, ErreurProposition, normaliser, texteRequis } from './references
 
 // Connaissance de l'assistant (spec §18) : le contexte (`_assistant/contexte.md`,
 // envoyé à chaque demande), les documents (`_assistant/documents/`, cherchés
-// par outils) et l'inbox (`_assistant/inbox/`, en attente de traitement).
+// par outils) et l'inbox (`_assistant/inbox/`, en attente de traitement ;
+// `_assistant/inbox/traites/`, l'historique de ce qui en a été fait).
 // Comme toute configuration, relus sur le disque avant d'être modifiés.
 
 const DOSSIER = '_assistant'
 export const FICHIER_CONTEXTE = joindre(DOSSIER, 'contexte.md')
 const DOSSIER_DOCUMENTS = joindre(DOSSIER, 'documents')
 const DOSSIER_INBOX = joindre(DOSSIER, 'inbox')
+const DOSSIER_TRAITES = joindre(DOSSIER_INBOX, 'traites')
 
 /** Un document : du Markdown (converti à l'ajout) et ce qu'on sait de lui. */
 export type DocumentConnaissance = {
@@ -47,7 +49,20 @@ export type ElementInbox = {
   texte: string
 }
 
-export type Connaissance = { contexte: string; documents: DocumentConnaissance[]; inbox: ElementInbox[] }
+/** Un élément traité : gardé dans l'historique avec ce qui en a été fait. */
+export type ElementTraite = ElementInbox & {
+  /** Date et heure du traitement (AAAA-MM-JJTHH:MM). */
+  traite: string
+  /** Ce qui a été fait, en phrases lisibles. */
+  bilan: string[]
+  /** Document où le fichier a été rangé : son texte n'est pas recopié dans l'historique. */
+  document?: string
+}
+
+export type Connaissance = { contexte: string; documents: DocumentConnaissance[]; inbox: ElementInbox[]; traites: ElementTraite[] }
+
+/** Ce qu'un plan a fait par ailleurs (lignes, pages, structure) et ce qu'il signale : le bilan des éléments qu'il traite. */
+export type BilanPlan = { commun: string[]; incoherences: readonly Incoherence[] }
 
 /** Ce qu'un plan fait de l'inbox, appliqué après le reste (spec §18). */
 export type ActionConnaissance =
@@ -120,6 +135,18 @@ export function ecrireElement(e: ElementInbox): string {
   return ecrireEntete({ titre: e.titre, source: e.source, recu: e.recu, question: e.question }, e.texte)
 }
 
+export function lireElementTraite(id: string, texte: string): ElementTraite {
+  const { entete } = lireEntete(texte)
+  const el = lireElement(id, texte)
+  const bilan = Array.isArray(entete.bilan) ? entete.bilan.flatMap((l) => texteOuRien(l) ?? []) : []
+  const document = texteOuRien(entete.document)
+  return { ...el, traite: texteOuRien(entete.traite) ?? '', bilan, ...(document ? { document } : {}) }
+}
+
+export function ecrireElementTraite(e: ElementTraite): string {
+  return ecrireEntete({ titre: e.titre, source: e.source, recu: e.recu, question: e.question, traite: e.traite, bilan: e.bilan, document: e.document }, e.texte)
+}
+
 /**
  * Ajoute une entrée datée à une section du corps d'une page (`## Section`),
  * créée en fin de page si elle manque ; le reste de la page ne bouge pas.
@@ -159,11 +186,17 @@ export class ConnaissanceAssistant {
   constructor(private readonly adaptateur: AdaptateurFichiers) {}
 
   async lire(): Promise<Connaissance> {
-    const [contexte, documents, inbox] = await Promise.all([this.lireOuNull(FICHIER_CONTEXTE), this.lireDossier(DOSSIER_DOCUMENTS, lireDocument), this.lireDossier(DOSSIER_INBOX, lireElement)])
+    const [contexte, documents, inbox, traites] = await Promise.all([
+      this.lireOuNull(FICHIER_CONTEXTE),
+      this.lireDossier(DOSSIER_DOCUMENTS, lireDocument),
+      this.lireDossier(DOSSIER_INBOX, lireElement),
+      this.lireDossier(DOSSIER_TRAITES, lireElementTraite),
+    ])
     return {
       contexte: (contexte ?? '').trim(),
       documents: documents.sort((a, b) => b.date.localeCompare(a.date) || b.ajoute.localeCompare(a.ajoute)),
-      inbox: inbox.sort((a, b) => a.recu.localeCompare(b.recu)),
+      inbox: inbox.sort((a, b) => a.recu.localeCompare(b.recu) || a.id.localeCompare(b.id)),
+      traites: traites.sort((a, b) => b.traite.localeCompare(a.traite) || b.id.localeCompare(a.id)),
     }
   }
 
@@ -176,7 +209,7 @@ export class ConnaissanceAssistant {
     return this.enFile(async () => {
       const horodatage = maintenant.replace(/[-:]/g, '').replace('T', '-').slice(0, 15)
       const base = `${horodatage}--${slug(e.titre).slice(0, 50) || 'element'}`
-      const existants = new Set((await this.lister(DOSSIER_INBOX)).map((n) => n.replace(/\.md$/, '')))
+      const existants = new Set([...(await this.lister(DOSSIER_INBOX)), ...(await this.lister(DOSSIER_TRAITES))].map((n) => n.replace(/\.md$/, '')))
       let id = base
       for (let i = 2; existants.has(id); i++) id = `${base}-${i}`
       const element: ElementInbox = { id, titre: e.titre.trim() || 'Sans titre', recu: maintenant.slice(0, 16), texte: e.texte, ...(e.source ? { source: e.source } : {}) }
@@ -185,12 +218,53 @@ export class ConnaissanceAssistant {
     })
   }
 
+  /** Supprime un élément en attente, sans le garder dans l'historique. */
   retirer(element: string): Promise<void> {
     return this.enFile(() => this.supprimerSiPresent(joindre(DOSSIER_INBOX, `${element}.md`)))
   }
 
-  /** Applique ce qu'un plan confirmé fait de l'inbox ; `maintenant` : AAAA-MM-JJTHH:MM. */
-  appliquer(actions: readonly ActionConnaissance[], maintenant: string): Promise<void> {
+  /** Supprime un document rangé ; ceux qu'il remplaçait redeviennent à jour. */
+  supprimerDocument(id: string): Promise<void> {
+    return this.enFile(async () => {
+      await this.supprimerSiPresent(joindre(DOSSIER_DOCUMENTS, `${id}.md`))
+      for (const n of await this.lister(DOSSIER_DOCUMENTS)) {
+        const chemin = joindre(DOSSIER_DOCUMENTS, n)
+        const texte = await this.lireOuNull(chemin)
+        if (texte === null) continue
+        const d = lireDocument(n.replace(/\.md$/, ''), texte)
+        if (d.remplacePar === id) {
+          const { remplacePar: _r, ...reste } = d
+          await this.adaptateur.ecrire(chemin, ecrireDocument(reste))
+        }
+      }
+    })
+  }
+
+  /** Passe un élément dans l'historique sans l'assistant ; `maintenant` : AAAA-MM-JJTHH:MM. */
+  marquerTraite(element: string, maintenant: string): Promise<void> {
+    return this.enFile(async () => {
+      const brut = await this.lireOuNull(joindre(DOSSIER_INBOX, `${element}.md`))
+      if (brut !== null) await this.archiver(lireElement(element, brut), { traite: maintenant, bilan: ['Marqué traité'] })
+    })
+  }
+
+  /** Supprime tout l'historique des éléments traités. */
+  viderHistorique(): Promise<void> {
+    return this.enFile(async () => {
+      for (const n of await this.lister(DOSSIER_TRAITES)) await this.supprimerSiPresent(joindre(DOSSIER_TRAITES, n))
+    })
+  }
+
+  /** Range un élément dans l'historique, avec ce qui en a été fait, et le retire de l'attente. */
+  private async archiver(element: ElementInbox, fait: { traite: string; bilan: string[]; document?: string }): Promise<void> {
+    const { question: _question, ...reste } = element
+    const traite: ElementTraite = { ...reste, ...fait, ...(fait.document ? { texte: '' } : {}) }
+    await this.adaptateur.ecrire(joindre(DOSSIER_TRAITES, `${element.id}.md`), ecrireElementTraite(traite))
+    await this.supprimerSiPresent(joindre(DOSSIER_INBOX, `${element.id}.md`))
+  }
+
+  /** Applique ce qu'un plan confirmé fait de l'inbox ; `maintenant` : AAAA-MM-JJTHH:MM ; `bilan` : ce que le plan a fait par ailleurs. */
+  appliquer(actions: readonly ActionConnaissance[], maintenant: string, bilan: BilanPlan = { commun: [], incoherences: [] }): Promise<void> {
     return this.enFile(async () => {
       for (const a of actions) {
         const chemin = joindre(DOSSIER_INBOX, `${a.element}.md`)
@@ -201,6 +275,8 @@ export class ConnaissanceAssistant {
           await this.adaptateur.ecrire(chemin, ecrireElement({ ...element, question: a.question }))
           continue
         }
+        const signale = bilan.incoherences.filter((i) => !i.source || i.source === a.element).map((i) => `À vérifier : ${i.constat}`)
+        let document: string | undefined
         if (a.garder) {
           const existants = new Set((await this.lister(DOSSIER_DOCUMENTS)).map((n) => n.replace(/\.md$/, '')))
           const base = `${a.date}--${slug(a.titre).slice(0, 60) || 'document'}`
@@ -213,8 +289,11 @@ export class ConnaissanceAssistant {
             const texteR = await this.lireOuNull(cheminR)
             if (texteR !== null) await this.adaptateur.ecrire(cheminR, ecrireDocument({ ...lireDocument(r.id, texteR), remplacePar: id }))
           }
+          document = id
         }
-        await this.supprimerSiPresent(chemin)
+        const range = a.garder ? [`Rangé dans les documents (« ${a.titre} », du ${a.date.split('-').reverse().join('/')})${a.remplace.length > 0 ? ` ; remplace ${a.remplace.map((r) => `« ${r.titre} »`).join(', ')}` : ''}`] : []
+        const lignes = [...bilan.commun, ...signale, ...range]
+        await this.archiver(element, { traite: maintenant, bilan: lignes.length > 0 ? lignes : ['Rien à reporter'], ...(document ? { document } : {}) })
       }
     })
   }
@@ -453,7 +532,7 @@ export function validerInbox(
 export function decrireConnaissance(a: ActionConnaissance): string {
   if (a.type === 'attente') return `Laisser « ${a.titreElement} » dans l'inbox : ${a.question}`
   const remplace = a.remplace.length > 0 ? ` ; remplace ${a.remplace.map((r) => `« ${r.titre} »`).join(', ')}` : ''
-  return a.garder ? `Ranger « ${a.titreElement} » dans les documents (« ${a.titre} », du ${a.date})${remplace}` : `Retirer « ${a.titreElement} » de l'inbox (reporté dans les pages)`
+  return a.garder ? `Ranger « ${a.titreElement} » dans les documents (« ${a.titre} », du ${a.date})${remplace}` : `Classer « ${a.titreElement} » dans les traités (reporté dans les pages)`
 }
 
 /** Longueur d'un élément envoyé tel quel au traitement ; au-delà, le modèle le lit en entier sur demande… s'il est rangé. */

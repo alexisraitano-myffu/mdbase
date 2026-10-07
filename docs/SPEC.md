@@ -803,7 +803,7 @@ remplace_par: 2026-10-14--point-hebdo-projet-a  # absent tant qu'il est à jour
 Un document remplacé reste lisible (`lire_document`) mais n'est plus cherché par défaut.
 
 ### Conversion
-À l'ajout, une fois, dans l'app (navigateur comme bureau), sans Python ni service externe : PDF par pdf.js, Word par mammoth, PowerPoint en lisant le XML du `.pptx` (une section par diapositive, titre, texte des formes, tableaux en tableaux Markdown, notes de l'orateur). Bibliothèques chargées seulement à la première conversion. Limites, dites à l'ajout : un PDF scanné ne donne pas de texte ; les images et graphiques d'une présentation sont ignorés (signalés « image non lue »).
+À l'ajout, une fois, dans l'app (navigateur comme bureau), sans Python ni service externe : PDF par pdf.js, Word par mammoth, PowerPoint en lisant le XML du `.pptx` (une section par diapositive, titre, texte des formes, tableaux en tableaux Markdown, graphiques en tableau de leurs valeurs, texte des SmartArt, notes de l'orateur). Bibliothèques chargées seulement à la première conversion. Limites, dites à l'ajout : un PDF scanné ne donne pas de texte ; les images et captures d'une présentation sont ignorées (signalées « image non lue »).
 
 ### Inbox
 **Une page à part** [PROPOSÉ, demandé par Alex le 07/10/2026] : une entrée « Inbox » dans la barre latérale, sous « Toutes les tâches », avec le nombre d'éléments en attente. Elle ouvre un panneau à droite du contenu, comme celui de l'assistant (même place, même poignée ; un seul des deux ouvert à la fois), dédié à l'inbox. L'inbox sert aussi **sans l'assistant** : c'est d'abord un endroit où tout déposer.

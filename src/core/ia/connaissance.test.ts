@@ -110,7 +110,7 @@ describe('inbox', () => {
         ],
       },
     )
-    const p = await proposer(modele, espace, 'Traite l’inbox.', { aujourdhui: AUJOURDHUI, baseOuverte: null, inbox: true })
+    const p = await proposer(modele, espace, 'Traite l’inbox.', { aujourdhui: AUJOURDHUI, baseOuverte: null, inbox: [el] })
     // Les éléments et la consigne accompagnent la demande ; les outils de l'inbox sont donnés.
     const demande = modele.requetes[0]!.messages.at(-1)!.contenu
     expect(demande).toContain(`### Élément ${el} : Point hebdo Navi S41 (reçu le 2026-10-07 à 09:15, fichier navi-s41.pptx)`)
@@ -131,7 +131,20 @@ describe('inbox', () => {
     expect(fichiers.map((f) => f.nom).sort()).toEqual(['2026-09-30--point-hebdo-navi-s40.md', '2026-10-07--point-hebdo-navi-s41.md'])
     expect(await a.lire('_assistant/documents/2026-10-07--point-hebdo-navi-s41.md')).toContain('source: navi-s41.pptx')
     expect(await a.lire('_assistant/documents/2026-09-30--point-hebdo-navi-s40.md')).toContain('remplace_par: 2026-10-07--point-hebdo-navi-s41')
-    await expect(a.lister('_assistant/inbox')).resolves.toEqual([])
+    // L'élément n'attend plus : il est dans l'historique, avec ce que le plan a fait, sans recopier le texte rangé en document.
+    expect((await a.lister('_assistant/inbox')).filter((e) => e.type === 'fichier')).toEqual([])
+    const traite = await a.lire(`_assistant/inbox/traites/${el}.md`)
+    expect(traite).toContain('traite: 2026-10-07T09:20')
+    expect(traite).toContain('document: 2026-10-07--point-hebdo-navi-s41')
+    expect(traite).not.toContain('Livraison V2 le 29 octobre')
+    const c = await espace.assistant.connaissance.lire()
+    expect(c.inbox).toEqual([])
+    expect(c.traites[0]!.bilan).toEqual([
+      'Modifier 1 ligne dans Tâches : A (Statut → Terminé)',
+      expect.stringMatching(/^Noter dans « Navi » \(Projets\), section Remarques/),
+      'À vérifier : La livraison passe du 15/10 (S40) au 29/10 (S41) sans explication.',
+      'Rangé dans les documents (« Point hebdo Navi S41 », du 07/10/2026) ; remplace « Point hebdo Navi S40 »',
+    ])
     expect(await a.lire('projets/navi--p0000001.md')).toContain('## Remarques\n\n- 07/10/2026 : Livraison V2 repoussée au 29/10 (point S41).')
     expect(await a.lire('taches/a--t0000001.md')).toContain('statut: Terminé')
   })
@@ -144,12 +157,50 @@ describe('inbox', () => {
       { texte: '', appels: [appel('classer_element', { element: 'zz', garder: false }), appel('classer_element', { element: el, garder: true, lignes: ['projets/inconnu'] })] },
       { texte: '', appels: [appel('laisser_en_attente', { element: el, question: 'Quel projet est « le machin » ?' })] },
     )
-    const p = await proposer(modele, espace, 'Traite l’inbox.', { aujourdhui: AUJOURDHUI, baseOuverte: null, inbox: true })
+    const p = await proposer(modele, espace, 'Traite l’inbox.', { aujourdhui: AUJOURDHUI, baseOuverte: null, inbox: [el] })
     const refus = modele.requetes[1]!.messages.filter((m) => m.role === 'tool').map((m) => m.contenu)
     expect(refus[0]).toMatch(/élément d'inbox inconnu : « zz »/)
     expect(refus[1]).toMatch(/ligne inconnue : "projets\/inconnu"/)
     if (p.type !== 'plan') throw new Error('plan attendu')
     await appliquerPlan(espace, p.plan, '2026-10-07T10:05')
     expect(await a.lire(`_assistant/inbox/${el}.md`)).toContain('question: Quel projet est « le machin » ?')
+  })
+
+  it('sans l’assistant : marquer traité, supprimer, vider l’historique ; un seul élément envoyé ; module Contexte désactivé', async () => {
+    const { a, espace } = await ouvrir({ '_assistant/contexte.md': 'Projet → Tâches.\n', '_assistant/documents/2026-09-30--point-hebdo-navi-s40.md': DOC_S40 })
+    const c = espace.assistant.connaissance
+    await c.deposer({ titre: 'Un', texte: 'premier' }, '2026-10-07T10:00:00')
+    await c.deposer({ titre: 'Deux', texte: 'second' }, '2026-10-07T10:01:00')
+    await c.marquerTraite('20261007-100000--un', '2026-10-07T10:05')
+    let lu = await c.lire()
+    expect(lu.inbox.map((e) => e.id)).toEqual(['20261007-100100--deux'])
+    expect(lu.traites).toEqual([{ id: '20261007-100000--un', titre: 'Un', recu: '2026-10-07T10:00', texte: 'premier', traite: '2026-10-07T10:05', bilan: ['Marqué traité'] }])
+
+    // Un seul élément envoyé : les autres ne partent pas ; module Contexte désactivé : ni contexte ni outils de documents.
+    await c.deposer({ titre: 'Trois', texte: 'troisième' }, '2026-10-07T10:02:00')
+    const modele = modeleScripte({ texte: 'ok', appels: [] })
+    await proposer(modele, espace, 'Traite cet élément.', { aujourdhui: AUJOURDHUI, baseOuverte: null, inbox: ['20261007-100200--trois'], contexte: false })
+    const r = modele.requetes[0]!
+    expect(r.messages.at(-1)!.contenu).toContain('troisième')
+    expect(r.messages.at(-1)!.contenu).not.toContain('second')
+    expect(r.messages[0]!.contenu).not.toContain('Projet → Tâches.')
+    expect(r.outils.map((o) => o.nom)).not.toContain('chercher_documents')
+
+    await c.retirer('20261007-100100--deux')
+    await c.viderHistorique()
+    lu = await c.lire()
+    expect(lu.inbox.map((e) => e.id)).toEqual(['20261007-100200--trois'])
+    expect(lu.traites).toEqual([])
+    await expect(a.lister('_assistant/inbox/traites')).resolves.toEqual([])
+  })
+
+  it('supprimer un document : celui qu’il remplaçait redevient à jour', async () => {
+    const { a, espace } = await ouvrir({
+      '_assistant/documents/2026-09-30--s40.md': '---\ntitre: S40\ndate: 2026-09-30\nremplace_par: 2026-10-07--s41\n---\n\nx\n',
+      '_assistant/documents/2026-10-07--s41.md': '---\ntitre: S41\ndate: 2026-10-07\n---\n\ny\n',
+    })
+    await espace.assistant.connaissance.supprimerDocument('2026-10-07--s41')
+    expect((await a.lister('_assistant/documents')).map((f) => f.nom)).toEqual(['2026-09-30--s40.md'])
+    expect(await a.lire('_assistant/documents/2026-09-30--s40.md')).not.toContain('remplace_par')
   })
 })

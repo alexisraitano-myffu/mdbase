@@ -5,18 +5,14 @@ import {
   Check,
   Copy,
   ExternalLink,
-  FileText,
   History,
-  Inbox,
   LoaderCircle,
-  Paperclip,
   Pencil,
   RotateCcw,
   Settings,
   Sparkles,
   Square,
   SquarePen,
-  StickyNote,
   Table2,
   TriangleAlert,
   WandSparkles,
@@ -25,10 +21,9 @@ import {
 } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
 import { sansReflexion } from '../core/ia/assistant'
-import { decrireConnaissance, horodatage, type ElementInbox } from '../core/ia/connaissance'
+import { decrireConnaissance } from '../core/ia/connaissance'
 import type { Assistant as MemoireEtSkills, Skill } from '../core/ia/memoire'
 import { decrireAction } from '../core/ia/structure'
-import { convertirFichier, EXTENSIONS } from '../adapters/conversion/convertir'
 import { listerModeles } from '../adapters/ia/compatible-openai'
 import type { ReglagesIA } from '../adapters/ia/reglages'
 import { Fenetre } from './fenetre'
@@ -211,11 +206,6 @@ export function PanneauAssistant(p: {
   const [copie, setCopie] = useState<number | null>(null)
   const [historique, setHistorique] = useState(false)
   const boutonHistorique = useRef<HTMLButtonElement>(null)
-  const [inboxOuverte, setInboxOuverte] = useState(false)
-  const boutonInbox = useRef<HTMLButtonElement>(null)
-  const [inbox, setInbox] = useState<ElementInbox[]>([])
-  const [notesInbox, setNotesInbox] = useState<string[]>([])
-  const [survol, setSurvol] = useState(false)
   const [largeur, saisirPoignee] = useLargeurPanneau('mdbase.largeurAssistant', 420)
   const [, setTic] = useState(0)
   const fil = useRef<HTMLDivElement>(null)
@@ -232,34 +222,6 @@ export function PanneauAssistant(p: {
 
   // Skills relus à chaque ouverture du panneau (ils changent quand l'assistant en crée un).
   useEffect(() => void espace.assistant.lire().then((a) => setSkills(a.skills), () => setSkills([])), [espace, tours.length])
-  // Inbox relue à chaque tour : un plan appliqué la vide.
-  const relireInbox = () => void espace.assistant.connaissance.lire().then((c) => setInbox(c.inbox), () => setInbox([]))
-  useEffect(relireInbox, [espace, tours])
-
-  /** Dépose des fichiers dans l'inbox, convertis en Markdown ; les limites de la conversion sont dites. */
-  const deposerFichiers = async (fichiers: readonly File[]) => {
-    const notes: string[] = []
-    for (const f of fichiers) {
-      try {
-        const c = await convertirFichier(f.name, new Uint8Array(await f.arrayBuffer()))
-        if (c.texte.trim() === '') notes.push(`${f.name} : aucun texte lu, non ajouté.`)
-        else {
-          await espace.assistant.connaissance.deposer({ titre: c.titre, texte: c.texte, source: f.name }, horodatage(new Date()))
-          notes.push(...c.avertissements.map((a) => `${f.name} : ${a}.`))
-        }
-      } catch (e) {
-        notes.push(`${f.name} : ${e instanceof Error ? e.message : String(e)}`)
-      }
-    }
-    setNotesInbox(notes)
-    relireInbox()
-  }
-  const deposerTexte = async (texte: string) => {
-    const premiere = texte.trim().split('\n')[0]!.trim()
-    await espace.assistant.connaissance.deposer({ titre: premiere.length > 60 ? `${premiere.slice(0, 60)}…` : premiere, texte: texte.trim() }, horodatage(new Date()))
-    setNotesInbox([])
-    relireInbox()
-  }
 
   // Modèles proposés par le service, pour en changer sans passer par les réglages.
   useEffect(() => {
@@ -369,41 +331,10 @@ export function PanneauAssistant(p: {
   const vide = demande.texte.trim() === '' && !demande.skill
 
   return (
-    <aside
-      className={`panneau-ia${survol ? ' depot-ia' : ''}`}
-      style={{ width: largeur }}
-      aria-label="Assistant IA"
-      // Un fichier lâché sur le panneau va dans l'inbox.
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes('Files')) return
-        e.preventDefault()
-        setSurvol(true)
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSurvol(false)
-      }}
-      onDrop={(e) => {
-        if (e.dataTransfer.files.length === 0) return
-        e.preventDefault()
-        setSurvol(false)
-        setInboxOuverte(true)
-        void deposerFichiers([...e.dataTransfer.files])
-      }}
-    >
+    <aside className="panneau-ia" style={{ width: largeur }} aria-label="Assistant IA">
       <div className="poignee-page" onPointerDown={saisirPoignee} title="Élargir ou rétrécir" />
       <header className="entete-ia">
         <h2>Assistant IA</h2>
-        <button
-          ref={boutonInbox}
-          className="discret bascule-mode bouton-inbox"
-          onClick={() => setInboxOuverte((o) => !o)}
-          title="Inbox : déposer une info ou un document"
-          aria-label={`Inbox${inbox.length > 0 ? ` (${inbox.length})` : ''}`}
-          aria-expanded={inboxOuverte}
-        >
-          <Icone de={Inbox} taille={16} />
-          {inbox.length > 0 && <span className="compte-inbox">{inbox.length}</span>}
-        </button>
         <button
           ref={boutonHistorique}
           className="discret bascule-mode"
@@ -424,23 +355,6 @@ export function PanneauAssistant(p: {
           <Icone de={X} taille={17} />
         </button>
       </header>
-      {inboxOuverte && (
-        <Flottant ancre={boutonInbox.current} fermer={() => setInboxOuverte(false)}>
-          <InboxIA
-            elements={inbox}
-            notes={notesInbox}
-            enCours={enCours}
-            deposerFichiers={(f) => void deposerFichiers(f)}
-            deposerTexte={(t) => void deposerTexte(t)}
-            retirer={(id) => void espace.assistant.connaissance.retirer(id).then(relireInbox)}
-            traiter={() => {
-              setInboxOuverte(false)
-              enBas.current = true
-              void session.traiterInbox({ reglages: p.reglages, baseOuverte: p.baseOuverte })
-            }}
-          />
-        </Flottant>
-      )}
       {historique && (
         <Flottant ancre={boutonHistorique.current} fermer={() => setHistorique(false)}>
           <HistoriqueIA session={session} enCours={enCours} fermer={() => setHistorique(false)} />
@@ -812,94 +726,7 @@ function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat;
   )
 }
 
-/** « 07/10 à 09:15 » pour une réception `AAAA-MM-JJTHH:MM`. */
-const recuLe = (recu: string) => {
-  const m = /^\d{4}-(\d\d)-(\d\d)T(\d\d:\d\d)/.exec(recu)
-  return m ? `${m[2]}/${m[1]} à ${m[3]}` : recu
-}
-
-/** L'inbox (spec §18) : ce qui attend d'être rattaché aux bases, et de quoi en déposer. */
-function InboxIA(p: {
-  elements: ElementInbox[]
-  notes: string[]
-  enCours: boolean
-  deposerFichiers: (f: File[]) => void
-  deposerTexte: (t: string) => void
-  retirer: (id: string) => void
-  traiter: () => void
-}) {
-  const [texte, setTexte] = useState('')
-  const choixFichier = useRef<HTMLInputElement>(null)
-  const ajouter = () => {
-    if (texte.trim() === '') return
-    p.deposerTexte(texte)
-    setTexte('')
-  }
-  return (
-    <div className="inbox-ia">
-      <p className="discret">Dépose une remarque, un mail ou un document (PDF, Word, PowerPoint) : « Traiter » les rattache à tes bases et te montre ce qui change.</p>
-      {p.elements.length > 0 && (
-        <ul aria-label="En attente">
-          {p.elements.map((e) => (
-            <li key={e.id}>
-              <Icone de={e.source ? FileText : StickyNote} taille={14} />
-              <span className="element-inbox">
-                <span className="libelle-choix">{e.titre}</span>
-                <span className="discret">{recuLe(e.recu)}</span>
-                {e.question && <span className="question-inbox">{e.question}</span>}
-              </span>
-              <button className="discret" aria-label={`Retirer « ${e.titre} »`} title="Retirer de l’inbox" onClick={() => p.retirer(e.id)}>
-                <Icone de={X} taille={13} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {p.notes.map((n, i) => (
-        <p key={i} className="discret note-inbox">
-          {n}
-        </p>
-      ))}
-      <textarea
-        rows={3}
-        value={texte}
-        aria-label="Information à déposer"
-        placeholder="Ex. : projet A, la recette du lot 2 glisse de deux semaines"
-        onChange={(e) => setTexte(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault()
-            ajouter()
-          }
-        }}
-      />
-      <input
-        ref={choixFichier}
-        type="file"
-        multiple
-        hidden
-        accept={EXTENSIONS.join(',')}
-        onChange={(e) => {
-          if (e.target.files?.length) p.deposerFichiers([...e.target.files])
-          e.target.value = ''
-        }}
-      />
-      <div className="boutons">
-        <button className="discret" onClick={() => choixFichier.current?.click()} title="Joindre un fichier (ou lâche-le sur le panneau)">
-          <Icone de={Paperclip} taille={14} /> Fichier
-        </button>
-        <button className="discret" onClick={ajouter} disabled={texte.trim() === ''}>
-          Ajouter
-        </button>
-        <button className="principal" onClick={p.traiter} disabled={p.elements.length === 0 || p.enCours}>
-          Traiter{p.elements.length > 0 ? ` (${p.elements.length})` : ''}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/** Actions de structure ou de suite du plan ; une suppression est signalée. */
+ /** Actions de structure ou de suite du plan ; une suppression est signalée. */
 function ActionsIA({ titre, actions }: { titre: string; actions: { texte: string; danger: boolean }[] }) {
   return (
     <section className="operation-ia">

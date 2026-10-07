@@ -24,6 +24,8 @@ import { estChampDeSaisie } from './clavier'
 import { BasculeMode, BasculePleinEcran, ContexteMode, useModeMemorise, usePleinEcran } from './mode'
 import { AideRaccourcis } from './Raccourcis'
 import { ToutesLesTaches } from './Taches'
+import { PanneauInbox, useInbox } from './Inbox'
+import { FenetreModules, useModules } from './modules'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string } | { type: 'taches' }
 
@@ -183,20 +185,26 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   // Assistant IA : désactivé par défaut, la première ouverture montre l'avertissement (spec §12).
   const [reglagesIA, setReglagesIA] = useState(lireReglages)
   const [reglerIA, setReglerIA] = useState(false)
-  const [panneauIA, setPanneauIA] = useState(false)
+  // Un seul panneau à droite à la fois : l'assistant ou l'inbox (spec §18).
+  const [panneau, setPanneau] = useState<'ia' | 'inbox' | null>(null)
+  const panneauIA = panneau === 'ia'
+  const [fenetreModules, setFenetreModules] = useState(false)
+  const modules = useModules(etat)
+
   // La conversation vit ici, pas dans le panneau : le fermer n'arrête pas une demande en cours.
   const sessionIA = useMemo(() => new SessionAssistant(espace, nom), [espace, nom])
   useEffect(() => () => sessionIA.arreter(), [sessionIA])
+  const inbox = useInbox(espace, sessionIA)
   /** Ctrl+J et le bouton de la barre latérale : ouvre ou ferme le panneau (ou l'activation, la première fois). */
   const basculerAssistant = useCallback(() => {
-    if (lireReglages().actif) setPanneauIA((o) => !o)
+    if (lireReglages().actif) setPanneau((o) => (o === 'ia' ? null : 'ia'))
     else setReglerIA(true)
   }, [])
   const enregistrerIA = (r: ReglagesIA) => {
     enregistrerReglages(r)
     setReglagesIA(r)
     setReglerIA(false)
-    setPanneauIA(r.actif)
+    setPanneau(r.actif ? 'ia' : null)
   }
 
   // Changements faits ailleurs (synchro, autre machine) : le navigateur ne voit
@@ -251,7 +259,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
   // En consultation, le panneau de l'assistant se referme : il n'a rien à y faire (une demande en cours continue).
   useEffect(() => {
     if (consultation) {
-      setPanneauIA(false)
+      setPanneau(null)
       setReglerIA(false)
     }
   }, [consultation])
@@ -300,6 +308,10 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
             chercher={() => setRecherche(true)}
             assistant={basculerAssistant}
             indicateurIA={panneauIA ? null : <IndicateurIA session={sessionIA} />}
+            assistantActif={reglagesIA.actif}
+            modules={modules}
+            inbox={{ compte: inbox.attente.length, ouverte: panneau === 'inbox', basculer: () => setPanneau((o) => (o === 'inbox' ? null : 'inbox')) }}
+            ouvrirModules={() => setFenetreModules(true)}
             relire={rafraichir}
             relu={relu}
           />
@@ -332,10 +344,42 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
                 enregistrerReglages(r)
                 setReglagesIA(r)
               }}
-              fermer={() => setPanneauIA(false)}
+              fermer={() => setPanneau(null)}
+            />
+          )}
+          {panneau === 'inbox' && modules.inbox && !consultation && (
+            <PanneauInbox
+              espace={espace}
+              inbox={inbox}
+              occupe={sessionIA.enCours()}
+              envoyer={
+                reglagesIA.actif
+                  ? (elements) => {
+                      setPanneau('ia')
+                      void sessionIA.traiterInbox({ reglages: reglagesIA, baseOuverte: choisie }, elements)
+                    }
+                  : undefined
+              }
+              fermer={() => setPanneau(null)}
             />
           )}
         </div>
+        {fenetreModules && (
+          <FenetreModules
+            assistantActif={reglagesIA.actif}
+            reglerAssistant={() => {
+              setFenetreModules(false)
+              setReglerIA(true)
+            }}
+            desactiverAssistant={() => {
+              const r = { ...reglagesIA, actif: false }
+              enregistrerReglages(r)
+              setReglagesIA(r)
+              setPanneau((o) => (o === 'ia' ? null : o))
+            }}
+            fermer={() => setFenetreModules(false)}
+          />
+        )}
         {reglerIA && <FenetreReglagesIA espace={espace} reglages={reglagesIA} enregistrer={enregistrerIA} fermer={() => setReglerIA(false)} />}
         {recherche && <RechercheGlobale espace={espace} etat={etat} ouvrir={ouvrirResultat} fermer={() => setRecherche(false)} />}
         {annonce && (

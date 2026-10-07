@@ -22,9 +22,16 @@ async function simulerService(page: Page, ...messages: object[]) {
 const appel = (nom: string, args: object) => ({ content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: nom, arguments: JSON.stringify(args) } }] })
 
 /** Active l'assistant ; le faux service liste `modeles` (demandés à l'ouverture du panneau). */
+/** Allume un module dans la fenêtre Modules (spec §19) ; l'assistant ouvre alors son activation. */
+async function allumer(page: Page, module: string) {
+  await page.getByRole('button', { name: 'Modules' }).click()
+  await page.getByRole('dialog', { name: 'Modules' }).getByRole('switch', { name: module }).click()
+  if (module !== 'Assistant IA') await page.keyboard.press('Escape')
+}
+
 async function activer(page: Page, modeles: string[] = []) {
   await page.route(`${SERVICE}/models`, (route) => route.fulfill({ json: { data: modeles.map((id) => ({ id })) }, headers: { 'Access-Control-Allow-Origin': '*' } }))
-  await page.getByRole('button', { name: /Assistant IA/ }).click()
+  await allumer(page, 'Assistant IA')
   const fenetre = page.getByRole('dialog', { name: 'Assistant IA' })
   await expect(fenetre).toContainText('À chaque demande, l’assistant envoie au service choisi')
   await fenetre.getByPlaceholder(/compatible OpenAI/).fill(SERVICE)
@@ -110,7 +117,7 @@ test('champ de demande : grandit avec le texte, Maj+Entrée va à la ligne', asy
 })
 
 test('services préremplis : un clic remplit l’adresse et le modèle, la clé reste à coller', async ({ espace: _, page }) => {
-  await page.getByRole('button', { name: /Assistant IA/ }).click()
+  await allumer(page, 'Assistant IA')
   const fenetre = page.getByRole('dialog', { name: 'Assistant IA' })
   await fenetre.getByRole('button', { name: 'Anthropic' }).click()
   await expect(fenetre.getByLabel('Adresse du service')).toHaveValue('https://api.anthropic.com/v1')
@@ -446,59 +453,112 @@ test('le modèle lit les lignes qui lui manquent, voit le résultat, puis répon
   expect(lu.content).not.toContain('Application mobile')
 })
 
-test('inbox : une remarque et un fichier déposés, traités en une demande, rangés après « Appliquer »', async ({ espace, page }) => {
-  // Le faux service lit l'id du fichier déposé dans la demande, comme le ferait le modèle.
+/** Ouvre la page Inbox (module allumé au besoin). */
+async function ouvrirInbox(page: Page) {
+  if ((await page.getByRole('button', { name: /^Inbox/ }).count()) === 0) await allumer(page, 'Inbox')
+  await page.getByRole('button', { name: /^Inbox/ }).click()
+  await expect(page.getByRole('complementary', { name: 'Inbox' })).toBeVisible()
+}
+
+test('inbox : page à part, sans l’assistant ; déposer, marquer traité, historique replié, supprimer', async ({ espace, page }) => {
+  await espace.base('Projets')
+  // Désactivée par défaut : ni entrée Inbox, ni bouton de l'assistant.
+  await expect(page.getByRole('button', { name: /^Inbox/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Assistant IA/ })).toHaveCount(0)
+  await ouvrirInbox(page)
+  const panneau = page.getByRole('complementary', { name: 'Inbox' })
+  await panneau.getByLabel('Information à déposer').fill('Site vitrine : la recette glisse')
+  await panneau.getByRole('button', { name: 'Ajouter', exact: true }).click()
+  await panneau.getByLabel('Information à déposer').fill('Appeler le client')
+  await page.keyboard.press('Control+Enter')
+  const attente = panneau.getByRole('list', { name: 'À traiter' })
+  await expect(attente.locator(':scope > li')).toHaveCount(2)
+  await expect(page.locator('.barre-laterale').getByRole('button', { name: /^Inbox/ })).toContainText('2')
+  // Sans l'assistant, pas d'envoi à l'IA.
+  await expect(panneau.getByRole('button', { name: /à l’IA/ })).toHaveCount(0)
+
+  await panneau.getByRole('button', { name: 'Marquer « Appeler le client » traité' }).click()
+  await expect(attente.locator(':scope > li')).toHaveCount(1)
+  await panneau.getByRole('button', { name: 'Traités (1)' }).click()
+  await expect(panneau.getByRole('list', { name: 'Traités' })).toContainText('Marqué traité')
+  expect((await espace.lister('_assistant/inbox/traites')).length).toBe(1)
+  await panneau.getByRole('button', { name: 'Supprimer « Site vitrine : la recette glisse »' }).click()
+  await expect(panneau).toContainText('Rien en attente.')
+  await panneau.getByRole('button', { name: 'Vider l’historique' }).click()
+  await panneau.getByRole('button', { name: 'Tout supprimer' }).click()
+  await expect(panneau.getByRole('button', { name: /^Traités/ })).toHaveCount(0)
+})
+
+test('inbox : un élément envoyé à l’IA, l’autre reste ; après « Appliquer », il passe dans les traités avec son bilan', async ({ espace, page }) => {
+  // Le faux service lit l'id de l'élément reçu, comme le ferait le modèle.
+  const recues: string[] = []
   await page.route(`${SERVICE}/chat/completions`, async (route) => {
     const corps = route.request().postData() ?? ''
+    recues.push(corps)
     const ids = [...corps.matchAll(/Élément (\d{8}-\d{6}--[a-z0-9-]+)/g)].map((m) => m[1]!)
     const appels = [
       { nom: 'ajouter_remarque', args: { base: 'projets', ligne: 'psite001', section: 'Remarques', texte: 'Recette décalée de deux semaines.' } },
       { nom: 'signaler_incoherence', args: { constat: 'Le compte rendu dit « terminé », la base dit « En cours ».' } },
-      ...ids.map((id) => ({ nom: 'classer_element', args: { element: id, garder: id.includes('compte-rendu') } })),
+      ...ids.map((id) => ({ nom: 'classer_element', args: { element: id, garder: true, titre: 'Compte rendu', date: '2026-10-07' } })),
     ]
     const message = { content: null, tool_calls: appels.map((a, i) => ({ id: `c${i}`, type: 'function', function: { name: a.nom, arguments: JSON.stringify(a.args) } })) }
     await route.fulfill({ json: { choices: [{ message }] }, headers: { 'Access-Control-Allow-Origin': '*' } })
   })
   await espace.base('Projets')
   await activer(page)
+  await ouvrirInbox(page)
+  const panneau = page.getByRole('complementary', { name: 'Inbox' })
+  await panneau.getByLabel('Information à déposer').fill('Une autre remarque')
+  await panneau.getByRole('button', { name: 'Ajouter', exact: true }).click()
+  await panneau.locator('input[type=file]').setInputFiles({ name: 'Compte rendu.md', mimeType: 'text/markdown', buffer: Buffer.from('# Compte rendu\n\nLe site vitrine est terminé.\n') })
+  await expect(panneau.getByRole('list', { name: 'À traiter' }).locator(':scope > li')).toHaveCount(2)
+  await expect(panneau.getByRole('button', { name: 'Tout envoyer à l’IA' })).toBeVisible()
+  await page.screenshot({ path: 'test-results/inbox-page.png' })
 
-  await page.getByRole('button', { name: 'Inbox' }).click()
-  await page.getByLabel('Information à déposer').fill('Site vitrine : la recette glisse de deux semaines')
-  await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
-  await page.locator('.inbox-ia input[type=file]').setInputFiles({ name: 'Compte rendu.md', mimeType: 'text/markdown', buffer: Buffer.from('# Compte rendu\n\nLe site vitrine est terminé.\n') })
-  await expect(page.locator('.inbox-ia li')).toHaveCount(2)
-  await expect(page.getByRole('button', { name: 'Inbox (2)' })).toBeVisible()
-  await page.screenshot({ path: 'test-results/inbox-ouverte.png' })
-
-  await page.getByRole('button', { name: 'Traiter (2)' }).click()
+  await panneau.getByRole('button', { name: 'Envoyer « Compte rendu » à l’IA' }).click()
+  // L'assistant prend la place de l'inbox, avec la demande sur ce seul élément.
+  await expect(page.getByRole('complementary', { name: 'Inbox' })).toHaveCount(0)
+  await expect(page.locator('.bulle-ia.moi').last()).toHaveText('Traite cet élément de l’inbox : « Compte rendu ».')
   await expect(page.locator('.incoherences-ia')).toContainText('Le compte rendu dit « terminé »')
-  await expect(page.locator('.plan-ia')).toContainText('Noter dans « Site vitrine » (Projets), section Remarques')
   await expect(page.locator('.plan-ia')).toContainText('Ranger « Compte rendu » dans les documents')
-  await page.screenshot({ path: 'test-results/inbox-plan.png' })
+  expect(recues[0]).toContain('Le site vitrine est terminé.')
+  expect(recues[0]).not.toContain('Une autre remarque')
   await page.getByRole('button', { name: /^Appliquer/ }).click()
   await expect(page.locator('.applique-ia')).toBeVisible()
   await expect.poll(() => espace.lire(SITE)).toMatch(/## Remarques\n\n- \d\d\/\d\d\/\d{4} : Recette décalée de deux semaines\./)
-  await expect(page.getByRole('button', { name: 'Inbox', exact: true })).toBeVisible()
+
+  await ouvrirInbox(page)
+  await expect(panneau.getByRole('list', { name: 'À traiter' }).locator(':scope > li')).toHaveCount(1)
+  await panneau.getByRole('button', { name: 'Traités (1)' }).click()
+  const traites = panneau.getByRole('list', { name: 'Traités' })
+  await expect(traites).toContainText('Noter dans « Site vitrine » (Projets), section Remarques')
+  await expect(traites).toContainText('À vérifier : Le compte rendu dit « terminé »')
+  await expect(traites).toContainText('Rangé dans les documents (« Compte rendu », du 07/10/2026)')
+  await page.screenshot({ path: 'test-results/inbox-traites.png' })
 })
 
 test('inbox : PowerPoint, Word et PDF lâchés sur le panneau, convertis dans le navigateur', async ({ espace, page }) => {
   const recues = await simulerService(page, { content: 'Lu.' })
   await espace.base('Projets')
   await activer(page)
+  await ouvrirInbox(page)
 
   // Vrais fichiers Office et PDF (fictifs), lâchés comme depuis l'explorateur.
   const fichiers = ['Point hebdo Atlas S41.pptx', 'CR comite Atlas.docx', 'Planning Atlas.pdf'].map((nom) => ({ nom, octets: [...readFileSync(`e2e/fichiers/${nom}`)] }))
-  await page.locator('.panneau-ia').evaluate((panneau, fichiers) => {
+  const panneau = page.getByRole('complementary', { name: 'Inbox' })
+  await panneau.evaluate((el, fichiers) => {
     const dt = new DataTransfer()
     for (const f of fichiers) dt.items.add(new File([new Uint8Array(f.octets)], f.nom))
-    panneau.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }))
-    panneau.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }))
+    el.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }))
+    el.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }))
   }, fichiers)
-  await expect(page.locator('.inbox-ia li')).toHaveCount(3)
-  await expect(page.locator('.inbox-ia')).toContainText('Point hebdo Atlas S41')
-  await expect(page.locator('.inbox-ia')).toContainText('Planning Atlas')
+  await expect(panneau.getByRole('list', { name: 'À traiter' }).locator(':scope > li')).toHaveCount(3)
+  await expect(panneau).toContainText('Point hebdo Atlas S41')
+  await expect(panneau).toContainText('Planning Atlas')
+  await panneau.getByRole('button', { name: 'Point hebdo Atlas S41', exact: true }).click()
+  await expect(panneau.locator('.texte-element')).toContainText('## Diapositive 3 : Feuille de route')
 
-  await page.getByRole('button', { name: 'Traiter (3)' }).click()
+  await panneau.getByRole('button', { name: 'Tout envoyer à l’IA' }).click()
   await expect(page.locator('.bulle-ia').last()).toContainText('Lu.')
   const demande = (recues[0]!.postDataJSON() as { messages: { content: string }[] }).messages.at(-1)!.content
   // PowerPoint : titres, puces, notes, tableau et graphique.
@@ -510,4 +570,33 @@ test('inbox : PowerPoint, Word et PDF lâchés sur le panneau, convertis dans le
   // Word et PDF.
   expect(demande).toContain('- La V1.5 passe au 12/11.')
   expect(demande).toContain('## Page 2\n\nLot 3 Notifications : fin prevue le 05/11.')
+})
+
+test('modules : Jira caché par défaut, le contexte s’édite et part avec chaque demande', async ({ espace, page }) => {
+  const recues = await simulerService(page, { content: 'ok' })
+  await espace.base('Projets')
+  await expect(page.getByRole('button', { name: 'Nouvelle base Jira' })).toHaveCount(0)
+  await allumer(page, 'Jira')
+  await expect(page.getByRole('button', { name: 'Nouvelle base Jira' })).toBeVisible()
+
+  await activer(page)
+  await page.getByRole('button', { name: 'Modules' }).click()
+  const modules = page.getByRole('dialog', { name: 'Modules' })
+  await modules.getByRole('switch', { name: 'Contexte IA' }).click()
+  await expect(modules.getByRole('switch', { name: 'Contexte IA' })).toBeChecked()
+  await page.screenshot({ path: 'test-results/modules.png' })
+  await modules.getByRole('button', { name: 'Éditer le contexte et les documents' }).click()
+  const fenetre = page.getByRole('dialog', { name: 'Contexte IA' })
+  await expect(fenetre.getByLabel('Contexte')).toHaveValue(/## Organisation/)
+  await fenetre.getByLabel('Contexte').fill('## Organisation\nClients → Projets → Tâches.')
+  await fenetre.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.screenshot({ path: 'test-results/contexte.png' })
+  await expect.poll(() => espace.lire('_assistant/contexte.md')).toBe('## Organisation\nClients → Projets → Tâches.\n')
+  await page.keyboard.press('Escape')
+
+  await page.getByPlaceholder(/passe les tâches en retard/).fill('bonjour')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.bulle-ia').last()).toContainText('ok')
+  const systeme = (recues[0]!.postDataJSON() as { messages: { content: string }[] }).messages[0]!.content
+  expect(systeme).toContain('Clients → Projets → Tâches.')
 })
