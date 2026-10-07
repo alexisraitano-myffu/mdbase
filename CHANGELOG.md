@@ -92,7 +92,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Banc de l'assistant (`npm run banc`) : un grand espace avec 240 tickets Jira, des actions et un suivi, et des demandes en plusieurs étapes, à jouer contre un vrai modèle.
 - Kanban : l'ordre des colonnes se règle en glissant leur en-tête, ou dans « Options » en glissant les lignes d'une liste ; il est gardé dans la vue (`ordre_groupes`) et « Revenir à l'ordre des options » l'efface. Le script Jira range les statuts par étape (à faire, en cours, fait).
 - Serveur MCP pour Claude Desktop : `mdbase.mcpb`, publié avec le site, s'installe d'un double-clic (Node fourni par Claude Desktop). On choisit le dossier de l'espace ; Claude y lit, cherche, crée et modifie lignes, colonnes, vues et dashboards avec les outils et les contrôles de l'assistant, une base Jira restant en lecture seule. Chaque écriture s'applique après l'accord demandé par Claude Desktop.
-- Politique de signature du code (`CODE_SIGNING.md`), pour la signature gratuite des binaires Windows par SignPath Foundation.
 ### Changed
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
 - Icônes Lucide (embarquées dans le build) à la place des caractères Unicode : types de colonnes, vues, menus, fermer, chevrons, coches, cases à cocher.
