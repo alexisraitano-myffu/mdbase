@@ -8,6 +8,8 @@ import {
   retrouverDossier,
 } from '../adapters/fsa/dossier-memorise'
 import { demoExiste, ouvrirDemo } from '../adapters/fsa/demo'
+import { AdaptateurBureau, choisirDossierBureau, dossierMemorise, estBureau, nomDossier, surveillerEspace } from '../adapters/tauri/bureau'
+import type { AdaptateurFichiers } from '../core/fichiers'
 import { useAujourdhui } from './useAujourdhui'
 import { aleatoire, aujourdhui, maintenant, planifier } from '../adapters/navigateur'
 import { DepotEspace } from '../core/depot-espace'
@@ -32,11 +34,14 @@ type Etat =
   | { type: 'chargement' }
   | { type: 'aucun' }
   | { type: 'permission'; handle: FileSystemDirectoryHandle }
-  | { type: 'ouvert'; handle: FileSystemDirectoryHandle; espace: DepotEspace }
+  | { type: 'ouvert'; nom: string; espace: DepotEspace }
+
+/** App de bureau (spec §17) : dossier choisi et surveillé par le natif, sans File System Access. */
+const BUREAU = estBureau()
 
 export function App() {
   const [etat, setEtat] = useState<Etat>(() =>
-    navigateurCompatible() ? { type: 'chargement' } : { type: 'incompatible' },
+    BUREAU || navigateurCompatible() ? { type: 'chargement' } : { type: 'incompatible' },
   )
   const [erreur, setErreur] = useState<string | null>(null)
   const [avecDemo, setAvecDemo] = useState(false)
@@ -44,10 +49,12 @@ export function App() {
     void demoExiste().then(setAvecDemo)
   }, [])
 
-  async function ouvrir(handle: FileSystemDirectoryHandle) {
-    const espace = await DepotEspace.ouvrir(new AdaptateurFsa(handle), { aleatoire, planifier, aujourdhui, maintenant })
-    setEtat({ type: 'ouvert', handle, espace })
+  async function ouvrirAvec(adaptateur: AdaptateurFichiers, nom: string) {
+    const espace = await DepotEspace.ouvrir(adaptateur, { aleatoire, planifier, aujourdhui, maintenant })
+    setEtat({ type: 'ouvert', nom, espace })
   }
+  const ouvrir = (handle: FileSystemDirectoryHandle) => ouvrirAvec(new AdaptateurFsa(handle), handle.name)
+  const ouvrirBureau = (chemin: string) => ouvrirAvec(new AdaptateurBureau(), nomDossier(chemin))
 
   async function tenter(action: () => Promise<void>) {
     setErreur(null)
@@ -63,6 +70,10 @@ export function App() {
   useEffect(() => {
     if (etat.type !== 'chargement') return
     void tenter(async () => {
+      if (BUREAU) {
+        const chemin = await dossierMemorise()
+        return chemin ? ouvrirBureau(chemin) : setEtat({ type: 'aucun' })
+      }
       const memorise = await retrouverDossier()
       if (!memorise) setEtat({ type: 'aucun' })
       else if (memorise === MARQUE_DEMO) {
@@ -89,7 +100,12 @@ export function App() {
     if (etat.type === 'ouvert') etat.espace.recalculer()
   }, [jour, etat])
 
-  const choisir = () => tenter(async () => ouvrir(await choisirDossier()))
+  const choisir = () =>
+    tenter(async () => {
+      if (!BUREAU) return ouvrir(await choisirDossier())
+      const chemin = await choisirDossierBureau()
+      if (chemin) await ouvrirBureau(chemin)
+    })
   // Refusée sans fenêtre quand le navigateur bloque la demande (refus ou fenêtres ignorées) : on le dit.
   const [refus, setRefus] = useState(false)
   const rouvrir = (handle: FileSystemDirectoryHandle) =>
@@ -103,7 +119,7 @@ export function App() {
   if (etat.type === 'ouvert') {
     return (
       <FournisseurActions>
-        <Espace nom={etat.handle.name} espace={etat.espace} changer={choisir} />
+        <Espace nom={etat.nom} espace={etat.espace} changer={choisir} surveiller={BUREAU ? surveillerEspace : undefined} />
       </FournisseurActions>
     )
   }
@@ -165,7 +181,15 @@ export function App() {
   )
 }
 
-function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; changer: () => void }) {
+type ProprietesEspace = {
+  nom: string
+  espace: DepotEspace
+  changer: () => void
+  /** Prévient d'un changement des fichiers sur le disque (app de bureau) ; sinon, relecture au retour sur la fenêtre seulement. */
+  surveiller?: (rappel: () => void) => () => void
+}
+
+function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
   const etat = useSyncExternalStore(espace.abonner, espace.etat)
   // Base ou dashboard affiché dans la zone principale.
   const [selection, setSelection] = useState<Selection | null>(() => {
@@ -213,6 +237,21 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
       setRelu({ enCours: false, a: new Date() })
     })
   }, [espace, lancer])
+  // App de bureau : relecture à chaque changement sur le disque, sans l'indicateur de la barre latérale
+  // (nos propres écritures en déclenchent aussi). Un changement pendant une relecture en relance une après.
+  const surveillance = useRef({ enCours: false, encore: false })
+  const relireEnSilence = useCallback(() => {
+    const s = surveillance.current
+    if (s.enCours) return void (s.encore = true)
+    s.enCours = true
+    void lancer(espace.rafraichir()).finally(() => {
+      s.enCours = false
+      if (s.encore) {
+        s.encore = false
+        relireEnSilence()
+      }
+    })
+  }, [espace, lancer])
   useEffect(() => {
     const retour = () => {
       if (document.visibilityState === 'visible') rafraichir()
@@ -224,6 +263,7 @@ function Espace({ nom, espace, changer }: { nom: string; espace: DepotEspace; ch
       window.removeEventListener('focus', retour)
     }
   }, [rafraichir])
+  useEffect(() => surveiller?.(relireEnSilence), [surveiller, relireEnSilence])
   const [pageDemandee, setPageDemandee] = useState<{ base: string; id: string; jeton: number } | null>(null)
   const [consultation, basculerMode] = useModeMemorise()
   const [pleinEcran, basculerPleinEcran] = usePleinEcran()

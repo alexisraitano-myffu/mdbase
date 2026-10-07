@@ -1,0 +1,36 @@
+# App de bureau (spec §17) : installeur Windows (NSIS, sans droits administrateur),
+# non signé pour l'instant. À la demande, ou quand le code natif change.
+name: App de bureau
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['src-tauri/**', 'src/adapters/tauri/**', '.github/workflows/bureau.yml']
+  pull_request:
+    paths: ['src-tauri/**', 'src/adapters/tauri/**', '.github/workflows/bureau.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: npx tauri build --bundles nsis
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mdbase-windows
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error

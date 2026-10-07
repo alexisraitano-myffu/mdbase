@@ -1,0 +1,134 @@
+//! App de bureau de mdbase (spec §17) : l'app web dans une fenêtre native, avec
+//! un accès direct au dossier de l'espace (pas de File System Access) et la
+//! surveillance de ce dossier.
+
+mod fichiers;
+
+use fichiers::Entree;
+use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, Debouncer};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_dialog::DialogExt;
+
+/// Événement envoyé à la page quand un fichier de l'espace change sur le disque.
+const ESPACE_MODIFIE: &str = "espace-modifie";
+const FICHIER_REGLAGES: &str = "espace.json";
+
+#[derive(Default)]
+struct Espace {
+    racine: Mutex<Option<PathBuf>>,
+    surveillance: Mutex<Option<Debouncer<notify_debouncer_mini::notify::RecommendedWatcher>>>,
+}
+
+impl Espace {
+    fn racine(&self) -> Result<PathBuf, String> {
+        self.racine.lock().unwrap().clone().ok_or_else(|| "Aucun espace ouvert".to_string())
+    }
+}
+
+fn reglages(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join(FICHIER_REGLAGES))
+}
+
+/// Ouvre un espace : le retient pour le prochain lancement et surveille ses fichiers.
+fn ouvrir(app: &AppHandle, espace: &Espace, racine: PathBuf) -> Result<String, String> {
+    let mut surveillance = new_debouncer(Duration::from_millis(300), {
+        let app = app.clone();
+        move |r: notify_debouncer_mini::DebounceEventResult| {
+            if r.is_ok() {
+                let _ = app.emit(ESPACE_MODIFIE, ());
+            }
+        }
+    })
+    .map_err(|e| e.to_string())?;
+    // Sans surveillance (dossier réseau…), l'app relit l'espace au retour sur la fenêtre, comme dans le navigateur.
+    if surveillance.watcher().watch(&racine, RecursiveMode::Recursive).is_ok() {
+        *espace.surveillance.lock().unwrap() = Some(surveillance);
+    }
+    if let Some(f) = reglages(app) {
+        let _ = f.parent().map(fs::create_dir_all);
+        let _ = fs::write(f, serde_json::json!({ "dossier": racine }).to_string());
+    }
+    let texte = racine.to_string_lossy().into_owned();
+    *espace.racine.lock().unwrap() = Some(racine);
+    Ok(texte)
+}
+
+/// Le dernier espace ouvert, s'il existe toujours.
+#[tauri::command]
+fn dossier_memorise(app: AppHandle, espace: State<Espace>) -> Result<Option<String>, String> {
+    let lu = reglages(&app).and_then(|f| fs::read_to_string(f).ok());
+    let dossier = lu
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v["dossier"].as_str().map(PathBuf::from))
+        .filter(|d| d.is_dir());
+    match dossier {
+        Some(d) => ouvrir(&app, &espace, d).map(Some),
+        None => Ok(None),
+    }
+}
+
+/// Fenêtre du système pour choisir le dossier ; `None` si elle est fermée.
+#[tauri::command]
+async fn choisir_dossier(app: AppHandle, espace: State<'_, Espace>) -> Result<Option<String>, String> {
+    let Some(choix) = app.dialog().file().set_title("Dossier de l'espace").blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let racine = choix.into_path().map_err(|e| e.to_string())?;
+    ouvrir(&app, &espace, racine).map(Some)
+}
+
+fn avec<T>(espace: &Espace, f: impl FnOnce(&Path) -> Result<T, String>) -> Result<T, String> {
+    f(&espace.racine()?)
+}
+
+#[tauri::command]
+fn lister(espace: State<Espace>, dossier: String) -> Result<Vec<Entree>, String> {
+    avec(&espace, |r| fichiers::lister(r, &dossier))
+}
+
+#[tauri::command]
+fn lire(espace: State<Espace>, chemin: String) -> Result<String, String> {
+    avec(&espace, |r| fichiers::lire(r, &chemin))
+}
+
+#[tauri::command]
+fn ecrire(espace: State<Espace>, chemin: String, contenu: String) -> Result<(), String> {
+    avec(&espace, |r| fichiers::ecrire(r, &chemin, &contenu))
+}
+
+#[tauri::command]
+fn renommer(espace: State<Espace>, ancien: String, nouveau: String) -> Result<(), String> {
+    avec(&espace, |r| fichiers::renommer(r, &ancien, &nouveau))
+}
+
+#[tauri::command]
+fn supprimer(espace: State<Espace>, chemin: String) -> Result<(), String> {
+    avec(&espace, |r| fichiers::supprimer(r, &chemin))
+}
+
+#[tauri::command]
+fn date_modification(espace: State<Espace>, chemin: String) -> Result<f64, String> {
+    avec(&espace, |r| fichiers::date_modification(r, &chemin))
+}
+
+pub fn lancer() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .manage(Espace::default())
+        .invoke_handler(tauri::generate_handler![
+            dossier_memorise,
+            choisir_dossier,
+            lister,
+            lire,
+            ecrire,
+            renommer,
+            supprimer,
+            date_modification
+        ])
+        .run(tauri::generate_context!())
+        .expect("lancement de mdbase");
+}
