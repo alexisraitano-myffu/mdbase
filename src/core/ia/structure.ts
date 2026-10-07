@@ -9,6 +9,7 @@ import { COULEURS } from '../couleurs'
 import { CALCULS, estObjet, lireSchema, natureDe, type Calcul, type Colonne, type Schema } from '../schema'
 import { nouveauSchema } from '../schema-ecriture'
 import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
+import { insererRemarque } from './connaissance'
 import { erreur, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne } from './references'
 
 // Outils de structure de l'assistant (spec §12, « Module IA ») : bases,
@@ -110,6 +111,8 @@ export type ActionSuite =
   | { type: 'supprimer_lignes'; base: string; nomBase: string; lignes: { id: string; titre: string }[]; liens: number }
   /** `ligne` : l'id d'une ligne existante, ou `null` pour une ligne créée par le plan (retrouvée par `titre`). */
   | { type: 'ecrire_contenu'; base: string; nomBase: string; ligne: string | null; titre: string; contenu: string; mode: 'remplacer' | 'ajouter' }
+  /** Entrée datée ajoutée à une section de la page (spec §18), sans réécrire le reste. */
+  | { type: 'ajouter_remarque'; base: string; nomBase: string; ligne: string | null; titre: string; section?: string; entree: string }
 
 export const TYPES_COLONNE = [...TYPES_CREABLES, 'relation', 'rollup', 'formula'] as const
 export const TYPES_VUE: readonly TypeVue[] = ['tableau', 'kanban', 'collection', 'calendrier', 'timeline']
@@ -454,6 +457,17 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       const id = trouverLigne(etat, bb.id, ref)
       return { suite: { type: 'ecrire_contenu', base: bb.id, nomBase: bb.schema.nom, ligne: id, titre: titreDe(etat, bb.id, id), contenu, mode } }
     }
+    case 'ajouter_remarque': {
+      const bb = b.base(args.base)
+      const [a, m, j] = ctx.aujourdhui.split('-')
+      const entree = `${j}/${m}/${a} : ${texteRequis(args, 'texte')}`
+      const section = typeof args.section === 'string' && args.section.trim() !== '' ? args.section.trim().replace(/^#+\s*/, '') : undefined
+      const ref = texteRequis(args, 'ligne')
+      const nouvelle = (b.creees.get(bb.id) ?? []).find((t) => normaliser(t) === normaliser(ref))
+      const etat = b.etat()
+      const id = nouvelle ? null : trouverLigne(etat, bb.id, ref)
+      return { suite: { type: 'ajouter_remarque', base: bb.id, nomBase: bb.schema.nom, ligne: id, titre: id === null ? nouvelle! : titreDe(etat, bb.id, id), ...(section ? { section } : {}), entree } }
+    }
     default:
       return null
   }
@@ -516,6 +530,8 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
       const liens = a.liens > 0 ? ` ; ${pluriel(a.liens, 'lien')} vers elles retirés` : ''
       return { texte: `Supprimer ${pluriel(a.lignes.length, 'ligne')} de ${a.nomBase} : ${titres}${reste}${liens}`, danger: true }
     }
+    case 'ajouter_remarque':
+      return { texte: `Noter dans « ${a.titre} » (${a.nomBase})${a.section ? `, section ${a.section}` : ''} : ${a.entree}`, danger: false }
     case 'ecrire_contenu':
       return { texte: `${a.mode === 'ajouter' ? 'Compléter' : 'Écrire'} le contenu de la page « ${a.titre} » (${a.nomBase}) : ${a.contenu.length > 80 ? `${a.contenu.slice(0, 80)}…` : a.contenu}`, danger: false }
   }
@@ -656,6 +672,10 @@ export async function appliquerSuite(espace: DepotEspace, actions: readonly Acti
             return t?.etat === 'ok' && normaliser(String(t.valeur)) === normaliser(a.titre)
           })
     if (!ligne) continue
+    if (a.type === 'ajouter_remarque') {
+      depot.modifierCorps(ligne.chemin, insererRemarque(ligne.corps, a.section, a.entree))
+      continue
+    }
     const corps = a.mode === 'ajouter' && ligne.corps.trim() !== '' ? `${ligne.corps.trimEnd()}\n\n${a.contenu.trim()}\n` : `${a.contenu.trim()}\n`
     depot.modifierCorps(ligne.chemin, corps)
   }

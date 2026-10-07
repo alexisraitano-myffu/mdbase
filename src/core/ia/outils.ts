@@ -157,6 +157,21 @@ export const OUTILS: DefinitionOutil[] = [
     },
   },
   {
+    nom: 'ajouter_remarque',
+    description:
+      "Note une remarque datée (la date du jour est ajoutée) dans la page d'une ligne, à la fin d'une section (`## Section`, créée si elle manque), sans toucher au reste de la page. Pour suivre ce qui se dit sur un projet, une version, un ticket.",
+    parametres: {
+      type: 'object',
+      properties: {
+        base: { type: 'string' },
+        ligne: { type: 'string', description: 'id de la ligne, ou titre d’une ligne créée dans les mêmes appels' },
+        section: { type: 'string', description: 'titre de la section (celui que prévoit le contexte) ; sans section : en fin de page' },
+        texte: { type: 'string', description: 'la remarque, en une ou deux phrases' },
+      },
+      required: ['base', 'ligne', 'texte'],
+    },
+  },
+  {
     nom: 'creer_base',
     description: 'Crée une base (sa colonne titre « Titre » est créée d’office), avec ses colonnes éventuelles.',
     parametres: { type: 'object', properties: { nom: { type: 'string' }, colonnes: { type: 'array', items: COLONNE } }, required: ['nom'] },

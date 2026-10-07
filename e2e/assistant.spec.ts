@@ -444,3 +444,38 @@ test('le modèle lit les lignes qui lui manquent, voit le résultat, puis répon
   expect(lu.content).toContain('pbout003 | Boutique en ligne')
   expect(lu.content).not.toContain('Application mobile')
 })
+
+test('inbox : une remarque et un fichier déposés, traités en une demande, rangés après « Appliquer »', async ({ espace, page }) => {
+  // Le faux service lit l'id du fichier déposé dans la demande, comme le ferait le modèle.
+  await page.route(`${SERVICE}/chat/completions`, async (route) => {
+    const corps = route.request().postData() ?? ''
+    const ids = [...corps.matchAll(/Élément (\d{8}-\d{6}--[a-z0-9-]+)/g)].map((m) => m[1]!)
+    const appels = [
+      { nom: 'ajouter_remarque', args: { base: 'projets', ligne: 'psite001', section: 'Remarques', texte: 'Recette décalée de deux semaines.' } },
+      { nom: 'signaler_incoherence', args: { constat: 'Le compte rendu dit « terminé », la base dit « En cours ».' } },
+      ...ids.map((id) => ({ nom: 'classer_element', args: { element: id, garder: id.includes('compte-rendu') } })),
+    ]
+    const message = { content: null, tool_calls: appels.map((a, i) => ({ id: `c${i}`, type: 'function', function: { name: a.nom, arguments: JSON.stringify(a.args) } })) }
+    await route.fulfill({ json: { choices: [{ message }] }, headers: { 'Access-Control-Allow-Origin': '*' } })
+  })
+  await espace.base('Projets')
+  await activer(page)
+
+  await page.getByRole('button', { name: 'Inbox' }).click()
+  await page.getByLabel('Information à déposer').fill('Site vitrine : la recette glisse de deux semaines')
+  await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
+  await page.locator('.inbox-ia input[type=file]').setInputFiles({ name: 'Compte rendu.md', mimeType: 'text/markdown', buffer: Buffer.from('# Compte rendu\n\nLe site vitrine est terminé.\n') })
+  await expect(page.locator('.inbox-ia li')).toHaveCount(2)
+  await expect(page.getByRole('button', { name: 'Inbox (2)' })).toBeVisible()
+  await page.screenshot({ path: 'test-results/inbox-ouverte.png' })
+
+  await page.getByRole('button', { name: 'Traiter (2)' }).click()
+  await expect(page.locator('.incoherences-ia')).toContainText('Le compte rendu dit « terminé »')
+  await expect(page.locator('.plan-ia')).toContainText('Noter dans « Site vitrine » (Projets), section Remarques')
+  await expect(page.locator('.plan-ia')).toContainText('Ranger « Compte rendu » dans les documents')
+  await page.screenshot({ path: 'test-results/inbox-plan.png' })
+  await page.getByRole('button', { name: /^Appliquer/ }).click()
+  await expect(page.locator('.applique-ia')).toBeVisible()
+  await expect.poll(() => espace.lire(SITE)).toMatch(/## Remarques\n\n- \d\d\/\d\d\/\d{4} : Recette décalée de deux semaines\./)
+  await expect(page.getByRole('button', { name: 'Inbox', exact: true })).toBeVisible()
+})

@@ -159,6 +159,7 @@ describe('proposer', () => {
       'creer_lignes',
       'supprimer_lignes',
       'ecrire_contenu',
+      'ajouter_remarque',
       'creer_base',
       'ajouter_colonnes',
       'renommer_colonne',
@@ -308,7 +309,7 @@ describe('mémoire et skills', () => {
     if (p.type !== 'plan') throw new Error('plan attendu')
     expect(p.plan.skills).toEqual([{ ...SKILL, remplace: false }])
     expect(resumerPlan(p.plan)).toBe('Créer le skill « Revue du lundi » : le lundi matin')
-    expect(await espace.assistant.lire()).toEqual({ memoire: [], skills: [] })
+    expect(await espace.assistant.lire()).toMatchObject({ memoire: [], skills: [] })
 
     await appliquerPlan(espace, p.plan)
     expect((await espace.assistant.lire()).skills).toEqual([SKILL])

@@ -3,7 +3,7 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
     "lib": ["ES2023"],
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
   "include": ["src/**/*.test.ts", "banc/**/*.ts", "vite.config.ts", "vitest.banc.config.ts"]
 }
