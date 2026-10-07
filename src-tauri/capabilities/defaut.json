@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "defaut",
+  "description": "Fenêtre principale : commandes de l'app (fichiers de l'espace) et événements.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
