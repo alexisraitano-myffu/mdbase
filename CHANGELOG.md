@@ -97,6 +97,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Documents et contexte de l'assistant : un panneau Documents (recherche sans accents, regroupement par mois, fiche avec les lignes concernées) et un onglet Contexte, le texte qui explique l'organisation à l'assistant, envoyé à chaque demande. L'assistant cherche dans les documents quand la demande en parle et cite sa source.
 - Fenêtre Modules (en bas de la barre latérale) : Jira, assistant IA, Inbox et Contexte IA s'activent un par un, par machine ; un module désactivé est caché sans toucher aux fichiers.
 ### Changed
+- Assistant IA : le préréglage Anthropic propose Claude Haiku 5.5 (`claude-haiku-5-5`), plus capable et moins cher que Haiku 4.5. Une connexion déjà réglée garde son modèle : il se change depuis le pied du panneau.
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
 - Icônes Lucide (embarquées dans le build) à la place des caractères Unicode : types de colonnes, vues, menus, fermer, chevrons, coches, cases à cocher.
 - Contenu des pages dans la police de l'interface (l'éditeur imposait Noto Serif / Noto Sans).

@@ -47,7 +47,7 @@ const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
  * ne reste qu'à coller la clé. Haiku est celui que le banc de l'assistant mesure.
  */
 const SERVICES: { nom: string; adresse: string; modele: string; cle?: string; pageCle?: string }[] = [
-  { nom: 'Anthropic', adresse: 'https://api.anthropic.com/v1', modele: 'claude-haiku-4-5', cle: 'sk-ant-…', pageCle: 'https://console.anthropic.com/settings/keys' },
+  { nom: 'Anthropic', adresse: 'https://api.anthropic.com/v1', modele: 'claude-haiku-5-5', cle: 'sk-ant-…', pageCle: 'https://console.anthropic.com/settings/keys' },
   { nom: 'Google Gemini', adresse: 'https://generativelanguage.googleapis.com/v1beta/openai', modele: 'gemini-3.6-flash', pageCle: 'https://aistudio.google.com/apikey' },
   { nom: 'OpenAI', adresse: 'https://api.openai.com/v1', modele: 'gpt-5-mini', cle: 'sk-…', pageCle: 'https://platform.openai.com/api-keys' },
   { nom: 'Mistral (Europe)', adresse: 'https://api.mistral.ai/v1', modele: 'mistral-small-latest', pageCle: 'https://console.mistral.ai/api-keys' },

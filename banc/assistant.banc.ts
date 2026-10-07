@@ -15,7 +15,7 @@ import { AUJOURDHUI, espaceAvecGrand, espaceGrand, projetsAvecActions } from './
 // Banc de l'assistant IA contre un vrai modèle (réseau, payant) : hors de
 // `npm test`. Justesse et vitesse, cas par cas, sur la démo.
 //
-//   BANC_CLE=… npm run banc                              (Haiku 4.5 par défaut)
+//   BANC_CLE=… npm run banc                              (Haiku 5.5 par défaut)
 //   BANC_ADRESSE=https://…/v1 BANC_MODELE=… BANC_CLE=… npm run banc
 //   BANC_CAS=3,12 …                                      (seulement ces cas, numérotés à partir de 1)
 //   BANC_JEU=demo | grand                                (un seul jeu ; par défaut les deux, demo puis grand)
@@ -27,7 +27,7 @@ import { AUJOURDHUI, espaceAvecGrand, espaceGrand, projetsAvecActions } from './
 
 const DEMO = fileURLToPath(new URL('../exemples/espace-demo/', import.meta.url))
 const adresse = process.env.BANC_ADRESSE ?? 'https://api.anthropic.com/v1'
-const modeleNom = process.env.BANC_MODELE ?? 'claude-haiku-4-5'
+const modeleNom = process.env.BANC_MODELE ?? 'claude-haiku-5-5'
 const cle = process.env.BANC_CLE ?? ''
 const choisis = process.env.BANC_CAS?.split(',').map(Number)
 const jeu = process.env.BANC_JEU
