@@ -10,7 +10,7 @@ const ouvrir = (fichiers: Record<string, string> = {}) => {
 describe('mémoire de l’assistant (_assistant/memoire.md)', () => {
   it('rien sur le disque : mémoire vide, aucun fichier créé à la lecture', async () => {
     const { a, m } = ouvrir()
-    expect(await m.lire()).toEqual({ memoire: [], skills: [] })
+    expect(await m.lire()).toMatchObject({ memoire: [], skills: [] })
     await expect(a.lire('_assistant/memoire.md')).rejects.toThrow()
   })
 

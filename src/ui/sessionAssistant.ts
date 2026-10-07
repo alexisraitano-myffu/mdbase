@@ -4,7 +4,7 @@ import { DemandeArretee, type MessageIA, type Progression } from '../core/ia/mod
 import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../core/ia/plan'
 import { modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
 import { enregistrerConversations, lireConversations, type ConversationGardee, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
-import { aujourdhui } from '../adapters/navigateur'
+import { aujourdhui, maintenant } from '../adapters/navigateur'
 
 // Conversation avec l'assistant IA (spec §12, « Module IA »), hors de tout
 // composant : fermer ou replier le panneau ne coupe pas une demande en cours.
@@ -194,7 +194,12 @@ export class SessionAssistant {
     )
   }
 
-  async envoyer(d: Demande, o: { reglages: ReglagesIA; baseOuverte: string | null }, suite = false) {
+  /** Traite l'inbox (spec §18) : une demande ordinaire, accompagnée de ses éléments. */
+  traiterInbox(o: { reglages: ReglagesIA; baseOuverte: string | null }) {
+    return this.envoyer({ texte: 'Traite l’inbox.', bases: [] }, o, false, true)
+  }
+
+  async envoyer(d: Demande, o: { reglages: ReglagesIA; baseOuverte: string | null }, suite = false, inbox = false) {
     const texte = suite ? DEMANDE_SUITE : d.texte.trim()
     if ((texte === '' && !d.skill) || this.enCours()) return
     this.options = o
@@ -213,6 +218,7 @@ export class SessionAssistant {
         baseOuverte: o.baseOuverte,
         basesCitees: d.bases,
         skill: d.skill,
+        inbox,
         historique: passes.flatMap((t) => echange(t) ?? []),
         signal: arret.signal,
         progression: (p) => {
@@ -293,7 +299,7 @@ export class SessionAssistant {
     this.remplacer(i, { ...r, statut: 'application' })
     try {
       // Un seul Ctrl+Z défait tout ce que l'assistant a écrit.
-      await this.espace.enUneEtape(() => appliquerPlan(this.espace, plan))
+      await this.espace.enUneEtape(() => appliquerPlan(this.espace, plan, maintenant()))
       this.remplacer(i, { ...r, statut: 'applique' })
       if (this.options) void this.envoyer({ texte: '', bases: [] }, this.options, true)
     } catch (e) {

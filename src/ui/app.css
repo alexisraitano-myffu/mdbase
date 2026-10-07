@@ -1121,6 +1121,26 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .ouvrir-conversation .libelle-choix { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ouvrir-conversation .discret { font-size: 0.8em; }
 .historique-vide { margin: 0; padding: 0.6rem 0.8rem; }
+
+/* Inbox de l'assistant (spec §18) */
+.bouton-inbox { position: relative; }
+.compte-inbox { position: absolute; top: 0; right: 0; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--texte); color: var(--fond); font-size: 0.65rem; line-height: 14px; text-align: center; }
+.inbox-ia { display: flex; flex-direction: column; gap: 0.5rem; width: 340px; padding: 0.7rem; }
+.inbox-ia > p { margin: 0; font-size: 0.85em; }
+.inbox-ia ul { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; }
+.inbox-ia li { display: flex; align-items: flex-start; gap: 6px; padding: 5px 0; border-top: 1px solid var(--bordure); }
+.inbox-ia li > svg { margin-top: 3px; flex-shrink: 0; }
+.inbox-ia li > button { display: inline-flex; padding: 3px; }
+.element-inbox { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 0.9em; }
+.element-inbox .libelle-choix { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.element-inbox .discret { font-size: 0.85em; }
+.question-inbox { font-style: italic; }
+.note-inbox { font-size: 0.85em; }
+.inbox-ia textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
+.inbox-ia .boutons { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+.inbox-ia .boutons > button:first-child { margin-right: auto; display: inline-flex; align-items: center; gap: 4px; }
+.panneau-ia.depot-ia { outline: 2px dashed var(--texte); outline-offset: -6px; }
+.incoherences-ia h3 { display: flex; align-items: center; gap: 5px; }
 .vue-plein-ecran .panneau-ia { margin-left: 0; border-radius: 0; box-shadow: none; border-left: 1px solid var(--bordure); }
 /* Bouton de la barre latérale : une demande tourne, ou une proposition attend d'être relue */
 .indicateur-ia { display: inline-flex; align-items: center; color: var(--texte); }

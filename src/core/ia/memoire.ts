@@ -2,6 +2,7 @@ import { parseDocument, stringify } from 'yaml'
 import { FichierIntrouvable, joindre, type AdaptateurFichiers } from '../fichiers'
 import { slug } from '../identifiants'
 import { estObjet } from '../schema'
+import { ConnaissanceAssistant, type Connaissance } from './connaissance'
 
 // Mémoire et skills de l'assistant (spec §3 et §12) : `_assistant/memoire.md`,
 // un fait par ligne de liste, et `_assistant/skills/<slug>.md`. Comme toute
@@ -13,7 +14,7 @@ const DOSSIER_SKILLS = joindre(DOSSIER_ASSISTANT, 'skills')
 const ENTETE_MEMOIRE = '# Mémoire de l’assistant\n\nCe que l’assistant IA de mdbase retient d’une conversation à l’autre, un fait par ligne.\n\n'
 
 export type Skill = { nom: string; description: string; instructions: string }
-export type Assistant = { memoire: string[]; skills: Skill[] }
+export type Assistant = { memoire: string[]; skills: Skill[]; connaissance?: Connaissance }
 
 const FAIT = /^\s*[-*]\s+(.+?)\s*$/
 const normaliser = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -48,8 +49,12 @@ export class MemoireAssistant {
   /** Sérialise les écritures : deux faits retenus coup sur coup ne s'écrasent pas. */
   private file: Promise<unknown> = Promise.resolve()
 
+  /** Contexte, documents et inbox (spec §18). */
+  readonly connaissance: ConnaissanceAssistant
+
   constructor(adaptateur: AdaptateurFichiers) {
     this.adaptateur = adaptateur
+    this.connaissance = new ConnaissanceAssistant(adaptateur)
   }
 
   async lire(): Promise<Assistant> {
@@ -59,7 +64,7 @@ export class MemoireAssistant {
       const s = lireSkill((await this.lireOuNull(joindre(DOSSIER_SKILLS, nom))) ?? '')
       if (s) skills.push(s)
     }
-    return { memoire, skills: skills.sort((a, b) => a.nom.localeCompare(b.nom)) }
+    return { memoire, skills: skills.sort((a, b) => a.nom.localeCompare(b.nom)), connaissance: await this.connaissance.lire() }
   }
 
   /** Ajoute un fait (sauf s'il y est déjà) ; renvoie le fait tel qu'écrit. */

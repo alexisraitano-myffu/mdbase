@@ -5,6 +5,7 @@ import { correspond, type Contexte } from '../filtres'
 import type { Modifications } from '../ligne'
 import { estSaisie, estObjet, nomSource, type Colonne } from '../schema'
 import { lireNombre, type Cellule, type Valeur } from '../valeurs'
+import { decrireConnaissance, estOutilInbox, validerInbox, type ActionConnaissance, type Incoherence } from './connaissance'
 import type { Assistant, Skill } from './memoire'
 import { appliquerStructure, appliquerSuite, Brouillon, Correspondances, decrireAction, idLignePrevu, validerStructure, type ActionStructure, type ActionSuite } from './structure'
 import { erreur, ErreurProposition, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne, type BaseOuverte } from './references'
@@ -35,6 +36,10 @@ export type Plan = {
   /** Suppressions de lignes et contenu des pages : appliqués après les données. */
   suite?: ActionSuite[]
   skills?: SkillPropose[]
+  /** Ce que devient l'inbox (spec §18) : appliqué en dernier. */
+  connaissance?: ActionConnaissance[]
+  /** Écarts signalés par le modèle : montrés, jamais appliqués. */
+  incoherences?: Incoherence[]
 }
 
 /** Retenir ou oublier : écrit aussitôt, avec une mention annulable (spec §12). */
@@ -47,6 +52,8 @@ export type AppelValide =
   | { type: 'reponse'; texte: string }
   | { type: 'memoire'; action: ActionMemoire }
   | { type: 'skill'; skill: SkillPropose }
+  | { type: 'connaissance'; action: ActionConnaissance }
+  | { type: 'incoherence'; incoherence: Incoherence }
 
 
 
@@ -161,7 +168,7 @@ function creer(etat: EtatEspace, args: Record<string, unknown>): Operation {
  * les bases et colonnes que les précédents créent.
  */
 /** Outils qui écrivent dans les lignes ou le schéma d'une base existante. */
-const ECRITURES_DE_BASE = new Set(['modifier_lignes', 'creer_lignes', 'supprimer_lignes', 'ecrire_contenu', 'ajouter_colonnes', 'renommer_colonne', 'supprimer_colonne'])
+const ECRITURES_DE_BASE = new Set(['modifier_lignes', 'creer_lignes', 'supprimer_lignes', 'ecrire_contenu', 'ajouter_remarque', 'ajouter_colonnes', 'renommer_colonne', 'supprimer_colonne'])
 
 export function validerAppel(espace: EtatEspace | Brouillon, appel: AppelOutil, ctx: Contexte, assistant: Assistant = { memoire: [], skills: [] }): AppelValide {
   const brouillon = espace instanceof Brouillon ? espace : new Brouillon(espace)
@@ -177,6 +184,11 @@ export function validerAppel(espace: EtatEspace | Brouillon, appel: AppelOutil, 
   if (ECRITURES_DE_BASE.has(appel.nom)) {
     const { schema } = brouillon.base(args.base)
     if (schema.source) erreur(`la base « ${schema.nom} » est synchronisée depuis ${nomSource(schema.source.type)} : en lecture seule, rien ne peut y être modifié (réponds avec \`repondre\`)`)
+  }
+  if (estOutilInbox(appel.nom)) {
+    const c = assistant.connaissance ?? { contexte: '', documents: [], inbox: [] }
+    const ligneExiste = (base: string, id: string) => etat.bases.get(base)?.depot?.lignes().some((l) => l.id === id) ?? false
+    return validerInbox({ nom: appel.nom, args }, { inbox: c.inbox, documents: c.documents, ligneExiste, aujourdhui: ctx.aujourdhui })
   }
   switch (appel.nom) {
     case 'modifier_lignes':
@@ -225,14 +237,16 @@ export function resumerPlan(plan: Plan): string {
       const reste = n > LIGNES_RESUMEES ? ` ; et ${n - LIGNES_RESUMEES} autres` : ''
       return `${op.type === 'creer' ? 'Créer' : 'Modifier'} ${n} ligne${n > 1 ? 's' : ''} dans ${op.nomBase} : ${lignes.join(' ; ')}${reste}`
     })
-  return [...structure, ...operations, ...suite, ...skills].join('\n')
+  const connaissance = (plan.connaissance ?? []).map(decrireConnaissance)
+  const incoherences = (plan.incoherences ?? []).map((i) => `Incohérence signalée : ${i.constat}`)
+  return [...structure, ...operations, ...suite, ...skills, ...connaissance, ...incoherences].join('\n')
 }
 
 /**
- * Applique un plan confirmé, skills compris. Une ligne supprimée entre
+ * Applique un plan confirmé, skills et inbox compris (`maintenant` date les documents rangés). Une ligne supprimée entre
  * l'aperçu et la confirmation est ignorée ; renvoie le nombre de lignes écrites.
  */
-export async function appliquerPlan(espace: DepotEspace, plan: Plan): Promise<number> {
+export async function appliquerPlan(espace: DepotEspace, plan: Plan, maintenant = ''): Promise<number> {
   const corr = new Correspondances()
   await appliquerStructure(espace, plan.structure ?? [], corr)
   let n = 0
@@ -272,5 +286,6 @@ export async function appliquerPlan(espace: DepotEspace, plan: Plan): Promise<nu
   }
   await appliquerSuite(espace, plan.suite ?? [], corr)
   for (const { remplace: _, ...skill } of plan.skills ?? []) await espace.assistant.enregistrerSkill(skill)
+  if (plan.connaissance?.length) await espace.assistant.connaissance.appliquer(plan.connaissance, maintenant)
   return n
 }

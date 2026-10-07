@@ -1,5 +1,6 @@
 import type { DepotEspace } from '../depot-espace'
 import type { AppelOutil, MessageIA, ModeleIA, RequeteIA } from './modele'
+import { CONSIGNE_INBOX, decrireInbox, DOCUMENTS_LISTES, estLectureDocument, lireDocuments, OUTILS_DOCUMENTS, OUTILS_INBOX, type ActionConnaissance, type Connaissance, type Incoherence } from './connaissance'
 import { estLecture, lire, OUTILS_LECTURE } from './lecture'
 import { CONSIGNE, decrireEspace, OUTILS } from './outils'
 import { ErreurProposition, validerAppel, type ActionMemoire, type AppelValide, type Operation, type Plan, type SkillPropose } from './plan'
@@ -44,6 +45,8 @@ export type OptionsDemande = {
   /** Transmis au modèle : arrêt par l'utilisateur, et réponse suivie au fil de l'eau. */
   signal?: RequeteIA['signal']
   progression?: RequeteIA['progression']
+  /** Traiter l'inbox (spec §18) : ses éléments accompagnent la demande. */
+  inbox?: boolean
 }
 
 /** Échanges renvoyés au modèle : assez pour suivre une conversation, sans alourdir chaque demande. */
@@ -78,13 +81,35 @@ export const sansReflexion = (texte: string) => texte.replace(/<think>[\s\S]*?(<
 /** Demande telle que le modèle la lit, skill choisi compris : aussi ce que relit l'historique. */
 export const avecSkill = (demande: string, skill?: string) => (skill ? `Applique le skill « ${skill} ».${demande ? `\n${demande}` : ''}` : demande)
 
+/**
+ * Le contexte de l'utilisateur et la liste des documents (spec §18), en tête du
+ * message système : ils changent rarement, le début du message reste le même.
+ */
+function decrireConnaissance(c: Connaissance): string {
+  const parties: string[] = []
+  if (c.contexte) parties.push("## Contexte (écrit par l'utilisateur : son organisation, ses règles ; il prime sur tes suppositions)", c.contexte)
+  const actifs = c.documents.filter((d) => !d.remplacePar)
+  if (actifs.length > 0) {
+    parties.push(
+      '## Documents',
+      `${actifs.length} document${actifs.length > 1 ? 's' : ''} à jour (id | date | titre)${actifs.length > DOCUMENTS_LISTES ? `, les ${DOCUMENTS_LISTES} plus récents` : ''}. Cherches-y avec \`chercher_documents\` dès que la demande touche à ce qu'ils racontent ; cite le document et sa date.`,
+      ...actifs.slice(0, DOCUMENTS_LISTES).map((d) => `${d.id} | ${d.date} | ${d.titre}`),
+    )
+  }
+  return parties.join('\n')
+}
+
 export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: string, o: OptionsDemande): Promise<Proposition> {
   const assistant = await espace.assistant.lire()
+  const connaissance = assistant.connaissance ?? { contexte: '', documents: [], inbox: [] }
   const contexte = decrireEspace(espace.etat(), { ...o, candidats: espace.candidats(demande), memoire: assistant.memoire, skills: assistant.skills })
+  const savoir = decrireConnaissance(connaissance)
+  const inbox = o.inbox ? connaissance.inbox : []
+  const outils = [...OUTILS_LECTURE, ...(connaissance.documents.length > 0 ? OUTILS_DOCUMENTS : []), ...OUTILS, ...(inbox.length > 0 ? OUTILS_INBOX : [])]
   const messages: MessageIA[] = [
-    { role: 'system', contenu: `${CONSIGNE}\n\n${contexte}` },
+    { role: 'system', contenu: [CONSIGNE, savoir, contexte].filter(Boolean).join('\n\n') },
     ...(o.historique ?? []).slice(-ECHANGES_MAX).flatMap((e, i, liste) => rejouer(e, i >= liste.length - ECHANGES_DETAILLES)),
-    { role: 'user', contenu: avecSkill(demande, o.skill) },
+    { role: 'user', contenu: inbox.length > 0 ? `${avecSkill(demande, o.skill)}\n\n${CONSIGNE_INBOX}\n\n## Inbox\n${decrireInbox(inbox)}` : avecSkill(demande, o.skill) },
   ]
   const debut = messages.length
   /** Le déroulé de cette demande : ses lectures et leurs résultats, sans les relances (consignes et réponses coupées). */
@@ -94,7 +119,7 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
   // Appels d'une proposition de structure seule, gardés pendant le tour donné au modèle pour enchaîner les lignes.
   let acquis: AppelOutil[] = []
   for (;;) {
-    const reponse = await modele({ messages, outils: [...OUTILS_LECTURE, ...OUTILS], signal: o.signal, progression: o.progression })
+    const reponse = await modele({ messages, outils, signal: o.signal, progression: o.progression })
     // Réponse coupée par le service : ses derniers appels sont incomplets, on la redemande plus courte.
     if (reponse.coupee && relances < RELANCES) {
       relances++
@@ -102,7 +127,8 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
       messages.push({ role: 'user', contenu: 'Ta réponse a été coupée : trop longue. Rien n’a été appliqué. Renvoie-la en plus court : moins de texte, des appels groupés (plusieurs lignes par appel, des filtres plutôt que des listes d’ids).' })
       continue
     }
-    const aLire = reponse.appels.filter(estLecture)
+    const estLu = (a: AppelOutil) => estLecture(a) || estLectureDocument(a)
+    const aLire = reponse.appels.filter(estLu)
     if (aLire.length > 0 && lectures < LECTURES_MAX) {
       lectures++
       // L'état est relu à chaque tour : les lectures voient l'espace tel qu'il est.
@@ -114,12 +140,14 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
           idAppel: appel.id,
           contenu: estLecture(appel)
             ? lire(etat, appel, { aujourdhui: o.aujourdhui })
-            : 'Pas retenu : propose les modifications dans une réponse sans lecture, une fois tes lectures finies.',
+            : estLectureDocument(appel)
+              ? lireDocuments(connaissance.documents, appel)
+              : 'Pas retenu : propose les modifications dans une réponse sans lecture, une fois tes lectures finies.',
         })
       }
       continue
     }
-    const nouveaux = reponse.appels.filter((a) => !estLecture(a))
+    const nouveaux = reponse.appels.filter((a) => !estLu(a))
     const appels = [...acquis, ...nouveaux]
     if (appels.length === 0) {
       const texte = sansReflexion(reponse.texte)
@@ -159,6 +187,8 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
     const structure = valides.flatMap((r): ActionStructure[] => (r.type === 'structure' ? r.actions : []))
     const suite = valides.flatMap((r): ActionSuite[] => (r.type === 'suite' ? [r.action] : []))
     const memoire = valides.flatMap((r): ActionMemoire[] => (r.type === 'memoire' ? [r.action] : []))
+    const rangement = valides.flatMap((r): ActionConnaissance[] => (r.type === 'connaissance' ? [r.action] : []))
+    const incoherences = valides.flatMap((r): Incoherence[] => (r.type === 'incoherence' ? [r.incoherence] : []))
     // Le texte écrit à côté des appels a été montré au fil de l'eau : il reste, à défaut d'une réponse explicite.
     const texte = valides.flatMap((r) => (r.type === 'reponse' && r.texte ? [r.texte] : [])).join('\n') || sansReflexion(reponse.texte)
     const message = [texte, refus, coupe].filter(Boolean).join('\n\n')
@@ -174,10 +204,11 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
       })
       continue
     }
-    if (operations.length > 0 || skills.length > 0 || structure.length > 0 || suite.length > 0) {
+    if (operations.length > 0 || skills.length > 0 || structure.length > 0 || suite.length > 0 || rangement.length > 0 || incoherences.length > 0) {
       // Seuls les appels retenus sont rejoués : ce sont eux que l'utilisateur a vus.
       const retenus = nouveaux.filter((_, i) => !(resultats[acquis.length + i] instanceof ErreurProposition))
-      return { type: 'plan', plan: { structure, operations, suite, skills }, message, memoire, deroule: deroule({ role: 'assistant', contenu: reponse.texte, appels: retenus }) }
+      const plan: Plan = { structure, operations, suite, skills, ...(rangement.length > 0 ? { connaissance: rangement } : {}), ...(incoherences.length > 0 ? { incoherences } : {}) }
+      return { type: 'plan', plan, message, memoire, deroule: deroule({ role: 'assistant', contenu: reponse.texte, appels: retenus }) }
     }
     const aucunChangement = valides.some((r) => r.type === 'operation')
     const vide = memoire.length > 0 ? '' : aucunChangement ? 'Rien à changer : les valeurs sont déjà celles demandées.' : 'Le modèle n’a rien proposé.'
