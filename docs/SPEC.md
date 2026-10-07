@@ -814,7 +814,7 @@ Un champ et une zone de dépôt dans le panneau : une remarque brute, un fichier
 Une information qu'il ne sait pas rattacher reste dans l'inbox avec sa question. Une base Jira (§16) reste en lecture seule : une remarque sur un ticket Jira va sur la ligne de l'utilisateur qui l'attache.
 
 ### Budget
-- **Compteur** : chaque réponse du service donne les jetons consommés ; le panneau affiche le coût du mois (prix du modèle saisi ou prérempli). **Plafond mensuel** réglable (ex. 10 €) : l'assistant s'arrête au plafond, avec un avertissement à 80 %. Gardé avec la clé, par machine : la vraie garantie reste la limite de dépense réglée dans la console du fournisseur, que l'écran de réglage recommande.
+- **Compteur** : chaque réponse du service donne les jetons consommés ; le panneau affiche le coût du mois (prix du modèle saisi ou prérempli). **Plafond mensuel** entièrement réglable par l'utilisateur : aucun par défaut (désactivé tant qu'il n'est pas saisi), montant et devise libres, prix par million de jetons modifiables pour tout modèle (préremplis seulement pour les services connus, jamais imposés). Une fois réglé : avertissement à 80 %, arrêt au plafond, levable pour le mois en cours. Gardé avec la clé, par machine : la vraie garantie reste la limite de dépense réglée dans la console du fournisseur, que l'écran de réglage recommande.
 - **Cache de prompt** : un connecteur Anthropic natif, à côté du connecteur générique, marque contexte, outils et description de l'espace comme cachables (relus à environ 10 % du prix pendant quelques minutes). Le connecteur compatible OpenAI reste pour les autres services.
 - Documents cherchés et non envoyés ; à l'ajout, seuls le nouveau document et les passages qu'il concerne partent.
 
