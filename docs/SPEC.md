@@ -775,7 +775,7 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 
 ## 18. Connaissance de l'assistant [PROPOSÉ, demandé par Alex le 07/10/2026]
 
-But : un assistant pertinent sans réexpliquer à chaque demande l'organisation, les workflows et le vocabulaire ; nourri des documents qui arrivent chaque semaine (présentations surtout) ; qui signale ce qui ne colle plus. Tout se gère depuis le panneau de l'assistant (§12) : rien n'apparaît dans la barre latérale ni dans les bases, et l'utilisateur n'a jamais à ouvrir ces fichiers (ils restent lisibles, dans `_assistant/`, synchronisés avec le dossier).
+But : un assistant pertinent sans réexpliquer à chaque demande l'organisation, les workflows et le vocabulaire ; nourri des documents qui arrivent chaque semaine (présentations surtout) ; qui signale ce qui ne colle plus. Tout se gère depuis l'interface (panneau de l'assistant, page Inbox, fenêtre Modules §19) : rien n'apparaît dans les bases, et l'utilisateur n'a jamais à ouvrir ces fichiers (ils restent lisibles, dans `_assistant/`, synchronisés avec le dossier).
 
 ### Deux couches
 - **Contexte** (`_assistant/contexte.md`) : ce qui bouge peu. Markdown libre, **envoyé en entier à chaque demande**. Sections conseillées, proposées à la création :
@@ -806,17 +806,46 @@ Un document remplacé reste lisible (`lire_document`) mais n'est plus cherché p
 À l'ajout, une fois, dans l'app (navigateur comme bureau), sans Python ni service externe : PDF par pdf.js, Word par mammoth, PowerPoint en lisant le XML du `.pptx` (une section par diapositive, titre, texte des formes, tableaux en tableaux Markdown, notes de l'orateur). Bibliothèques chargées seulement à la première conversion. Limites, dites à l'ajout : un PDF scanné ne donne pas de texte ; les images et graphiques d'une présentation sont ignorés (signalés « image non lue »).
 
 ### Inbox
-Un bouton Inbox dans l'en-tête du panneau (avec le nombre d'éléments en attente), un champ, un bouton « Fichier », et tout le panneau comme zone de dépôt : une remarque brute, un fichier (PDF, Word, PowerPoint, texte) ou un copier-coller. En attente dans `_assistant/inbox/` jusqu'au traitement. « Traiter » envoie tout ce qui attend en une demande ; l'assistant :
-1. rattache chaque information aux lignes concernées, en suivant l'*Organisation* du contexte ;
-2. propose un plan dans l'aperçu habituel : remarques datées ajoutées au corps des bonnes pages (nouvel outil `ajouter_remarque` : ajoute « - JJ/MM/AAAA : … » à la fin d'une section `## …`, créée si elle manque, sans réécrire le reste de la page ; disponible aussi hors inbox), champs à mettre à jour, ce qui en découle selon la *Propagation*, correction du contexte si l'organisation a changé ;
-3. range le fichier en document (frontmatter rempli, `remplace_par` posé sur ceux qu'il remplace, avec confirmation) ;
-4. liste à part les **incohérences**, jamais appliquées : présentation contre bases (date, statut, avancement), contre le statut des tickets Jira attachés, contre la présentation précédente du même projet (une date qui bouge sans explication), contre le contexte.
-Une information qu'il ne sait pas rattacher reste dans l'inbox avec sa question. Une base Jira (§16) reste en lecture seule : une remarque sur un ticket Jira va sur la ligne de l'utilisateur qui l'attache.
+**Une page à part** [PROPOSÉ, demandé par Alex le 07/10/2026] : une entrée « Inbox » dans la barre latérale, sous « Toutes les tâches », avec le nombre d'éléments en attente. Elle ouvre un panneau à droite du contenu, comme celui de l'assistant (même place, même poignée ; un seul des deux ouvert à la fois), dédié à l'inbox. L'inbox sert aussi **sans l'assistant** : c'est d'abord un endroit où tout déposer.
+- **Déposer** : un champ (remarque brute, copier-coller ; `Ctrl+Entrée`), un bouton « Fichier », et tout le panneau comme zone de dépôt (PDF, Word, PowerPoint, texte).
+- **À traiter** : la liste des éléments en attente (`_assistant/inbox/`), du plus récent au plus ancien : icône (note ou fichier), titre, date de réception, début du texte (déplié au clic), question laissée par l'assistant s'il y en a une. Par ligne : « Envoyer à l'IA », « Marquer traité » (sans l'IA), « Supprimer ». En tête : « Tout envoyer à l'IA ».
+- **Envoyer à l'IA** (un élément ou tous) ouvre le panneau de l'assistant sur la demande ; le plan se relit et s'applique là, comme toute proposition (§12). L'assistant :
+  1. rattache chaque information aux lignes concernées, en suivant l'*Organisation* du contexte ;
+  2. propose un plan dans l'aperçu habituel : remarques datées ajoutées au corps des bonnes pages (outil `ajouter_remarque` : ajoute « - JJ/MM/AAAA : … » à la fin d'une section `## …`, créée si elle manque, sans réécrire le reste de la page ; disponible aussi hors inbox), champs à mettre à jour, ce qui en découle selon la *Propagation*, correction du contexte si l'organisation a changé ;
+  3. range le fichier en document (frontmatter rempli, `remplace_par` posé sur ceux qu'il remplace, avec confirmation) ;
+  4. liste à part les **incohérences**, jamais appliquées : présentation contre bases (date, statut, avancement), contre le statut des tickets Jira attachés, contre la présentation précédente du même projet (une date qui bouge sans explication), contre le contexte.
+  Une information qu'il ne sait pas rattacher reste à traiter, avec sa question. Une base Jira (§16) reste en lecture seule : une remarque sur un ticket Jira va sur la ligne de l'utilisateur qui l'attache.
+- **Traités** : un élément traité (plan appliqué, ou « Marquer traité ») n'est plus supprimé : il passe dans `_assistant/inbox/traites/`, avec ce qui en a été fait. Section repliée par défaut (« Traités (n) »), du plus récent au plus ancien ; « Vider l'historique » supprime ces fichiers après confirmation. Nouvelles clés du frontmatter d'un élément traité :
+  ```yaml
+  traite: 2026-10-07T09:20          # date du traitement
+  bilan:                             # ce qui a été fait, en phrases lisibles (aperçu du plan appliqué)
+    - Noter dans « Navi » (Projets), section Remarques
+    - Statut de « Tâche A » (Tâches) : En cours → Terminé
+    - "À vérifier : la livraison passe du 15/10 au 29/10 sans explication"
+  document: 2026-10-07--point-hebdo-navi-s41   # si le fichier a été rangé en document : son texte n'est pas recopié ici
+  ```
+  Un élément marqué traité à la main a `bilan: [Marqué traité]`.
 
 ### Budget
 - **Compteur** : chaque réponse du service donne les jetons consommés ; le panneau affiche le coût du mois (prix du modèle saisi ou prérempli). **Plafond mensuel** entièrement réglable par l'utilisateur : aucun par défaut (désactivé tant qu'il n'est pas saisi), montant et devise libres, prix par million de jetons modifiables pour tout modèle (préremplis seulement pour les services connus, jamais imposés). Une fois réglé : avertissement à 80 %, arrêt au plafond, levable pour le mois en cours. Gardé avec la clé, par machine : la vraie garantie reste la limite de dépense réglée dans la console du fournisseur, que l'écran de réglage recommande.
 - **Cache de prompt** : un connecteur Anthropic natif, à côté du connecteur générique, marque contexte, outils et description de l'espace comme cachables (relus à environ 10 % du prix pendant quelques minutes). Le connecteur compatible OpenAI reste pour les autres services.
 - Documents cherchés et non envoyés ; à l'ajout, seuls le nouveau document et les passages qu'il concerne partent.
+
+
+## 19. Modules [PROPOSÉ, demandé par Alex le 07/10/2026]
+
+Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans une fenêtre **Modules** (bouton en bas de la barre latérale, au-dessus de « Changer de dossier »). Un interrupteur par module, avec une phrase qui dit ce qu'il fait, et son réglage quand il en a un :
+
+| Module | Ce qu'il montre | Par défaut |
+| --- | --- | --- |
+| Jira | « Nouvelle base Jira », bandeau de synchro, réglages de la base Jira (§16) | activé si l'espace contient déjà une base Jira |
+| Assistant IA | bouton et panneau de l'assistant, `Ctrl+J` ; réglage : la connexion (§12), avec l'avertissement d'activation | désactivé |
+| Inbox | entrée et page Inbox (§18) ; sans l'assistant, pas de bouton « Envoyer à l'IA » | désactivé |
+| Contexte IA | contexte et documents envoyés ou cherchés par l'assistant (§18) ; réglage : éditer le contexte, voir et retirer les documents rangés. Demande l'assistant | désactivé |
+
+- Désactiver un module **cache** ce qu'il montre ; aucun fichier n'est touché. Une base Jira existante reste une base lisible quand le module est désactivé (sans bandeau de synchro).
+- Les choix sont gardés **par machine** (dans le navigateur, comme la clé de l'assistant), pas dans le dossier : aucune nouvelle clé dans `_espace.yaml`.
+- Les modules suivants (intégrations tierces) s'ajoutent à la même fenêtre.
 
 ---
 
