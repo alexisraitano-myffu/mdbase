@@ -34,3 +34,9 @@ jobs:
           name: mdbase-windows
           path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
+      # Version portable : l'exécutable seul, sans installation (WebView2 est déjà dans Windows 10 et 11).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mdbase-windows-portable
+          path: src-tauri/target/release/mdbase.exe
+          if-no-files-found: error
