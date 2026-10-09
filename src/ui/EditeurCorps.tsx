@@ -3,7 +3,7 @@ import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/lang
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap, placeholder } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { apercu } from './editeur/apercu'
 import { langageMarkdown } from './editeur/langage'
 import { liens as champLiens, raccourcisLiens } from './editeur/liens'
@@ -11,6 +11,7 @@ import { collerMisEnForme } from './editeur/coller'
 import { menu, raccourcisMiseEnForme } from './editeur/mise-en-forme'
 import { menuReferences, pastillesReferences, type SourceLiens } from './editeur/references'
 import { repli } from './editeur/repli'
+import { MenuTexte } from './MenuTexte'
 
 // Mise en forme du texte : les tailles de titre viennent des classes de ligne
 // (app.css), ici seulement le gras, l'italique, le code et la syntaxe atténuée.
@@ -84,7 +85,30 @@ export function EditeurCorps({ initial, changer, lecture = false, liens }: { ini
     vue.current?.dispatch({ effects: modifiable.current.reconfigure(etatLecture(lecture)) })
   }, [lecture])
 
-  return <div className="editeur-corps" ref={racine} />
+  // Clic droit sur un mot (il est sélectionné) ou dans la sélection : le menu de mise en forme.
+  // Maj+clic droit garde le menu du système, pour ses suggestions d'orthographe.
+  const [menuTexte, setMenuTexte] = useState<{ x: number; y: number } | null>(null)
+  const clicDroit = (e: MouseEvent) => {
+    const view = vue.current
+    if (!view || lecture || e.shiftKey) return
+    const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+    if (pos === null) return
+    const sel = view.state.selection.main
+    if (sel.empty || pos < sel.from || pos > sel.to) {
+      const mot = view.state.wordAt(pos)
+      view.dispatch({ selection: mot ? { anchor: mot.from, head: mot.to } : { anchor: pos } })
+    }
+    e.preventDefault()
+    view.focus()
+    setMenuTexte({ x: e.clientX, y: e.clientY })
+  }
+
+  return (
+    <>
+      <div className="editeur-corps" ref={racine} onContextMenu={clicDroit} />
+      {menuTexte && vue.current && <MenuTexte vue={vue.current} x={menuTexte.x} y={menuTexte.y} fermer={() => setMenuTexte(null)} />}
+    </>
+  )
 }
 
 function etatLecture(lecture: boolean) {

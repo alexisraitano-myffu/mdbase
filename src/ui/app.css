@@ -903,6 +903,16 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .lancer-script p { margin: 0; flex-basis: 100%; line-height: 1.45; }
 .commande { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .commande code { font-size: 0.95em; background: var(--fond); border: 1px solid var(--bordure); border-radius: 4px; padding: 2px 6px; overflow-wrap: anywhere; }
+.ancre-menu-texte { position: fixed; width: 0; height: 0; pointer-events: none; }
+.menu-texte { display: flex; flex-direction: column; min-width: 13rem; }
+.menu-texte .option { display: flex; align-items: center; gap: 8px; }
+.raccourci-menu { margin-left: auto; padding-left: 1.5rem; font-size: 0.85em; }
+.separateur-menu { height: 1px; background: var(--bordure); margin: 4px 0; }
+.titre-menu { padding: 2px 8px; font-size: 0.85em; }
+.couleurs-surlignage { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 4px; }
+.pastille-surlignage { width: 20px; height: 20px; padding: 0; border-radius: 4px; border: 1px solid var(--bordure); }
+.pastille-surlignage.sans { display: inline-flex; align-items: center; justify-content: center; background: none; }
+.cm-surligne { border-radius: 2px; padding: 1px 0; }
 .connexion-jira { display: flex; flex-direction: column; gap: 0.5rem; max-width: 34rem; }
 .connexion-jira p { margin: 0; line-height: 1.45; }
 .erreur-connexion { color: var(--erreur-texte); overflow-wrap: anywhere; }

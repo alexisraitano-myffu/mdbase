@@ -115,7 +115,7 @@ const champ = StateField.define<Cible | null>({
 })
 
 /** Ctrl+K : lier la sélection, ou modifier le lien sous le curseur ; sinon, la main passe à la recherche globale. */
-function lier(view: EditorView): boolean {
+export function lier(view: EditorView): boolean {
   const { state } = view
   if (state.readOnly) return false
   const sel = state.selection.main

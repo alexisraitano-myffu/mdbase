@@ -1,5 +1,6 @@
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete'
-import { EditorSelection, type EditorState } from '@codemirror/state'
+import { syntaxTree } from '@codemirror/language'
+import { EditorSelection, type ChangeSpec, type EditorState } from '@codemirror/state'
 import { EditorView, tooltips, type KeyBinding } from '@codemirror/view'
 import { Code, Heading1, Heading2, Heading3, List, ListChecks, ListOrdered, Minus, Pilcrow, TextQuote, type IconNode } from 'lucide'
 import { iconeDom } from './icone-dom'
@@ -39,9 +40,77 @@ function basculer(marque: string) {
   }
 }
 
+export const gras = basculer('**')
+export const italique = basculer('*')
+export const barre = basculer('~~')
+export const codeEnLigne = basculer('`')
+
+/** Couleurs du surlignage : celles de l'espace, le jaune par défaut (`==texte==`, sans accolades). */
+export const COULEURS_SURLIGNAGE = ['jaune', 'orange', 'rouge', 'rose', 'violet', 'bleu', 'vert', 'marron', 'gris'] as const
+
+/** Couleur au début de l'intérieur d'un surlignage (`{rouge}`) et la longueur de cette marque ; jaune sans marque. */
+export function couleurSurlignage(interieur: string): { couleur: string; longueur: number } {
+  const m = /^\{([a-z]+)\}/.exec(interieur)
+  return m && (COULEURS_SURLIGNAGE as readonly string[]).includes(m[1]!) ? { couleur: m[1]!, longueur: m[0].length } : { couleur: 'jaune', longueur: 0 }
+}
+
+/** Surlignage qui contient toute la plage, avec la place de ses marques. */
+function surlignageAutour(state: EditorState, from: number, to: number) {
+  for (let n: ReturnType<typeof syntaxTree>['topNode'] | null = syntaxTree(state).resolveInner(from, 1); n; n = n.parent) {
+    if (n.name !== 'Surligne' || n.from > from || n.to < to) continue
+    const marques = n.getChildren('SurligneMark')
+    if (marques.length < 2) return null
+    const ouvrant = marques[0]!
+    const fermant = marques[marques.length - 1]!
+    const { longueur } = couleurSurlignage(state.sliceDoc(ouvrant.to, fermant.from))
+    return { from: n.from, debut: ouvrant.to, finCouleur: ouvrant.to + longueur, fermant: { from: fermant.from, to: fermant.to } }
+  }
+  return null
+}
+
+/**
+ * Surligne la sélection dans `couleur`, change la couleur d'un surlignage existant, ou le retire
+ * (`null`). `'basculer'` : retire s'il y en a un, sinon jaune (Ctrl+Maj+H).
+ */
+export function surligner(couleur: string | null | 'basculer') {
+  return (view: EditorView) => {
+    if (view.state.readOnly) return false
+    const { state } = view
+    view.dispatch(
+      state.changeByRange((r) => {
+        const autour = surlignageAutour(state, r.from, r.to)
+        const voulue = couleur === 'basculer' ? (autour ? null : 'jaune') : couleur
+        const prefixe = voulue && voulue !== 'jaune' ? `{${voulue}}` : ''
+        let changes: ChangeSpec[]
+        if (autour) {
+          changes =
+            voulue === null
+              ? [
+                  { from: autour.from, to: autour.finCouleur },
+                  { from: autour.fermant.from, to: autour.fermant.to },
+                ]
+              : [{ from: autour.debut, to: autour.finCouleur, insert: prefixe }]
+        } else if (voulue === null || r.empty) {
+          return { range: r }
+        } else {
+          changes = [
+            { from: r.from, insert: `==${prefixe}` },
+            { from: r.to, insert: '==' },
+          ]
+        }
+        const c = state.changes(changes)
+        return { changes: c, range: EditorSelection.range(c.mapPos(r.from, 1), c.mapPos(r.to, -1)) }
+      }),
+      { userEvent: 'input.format' },
+    )
+    return true
+  }
+}
+
 export const raccourcisMiseEnForme: KeyBinding[] = [
-  { key: 'Mod-b', run: basculer('**') },
-  { key: 'Mod-i', run: basculer('*') },
+  { key: 'Mod-b', run: gras },
+  { key: 'Mod-i', run: italique },
+  { key: 'Mod-Shift-h', run: surligner('basculer') },
 ]
 
 /** Début de ligne d'un bloc (titre, liste, citation, tâche), remplacé quand on change de bloc. */
