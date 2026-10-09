@@ -63,7 +63,7 @@ test.describe('pages', () => {
 
   test('contenu : syntaxe visible sur la ligne du curseur, case cochée dans le texte, titre replié, menu « / »', async ({ espace, page }) => {
     const fichier = 'taches/integration--tinte002.md'
-    await espace.remplacer(fichier, /\n---\n[\s\S]*$/, '\n---\n## Reste à faire\n\n- [ ] Formulaire de **contact**\n- [x] Gabarits\n\n## Notes\n\nRien.\n')
+    await espace.remplacer(fichier, /\n---\n[\s\S]*$/, '\n---\n## Reste à faire\n\n- [ ] Formulaire de **contact**\n- [x] Gabarits\n\n## Notes\n\nRien.\nDeuxième ligne.\n\n> Une citation\n> sur deux lignes\n')
     await espace.retourSurOnglet()
     await espace.ouvrirPage('Tâches', 'Intégration')
     const corps = page.locator('.editeur-corps .cm-content')
@@ -79,6 +79,8 @@ test.describe('pages', () => {
     await expect.poll(() => espace.lire(fichier)).toContain('- [x] Formulaire de **contact**\n')
 
     await page.locator('.editeur-corps').hover()
+    // Un chevron par titre, aucun sur un paragraphe ou une citation de plusieurs lignes.
+    await expect(page.locator('.cm-foldGutter .cm-repli-ouvert')).toHaveCount(2)
     await page.locator('.cm-foldGutter .cm-repli-ouvert').first().click()
     await expect(corps.getByText('Gabarits')).toHaveCount(0)
     await page.locator('.cm-replie').click()
@@ -91,6 +93,48 @@ test.describe('pages', () => {
     await page.getByRole('option', { name: /Titre 3/ }).click()
     await page.keyboard.type('Suite')
     await expect.poll(() => espace.lire(fichier)).toContain('Rien.\n### Suite\n')
+  })
+
+  test('contenu : Ctrl+K fait un lien de la sélection, le change ou le retire ; un texte mis en forme se colle en Markdown', async ({ espace, page }) => {
+    const fichier = 'taches/integration--tinte002.md'
+    await espace.remplacer(fichier, /\n---\n[\s\S]*$/, '\n---\nVoir la maquette ici.\n')
+    await espace.retourSurOnglet()
+    await espace.ouvrirPage('Tâches', 'Intégration')
+    const corps = page.locator('.editeur-corps .cm-content')
+    await corps.locator('.cm-line', { hasText: 'maquette' }).click()
+    await page.keyboard.press('End')
+    for (let i = 0; i < ' ici.'.length; i++) await page.keyboard.press('ArrowLeft')
+    for (let i = 0; i < 'maquette'.length; i++) await page.keyboard.press('Shift+ArrowLeft')
+    await page.keyboard.press('ControlOrMeta+k')
+    await expect(page.getByRole('dialog', { name: /Rechercher/ })).toHaveCount(0) // pas la recherche globale
+    await page.getByLabel('Adresse du lien').fill('exemple.fr/maquette')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => espace.lire(fichier)).toContain('Voir la [maquette](https://exemple.fr/maquette) ici.')
+
+    // Sur le lien : changer l'adresse, puis la retirer.
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ControlOrMeta+k')
+    await expect(page.getByLabel('Adresse du lien')).toHaveValue('https://exemple.fr/maquette')
+    await page.getByLabel('Adresse du lien').fill('https://exemple.fr/v2')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => espace.lire(fichier)).toContain('[maquette](https://exemple.fr/v2)')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ControlOrMeta+k')
+    await page.getByRole('button', { name: 'Retirer le lien' }).click()
+    await expect.poll(() => espace.lire(fichier)).toContain('Voir la maquette ici.')
+
+    // Coller depuis une page web : le texte brut n'a ni titre ni liste, le HTML si.
+    await corps.locator('.cm-line', { hasText: 'maquette' }).click()
+    await page.keyboard.press('End')
+    await page.keyboard.press('Enter')
+    await corps.evaluate((el) => {
+      const d = new DataTransfer()
+      d.setData('text/html', '<h2>Décisions</h2><ul><li>Valider le <strong>devis</strong></li></ul>')
+      d.setData('text/plain', 'Décisions\nValider le devis')
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true }))
+    })
+    await expect.poll(() => espace.lire(fichier)).toMatch(/## Décisions\n\n-\s+Valider le \*\*devis\*\*/)
   })
 
   test('références : « @ » écrit un lien wiki vers une ligne, affiché en pastille au titre actuel, qui ouvre la page', async ({ espace, page }) => {
