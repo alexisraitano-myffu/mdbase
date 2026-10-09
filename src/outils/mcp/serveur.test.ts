@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DepotEspace } from '../../core/depot-espace'
 import { AdaptateurNode } from '../commun/fichiers-node'
-import { executer, outilsMcp } from './serveur'
+import { executer, outilsMcp } from '../../core/ia/mcp'
 
 const AUJOURDHUI = '2026-10-07'
 let racine: string
