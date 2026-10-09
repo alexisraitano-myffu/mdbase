@@ -141,6 +141,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 - Assistant IA : il relit le détail des quatre derniers échanges (ce qu'il a lu et proposé, pas seulement le texte de sa réponse), pour mieux suivre la conversation d'une demande à l'autre.
 ### Fixed
+- App de bureau (Windows) : des lignes, des pages ouvertes ou des bases entières pouvaient disparaître jusqu'au redémarrage, quand une relecture croisait une écriture en cours. Écritures atomiques (fichier temporaire puis renommage), nouvel essai sur les verrous passagers (OneDrive, antivirus), la surveillance ignore les écritures de l'app elle-même, et un `_schema.yaml` absent le temps d'une relecture ne retire plus la base.
 - Assistant IA : une base synchronisée depuis Jira pouvait recevoir une modification proposée par l'assistant ; elle est maintenant refusée, la base étant en lecture seule.
 - Filtrer par un rollup qui affiche les lignes d'une relation (le projet d'une tâche remonté par son lot) : le filtre proposait une saisie libre comparée aux identifiants, et ne retenait jamais rien. Il propose maintenant les lignes (ou les options d'un select) de la colonne d'origine, et la pastille montre leur titre.
 - Rollup de rollup d'une relation (le projet d'une tâche remonté par son lot) : la cellule, la copie et l'export montraient les identifiants des lignes au lieu de leurs titres.
