@@ -619,7 +619,7 @@ Précisions d'implémentation :
 - **Application installable (PWA)** [DÉCIDÉ, demandé par Alex le 01/10/2026] : Chrome et Edge proposent « Installer mdbase » (icône dans la barre d'adresse) : fenêtre à part, icône dans le menu Démarrer et la barre des tâches, sans signature ni installeur. Un service worker (`pwa/sw.js`, liste des fichiers injectée au build) garde le build pour ouvrir l'app hors ligne : la page passe par le réseau d'abord, les fichiers du build (noms hachés) par le cache d'abord, un cache par version. Il n'intercepte que l'app elle-même : ni les fichiers de l'espace (lus par l'API de fichiers), ni les appels de l'assistant IA. Une installation reste dans le cadre du navigateur : elle ne lève aucune restriction réseau (CORS).
 
 ### Module IA [DÉCIDÉ]
-Seule exception à « aucun appel réseau » (validée par Alex le 25/09/2026, après la V1).
+Exception à « aucun appel réseau » (validée par Alex le 25/09/2026, après la V1). La seule autre : la synchro Jira de l'app de bureau (§16), activée par le module Jira et une connexion saisie par l'utilisateur.
 - **Désactivé par défaut.** L'activer affiche d'abord un avertissement qui dit quelles données partent et vers quelle adresse ; rien n'est envoyé avant l'activation.
 - **Connecteur générique** : tout service compatible OpenAI (`/chat/completions` avec appels d'outils), distant ou local. L'utilisateur fournit l'adresse, sa clé et le nom du modèle ; la clé reste dans son navigateur. Aucun fournisseur imposé, aucune clé embarquée. Les principaux services sont préremplis [DÉCIDÉ, demandé par Alex le 02/10/2026] : un clic sur Anthropic, Google Gemini, OpenAI, Mistral, OVH, Ollama ou LM Studio remplit l'adresse et un modèle par défaut, avec un lien vers la page où créer sa clé ; il ne reste qu'à coller la clé. Le modèle se change parmi ceux que le service liste.
 - **Périmètre** : le modèle ne voit et ne modifie que l'espace ouvert. Il ne touche jamais aux fichiers : il propose des opérations typées (outils), que le cœur valide comme une saisie de l'interface (colonnes, types, options, lignes existantes).
@@ -678,7 +678,7 @@ But : relier des lignes à des tickets Jira Cloud et en faire des rollups (statu
 ### Principe
 - Jira Cloud refuse les appels venant d'une page web (CORS) : la page ne parle jamais à Jira. Un **script de synchro** (`mdbase-jira.mjs`, un seul fichier, Node seul requis, téléchargeable depuis le site) lit Jira et écrit les tickets dans l'espace, en fichiers ordinaires.
 - Une **base Jira** : une base comme les autres (§3), marquée par une clé `source` dans son schéma. Un fichier par ticket. L'app l'affiche, la filtre, la relie et en fait des rollups comme toute base, mais la garde **en lecture seule**.
-- La correspondance ticket → ligne est une fonction pure du cœur (`src/core/jira/`), séparée de l'accès réseau : le script l'utilise aujourd'hui, une app desktop pourra l'utiliser demain.
+- La correspondance ticket → ligne est une fonction pure du cœur (`src/core/jira/`), séparée de l'accès réseau : le script et l'app de bureau l'utilisent tous les deux.
 
 ### Schéma d'une base Jira
 
@@ -750,7 +750,17 @@ Description du ticket, convertie en Markdown.
 - **Le token ne va jamais dans l'espace ni dans le dépôt.** Demandé au premier lancement avec l'e-mail, puis gardé hors de l'espace : chiffré par Windows pour la session (DPAPI) sous `%APPDATA%\mdbase\`, dans le trousseau sur macOS. `--oublier` l'efface.
 - Une colonne ajoutée au script après la création d'une base (ex. Projet) est posée dans son schéma au passage suivant, qui relit alors tous les tickets ; la remplir ne compte pas comme un mouvement (« Bougé le » inchangé).
 - `--demarrage` (Windows) : après un passage réussi, copie le script dans `%LOCALAPPDATA%\mdbase\` (hors des Téléchargements) et pose `mdbase-jira.cmd` dans le dossier Démarrage de l'utilisateur, qui relance `--suivre` à chaque ouverture de session, fenêtre réduite, sans droits administrateur. `--sans-demarrage` le retire. Le bandeau de la base (bouton « Script ») donne le téléchargement et les deux commandes à copier : l'app ne connaît pas le chemin du dossier de l'espace, le script si.
-- [PLUS TARD] plusieurs scripts sur un même espace partagé (verrou), app desktop qui appelle Jira directement.
+- [PLUS TARD] plusieurs scripts sur un même espace partagé (verrou).
+
+### Dans l'app de bureau [DÉCIDÉ, demandé par Alex le 09/10/2026]
+
+L'app de bureau n'a pas la restriction CORS : elle synchronise elle-même, sans script. Le script reste pour la PWA (navigateur).
+
+- **Même synchro** : la fonction du cœur (`synchroniser`), avec un client Jira dont les requêtes partent du code natif (Rust). Seules adresses appelées : `https://<site de la base>/rest/api/3/…`, en lecture.
+- **Connexion** : e-mail Atlassian et token d'API, saisis dans le bandeau de la base Jira (« Connexion »), une fois par site. Vérifiés auprès de Jira avant d'être gardés ; gardés dans le gestionnaire d'identifiants du système (Windows, trousseau sur Mac), jamais dans l'espace, le dépôt ni le stockage du navigateur. Le token n'est jamais renvoyé à l'interface : le code natif ajoute l'authentification à chaque requête. « Oublier » l'efface. Un token refusé (401) redemande la connexion.
+- **Quand** : seulement app ouverte, et module Jira activé (§19). Un passage à l'ouverture de l'espace, puis toutes les 5 minutes, synchro complète au moins toutes les heures (comme `--suivre`). Bouton « Synchroniser » dans le bandeau pour un passage tout de suite. L'espace est relu après chaque passage.
+- **Bandeau** : plus de bouton « Script » ni d'explication du script ; « Connexion » (qui montre l'e-mail connecté) et « Synchroniser ». Sans connexion, le bandeau propose de la saisir, avec le lien vers la page Atlassian où créer un token.
+- **Script déjà installé** : si le lancement au démarrage du script (`mdbase-jira.cmd` dans le dossier Démarrage) existe, le bandeau le signale (deux synchros écriraient la même base) et propose « Retirer le lancement au démarrage ». Rien n'est retiré sans ce clic.
 
 ---
 
@@ -772,7 +782,7 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 - **Surveillance** : chaque changement dans le dossier (MCP, synchro Jira, autre machine) relit l'espace aussitôt, sans passer par l'indicateur « Relu à » ; la relecture au retour sur la fenêtre reste.
 - Pas de service worker. Installeur Windows NSIS par utilisateur (sans droits administrateur), fabriqué par `.github/workflows/bureau.yml`.
 - Windows : installeur non signé au début (SmartScreen demande « Exécuter quand même »), Microsoft Store plus tard si besoin. Mac : signature et notarisation avec un compte Apple Developer.
-- Plugins installés depuis l'app : Jira d'abord (appel direct, sans CORS ni script au démarrage), puis le serveur MCP (« Connecter à Claude »).
+- Plugins installés depuis l'app : Jira d'abord (appel direct, sans CORS ni script au démarrage, §16 « Dans l'app de bureau »), puis le serveur MCP (« Connecter à Claude »).
 
 ---
 

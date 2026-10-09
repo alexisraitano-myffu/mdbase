@@ -29,6 +29,7 @@ import { ToutesLesTaches } from './Taches'
 import { PanneauInbox, useInbox } from './Inbox'
 import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
 import { FenetreModules, useModules } from './modules'
+import { useSynchroJiraBureau } from './synchroJira'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string } | { type: 'taches' }
 
@@ -216,6 +217,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
   const panneauIA = panneau === 'ia'
   const [fenetreModules, setFenetreModules] = useState(false)
   const modules = useModules(etat)
+  useSynchroJiraBureau(espace, BUREAU && modules.jira)
 
   // La conversation vit ici, pas dans le panneau : le fermer n'arrête pas une demande en cours.
   const sessionIA = useMemo(() => new SessionAssistant(espace, nom), [espace, nom])

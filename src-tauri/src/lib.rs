@@ -4,6 +4,7 @@
 
 mod echos;
 mod fichiers;
+mod jira;
 
 use echos::Echos;
 use fichiers::Entree;
@@ -140,6 +141,48 @@ fn date_modification(espace: State<Espace>, chemin: String) -> Result<f64, Strin
     avec(&espace, |r| fichiers::date_modification(r, &chemin))
 }
 
+/// E-mail de la connexion Jira gardée pour ce site, `None` sans connexion (le token ne sort pas d'ici).
+#[tauri::command]
+fn jira_connexion(site: String) -> Option<String> {
+    jira::lire(&site).map(|id| id.email)
+}
+
+/// Vérifie l'e-mail et le token auprès de Jira, et ne les garde que s'ils sont acceptés.
+#[tauri::command]
+async fn jira_connecter(site: String, email: String, token: String) -> Result<jira::Reponse, String> {
+    let id = jira::Identifiants { email: email.trim().to_string(), token: token.trim().to_string() };
+    let r = jira::appeler(&site, &id, "GET", "/rest/api/3/myself", None).await?;
+    if r.ok() {
+        jira::garder(&site, &id)?;
+    }
+    Ok(r)
+}
+
+#[tauri::command]
+fn jira_oublier(site: String) -> Result<(), String> {
+    jira::oublier(&site)
+}
+
+#[tauri::command]
+async fn jira_appeler(site: String, methode: String, chemin: String, corps: Option<String>) -> Result<jira::Reponse, String> {
+    let id = jira::lire(&site).ok_or(jira::SANS_CONNEXION)?;
+    jira::appeler(&site, &id, &methode, &chemin, corps).await
+}
+
+/// Vrai si le script de synchro est aussi lancé à l'ouverture de session (deux synchros sur la même base).
+#[tauri::command]
+fn jira_script_au_demarrage() -> bool {
+    jira::lanceur_script().is_some_and(|f| f.is_file())
+}
+
+#[tauri::command]
+fn jira_retirer_script_au_demarrage() -> Result<(), String> {
+    match jira::lanceur_script() {
+        Some(f) if f.is_file() => fs::remove_file(f).map_err(|e| e.to_string()),
+        _ => Ok(()),
+    }
+}
+
 pub fn lancer() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -152,7 +195,13 @@ pub fn lancer() {
             ecrire,
             renommer,
             supprimer,
-            date_modification
+            date_modification,
+            jira_connexion,
+            jira_connecter,
+            jira_oublier,
+            jira_appeler,
+            jira_script_au_demarrage,
+            jira_retirer_script_au_demarrage
         ])
         .run(tauri::generate_context!())
         .expect("lancement de mdbase");
