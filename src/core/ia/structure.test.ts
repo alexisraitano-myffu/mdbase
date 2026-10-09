@@ -228,6 +228,36 @@ describe('assistant : structure', () => {
     expect(await a.lire('taches/a--t0000001.md')).toContain('projet: p0000001\n')
   })
 
+  it('ajouter des options à un select existant (avec ou sans couleur), puis y écrire la nouvelle valeur dans le même plan', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(
+      espace,
+      appel('ajouter_options', { base: 'taches', colonne: 'Statut', options: [{ label: 'En cours', couleur: 'bleu' }, 'Bloqué', { label: 'terminé', couleur: 'vert' }] }),
+      appel('modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { statut: 'En cours' } }),
+    )
+    expect(resumerPlan(p)).toContain('Options de « Statut » (Tâches) : ajouter « En cours » (bleu), « Bloqué » ; colorer « Terminé » en vert')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    const options = espace.etat().bases.get('taches')!.depot!.schema.colonnes.find((c) => c.cle === 'statut')
+    expect(options).toMatchObject({ options: [{ label: 'À faire' }, { label: 'Terminé', couleur: 'vert' }, { label: 'En cours', couleur: 'bleu' }, { label: 'Bloqué' }] })
+    expect(await a.lire('taches/a--t0000001.md')).toContain('statut: En cours\n')
+  })
+
+  it('une valeur hors des options est refusée, avec l’outil qui l’ajoute ; une couleur inconnue aussi', async () => {
+    const { espace } = await ouvrir()
+    const contexte = { aujourdhui: AUJOURDHUI, baseOuverte: 'taches' }
+    await expect(proposer(obstine(appel('modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { statut: 'Bloqué' } })), espace, 'x', contexte)).rejects.toThrow(/ajouter_options d'abord/)
+    await expect(proposer(obstine(appel('ajouter_options', { base: 'taches', colonne: 'statut', options: [{ label: 'X', couleur: 'fuchsia' }] })), espace, 'x', contexte)).rejects.toThrow(/couleur inconnue pour « X »/)
+  })
+
+  it('une colonne créée avec des options colorées garde leurs couleurs', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(espace, appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Risque', type: 'select', options: [{ label: 'Haut', couleur: 'rouge' }, 'Bas'] }] }))
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await a.lire('taches/_schema.yaml')).toMatch(/Haut[\s\S]*couleur: rouge/)
+  })
+
   it('renommer puis supprimer une colonne ; la suppression est signalée comme définitive', async () => {
     const { a, espace, ecrire } = await ouvrir()
     const p = await plan(espace, appel('renommer_colonne', { base: 'taches', colonne: 'heures', nom: 'Temps' }), appel('supprimer_colonne', { base: 'taches', colonne: 'echeance' }))

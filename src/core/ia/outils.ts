@@ -29,12 +29,20 @@ const VALEURS = {
   additionalProperties: true,
 }
 
+const OPTION = {
+  anyOf: [
+    { type: 'string' },
+    { type: 'object', properties: { label: { type: 'string' }, couleur: { type: 'string', enum: [...COULEURS] } }, required: ['label'] },
+  ],
+  description: 'libellé, ou { label, couleur } pour choisir sa couleur',
+}
+
 const COLONNE = {
   type: 'object',
   properties: {
     nom: { type: 'string' },
     type: { type: 'string', enum: [...TYPES_COLONNE] },
-    options: { type: 'array', items: { type: 'string' }, description: 'select / multiselect : libellés des options' },
+    options: { type: 'array', items: OPTION, description: 'select / multiselect : les options' },
     cible: { type: 'string', description: 'relation : id de la base liée' },
     relation: { type: 'string', description: 'rollup : clé de la colonne relation de cette base' },
     champ: { type: 'string', description: 'rollup : clé de la colonne remontée depuis la base liée' },
@@ -181,6 +189,16 @@ export const OUTILS: DefinitionOutil[] = [
     description:
       'Ajoute des colonnes à une base. Relation : `cible` (crée aussi la colonne miroir). Rollup : `relation`, `champ`, `calcul`. Formule : `expression`. Les appels suivants peuvent remplir une colonne créée : désigne-la par son nom.',
     parametres: { type: 'object', properties: { base: { type: 'string' }, colonnes: { type: 'array', items: COLONNE } }, required: ['base', 'colonnes'] },
+  },
+  {
+    nom: 'ajouter_options',
+    description:
+      "Ajoute des options à une colonne select ou multiselect existante (avant d'y écrire une valeur qui n'y est pas), ou change la couleur d'options existantes (donne-les avec leur couleur).",
+    parametres: {
+      type: 'object',
+      properties: { base: { type: 'string' }, colonne: { type: 'string', description: 'clé ou nom de la colonne' }, options: { type: 'array', items: OPTION } },
+      required: ['base', 'colonne', 'options'],
+    },
   },
   {
     nom: 'renommer_colonne',

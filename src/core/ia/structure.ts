@@ -6,7 +6,7 @@ import { compiler, ErreurFormule, stockerExpression } from '../formules/formule'
 import { boucle } from '../graphe'
 import { cleColonne, idBase } from '../identifiants'
 import { COULEURS } from '../couleurs'
-import { CALCULS, estObjet, lireSchema, natureDe, type Calcul, type Colonne, type Schema } from '../schema'
+import { CALCULS, estObjet, lireSchema, natureDe, type Calcul, type Colonne, type Option, type Schema } from '../schema'
 import { nouveauSchema } from '../schema-ecriture'
 import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
 import { insererRemarque } from './connaissance'
@@ -87,7 +87,7 @@ const estIdPrevu = (v: string) => /^\+.+:\d+$/.test(v)
 
 /** Colonne à créer, telle que validée. */
 export type NouvelleColonne =
-  | { type: TypeCreable; nom: string; options: string[] }
+  | { type: TypeCreable; nom: string; options: Option[] }
   | { type: 'relation'; nom: string; cible: string; cleMiroir: string }
   | { type: 'rollup'; nom: string; relation: string; /** Base liée par la relation, où vit `champ`. */ cible: string; champ: string; calcul: Calcul }
   | { type: 'formula'; nom: string; expression: string }
@@ -97,6 +97,8 @@ export type ActionStructure =
   | { type: 'creer_base'; id: string; nom: string }
   | { type: 'ajouter_colonne'; base: string; nomBase: string; cle: string; colonne: NouvelleColonne }
   | { type: 'renommer_colonne'; base: string; nomBase: string; cle: string; ancien: string; nom: string }
+  /** Options ajoutées à un select existant, et couleurs changées d'options qui y étaient déjà. */
+  | { type: 'ajouter_options'; base: string; nomBase: string; cle: string; nomColonne: string; ajouts: Option[]; couleurs: Required<Option>[] }
   | { type: 'supprimer_colonne'; base: string; nomBase: string; cle: string; nom: string; remplies: number }
   | { type: 'creer_vue'; base: string; nomBase: string; id: string; nom: string; genre: TypeVue; reglages: ModificationVue }
   | { type: 'modifier_vue'; base: string; nomBase: string; vue: string; nomVue: string; reglages: ModificationVue }
@@ -116,6 +118,20 @@ export type ActionSuite =
 
 export const TYPES_COLONNE = [...TYPES_CREABLES, 'relation', 'rollup', 'formula'] as const
 export const TYPES_VUE: readonly TypeVue[] = ['tableau', 'kanban', 'collection', 'calendrier', 'timeline']
+
+/** Options données en libellés (« Ouvert ») ou avec leur couleur ({ label, couleur }) ; doublons retirés. */
+function lireOptions(brut: unknown): Option[] {
+  const options: Option[] = []
+  for (const o of Array.isArray(brut) ? brut : []) {
+    const label = (typeof o === 'string' ? o : estObjet(o) && typeof o.label === 'string' ? o.label : '').trim()
+    if (label === '') continue
+    const couleur = estObjet(o) ? o.couleur : undefined
+    if (couleur !== undefined && couleur !== null && !(COULEURS as readonly unknown[]).includes(couleur)) erreur(`couleur inconnue pour « ${label} » : ${JSON.stringify(couleur)} (couleurs : ${COULEURS.join(', ')})`)
+    if (options.some((x) => normaliser(x.label) === normaliser(label))) continue
+    options.push(typeof couleur === 'string' ? { label, couleur } : { label })
+  }
+  return options
+}
 
 const avecDate = (genre: TypeVue) => genre === 'calendrier' || genre === 'timeline'
 
@@ -175,10 +191,10 @@ function lireColonne(b: Brouillon, base: string, brut: unknown): { action: Actio
     if (!colonne) return erreur(`formule refusée : « ${texte} » (syntaxe, type ou boucle)`)
     return { action: action({ type, nom, expression: (colonne as Extract<Colonne, { type: 'formula' }>).expression }), colonne }
   }
-  const options = type === 'select' || type === 'multiselect' ? (Array.isArray(brut.options) ? brut.options : []).filter((o): o is string => typeof o === 'string' && o.trim() !== '').map((o) => o.trim()) : []
+  const options = type === 'select' || type === 'multiselect' ? lireOptions(brut.options) : []
   const colonne: Colonne =
     type === 'select' || type === 'multiselect'
-      ? { cle, nom, type, options: options.map((label) => ({ label })) }
+      ? { cle, nom, type, options }
       : { cle, nom, type: type as Exclude<TypeCreable, 'select' | 'multiselect'> }
   return { action: action({ type: type as TypeCreable, nom, options }), colonne }
 }
@@ -346,6 +362,25 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       b.remplacerSchema(bb.id, { ...bb.schema, colonnes: bb.schema.colonnes.map((x) => (x.cle === c.cle ? { ...x, nom: nouveau } : x)) })
       return { structure: [{ type: 'renommer_colonne', base: bb.id, nomBase: bb.schema.nom, cle: c.cle, ancien: c.nom, nom: nouveau }] }
     }
+    case 'ajouter_options': {
+      const bb = b.base(args.base)
+      const c = trouverColonne(bb.schema, args.colonne)
+      if (c.type !== 'select' && c.type !== 'multiselect') erreur(`« ${c.nom} » n'est pas une colonne à choix (select, multiselect)`)
+      if (c.type !== 'select' && c.type !== 'multiselect') return null
+      const demandees = lireOptions(args.options)
+      if (demandees.length === 0) erreur('options : au moins un libellé')
+      const ajouts: Option[] = []
+      const couleurs: Required<Option>[] = []
+      for (const o of demandees) {
+        const existante = c.options.find((x) => normaliser(x.label) === normaliser(o.label))
+        if (!existante) ajouts.push(o)
+        else if (o.couleur && o.couleur !== existante.couleur) couleurs.push({ label: existante.label, couleur: o.couleur })
+      }
+      if (ajouts.length === 0 && couleurs.length === 0) erreur(`ces options existent déjà dans « ${c.nom} », avec ces couleurs`)
+      const options = [...c.options.map((x) => ({ ...x, ...couleurs.find((y) => y.label === x.label) })), ...ajouts]
+      b.remplacerSchema(bb.id, { ...bb.schema, colonnes: bb.schema.colonnes.map((x) => (x.cle === c.cle ? { ...c, options } : x)) })
+      return { structure: [{ type: 'ajouter_options', base: bb.id, nomBase: bb.schema.nom, cle: c.cle, nomColonne: c.nom, ajouts, couleurs }] }
+    }
     case 'supprimer_colonne': {
       const bb = b.base(args.base)
       const c = trouverColonne(bb.schema, args.colonne)
@@ -502,9 +537,16 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
             : c.type === 'formula'
               ? ` : ${c.expression}`
               : 'options' in c && c.options.length > 0
-                ? ` [${c.options.join(', ')}]`
+                ? ` [${c.options.map((o) => o.label).join(', ')}]`
                 : ''
       return { texte: `Ajouter la colonne « ${c.nom} » (${NOMS_TYPES[c.type]}${detail}) à ${a.nomBase}`, danger: false }
+    }
+    case 'ajouter_options': {
+      const parties = [
+        ...(a.ajouts.length > 0 ? [`ajouter ${a.ajouts.map((o) => `« ${o.label} »${o.couleur ? ` (${o.couleur})` : ''}`).join(', ')}`] : []),
+        ...(a.couleurs.length > 0 ? [`colorer ${a.couleurs.map((o) => `« ${o.label} » en ${o.couleur}`).join(', ')}`] : []),
+      ]
+      return { texte: `Options de « ${a.nomColonne} » (${a.nomBase}) : ${parties.join(' ; ')}`, danger: false }
     }
     case 'renommer_colonne':
       return { texte: `Renommer la colonne « ${a.ancien} » en « ${a.nom} » dans ${a.nomBase}`, danger: false }
@@ -614,9 +656,22 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
         else if (c.type === 'formula') cle = await espace.ajouterFormule(base, c.nom, c.expression)
         else {
           cle = await espace.ajouterColonne(base, c.nom, c.type)
-          for (const o of c.options) await espace.ajouterOption(base, cle, o)
+          for (const o of c.options) {
+            await espace.ajouterOption(base, cle, o.label)
+            if (o.couleur) await espace.changerCouleurOption(base, cle, o.label, o.couleur)
+          }
         }
         corr.noterCle(a.base, a.cle, cle)
+        break
+      }
+      case 'ajouter_options': {
+        const base = corr.base(a.base)
+        const cle = corr.cle(a.base, a.cle)
+        for (const o of a.ajouts) {
+          await espace.ajouterOption(base, cle, o.label)
+          if (o.couleur) await espace.changerCouleurOption(base, cle, o.label, o.couleur)
+        }
+        for (const o of a.couleurs) await espace.changerCouleurOption(base, cle, o.label, o.couleur)
         break
       }
       case 'renommer_colonne':
