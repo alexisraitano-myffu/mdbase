@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ArrowLeft, FileText, Search, Trash2, X } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
 import type { DocumentConnaissance } from '../core/ia/connaissance'
@@ -21,12 +21,16 @@ export type EtatDocuments = { documents: DocumentConnaissance[]; contexte: strin
 export function useDocuments(espace: DepotEspace, session: SessionAssistant): EtatDocuments {
   const [etat, setEtat] = useState<{ documents: DocumentConnaissance[]; contexte: string; charge: boolean }>({ documents: [], contexte: '', charge: false })
   const tours = useSyncExternalStore(session.abonner, session.lire)
+  // Seule la dernière relecture demandée s'affiche (voir useInbox).
+  const derniere = useRef(0)
   const relire = useMemo(
-    () => () =>
+    () => () => {
+      const n = ++derniere.current
       void espace.assistant.connaissance.lire().then(
-        (c) => setEtat({ documents: c.documents, contexte: c.contexte, charge: true }),
-        () => setEtat({ documents: [], contexte: '', charge: true }),
-      ),
+        (c) => n === derniere.current && setEtat({ documents: c.documents, contexte: c.contexte, charge: true }),
+        () => n === derniere.current && setEtat({ documents: [], contexte: '', charge: true }),
+      )
+    },
     [espace],
   )
   useEffect(relire, [relire, tours])

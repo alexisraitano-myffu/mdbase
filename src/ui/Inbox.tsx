@@ -19,14 +19,15 @@ export type EtatInbox = { attente: ElementInbox[]; traites: ElementTraite[]; rel
 export function useInbox(espace: DepotEspace, session: SessionAssistant): EtatInbox {
   const [etat, setEtat] = useState<{ attente: ElementInbox[]; traites: ElementTraite[] }>({ attente: [], traites: [] })
   const tours = useSyncExternalStore(session.abonner, session.lire)
-  const relire = useCallback(
-    () =>
-      void espace.assistant.connaissance.lire().then(
-        (c) => setEtat({ attente: c.inbox, traites: c.traites }),
-        () => setEtat({ attente: [], traites: [] }),
-      ),
-    [espace],
-  )
+  // Deux relectures lancées coup sur coup peuvent finir dans le désordre : seule la dernière demandée s'affiche.
+  const derniere = useRef(0)
+  const relire = useCallback(() => {
+    const n = ++derniere.current
+    void espace.assistant.connaissance.lire().then(
+      (c) => n === derniere.current && setEtat({ attente: c.inbox, traites: c.traites }),
+      () => n === derniere.current && setEtat({ attente: [], traites: [] }),
+    )
+  }, [espace])
   useEffect(relire, [relire, tours])
   useEffect(() => {
     const retour = () => document.visibilityState === 'visible' && relire()
