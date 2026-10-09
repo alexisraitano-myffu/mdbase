@@ -48,6 +48,7 @@ const GROUPES: Groupe[] = [
     raccourcis: [
       { touches: [['/']], action: 'Insérer un bloc : titre, tâche, liste, citation, code' },
       { touches: [['mod', 'B'], ['mod', 'I']], action: 'Mettre en gras, en italique', et: true },
+      { touches: [['mod', 'K']], action: 'Sur un texte sélectionné : en faire un lien ; sur un lien : changer ou retirer son adresse' },
       { touches: [['Entrée']], action: 'Dans une liste ou une tâche : continuer avec un nouvel élément' },
       { touches: [['Tab'], ['Maj', 'Tab']], action: 'Décaler un élément de liste, et retour', et: true },
       { touches: [MAC ? ['mod', 'Alt', '['] : ['mod', 'Maj', '['], MAC ? ['mod', 'Alt', ']'] : ['mod', 'Maj', ']']], action: 'Replier, déplier le titre sous le curseur', et: true },

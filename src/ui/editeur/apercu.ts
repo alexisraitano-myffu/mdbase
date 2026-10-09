@@ -2,6 +2,7 @@ import { syntaxTree } from '@codemirror/language'
 import type { EditorState, Range } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
+import { ouvrirAdresse } from '../../adapters/tauri/bureau'
 
 // Aperçu en direct, à la manière d'Obsidian : le Markdown s'affiche mis en
 // forme, et sa syntaxe (# d'un titre, ** du gras, crochets d'un lien)
@@ -224,7 +225,7 @@ export const apercu = ViewPlugin.fromClass(
   {
     decorations: (v) => v.decorations,
     eventHandlers: {
-      // Un lien mis en forme s'ouvre au clic (dans un nouvel onglet) ; on l'édite en y venant au clavier.
+      // Un lien mis en forme s'ouvre au clic (nouvel onglet, ou navigateur du système dans l'app de bureau) ; on l'édite en y venant au clavier.
       mousedown(e, view) {
         const cible = (e.target as HTMLElement).closest<HTMLElement>('.cm-lien')
         const adresse = cible?.dataset.adresse
@@ -233,7 +234,7 @@ export const apercu = ViewPlugin.fromClass(
         if (touche(plagesActives(view), pos, pos + (cible.textContent?.length ?? 0)) && !(e.ctrlKey || e.metaKey)) return false
         if (!/^(https?:\/\/|mailto:|www\.)/i.test(adresse)) return false
         e.preventDefault()
-        window.open(adresse.startsWith('www.') ? `https://${adresse}` : adresse, '_blank', 'noopener')
+        ouvrirAdresse(adresse.startsWith('www.') ? `https://${adresse}` : adresse)
         return true
       },
     },
