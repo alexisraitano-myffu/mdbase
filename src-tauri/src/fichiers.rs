@@ -28,11 +28,21 @@ fn passagere(e: &io::Error) -> bool {
 }
 
 /// Réessaie une opération qui échoue passagèrement, pendant environ une seconde au plus.
-fn reessayer<T>(mut f: impl FnMut() -> io::Result<T>) -> io::Result<T> {
+fn reessayer<T>(f: impl FnMut() -> io::Result<T>) -> io::Result<T> {
+    reessayer_si(passagere, f)
+}
+
+/// Dossier encore « non vide » juste après qu'on a supprimé ses fichiers : sous Windows, un fichier
+/// ouvert ailleurs (OneDrive, antivirus, indexation) ne disparaît qu'à la fermeture de ce handle (145).
+fn pas_encore_vide(e: &io::Error) -> bool {
+    passagere(e) || (cfg!(windows) && e.raw_os_error() == Some(145))
+}
+
+fn reessayer_si<T>(reessayable: fn(&io::Error) -> bool, mut f: impl FnMut() -> io::Result<T>) -> io::Result<T> {
     let mut essai = 0;
     loop {
         match f() {
-            Err(e) if passagere(&e) && essai < 7 => {
+            Err(e) if reessayable(&e) && essai < 7 => {
                 essai += 1;
                 sleep(Duration::from_millis(30 * essai));
             }
@@ -115,7 +125,13 @@ pub fn renommer(racine: &Path, ancien: &str, nouveau: &str) -> Result<(), String
 pub fn supprimer(racine: &Path, c: &str) -> Result<(), String> {
     let cible = chemin(racine, c)?;
     if fs::metadata(&cible).map_err(erreur)?.is_dir() {
-        reessayer(|| fs::remove_dir(&cible)).map_err(erreur)
+        // Les temporaires d'écritures interrompues ne sont jamais listés : le cœur ne peut pas les effacer.
+        for e in fs::read_dir(&cible).map_err(erreur)?.flatten() {
+            if e.file_name().to_string_lossy().ends_with(SUFFIXE_TEMPORAIRE) {
+                let _ = fs::remove_file(e.path());
+            }
+        }
+        reessayer_si(pas_encore_vide, || fs::remove_dir(&cible)).map_err(erreur)
     } else {
         reessayer(|| fs::remove_file(&cible)).map_err(erreur)
     }
@@ -171,5 +187,9 @@ mod tests {
         // Un temporaire resté là (écriture interrompue) n'est jamais listé.
         fs::write(temporaire(&r.join("b/c.md")), "x").unwrap();
         assert_eq!(lister(r, "b").unwrap(), vec![Entree { nom: "a.md".into(), genre: "fichier" }]);
+        // Supprimer le dossier vidé par le cœur emporte aussi ce temporaire invisible.
+        supprimer(r, "b/a.md").unwrap();
+        supprimer(r, "b").unwrap();
+        assert!(!r.join("b").exists());
     }
 }

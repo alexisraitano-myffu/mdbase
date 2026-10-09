@@ -1,8 +1,9 @@
 import { markdownKeymap, markdownLanguage, pasteURLAsLink } from '@codemirror/lang-markdown'
-import { foldService, LanguageSupport, syntaxTree } from '@codemirror/language'
+import { foldNodeProp, foldService, Language, LanguageSupport, syntaxTree } from '@codemirror/language'
 import { Prec } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
+import type { MarkdownParser } from '@lezer/markdown'
 
 // Markdown (GFM) assemblé à la main plutôt que par `markdown()` : celle-ci
 // embarque la coloration du HTML, du CSS et du JavaScript (un tiers du poids
@@ -30,4 +31,16 @@ const sections = foldService.of((state, debut, fin) => {
   return null
 })
 
-export const langageMarkdown = new LanguageSupport(markdownLanguage, [sections, pasteURLAsLink, Prec.high(keymap.of(markdownKeymap))])
+/**
+ * Seuls les titres se replient : la grammaire de CodeMirror rend repliable tout bloc de plusieurs
+ * lignes (paragraphe, citation, code, tableau), ce qui mettait un chevron presque partout. Même
+ * facette de données que `markdownLanguage`, pour que ses commandes (`markdownKeymap`) s'y reconnaissent.
+ */
+const markdownSansRepliDesBlocs = new Language(
+  markdownLanguage.data,
+  (markdownLanguage.parser as MarkdownParser).configure({ props: [foldNodeProp.add((type) => (type.is('Block') && !type.is('Document') ? () => null : undefined))] }),
+  [],
+  'markdown',
+)
+
+export const langageMarkdown = new LanguageSupport(markdownSansRepliDesBlocs, [sections, pasteURLAsLink, Prec.high(keymap.of(markdownKeymap))])
