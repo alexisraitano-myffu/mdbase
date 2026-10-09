@@ -73,20 +73,22 @@ src/
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)
                  + démo sans installation (demo.ts : la démo copiée dans l'OPFS)
-    ia/          connecteur compatible OpenAI (seul appel réseau de l'app) et réglages (localStorage)
+    ia/          connecteur compatible OpenAI (seul appel réseau du navigateur) et réglages (localStorage)
     conversion/  fichiers déposés dans l'inbox → Markdown : PowerPoint lu dans son XML (fflate), Word (mammoth),
                  PDF (pdf.js) ; les deux dernières chargées à la demande
-    tauri/       app de bureau (§17) : AdaptateurBureau sur les commandes natives, dossier retenu, surveillance
+    tauri/       app de bureau (§17) : AdaptateurBureau sur les commandes natives, dossier retenu, surveillance ;
+                 jira.ts : client Jira dont les requêtes partent du natif (§16), connexion gardée par le système
     navigateur.ts  services injectés dans le cœur (aléatoire, minuteur)
   outils/        outils Node qui utilisent le cœur, jamais l'UI (tsconfig.outils.json)
     commun/      AdaptateurNode : fichiers de l'espace sur le disque
     jira/        script de synchro Jira (§16), publié en dist/mdbase-jira.mjs
     mcp/         serveur MCP (§17) : outils de l'assistant exposés à Claude Desktop, publié en dist/mdbase.mcpb
   ui/            React ; panneaux à droite exclusifs (assistant, Inbox.tsx, Documents.tsx : état `panneau` dans App),
-                 modules.tsx (§19 : modules activés par machine, localStorage)
+                 modules.tsx (§19 : modules activés par machine, localStorage), synchroJira.ts (synchro Jira périodique de l'app de bureau)
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
 src-tauri/       app de bureau Tauri 2 (Rust) : fichiers.rs (accès au dossier, chemins bornés à la racine, testé par cargo test),
-                 lib.rs (commandes, dossier retenu, surveillance notify). Installeur Windows par .github/workflows/bureau.yml
+                 lib.rs (commandes, dossier retenu, surveillance notify), echos.rs (écritures de l'app ignorées par la surveillance),
+                 jira.rs (transport Jira et identifiants dans le gestionnaire du système, le token ne revient jamais à la page). Installeur Windows par .github/workflows/bureau.yml
 ```
 
 - **Le cœur n'importe ni React, ni le DOM, ni Node** (spec §12). Deux protections, à ne jamais contourner :
@@ -166,4 +168,4 @@ Dépôt public `alexisraitano-myffu/mdbase` (licence MIT). `.github/workflows/pa
 
 ## Environnement
 
-Aucune variable d’environnement. Aucune télémétrie. Seul appel réseau : le module IA, désactivé par défaut, vers l’adresse que l’utilisateur a saisie (spec §12, « Module IA »).
+Aucune variable d’environnement. Aucune télémétrie. Appels réseau : le module IA, désactivé par défaut, vers l’adresse que l’utilisateur a saisie (spec §12, « Module IA ») ; dans l’app de bureau seulement, la synchro Jira vers le site de la base, une fois la connexion saisie (spec §16).
