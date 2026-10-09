@@ -287,7 +287,9 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
     const clavier = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return
       const touche = e.key.toLowerCase()
+      // Déjà pris par l'éditeur (Ctrl+K sur une sélection : un lien).
       if (touche === 'k') {
+        if (e.defaultPrevented) return
         e.preventDefault()
         setRecherche(true)
       } else if (touche === 'j' && !consultation) {

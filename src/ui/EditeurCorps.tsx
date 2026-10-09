@@ -6,6 +6,8 @@ import { tags } from '@lezer/highlight'
 import { useEffect, useRef } from 'react'
 import { apercu } from './editeur/apercu'
 import { langageMarkdown } from './editeur/langage'
+import { liens as champLiens, raccourcisLiens } from './editeur/liens'
+import { collerMisEnForme } from './editeur/coller'
 import { menu, raccourcisMiseEnForme } from './editeur/mise-en-forme'
 import { menuReferences, pastillesReferences, type SourceLiens } from './editeur/references'
 import { repli } from './editeur/repli'
@@ -58,8 +60,10 @@ export function EditeurCorps({ initial, changer, lecture = false, liens }: { ini
           apercu,
           pastillesReferences(() => liensCourants.current ?? null),
           repli,
+          champLiens,
+          collerMisEnForme,
           menu(menuReferences(() => liensCourants.current ?? null)),
-          keymap.of([...raccourcisMiseEnForme, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+          keymap.of([...raccourcisMiseEnForme, ...raccourcisLiens, ...defaultKeymap, ...historyKeymap, indentWithTab]),
           modifiable.current.of(etatLecture(lectureInitiale.current)),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) changerCourant.current(u.state.doc.toString())

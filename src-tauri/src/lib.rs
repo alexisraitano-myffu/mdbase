@@ -186,6 +186,7 @@ fn jira_retirer_script_au_demarrage() -> Result<(), String> {
 pub fn lancer() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(Espace::default())
         .invoke_handler(tauri::generate_handler![
             dossier_memorise,

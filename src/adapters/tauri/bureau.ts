@@ -56,3 +56,9 @@ export function surveillerEspace(rappel: () => void): () => void {
   const arret = listen('espace-modifie', rappel)
   return () => void arret.then((f) => f())
 }
+
+/** Ouvre une adresse web dans le navigateur du système (l'app de bureau n'ouvre pas d'onglet), ou dans un nouvel onglet. */
+export function ouvrirAdresse(adresse: string): void {
+  if (estBureau()) void import('@tauri-apps/plugin-opener').then((o) => o.openUrl(adresse))
+  else window.open(adresse, '_blank', 'noopener')
+}

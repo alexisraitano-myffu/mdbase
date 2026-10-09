@@ -98,6 +98,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Fenêtre Modules (en bas de la barre latérale) : Jira, assistant IA, Inbox et Contexte IA s'activent un par un, par machine ; un module désactivé est caché sans toucher aux fichiers.
 - Synchro Jira intégrée à l'app de bureau, sans script : connexion (e-mail et token d'API, vérifiés par Jira puis gardés par le gestionnaire d'identifiants de Windows) et bouton « Synchroniser » dans le bandeau de la base Jira. Synchro à l'ouverture puis toutes les 5 minutes tant que l'app est ouverte. Le bandeau signale le lancement au démarrage du script s'il existe encore, et propose de le retirer. La PWA garde le script.
 
+- Éditeur des pages : Ctrl+K sur un texte sélectionné en fait un lien (on colle l'adresse) ; sur un lien, le même raccourci change, ouvre ou retire son adresse. Sans sélection, Ctrl+K reste la recherche globale.
+- Éditeur des pages : un texte mis en forme collé depuis une page web, une réponse d'IA, Word ou Outlook garde ses titres, gras, listes, liens et tableaux (converti en Markdown). Un texte qui est déjà du Markdown se colle tel quel.
+
 ### Changed
 - Assistant IA : le préréglage Anthropic propose Claude Haiku 5.5 (`claude-haiku-5-5`), plus capable et moins cher que Haiku 4.5. Une connexion déjà réglée garde son modèle : il se change depuis le pied du panneau.
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
@@ -143,6 +146,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 - Assistant IA : il relit le détail des quatre derniers échanges (ce qu'il a lu et proposé, pas seulement le texte de sa réponse), pour mieux suivre la conversation d'une demande à l'autre.
 ### Fixed
+- Éditeur des pages : seuls les titres ont un chevron pour se replier (les paragraphes, citations et blocs de code de plusieurs lignes en avaient un aussi).
+- App de bureau : les liens du texte s'ouvrent dans le navigateur du système.
+- App de bureau (Windows) : supprimer une base pouvait laisser son dossier, quand un fichier venait d'être ouvert par OneDrive ou l'antivirus.
 - App de bureau (Windows) : des lignes, des pages ouvertes ou des bases entières pouvaient disparaître jusqu'au redémarrage, quand une relecture croisait une écriture en cours. Écritures atomiques (fichier temporaire puis renommage), nouvel essai sur les verrous passagers (OneDrive, antivirus), la surveillance ignore les écritures de l'app elle-même, et un `_schema.yaml` absent le temps d'une relecture ne retire plus la base.
 - Assistant IA : une base synchronisée depuis Jira pouvait recevoir une modification proposée par l'assistant ; elle est maintenant refusée, la base étant en lecture seule.
 - Filtrer par un rollup qui affiche les lignes d'une relation (le projet d'une tâche remonté par son lot) : le filtre proposait une saisie libre comparée aux identifiants, et ne retenait jamais rien. Il propose maintenant les lignes (ou les options d'un select) de la colonne d'origine, et la pastille montre leur titre.
