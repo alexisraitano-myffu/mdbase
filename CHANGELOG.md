@@ -148,6 +148,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 - Assistant IA : il relit le détail des quatre derniers échanges (ce qu'il a lu et proposé, pas seulement le texte de sa réponse), pour mieux suivre la conversation d'une demande à l'autre.
 ### Fixed
+- Inbox : un texte tapé juste après « Ajouter », pendant l'écriture du précédent, était effacé.
 - Éditeur des pages : seuls les titres ont un chevron pour se replier (les paragraphes, citations et blocs de code de plusieurs lignes en avaient un aussi).
 - App de bureau : les liens du texte s'ouvrent dans le navigateur du système.
 - App de bureau (Windows) : supprimer une base pouvait laisser son dossier, quand un fichier venait d'être ouvert par OneDrive ou l'antivirus.
