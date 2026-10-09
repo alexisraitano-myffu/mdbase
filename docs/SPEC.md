@@ -789,6 +789,14 @@ But : piloter l'espace depuis un client MCP (Claude Desktop), puis une app de bu
 - Windows : installeur non signé au début (SmartScreen demande « Exécuter quand même »), Microsoft Store plus tard si besoin. Mac : signature et notarisation avec un compte Apple Developer.
 - Plugins installés depuis l'app : Jira d'abord (appel direct, sans CORS ni script au démarrage, §16 « Dans l'app de bureau »), puis le serveur MCP (« Connecter à Claude »).
 
+### Serveur MCP dans l'app de bureau [DÉCIDÉ, demandé par Alex le 09/10/2026]
+- Sur le bureau, **c'est l'app qui sert le MCP**, sans Node ni paquet à extraire. Module « Claude (MCP) » (§19), propre à cette machine, désactivé par défaut.
+- Le client lance `mdbase.exe --mcp` : ce mode n'ouvre pas de fenêtre, il relaie l'entrée et la sortie standard vers l'app ouverte. **App fermée, il l'ouvre** et attend qu'elle soit prête (45 s au plus) ; sinon, chaque appel répond une erreur qui dit quoi faire (ouvrir l'app, un espace, activer le module).
+- Liaison : l'app écoute sur `127.0.0.1` (port au hasard) et n'accepte que les requêtes qui portent un jeton tiré à chaque lancement. Port et jeton sont dans `mcp.json`, dans le dossier des réglages de l'utilisateur (lisible par lui seul hors Windows). Tant que le module n'est pas activé dans un espace ouvert, l'app répond « pas prête » sans rien exécuter.
+- Les appels s'exécutent dans la page, sur l'espace ouvert, par le même code que le serveur Node (`core/ia/mcp.ts`) : mêmes outils, mêmes contrôles, écritures aussitôt sur le disque et visibles dans l'app.
+- **Connexion depuis Modules** : « Connecter à Claude Desktop » ajoute `mdbase` aux `mcpServers` de sa configuration (installation classique et Microsoft Store), en gardant le reste du fichier et une copie de l'ancien (`claude_desktop_config.avant-mdbase.json`) ; Claude Desktop est à redémarrer. Claude Code : la commande `claude mcp add` à copier, chemin de l'app compris.
+- Le paquet `mdbase.mcpb` reste pour qui n'a pas l'app de bureau (Mac aujourd'hui).
+
 ---
 
 ## 18. Connaissance de l'assistant [DÉCIDÉ, validé par Alex le 07/10/2026 ; budget et rédaction guidée encore à faire]

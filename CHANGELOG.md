@@ -104,6 +104,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Éditeur des pages : un texte mis en forme collé depuis une page web, une réponse d'IA, Word ou Outlook garde ses titres, gras, listes, liens et tableaux (converti en Markdown). Un texte qui est déjà du Markdown se colle tel quel.
 
 - Assistant IA et serveur MCP : outil `ajouter_options` (nouvelles options d'un select existant, ou couleur d'options existantes) ; les options d'une colonne créée peuvent porter leur couleur.
+- App de bureau : le serveur MCP est dans l'app, sans Node ni paquet à installer. Module « Claude (MCP) » dans Modules : « Connecter à Claude Desktop » d'un clic, et la commande à copier pour Claude Code. Claude ouvre l'app si elle est fermée.
 
 ### Changed
 - Assistant IA : le préréglage Anthropic propose Claude Haiku 5.5 (`claude-haiku-5-5`), plus capable et moins cher que Haiku 4.5. Une connexion déjà réglée garde son modèle : il se change depuis le pied du panneau.
