@@ -5,12 +5,14 @@
 mod echos;
 mod fichiers;
 mod jira;
+mod mcp;
 
 use echos::Echos;
 use fichiers::Entree;
 use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, Debouncer};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -183,11 +185,47 @@ fn jira_retirer_script_au_demarrage() -> Result<(), String> {
     }
 }
 
+/// La page écoute les messages MCP (module activé, espace ouvert), ou plus.
+#[tauri::command]
+fn mcp_pret(liaison: State<Arc<mcp::Liaison>>, pret: bool) {
+    liaison.pret.store(pret, Ordering::SeqCst);
+}
+
+#[tauri::command]
+fn mcp_reponse(liaison: State<Arc<mcp::Liaison>>, id: u64, reponse: Option<String>) {
+    mcp::repondre(&liaison, id, reponse);
+}
+
+/// Chemin de l'exécutable, pour la commande à donner à Claude Code.
+#[tauri::command]
+fn mcp_executable() -> Result<String, String> {
+    std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn mcp_connecter_claude_desktop() -> Result<Vec<String>, String> {
+    mcp::connecter_claude_desktop()
+}
+
+/// `mdbase --mcp` : relais entre un client MCP et l'app ouverte, sans fenêtre.
+pub fn relayer_mcp() {
+    mcp::relayer()
+}
+
 pub fn lancer() {
+    let liaison = Arc::new(mcp::Liaison::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Espace::default())
+        .manage(liaison.clone())
+        .setup(move |app| {
+            // Sans écoute (port refusé…), l'app marche ; seul Claude ne la joint pas.
+            if let Err(e) = mcp::demarrer(app.handle().clone(), liaison.clone()) {
+                eprintln!("mdbase : écoute MCP impossible : {e}");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             dossier_memorise,
             choisir_dossier,
@@ -202,7 +240,11 @@ pub fn lancer() {
             jira_oublier,
             jira_appeler,
             jira_script_au_demarrage,
-            jira_retirer_script_au_demarrage
+            jira_retirer_script_au_demarrage,
+            mcp_pret,
+            mcp_reponse,
+            mcp_executable,
+            mcp_connecter_claude_desktop
         ])
         .run(tauri::generate_context!())
         .expect("lancement de mdbase");

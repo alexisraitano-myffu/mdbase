@@ -79,6 +79,7 @@ src/
                  PDF (pdf.js) ; les deux dernières chargées à la demande
     tauri/       app de bureau (§17) : AdaptateurBureau sur les commandes natives, dossier retenu, surveillance ;
                  jira.ts : client Jira dont les requêtes partent du natif (§16), connexion gardée par le système
+                 mcp.ts : appels MCP reçus du natif, exécutés par core/ia/mcp.ts (serveurMcp), réponses renvoyées
     navigateur.ts  services injectés dans le cœur (aléatoire, minuteur)
   outils/        outils Node qui utilisent le cœur, jamais l'UI (tsconfig.outils.json)
     commun/      AdaptateurNode : fichiers de l'espace sur le disque
@@ -89,7 +90,8 @@ src/
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
 src-tauri/       app de bureau Tauri 2 (Rust) : fichiers.rs (accès au dossier, chemins bornés à la racine, testé par cargo test),
                  lib.rs (commandes, dossier retenu, surveillance notify), echos.rs (écritures de l'app ignorées par la surveillance),
-                 jira.rs (transport Jira et identifiants dans le gestionnaire du système, le token ne revient jamais à la page). Installeur Windows par .github/workflows/bureau.yml
+                 jira.rs (transport Jira et identifiants dans le gestionnaire du système, le token ne revient jamais à la page),
+                 mcp.rs (§17 : écoute locale à jeton vers la page, relais `mdbase --mcp` qui ouvre l'app, connexion à Claude Desktop). Installeur Windows par .github/workflows/bureau.yml
 ```
 
 - **Le cœur n'importe ni React, ni le DOM, ni Node** (spec §12). Deux protections, à ne jamais contourner :

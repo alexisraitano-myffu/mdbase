@@ -21,7 +21,9 @@ tauri-plugin-opener = "2.7"
 notify-debouncer-mini = "0.7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = "0.12"
+reqwest = { version = "0.12", features = ["blocking"] }
+tiny_http = "0.12"
+getrandom = "0.3"
 keyring = { version = "3", features = ["windows-native", "apple-native"] }
 
 [dev-dependencies]

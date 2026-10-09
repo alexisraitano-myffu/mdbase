@@ -30,6 +30,9 @@ import { PanneauInbox, useInbox } from './Inbox'
 import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
 import { FenetreModules, useModules } from './modules'
 import { useSynchroJiraBureau } from './synchroJira'
+import { getVersion } from '@tauri-apps/api/app'
+import { ecouterMcp } from '../adapters/tauri/mcp'
+import { serveurMcp } from '../core/ia/mcp'
 
 export type Selection = { type: 'base' | 'dashboard'; id: string } | { type: 'taches' }
 
@@ -218,6 +221,20 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
   const [fenetreModules, setFenetreModules] = useState(false)
   const modules = useModules(etat)
   useSynchroJiraBureau(espace, BUREAU && modules.jira)
+  // Claude (MCP) : l'app répond aux messages relayés par `mdbase --mcp`, sur l'espace ouvert.
+  useEffect(() => {
+    if (!modules.mcp) return
+    let arret: (() => void) | null = null
+    let fini = false
+    void getVersion().then((version) => {
+      if (fini) return
+      arret = ecouterMcp(serveurMcp(espace, { version, aujourdhui }))
+    })
+    return () => {
+      fini = true
+      arret?.()
+    }
+  }, [espace, modules.mcp])
 
   // La conversation vit ici, pas dans le panneau : le fermer n'arrête pas une demande en cours.
   const sessionIA = useMemo(() => new SessionAssistant(espace, nom), [espace, nom])

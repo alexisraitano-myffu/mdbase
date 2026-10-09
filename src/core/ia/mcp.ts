@@ -94,3 +94,61 @@ function idsDesLignes(espace: DepotEspace): Map<string, { base: string; id: stri
   }
   return ids
 }
+
+// ── Protocole (JSON-RPC) pour l'app de bureau ─────────────────────────
+// Le serveur Node passe par le SDK MCP ; l'app de bureau reçoit les messages
+// bruts relayés par `mdbase --mcp` et y répond ici, sans dépendance.
+
+const VERSIONS_PROTOCOLE = ['2025-06-18', '2025-03-26', '2024-11-05']
+
+type Requete = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> }
+
+/**
+ * Répond aux messages d'un client MCP sur l'espace ouvert. Renvoie le texte de la réponse,
+ * ou `null` pour une notification (rien à renvoyer). Les appels d'outils passent un par un.
+ */
+export function serveurMcp(espace: DepotEspace, o: { version: string; aujourdhui: () => string }): (message: string) => Promise<string | null> {
+  let file: Promise<unknown> = Promise.resolve()
+  const enFile = <T>(f: () => Promise<T>): Promise<T> => {
+    const suite = file.then(f)
+    file = suite.catch(() => {})
+    return suite
+  }
+  return async (message) => {
+    let r: Requete
+    try {
+      r = JSON.parse(message) as Requete
+    } catch {
+      return JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'JSON illisible' } })
+    }
+    if (r.id === undefined || r.id === null) return null // notification
+    const repondre = (result: unknown) => JSON.stringify({ jsonrpc: '2.0', id: r.id, result })
+    const echec = (code: number, texte: string) => JSON.stringify({ jsonrpc: '2.0', id: r.id, error: { code, message: texte } })
+    switch (r.method) {
+      case 'initialize': {
+        const demandee = typeof r.params?.protocolVersion === 'string' ? r.params.protocolVersion : ''
+        return repondre({
+          protocolVersion: VERSIONS_PROTOCOLE.includes(demandee) ? demandee : VERSIONS_PROTOCOLE[0],
+          capabilities: { tools: {} },
+          serverInfo: { name: 'mdbase', version: o.version },
+          instructions: INSTRUCTIONS,
+        })
+      }
+      case 'ping':
+        return repondre({})
+      case 'tools/list':
+        return repondre({ tools: outilsMcp() })
+      case 'tools/call': {
+        const nom = typeof r.params?.name === 'string' ? r.params.name : ''
+        try {
+          const res = await enFile(() => executer(espace, nom, r.params?.arguments, o.aujourdhui()))
+          return repondre({ content: [{ type: 'text', text: res.texte }], isError: res.erreur ?? false })
+        } catch (e) {
+          return repondre({ content: [{ type: 'text', text: `Erreur : ${e instanceof Error ? e.message : String(e)}` }], isError: true })
+        }
+      }
+      default:
+        return echec(-32601, `Méthode inconnue : ${String(r.method)}`)
+    }
+  }
+}
