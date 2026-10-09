@@ -854,6 +854,58 @@ Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans u
 - Les choix sont gardés **par machine** (dans le navigateur, comme la clé de l'assistant), pas dans le dossier : aucune nouvelle clé dans `_espace.yaml`.
 - Les modules suivants (intégrations tierces) s'ajoutent à la même fenêtre.
 
+
+---
+
+## 20. Rapports [PROPOSÉ, demandé par Alex le 09/10/2026]
+
+Des pages d'analyse à la manière d'evidence.dev : du Markdown, des requêtes SQL sur les bases, des graphiques qui en citent les résultats. evidence.dev lui-même n'est pas intégré (générateur de site SvelteKit, avec compilation et serveur) : on en reprend le principe, dans l'app et en fichiers.
+
+### Principe
+
+- Un rapport = un fichier `_rapports/<id>.md` à la racine de l'espace. Lisible et modifiable dans n'importe quel éditeur, comme le reste.
+- Moteur : **DuckDB-WASM**, le même qu'Evidence. Il tourne dans la page, **sans aucun appel réseau** (fichiers du moteur embarqués dans l'app, jamais un CDN), et ne se charge qu'à l'ouverture d'un rapport, comme la lecture des PDF.
+- Chaque base est une **table** du nom de son id (`projets`, `taches`), une colonne par clé de colonne, **colonnes calculées comprises** (rollups, formules) : on lit ce que l'app affiche. Types : nombre, texte, date, booléen ; une relation ou un choix multiple est une liste (ids des lignes liées, valeurs), qu'on déplie par `unnest`.
+- **Lecture seule** : les tables sont une copie recréée à chaque calcul, une requête ne peut rien écrire dans l'espace.
+- Recalculé quand les bases changent (saisie, relecture du dossier).
+
+### Fichier d'un rapport
+
+````markdown
+---
+nom: Charge par client
+---
+
+# Charge par client
+
+```sql charge
+select c.nom as client, count(*) as taches
+from taches t, unnest(t.projet) as p(id)
+join projets pr on pr.id = p.id
+join clients c on list_contains(pr.client, c.id)
+group by client order by taches desc
+```
+
+```graphique
+type: barres
+donnees: charge
+x: client
+y: taches
+```
+````
+
+- Un bloc ```` ```sql <nom> ```` exécute une requête et nomme son résultat ; un bloc ```` ```graphique ```` (YAML) le montre : `barres`, `courbe`, `secteurs`, `valeur` (un chiffre clé), `tableau`. Le texte autour est du Markdown ordinaire.
+- Les blocs SQL s'affichent repliés en lecture, dépliables. Une requête en erreur montre son message à sa place, le reste du rapport s'affiche.
+- Librairie de graphiques chargée à la demande : choix à faire à l'implémentation (ECharts comme Evidence, ou plus léger), aux couleurs de l'espace.
+
+### Dans l'app
+
+- Nouveau module **Rapports** (§19), désactivé par défaut : une section Rapports dans la barre latérale, sous les dashboards.
+- Édition du rapport dans l'éditeur des pages (CodeMirror), aperçu des résultats sous chaque bloc.
+- Fonctionne dans le navigateur comme dans l'app de bureau.
+- À trancher : un rapport peut-il aussi être un bloc de dashboard (§10), ou les deux restent-ils séparés ?
+- [PLUS TARD] L'assistant écrit un rapport à la demande (« combien de tâches par client ce mois-ci »), montré avant d'être enregistré comme toute proposition.
+
 ---
 
 ## 15. Questions ouvertes
