@@ -97,6 +97,7 @@ src-tauri/       app de bureau Tauri 2 (Rust) : fichiers.rs (accès au dossier, 
 - **Le cœur n'importe ni React, ni le DOM, ni Node** (spec §12). Deux protections, à ne jamais contourner :
   - `tsconfig.core.json` compile `src/core` sans lib DOM ni types : `window`, `document`, `process` n'y existent pas ;
   - `src/core/architecture.test.ts` refuse tout import hors du cœur, sauf la liste fermée `LIBRAIRIES_AUTORISEES` (à étendre explicitement quand une librairie sans DOM est ajoutée, ex. `yaml`, `minisearch`).
+- **Un outil du MCP est aussi un outil de l'assistant, et inversement** (règle d'Alex, 09/10/2026) : tous deux viennent de `OUTILS` (`core/ia/outils.ts`), le MCP n'en retire que `PROPRES_A_L_APP`. Jamais d'outil propre au MCP dans `core/ia/mcp.ts`.
 - **`_cree` / `_modifie`** (spec §3) : écrits par `DepotBase` seulement si `maintenant` est injecté ; jamais par les réécritures de colonne liées au schéma (`reecrireColonne`, `remplacerValeurs`) ni par la synchro Jira.
 - **Seuls les adaptateurs touchent au système de fichiers.** Le cœur reçoit un `AdaptateurFichiers` en paramètre, il ne le fabrique jamais.
 - Le cœur n'a ni minuteur, ni `crypto`, ni horloge : `Planifier`, `Aleatoire` et la date du jour (`Contexte.aujourdhui`) lui sont injectés.
