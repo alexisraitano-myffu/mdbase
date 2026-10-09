@@ -3,6 +3,8 @@ import type { EditorState, Range } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 import { ouvrirAdresse } from '../../adapters/tauri/bureau'
+import { couleurOption } from '../couleurs'
+import { couleurSurlignage } from './mise-en-forme'
 
 // Aperçu en direct, à la manière d'Obsidian : le Markdown s'affiche mis en
 // forme, et sa syntaxe (# d'un titre, ** du gras, crochets d'un lien)
@@ -157,6 +159,10 @@ function decorations(view: EditorView): DecorationSet {
           deco.push(cache.range(n.from, n.to))
           return
         }
+        if (nom === 'Surligne') {
+          surligne(state, n.node, plages, deco)
+          return
+        }
         if (nom === 'Link') {
           lien(state, n.node, plages, deco)
           return false
@@ -173,6 +179,22 @@ function decorations(view: EditorView): DecorationSet {
     })
   }
   return Decoration.set(deco, true)
+}
+
+/** « ==texte== », « =={rouge}texte== » : le texte sur un fond de couleur ; les marques et la couleur, cachées hors du curseur. */
+function surligne(state: EditorState, noeud: SyntaxNode, plages: { from: number; to: number }[], deco: Range<Decoration>[]) {
+  const marques = noeud.getChildren('SurligneMark')
+  if (marques.length < 2) return
+  const ouvrant = marques[0]!
+  const fermant = marques[marques.length - 1]!
+  const { couleur, longueur } = couleurSurlignage(state.sliceDoc(ouvrant.to, fermant.from))
+  const debut = ouvrant.to + longueur
+  if (fermant.from > debut) {
+    deco.push(Decoration.mark({ class: 'cm-surligne', attributes: { style: `background-color: ${couleurOption(couleur).fond}` } }).range(debut, fermant.from))
+  }
+  if (touche(plages, noeud.from, noeud.to)) return
+  deco.push(cache.range(ouvrant.from, debut))
+  deco.push(cache.range(fermant.from, fermant.to))
 }
 
 /** « [texte](adresse) » : seul le texte reste, souligné et cliquable, tant que le curseur n'y est pas. */

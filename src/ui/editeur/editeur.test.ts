@@ -30,3 +30,12 @@ describe('adresse d’un lien', () => {
     expect(adresseLien('notes de réunion')).toBe('notes%20de%20réunion')
   })
 })
+
+describe('surlignage dans la grammaire', () => {
+  it('==texte== et =={couleur}texte== sont des surlignages, pas un « == » isolé', async () => {
+    const { langageMarkdown } = await import('./langage')
+    const arbre = (t: string) => langageMarkdown.language.parser.parse(t).toString()
+    expect(arbre('Le =={rouge}devis== est ==urgent==.')).toBe('Document(Paragraph(Surligne(SurligneMark,SurligneMark),Surligne(SurligneMark,SurligneMark)))')
+    expect(arbre('a == b')).toBe('Document(Paragraph)')
+  })
+})

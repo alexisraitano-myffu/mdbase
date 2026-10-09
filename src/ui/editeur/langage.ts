@@ -3,7 +3,7 @@ import { foldNodeProp, foldService, Language, LanguageSupport, syntaxTree } from
 import { Prec } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
-import type { MarkdownParser } from '@lezer/markdown'
+import type { MarkdownConfig, MarkdownParser } from '@lezer/markdown'
 
 // Markdown (GFM) assemblé à la main plutôt que par `markdown()` : celle-ci
 // embarque la coloration du HTML, du CSS et du JavaScript (un tiers du poids
@@ -31,16 +31,54 @@ const sections = foldService.of((state, debut, fin) => {
   return null
 })
 
+const PONCTUATION = /[!-/:-@[-`{-~\u2000-\u206f\u2e00-\u2e7f]/
+
 /**
- * Seuls les titres se replient : la grammaire de CodeMirror rend repliable tout bloc de plusieurs
+ * Surlignage `==texte==` (syntaxe d'Obsidian), et `=={rouge}texte==` pour une autre couleur : délimité
+ * comme le barré `~~` de GFM. La couleur entre accolades reste du texte du nœud, lue par l'aperçu.
+ */
+/** Un seul objet : lezer n'apparie que des délimiteurs du même type (même référence). */
+const DELIMITEUR_SURLIGNE = { resolve: 'Surligne', mark: 'SurligneMark' }
+
+const surlignage: MarkdownConfig = {
+  defineNodes: ['Surligne', 'SurligneMark'],
+  parseInline: [
+    {
+      name: 'Surligne',
+      parse(cx, suivant, pos) {
+        if (suivant !== 61 /* = */ || cx.char(pos + 1) !== 61 || cx.char(pos + 2) === 61) return -1
+        const avant = cx.slice(pos - 1, pos)
+        const apres = cx.slice(pos + 2, pos + 3)
+        const blancAvant = /\s|^$/.test(avant)
+        const blancApres = /\s|^$/.test(apres)
+        const pAvant = PONCTUATION.test(avant)
+        const pApres = PONCTUATION.test(apres)
+        return cx.addDelimiter(
+          DELIMITEUR_SURLIGNE,
+          pos,
+          pos + 2,
+          !blancApres && (!pApres || blancAvant || pAvant),
+          !blancAvant && (!pAvant || blancApres || pApres),
+        )
+      },
+      after: 'Emphasis',
+    },
+  ],
+}
+
+/**
+ * Grammaire de l'éditeur : GFM, plus le surlignage. Seuls les titres se replient : la grammaire de CodeMirror rend repliable tout bloc de plusieurs
  * lignes (paragraphe, citation, code, tableau), ce qui mettait un chevron presque partout. Même
  * facette de données que `markdownLanguage`, pour que ses commandes (`markdownKeymap`) s'y reconnaissent.
  */
-const markdownSansRepliDesBlocs = new Language(
+const markdownMdbase = new Language(
   markdownLanguage.data,
-  (markdownLanguage.parser as MarkdownParser).configure({ props: [foldNodeProp.add((type) => (type.is('Block') && !type.is('Document') ? () => null : undefined))] }),
+  (markdownLanguage.parser as MarkdownParser).configure([
+    surlignage,
+    { props: [foldNodeProp.add((type) => (type.is('Block') && !type.is('Document') ? () => null : undefined))] },
+  ]),
   [],
   'markdown',
 )
 
-export const langageMarkdown = new LanguageSupport(markdownSansRepliDesBlocs, [sections, pasteURLAsLink, Prec.high(keymap.of(markdownKeymap))])
+export const langageMarkdown = new LanguageSupport(markdownMdbase, [sections, pasteURLAsLink, Prec.high(keymap.of(markdownKeymap))])

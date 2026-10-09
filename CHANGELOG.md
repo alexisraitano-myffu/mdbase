@@ -99,6 +99,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Synchro Jira intégrée à l'app de bureau, sans script : connexion (e-mail et token d'API, vérifiés par Jira puis gardés par le gestionnaire d'identifiants de Windows) et bouton « Synchroniser » dans le bandeau de la base Jira. Synchro à l'ouverture puis toutes les 5 minutes tant que l'app est ouverte. Le bandeau signale le lancement au démarrage du script s'il existe encore, et propose de le retirer. La PWA garde le script.
 
 - Éditeur des pages : Ctrl+K sur un texte sélectionné en fait un lien (on colle l'adresse) ; sur un lien, le même raccourci change, ouvre ou retire son adresse. Sans sélection, Ctrl+K reste la recherche globale.
+- Éditeur des pages : surlignage `==texte==` (jaune, syntaxe d'Obsidian) ou `=={rouge}texte==` dans une des couleurs de l'espace ; Ctrl+Maj+H surligne en jaune ou retire.
+- Éditeur des pages : menu du clic droit sur un mot ou une sélection (gras, italique, barré, code, lien, surlignage par couleur, couper, copier, coller). Maj+clic droit garde le menu du système.
 - Éditeur des pages : un texte mis en forme collé depuis une page web, une réponse d'IA, Word ou Outlook garde ses titres, gras, listes, liens et tableaux (converti en Markdown). Un texte qui est déjà du Markdown se colle tel quel.
 
 ### Changed

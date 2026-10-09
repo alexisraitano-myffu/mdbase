@@ -137,6 +137,55 @@ test.describe('pages', () => {
     await expect.poll(() => espace.lire(fichier)).toMatch(/## Décisions\n\n-\s+Valider le \*\*devis\*\*/)
   })
 
+  test('contenu : surligner au clavier ou au clic droit, changer de couleur, mettre en gras depuis le menu', async ({ espace, page }) => {
+    const fichier = 'taches/integration--tinte002.md'
+    await espace.remplacer(fichier, /\n---\n[\s\S]*$/, '\n---\nLe devis est urgent.\n')
+    await espace.retourSurOnglet()
+    await espace.ouvrirPage('Tâches', 'Intégration')
+    const corps = page.locator('.editeur-corps .cm-content')
+    // Le centre d'un mot précis (la ligne entière est un seul élément) : clic, double-clic ou clic droit.
+    const surMot = async (texte: string, o: { button?: 'right'; clickCount?: number } = {}) => {
+      const p = await corps.evaluate((el, t) => {
+        const marcheur = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+        for (let n = marcheur.nextNode(); n; n = marcheur.nextNode()) {
+          const i = n.textContent!.indexOf(t)
+          if (i < 0) continue
+          const r = document.createRange()
+          r.setStart(n, i)
+          r.setEnd(n, i + t.length)
+          const b = r.getBoundingClientRect()
+          return { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+        }
+        throw new Error(`introuvable : ${t}`)
+      }, texte)
+      await page.mouse.click(p.x, p.y, o)
+    }
+
+    // Clic droit sur un mot : il est sélectionné, le menu s'ouvre.
+    await surMot('urgent', { button: 'right' })
+    const menu = page.getByRole('menu', { name: 'Mise en forme' })
+    await menu.getByRole('button', { name: 'Surligner en rouge' }).click()
+    await expect.poll(() => espace.lire(fichier)).toContain('Le devis est =={rouge}urgent==.')
+    await page.keyboard.press('End')
+    await expect(corps.locator('.cm-surligne')).toHaveText('urgent') // marques cachées hors du curseur
+
+    // Autre couleur sur le même surlignage, puis retrait au clavier.
+    await corps.locator('.cm-surligne').click({ button: 'right' })
+    await menu.getByRole('button', { name: 'Surligner en bleu' }).click()
+    await expect.poll(() => espace.lire(fichier)).toContain('=={bleu}urgent==')
+    await page.keyboard.press('ControlOrMeta+Shift+h')
+    await expect.poll(() => espace.lire(fichier)).toContain('Le devis est urgent.')
+
+    // Jaune au clavier : la syntaxe d'Obsidian, sans accolades ; gras depuis le menu.
+    await surMot('devis', { clickCount: 2 })
+    await page.keyboard.press('ControlOrMeta+Shift+h')
+    await expect.poll(() => espace.lire(fichier)).toContain('Le ==devis== est urgent.')
+    await page.keyboard.press('End')
+    await surMot('urgent', { button: 'right' })
+    await menu.getByRole('button', { name: /Gras/ }).click()
+    await expect.poll(() => espace.lire(fichier)).toContain('Le ==devis== est **urgent**.')
+  })
+
   test('références : « @ » écrit un lien wiki vers une ligne, affiché en pastille au titre actuel, qui ouvre la page', async ({ espace, page }) => {
     const fichier = 'taches/integration--tinte002.md'
     await espace.remplacer(fichier, /\n---\n[\s\S]*$/, '\n---\nVoir [[projets/ancien-nom--pmobi002|Ancien titre]] et [[projets/disparu--zzzz0000|Disparu]].\n\nRien.\n')
