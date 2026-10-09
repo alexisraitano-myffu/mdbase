@@ -1,6 +1,6 @@
 [package]
 name = "mdbase"
-version = "1.1.0"
+version = "1.1.1"
 description = "Bases de données façon Notion, stockées dans un dossier de fichiers Markdown + YAML."
 license = "MIT"
 repository = "https://github.com/alexisraitano-myffu/mdbase"
