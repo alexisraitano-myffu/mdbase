@@ -6,7 +6,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { DepotEspace } from '../../core/depot-espace'
 import { AdaptateurNode } from '../commun/fichiers-node'
-import { executer, INSTRUCTIONS, outilsMcp } from './serveur'
+import { executer, INSTRUCTIONS, outilsMcp } from '../../core/ia/mcp'
 
 // Serveur MCP de mdbase, lancé par le client (Claude Desktop) sur stdio :
 //   node mdbase-mcp.mjs "<dossier de l'espace>"

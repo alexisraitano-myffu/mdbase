@@ -67,7 +67,8 @@ src/
                            Brouillon où les appels se valident dans l'ordre, Correspondances des ids prévus
                            vers les ids réels), references.ts (retrouver base, colonne, ligne, filtres), assistant.ts (un appel, une relance si refus, historique de
                            conversation), memoire.ts (`_assistant/` : mémoire écrite aussitôt, skills
-                           écrits après confirmation), connaissance.ts (§18 : contexte, documents cherchés
+                           écrits après confirmation), mcp.ts (outils exposés à un client MCP, exécution d'un appel : partagé par le serveur Node et l'app de bureau),
+                           connaissance.ts (§18 : contexte, documents cherchés
                            par minisearch, inbox et historique des traités, outils de l'inbox)
     fixtures/              données de test partagées
   adapters/
@@ -82,7 +83,7 @@ src/
   outils/        outils Node qui utilisent le cœur, jamais l'UI (tsconfig.outils.json)
     commun/      AdaptateurNode : fichiers de l'espace sur le disque
     jira/        script de synchro Jira (§16), publié en dist/mdbase-jira.mjs
-    mcp/         serveur MCP (§17) : outils de l'assistant exposés à Claude Desktop, publié en dist/mdbase.mcpb
+    mcp/         serveur MCP sur stdio (§17), publié en dist/mdbase.mcpb ; outils exposés et exécution dans core/ia/mcp.ts
   ui/            React ; panneaux à droite exclusifs (assistant, Inbox.tsx, Documents.tsx : état `panneau` dans App),
                  modules.tsx (§19 : modules activés par machine, localStorage), synchroJira.ts (synchro Jira périodique de l'app de bureau)
   main.tsx       point d'entrée mince : monte l'UI, aucune logique

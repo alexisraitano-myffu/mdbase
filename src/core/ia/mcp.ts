@@ -1,8 +1,8 @@
-import type { DepotEspace } from '../../core/depot-espace'
-import { estLecture, lire, OUTILS_LECTURE } from '../../core/ia/lecture'
-import type { DefinitionOutil } from '../../core/ia/modele'
-import { decrireEspace, OUTILS } from '../../core/ia/outils'
-import { appliquerPlan, ErreurProposition, resumerPlan, validerAppel, type Plan } from '../../core/ia/plan'
+import type { DepotEspace } from '../depot-espace'
+import { estLecture, lire, OUTILS_LECTURE } from './lecture'
+import type { DefinitionOutil } from './modele'
+import { decrireEspace, OUTILS } from './outils'
+import { appliquerPlan, ErreurProposition, resumerPlan, validerAppel, type Plan } from './plan'
 
 // Serveur MCP de mdbase : les outils de l'assistant (spec §12) exposés à un
 // client MCP (Claude Desktop…). Mêmes contrôles que dans l'app ; chaque appel
