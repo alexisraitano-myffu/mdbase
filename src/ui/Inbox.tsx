@@ -85,11 +85,18 @@ export function PanneauInbox(p: {
     inbox.relire()
   }
   const ajouter = async () => {
-    if (texte.trim() === '') return
-    const premiere = texte.trim().split('\n')[0]!.trim()
-    await espace.assistant.connaissance.deposer({ titre: premiere.length > 60 ? `${premiere.slice(0, 60)}…` : premiere, texte: texte.trim() }, horodatage(new Date()))
+    const saisi = texte.trim()
+    if (saisi === '') return
+    // Vidé tout de suite : ce qu'on tape pendant l'écriture n'est pas effacé quand elle se termine.
     setTexte('')
     setNotes([])
+    const premiere = saisi.split('\n')[0]!.trim()
+    try {
+      await espace.assistant.connaissance.deposer({ titre: premiere.length > 60 ? `${premiere.slice(0, 60)}…` : premiere, texte: saisi }, horodatage(new Date()))
+    } catch (e) {
+      setTexte((t) => (t === '' ? saisi : t))
+      setNotes([e instanceof Error ? e.message : String(e)])
+    }
     inbox.relire()
   }
   const agir = (action: Promise<void>) => void action.then(inbox.relire)
