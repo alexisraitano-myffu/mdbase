@@ -93,9 +93,23 @@ describe('rafraîchir un espace depuis le disque (changements externes)', () => 
     expect(b.chargement.ok && b.chargement.base.avertissements[0]).toMatch(/illisible sur le disque/)
   })
 
+  it('un _schema.yaml absent le temps d’une relecture (fichier en cours de remplacement) garde la base', async () => {
+    const { a, espace } = await ouvrir()
+    const texte = await a.lire('clients/_schema.yaml')
+    await a.supprimer('clients/_schema.yaml')
+    expect(await espace.rafraichir()).toBe(false)
+    expect(titres(espace, 'clients')).toEqual(['Acme', 'Globex'])
+    await a.ecrire('clients/_schema.yaml', texte)
+    await espace.rafraichir()
+    await a.supprimer('clients/_schema.yaml')
+    await espace.rafraichir()
+    expect(espace.etat().bases.get('clients')!.depot).not.toBeNull()
+  })
+
   it('un dossier qui perd son _schema.yaml n’est plus une base, et le redevient quand il revient', async () => {
     const { a, espace } = await ouvrir()
     await a.supprimer('clients/_schema.yaml')
+    await espace.rafraichir()
     await espace.rafraichir()
     expect(espace.etat().bases.get('clients')).toMatchObject({ chargement: { ok: false, raison: 'pas de _schema.yaml' }, depot: null })
     await a.ecrire('clients/_schema.yaml', FICHIERS_RELATIONS['clients/_schema.yaml']!)
