@@ -68,6 +68,8 @@ export function decoder(colonne: Colonne, brut: unknown): Cellule {
     }
     case 'rollup':
     case 'formula':
+    case 'created':
+    case 'modified':
       return invalide('colonne calculée : jamais stockée')
   }
 }

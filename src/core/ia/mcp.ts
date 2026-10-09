@@ -27,7 +27,7 @@ const DECRIRE: DefinitionOutil = {
   parametres: { type: 'object', properties: {} },
 }
 
-const DESTRUCTEURS = new Set(['supprimer_lignes', 'supprimer_colonne', 'supprimer_vue', 'supprimer_dashboard', 'supprimer_base'])
+const DESTRUCTEURS = new Set(['supprimer_lignes', 'supprimer_colonne', 'retirer_option', 'supprimer_vue', 'supprimer_dashboard', 'supprimer_base'])
 
 export type OutilMcp = {
   name: string

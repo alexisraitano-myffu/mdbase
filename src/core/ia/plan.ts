@@ -168,7 +168,7 @@ function creer(etat: EtatEspace, args: Record<string, unknown>): Operation {
  * les bases et colonnes que les précédents créent.
  */
 /** Outils qui écrivent dans les lignes ou le schéma d'une base existante. */
-const ECRITURES_DE_BASE = new Set(['modifier_lignes', 'creer_lignes', 'supprimer_lignes', 'ecrire_contenu', 'ajouter_remarque', 'ajouter_colonnes', 'ajouter_options', 'renommer_colonne', 'supprimer_colonne'])
+const ECRITURES_DE_BASE = new Set(['modifier_lignes', 'creer_lignes', 'supprimer_lignes', 'ecrire_contenu', 'ajouter_remarque', 'ajouter_colonnes', 'ajouter_options', 'retirer_option', 'renommer_colonne', 'supprimer_colonne'])
 
 export function validerAppel(espace: EtatEspace | Brouillon, appel: AppelOutil, ctx: Contexte, assistant: Assistant = { memoire: [], skills: [] }): AppelValide {
   const brouillon = espace instanceof Brouillon ? espace : new Brouillon(espace)

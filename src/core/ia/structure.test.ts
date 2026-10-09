@@ -250,6 +250,47 @@ describe('assistant : structure', () => {
     await expect(proposer(obstine(appel('ajouter_options', { base: 'taches', colonne: 'statut', options: [{ label: 'X', couleur: 'fuchsia' }] })), espace, 'x', contexte)).rejects.toThrow(/couleur inconnue pour « X »/)
   })
 
+  it('retirer une option : les lignes prennent le remplacement, ou perdent la valeur (signalé en rouge)', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(espace, appel('retirer_option', { base: 'taches', colonne: 'Statut', option: 'terminé', remplacer_par: 'À faire' }))
+    expect(resumerPlan(p)).toContain("Retirer l'option « Terminé » de « Statut » (Tâches) : 1 ligne passent à « À faire »")
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await a.lire('taches/b--t0000002.md')).toContain('statut: À faire\n')
+    expect(await a.lire('taches/_schema.yaml')).not.toContain('Terminé')
+    const vider = await plan(espace, appel('retirer_option', { base: 'taches', colonne: 'statut', option: 'À faire' }))
+    expect(vider.structure?.[0]).toMatchObject({ type: 'retirer_option', lignes: 2 })
+    await appliquerPlan(espace, vider)
+    await ecrire()
+    expect(await a.lire('taches/a--t0000001.md')).not.toContain('statut')
+    const contexte = { aujourdhui: AUJOURDHUI, baseOuverte: 'taches' }
+    await expect(proposer(obstine(appel('retirer_option', { base: 'taches', colonne: 'titre', option: 'X' })), espace, 'x', contexte)).rejects.toThrow(/pas une colonne à choix/)
+  })
+
+  it('ranger une base dans un groupe, créé s’il manque, puis la sortir', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(espace, appel('placer_base', { base: 'Tâches', groupe: 'Suivi' }), appel('placer_base', { base: 'projets', groupe: 'suivi' }))
+    expect(resumerPlan(p)).toContain('Ranger la base « Tâches » dans le groupe « Suivi » (nouveau)')
+    expect(resumerPlan(p)).toContain('Ranger la base « Projets » dans le groupe « Suivi »')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(espace.etat().groupes).toEqual([{ nom: 'Suivi', bases: ['taches', 'projets'] }])
+    await appliquerPlan(espace, await plan(espace, appel('placer_base', { base: 'taches', groupe: null })))
+    expect(espace.etat().groupes[0]!.bases).toEqual(['projets'])
+    expect(await a.lire('_espace.yaml')).toContain('Suivi')
+  })
+
+  it('colonnes de dates de création et de modification, en lecture seule', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(espace, appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Créé le', type: 'created' }, { nom: 'Modifié le', type: 'modified' }] }))
+    expect(resumerPlan(p)).toContain('Ajouter la colonne « Créé le » (date de création) à Tâches')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await a.lire('taches/_schema.yaml')).toMatch(/type: created[\s\S]*type: modified/)
+    const contexte = { aujourdhui: AUJOURDHUI, baseOuverte: 'taches' }
+    await expect(proposer(obstine(appel('modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { cree_le: '2026-01-01' } })), espace, 'x', contexte)).rejects.toThrow()
+  })
+
   it('une colonne créée avec des options colorées garde leurs couleurs', async () => {
     const { a, espace, ecrire } = await ouvrir()
     const p = await plan(espace, appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Risque', type: 'select', options: [{ label: 'Haut', couleur: 'rouge' }, 'Bas'] }] }))

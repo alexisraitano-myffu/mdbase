@@ -55,6 +55,29 @@ test.describe('bases, groupes et colonnes', () => {
     await expect.poll(() => espace.lire('projets/site-vitrine--psite001.md')).not.toContain('budget:')
     expect(await espace.lire('projets/_schema.yaml')).not.toContain('cle: budget,')
   })
+
+  test('retirer une option : les lignes qui l’ont prennent l’option choisie', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await menuColonne(page, 'Statut')
+    await page.getByRole('button', { name: 'Options…' }).click()
+    await page.getByRole('button', { name: 'Retirer l’option « Terminé »' }).click()
+    const confirmation = page.locator('.confirmation')
+    await expect(confirmation).toContainText('1 ligne l’a')
+    await confirmation.getByRole('button', { name: 'Option de remplacement' }).click()
+    await page.getByRole('option', { name: 'En cours' }).click()
+    await confirmation.getByRole('button', { name: 'Retirer' }).click()
+    await expect.poll(() => espace.lire('projets/audit-securite--paudi004.md')).toContain('statut: En cours\n')
+    expect(await espace.lire('projets/_schema.yaml')).not.toContain('label: Terminé')
+  })
+
+  test('colonne « Créé le » : en lecture seule, une ligne créée y montre sa date', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.locator('.cellule-entete.ajout').click()
+    await page.locator('.flottant .option', { hasText: 'Créé le' }).click()
+    await expect(entetes(page).filter({ hasText: 'Créé le' })).toHaveCount(1)
+    await expect.poll(() => espace.lire('projets/_schema.yaml')).toContain('type: created')
+    await expect(page.locator('.rangee .cellule.calculee').filter({ hasText: /\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/ }).first()).toBeVisible()
+  })
 })
 
 test('supprimer une base : portée montrée, relations converties en texte, dossier effacé', async ({ espace, page }) => {

@@ -243,6 +243,7 @@ button:hover { background: var(--survol); }
 .recherche-option:focus { border-color: var(--accent); }
 .confirmation { padding: 6px 8px; max-width: 300px; }
 .confirmation p { margin: 0.4rem 0; }
+.ligne-option { justify-content: space-between; cursor: default; }
 .boutons { display: flex; justify-content: flex-end; gap: 6px; margin-top: 0.5rem; }
 .danger { background: var(--rouge); border-color: var(--rouge); color: var(--sur-accent); }
 .danger:hover { background: var(--rouge-fort); }

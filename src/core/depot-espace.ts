@@ -25,7 +25,7 @@ import { IndexRecherche, type Resultat } from './recherche'
 import { MemoireAssistant } from './ia/memoire'
 import { ErreurEcriture, type Modifications } from './ligne'
 import type { Valeur } from './valeurs'
-import { CALCULS, colonne, estObjet, estSaisie, lireSchema, nomSource, type Calcul, type Colonne, type ColonneRelation, type Option, type Schema, type Source } from './schema'
+import { CALCULS, colonne, estObjet, estSaisie, lireSchema, nomSource, type Calcul, type Colonne, type ColonneHorodatage, type ColonneRelation, type Option, type Schema, type Source } from './schema'
 import { FICHIER_SYNCHRO, lireEtatSynchro, type EtatSynchro } from './jira/synchro'
 import { schemaJira, VUE_JIRA } from './jira/ticket'
 import { copierSchema, ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
@@ -605,6 +605,17 @@ export class DepotEspace {
     })
   }
 
+  /** Colonne « Créé le » ou « Modifié le » (spec §3) : calculée, elle ne touche que `_schema.yaml`. */
+  ajouterHorodatage(base: string, nom: string, type: ColonneHorodatage['type']): Promise<string> {
+    return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
+      const schema = this.schema(base)
+      const cle = cleColonne(nom, schema.colonnes.map((c) => c.cle))
+      await this.modifierSchema(base, { type: 'ajouter_colonne', colonne: { cle, nom: nom.trim() || cle, type } })
+      return cle
+    })
+  }
+
   /** Ne modifie que `_schema.yaml` : la clé ne change jamais (invariant 3). */
   renommerColonne(base: string, cle: string, nom: string): Promise<void> {
     return this.enFile(async () => {
@@ -760,6 +771,35 @@ export class DepotEspace {
       this.refuserSiSynchronisee(base)
       if (!(COULEURS as readonly string[]).includes(couleur)) throw new ErreurSchema(`Couleur inconnue : ${couleur}`)
       await this.modifierSchema(base, { type: 'couleur_option', cle, label, couleur })
+    })
+  }
+
+  /**
+   * Retire une option (spec §3) : les lignes qui l'ont prennent `remplacement`,
+   * ou perdent la valeur. Lignes réécrites d'abord, hors annulation, puis le
+   * schéma. Renvoie le nombre de lignes réécrites.
+   */
+  retirerOption(base: string, cle: string, label: string, remplacement?: string): Promise<number> {
+    return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
+      const c = colonne(this.schema(base), cle)
+      if (c?.type !== 'select' && c?.type !== 'multiselect') throw new ErreurSchema(`Pas une colonne à options : ${cle}`)
+      if (!c.options.some((o) => o.label === label)) throw new ErreurSchema(`Option introuvable : ${label}`)
+      if (remplacement !== undefined && (remplacement === label || !c.options.some((o) => o.label === remplacement))) throw new ErreurSchema(`Option de remplacement introuvable : ${remplacement}`)
+      const changements = new Map<string, Valeur | undefined>()
+      for (const l of this.depot(base).lignes()) {
+        const v = l.cellules[cle]
+        if (v?.etat !== 'ok') continue
+        if (c.type === 'select') {
+          if (v.valeur === label) changements.set(l.id, remplacement)
+        } else if (Array.isArray(v.valeur) && v.valeur.includes(label)) {
+          const suivants = [...new Set(v.valeur.map((x) => (x === label ? remplacement : x)).filter((x): x is string => typeof x === 'string'))]
+          changements.set(l.id, suivants.length > 0 ? suivants : undefined)
+        }
+      }
+      const n = await this.depot(base).remplacerValeurs(cle, changements)
+      await this.modifierSchema(base, { type: 'retirer_option', cle, label })
+      return n
     })
   }
 

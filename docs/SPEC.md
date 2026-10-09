@@ -196,6 +196,24 @@ Encodage des valeurs :
 | `relation` (propriétaire) | un id, ou une liste d'ids |
 
 - Les options de `select` sont stockées **en clair** pour la lisibilité. Renommer une option réécrit les fichiers qui l'utilisent : action rare, explicite, faite par lot.
+- **Retirer une option** [DÉCIDÉ, demandé par Alex le 09/10/2026] : depuis le menu de la colonne (« Options »), ou par l'outil `retirer_option` (assistant, MCP). Les lignes qui l'ont prennent l'option de remplacement choisie, ou perdent la valeur (dans un choix multiple, elle est retirée de la liste, sans doublon). La confirmation dit combien de lignes sont réécrites. Comme le renommage, c'est une réécriture par lot, hors annulation.
+
+### Dates de création et de modification [DÉCIDÉ, demandé par Alex le 09/10/2026]
+
+```markdown
+---
+id: k2x9m4pq
+titre: Navi
+statut: En cours
+_cree: 2026-10-09T14:32
+_modifie: 2026-10-12T09:05
+---
+```
+
+- L'app (interface, assistant, serveur MCP) écrit `_cree` à la création d'une ligne, puis `_modifie` à chaque écriture qu'elle y fait : cellule, contenu de la page, annulation. Format `AAAA-MM-JJTHH:mm`, heure locale. Les deux clés vont en fin de frontmatter.
+- Le « _ » initial les protège : aucune clé de colonne ne commence par « _ » (une base Jira a déjà sa colonne `cree`, sans conflit).
+- **Ne les mettent pas à jour** : une modification faite à la main dans le fichier ; la synchro Jira, qui a ses propres dates ; les réécritures de toute une colonne liées au schéma (colonne supprimée, option retirée ou renommée), qui marqueraient sinon toute la base comme modifiée. Une ligne dupliquée reçoit son propre `_cree`.
+- Deux types de colonnes les montrent : **`created`** (« Créé le ») et **`modified`** (« Modifié le »). Calculées, en lecture seule, de nature date : filtres (« les 7 derniers jours » pour repérer le nouveau), tris, groupements, formules et rollups comme une date. Valeur de « Créé le » : `_cree`, à défaut la date du fichier sur le disque. Valeur de « Modifié le » : `_modifie`, à défaut `_cree`, à défaut la date du fichier. Le repli couvre les lignes d'avant et les fichiers créés hors de l'app.
 
 ---
 
@@ -637,7 +655,7 @@ Exception à « aucun appel réseau » (validée par Alex le 25/09/2026, après 
 - **Dans le panneau** [DÉCIDÉ, validé par Alex le 27/09/2026] : réponses rendues en Markdown (titres, listes, gras, code, tableaux, liens web seulement), sans jamais injecter de HTML ; « Copier » sur chaque réponse ; la dernière demande se relance ou se reprend pour modification, sauf si son plan a été appliqué. `@` cite une base (ses lignes accompagnent la demande comme celles de la base ouverte), `/` en tête de demande choisit un skill que le modèle est prié d'appliquer. Le modèle se change depuis le pied du panneau (liste demandée au service). Historique : 20 conversations par dossier, gardées dans le navigateur ; une conversation reprise relit ses échanges mais ses plans ne sont plus applicables.
 - **Mémoire** (`_assistant/memoire.md`, §3) : le modèle retient un fait quand l'utilisateur le demande ou exprime une préférence durable ; écrit aussitôt, avec une mention « Retenu : … » annulable. Jamais une valeur de ligne.
 - **Skills** (`_assistant/skills/`, §3) : procédures nommées créées à la demande de l'utilisateur, avec confirmation comme une modification de données. Les skills et la mémoire sont envoyés au modèle avec la structure de l'espace, et l'avertissement d'activation le dit.
-- **Structure** : le modèle peut aussi créer une base, ajouter, renommer ou supprimer des colonnes (tous les types, relations avec leur miroir, rollups, formules), créer, régler ou supprimer des vues (filtres, tris, groupement, colonnes affichées), créer ou supprimer des dashboards, supprimer des lignes et écrire le contenu d'une page. Les appels d'une même réponse sont validés dans l'ordre sur un brouillon de l'espace : une colonne ou une base créée peut être remplie aussitôt. Application dans l'ordre structure, puis données, puis suppressions de lignes et contenu.
+- **Structure** : le modèle peut aussi créer une base, ajouter, renommer ou supprimer des colonnes (tous les types, relations avec leur miroir, rollups, formules), créer, régler ou supprimer des vues (filtres, tris, groupement, colonnes affichées), créer ou supprimer des dashboards, ranger une base dans un groupe de la barre latérale (groupe créé s'il n'existe pas, outil `placer_base`) [DÉCIDÉ, demandé par Alex le 09/10/2026], supprimer des lignes et écrire le contenu d'une page. Les appels d'une même réponse sont validés dans l'ordre sur un brouillon de l'espace : une colonne ou une base créée peut être remplie aussitôt. Application dans l'ordre structure, puis données, puis suppressions de lignes et contenu.
 - **Connaissance** (contexte, documents, inbox, budget) : §18.
 - **Suppressions** : toujours dans l'aperçu, en rouge, avec leur portée (lignes touchées, liens retirés). Supprimer une base est possible, seulement à la demande explicite de l'utilisateur. Les données s'annulent d'un Ctrl+Z comme une action de l'utilisateur ; une base, une colonne, une vue ou un dashboard supprimé ne revient pas, et l'aperçu le dit (« définitif »).
 

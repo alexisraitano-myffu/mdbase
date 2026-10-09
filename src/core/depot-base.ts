@@ -17,6 +17,8 @@ export type OptionsDepot = {
   delai?: number
   /** Reçoit chaque changement de données, pour l'annulation (Ctrl+Z). */
   journal?: (c: Changement) => void
+  /** Date et heure `AAAA-MM-JJTHH:mm` écrites dans `_cree` / `_modifie` (spec §3) ; sans elle, rien n'est horodaté. */
+  maintenant?: () => string
 }
 
 type Entree = {
@@ -40,7 +42,7 @@ type Entree = {
 export class DepotBase {
   schema: Schema
   private readonly adaptateur: AdaptateurFichiers
-  private readonly options: Required<OptionsDepot>
+  private readonly options: Required<Omit<OptionsDepot, 'maintenant'>> & Pick<OptionsDepot, 'maintenant'>
   private readonly entrees: Entree[]
   private readonly abonnes = new Set<() => void>()
   private instantane: readonly LigneChargee[] = []
@@ -124,7 +126,7 @@ export class DepotBase {
     const id = genererId(this.options.aleatoire, new Set(this.entrees.map((e) => e.persistee.id)))
     const titre = valeurs[this.schema.champTitre]
     const chemin = joindre(this.schema.id, nomFichierLigne(typeof titre === 'string' ? titre : '', id))
-    const texte = creerLigne(this.schema, id, valeurs)
+    const texte = creerLigne(this.schema, id, valeurs, '', this.options.maintenant?.())
     await this.adaptateur.ecrire(chemin, texte)
     const lecture = lireLigne(chemin, texte, this.schema)
     if (!lecture.ok) throw new Error(`Ligne créée illisible : ${lecture.raison}`)
@@ -293,6 +295,26 @@ export class DepotBase {
     return n
   }
 
+  /**
+   * Réécrit une colonne sur les seules lignes citées (par id ; `undefined` vide
+   * le champ). Hors historique, comme `reecrireColonne`. Renvoie le nombre de fichiers réécrits.
+   */
+  async remplacerValeurs(cle: string, valeurs: ReadonlyMap<string, Valeur | undefined>): Promise<number> {
+    this.verifierModifiable()
+    await this.vider()
+    let n = 0
+    for (const e of this.entrees) {
+      if (!valeurs.has(e.persistee.id)) continue
+      n++
+      void this.enchainer(e, async () => {
+        e.persistee = await enregistrerLigne(this.adaptateur, this.schema, e.persistee, { [cle]: valeurs.get(e.persistee.id) })
+        e.affichee = afficher(e, this.schema)
+      })
+    }
+    await Promise.all(this.entrees.map((e) => e.file))
+    return n
+  }
+
   /** Renomme tous les fichiers selon leur titre (changement de colonne titre). */
   async renommerTousSelonTitre(): Promise<void> {
     await Promise.all(this.entrees.map((e) => this.renommerSelonTitre(e.affichee.chemin)))
@@ -377,7 +399,7 @@ export class DepotBase {
     entree.corpsEnAttente = undefined
     entree.annuler = undefined
     return this.enchainer(entree, async () => {
-      entree.persistee = await enregistrerLigne(this.adaptateur, this.schema, entree.persistee, modifs, corps)
+      entree.persistee = await enregistrerLigne(this.adaptateur, this.schema, entree.persistee, modifs, corps, this.options.maintenant?.())
       // D'autres modifications ont pu arriver pendant l'écriture : elles restent affichées.
       entree.affichee = afficher(entree, this.schema)
     })

@@ -53,7 +53,12 @@ export function calculer(bases: ReadonlyMap<string, BaseACalculer>, ctx: Context
   for (const { base, colonne } of ordre) {
     const lignes = bases.get(base)!.lignes
     if (enBoucle.has(noeud(base, colonne.cle))) continue
-    if (colonne.type === 'relation') {
+    if (colonne.type === 'created' || colonne.type === 'modified') {
+      for (const l of lignes) {
+        const v = colonne.type === 'created' ? l.cree : (l.modifie ?? l.cree)
+        poser(base, l.id, colonne.cle, { etat: 'ok', valeur: v ?? dateLocale(l.date) })
+      }
+    } else if (colonne.type === 'relation') {
       calculerInverse(base, colonne, lignes, bases, poser)
     } else if (colonne.type === 'rollup') {
       const r = preparerRollup(schemas, base, colonne)
@@ -91,6 +96,13 @@ export function calculer(bases: ReadonlyMap<string, BaseACalculer>, ctx: Context
     }
   }
   return resultats
+}
+
+/** Date d'un fichier sur le disque en `AAAA-MM-JJTHH:mm` local : le repli des lignes sans `_cree` ni `_modifie` (spec §3). */
+export function dateLocale(ms: number): string {
+  const d = new Date(ms)
+  const deux = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}T${deux(d.getHours())}:${deux(d.getMinutes())}`
 }
 
 /** Valeur d'une colonne lue par une formule : case vide = faux, texte vide = vide, erreur propagée. */

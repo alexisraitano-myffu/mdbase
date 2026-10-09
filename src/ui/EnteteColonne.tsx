@@ -2,13 +2,14 @@ import { useRef, useState } from 'react'
 import type { DepotBase } from '../core/depot-base'
 import { TYPES_CREABLES, type DepotEspace, type TypeCreable } from '../core/depot-espace'
 import { calculsPour } from '../core/calcul'
-import { CALCULS, nomSource, type Calcul, type Colonne, type ColonneRelation, type ColonneRollup } from '../core/schema'
+import { CALCULS, nomSource, TYPES_HORODATAGE, type Calcul, type Colonne, type ColonneChoix, type ColonneHorodatage, type ColonneRelation, type ColonneRollup } from '../core/schema'
 import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { EditeurFormule } from './EditeurFormule'
 import { Flottant } from './flottant'
-import { ArrowRight, Plus, TriangleAlert } from 'lucide-react'
+import { ArrowRight, ChevronRight, Plus, TriangleAlert, X } from 'lucide-react'
 import { Icone, ICONES } from './icones'
+import { Pastille } from './cellules'
 import { Choix } from './Choix'
 import { Reglage } from './reglages'
 
@@ -21,6 +22,8 @@ export const NOMS_TYPES: Record<TypeCreable, string> = {
   multiselect: 'Sélection multiple',
   url: 'Lien',
 }
+
+export const NOMS_HORODATAGE: Record<ColonneHorodatage['type'], string> = { created: 'Créé le', modified: 'Modifié le' }
 
 type Props = { espace: DepotEspace; base: string; depot: DepotBase; colonne: Colonne }
 
@@ -38,6 +41,7 @@ export function MenuColonne({
   const [nom, setNom] = useState(colonne.nom)
   const [confirmer, setConfirmer] = useState(false)
   const [formule, setFormule] = useState(false)
+  const [options, setOptions] = useState(false)
   const estTitre = colonne.cle === depot.schema.champTitre
 
   const renommer = () => {
@@ -61,6 +65,10 @@ export function MenuColonne({
         />
       </Flottant>
     )
+  }
+
+  if (options && (colonne.type === 'select' || colonne.type === 'multiselect')) {
+    return <OptionsColonne espace={espace} base={base} depot={depot} colonne={colonne} fermer={fermer} ancre={ancre} />
   }
 
   if (confirmer) {
@@ -138,6 +146,13 @@ export function MenuColonne({
           Modifier la formule…
         </button>
       )}
+      {(colonne.type === 'select' || colonne.type === 'multiselect') && colonne.options.length > 0 && (
+        <button className="option" onClick={() => setOptions(true)}>
+          <Icone de={ICONES[colonne.type]} />
+          Options…
+          <Icone de={ChevronRight} className="vers" taille={14} />
+        </button>
+      )}
       {masquer && !estTitre && (
         <button
           className="option"
@@ -168,6 +183,67 @@ export function MenuColonne({
           Supprimer la colonne
         </button>
       )}
+    </Flottant>
+  )
+}
+
+/** Options d'une colonne à choix : en retirer une, avec une option de remplacement pour les lignes qui l'ont (spec §3). */
+function OptionsColonne({ espace, base, depot, colonne, fermer, ancre }: { espace: DepotEspace; base: string; depot: DepotBase; colonne: ColonneChoix; fermer: () => void; ancre: HTMLElement | null }) {
+  const lancer = useLancer()
+  const [aRetirer, setARetirer] = useState<string | null>(null)
+  const [remplacement, setRemplacement] = useState('')
+  if (aRetirer !== null) {
+    const touchees = depot.lignes().filter((l) => {
+      const v = l.cellules[colonne.cle]
+      return v?.etat === 'ok' && (Array.isArray(v.valeur) ? v.valeur.includes(aRetirer) : v.valeur === aRetirer)
+    }).length
+    const autres = colonne.options.filter((o) => o.label !== aRetirer)
+    return (
+      <Flottant ancre={ancre} fermer={fermer}>
+        <div className="confirmation">
+          <strong>Retirer « {aRetirer} » ?</strong>
+          {touchees === 0 ? (
+            <p>Aucune ligne ne l’a.</p>
+          ) : (
+            <>
+              <p>
+                {touchees} ligne{touchees > 1 ? 's l’ont' : ' l’a'}. Elle{touchees > 1 ? 's' : ''} prendr{touchees > 1 ? 'ont' : 'a'} :
+              </p>
+              <Choix
+                valeur={remplacement}
+                entrees={[{ valeur: '', libelle: 'Aucune valeur' }, ...autres.map((o) => ({ valeur: o.label, libelle: o.label, ...(o.couleur && { couleur: o.couleur }) }))]}
+                libelle="Option de remplacement"
+                changer={setRemplacement}
+              />
+            </>
+          )}
+          <div className="boutons">
+            <button onClick={() => setARetirer(null)}>Annuler</button>
+            <button
+              className="danger"
+              onClick={() => {
+                void lancer(espace.retirerOption(base, colonne.cle, aRetirer, remplacement === '' ? undefined : remplacement))
+                fermer()
+              }}
+            >
+              Retirer
+            </button>
+          </div>
+        </div>
+      </Flottant>
+    )
+  }
+  return (
+    <Flottant ancre={ancre} fermer={fermer}>
+      <div className="titre-panneau">Options de « {colonne.nom} »</div>
+      {colonne.options.map((o) => (
+        <div key={o.label} className="option ligne-option">
+          <Pastille label={o.label} couleur={o.couleur} />
+          <button className="discret" title={`Retirer « ${o.label} »`} aria-label={`Retirer l’option « ${o.label} »`} onClick={() => (setRemplacement(''), setARetirer(o.label))}>
+            <Icone de={X} taille={14} />
+          </button>
+        </div>
+      ))}
     </Flottant>
   )
 }
@@ -343,6 +419,19 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
                 <Icone de={ICONES.formula} />
                 Formule…
               </button>
+              {TYPES_HORODATAGE.map((t) => (
+                <button
+                  key={t}
+                  className="option"
+                  onClick={() => {
+                    void lancer(espace.ajouterHorodatage(base, nom.trim() || NOMS_HORODATAGE[t], t))
+                    fermer()
+                  }}
+                >
+                  <Icone de={ICONES[t]} />
+                  {NOMS_HORODATAGE[t]}
+                </button>
+              ))}
             </>
           )}
 
