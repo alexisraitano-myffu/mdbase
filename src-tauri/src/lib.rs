@@ -2,14 +2,16 @@
 //! un accès direct au dossier de l'espace (pas de File System Access) et la
 //! surveillance de ce dossier.
 
+mod echos;
 mod fichiers;
 
+use echos::Echos;
 use fichiers::Entree;
 use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, Debouncer};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -21,11 +23,22 @@ const FICHIER_REGLAGES: &str = "espace.json";
 struct Espace {
     racine: Mutex<Option<PathBuf>>,
     surveillance: Mutex<Option<Debouncer<notify_debouncer_mini::notify::RecommendedWatcher>>>,
+    echos: Arc<Mutex<Echos>>,
 }
 
 impl Espace {
     fn racine(&self) -> Result<PathBuf, String> {
         self.racine.lock().unwrap().clone().ok_or_else(|| "Aucun espace ouvert".to_string())
+    }
+
+    /// Note des fichiers que l'app va toucher, pour ne pas relire l'espace sur leur écho.
+    fn noter(&self, racine: &Path, chemins: &[&str]) {
+        let mut echos = self.echos.lock().unwrap();
+        for c in chemins {
+            if let Ok(p) = fichiers::chemin(racine, c) {
+                echos.noter(p, Instant::now());
+            }
+        }
     }
 }
 
@@ -37,9 +50,12 @@ fn reglages(app: &AppHandle) -> Option<PathBuf> {
 fn ouvrir(app: &AppHandle, espace: &Espace, racine: PathBuf) -> Result<String, String> {
     let mut surveillance = new_debouncer(Duration::from_millis(300), {
         let app = app.clone();
+        let echos = espace.echos.clone();
         move |r: notify_debouncer_mini::DebounceEventResult| {
-            if r.is_ok() {
-                let _ = app.emit(ESPACE_MODIFIE, ());
+            if let Ok(changes) = r {
+                if echos.lock().unwrap().a_signaler(changes.iter().map(|c| c.path.as_path()), Instant::now()) {
+                    let _ = app.emit(ESPACE_MODIFIE, ());
+                }
             }
         }
     })
@@ -97,17 +113,26 @@ fn lire(espace: State<Espace>, chemin: String) -> Result<String, String> {
 
 #[tauri::command]
 fn ecrire(espace: State<Espace>, chemin: String, contenu: String) -> Result<(), String> {
-    avec(&espace, |r| fichiers::ecrire(r, &chemin, &contenu))
+    avec(&espace, |r| {
+        espace.noter(r, &[&chemin]);
+        fichiers::ecrire(r, &chemin, &contenu)
+    })
 }
 
 #[tauri::command]
 fn renommer(espace: State<Espace>, ancien: String, nouveau: String) -> Result<(), String> {
-    avec(&espace, |r| fichiers::renommer(r, &ancien, &nouveau))
+    avec(&espace, |r| {
+        espace.noter(r, &[&ancien, &nouveau]);
+        fichiers::renommer(r, &ancien, &nouveau)
+    })
 }
 
 #[tauri::command]
 fn supprimer(espace: State<Espace>, chemin: String) -> Result<(), String> {
-    avec(&espace, |r| fichiers::supprimer(r, &chemin))
+    avec(&espace, |r| {
+        espace.noter(r, &[&chemin]);
+        fichiers::supprimer(r, &chemin)
+    })
 }
 
 #[tauri::command]

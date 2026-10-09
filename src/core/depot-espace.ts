@@ -118,6 +118,8 @@ export class DepotEspace {
   private config: ConfigEspace = lireEspace(null)
   private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [] }
   private readonly abonnes = new Set<() => void>()
+  /** Bases dont le `_schema.yaml` manquait à la dernière relecture (voir `rafraichirBase`). */
+  private readonly schemasAbsents = new Set<string>()
   private readonly recherche = new IndexRecherche()
   /** Sérialise les modifications de configuration. */
   private file: Promise<unknown> = Promise.resolve()
@@ -257,6 +259,13 @@ export class DepotEspace {
     let change = false
     let base = b.chargement.base
     const texte = await this.lireOuNull(joindre(b.id, FICHIER_SCHEMA))
+    if (texte === null && !this.schemasAbsents.has(b.id)) {
+      // Absent une fois : souvent un fichier en cours de remplacement (synchro, autre app).
+      // La base reste telle quelle ; absent encore à la relecture suivante, elle n'en est plus une.
+      this.schemasAbsents.add(b.id)
+      return false
+    }
+    this.schemasAbsents.delete(b.id)
     if (texte === null) {
       this.bases.set(b.id, { id: b.id, chargement: { ok: false, raison: 'pas de _schema.yaml' }, depot: null, vues: [], pages: [] })
       return true
