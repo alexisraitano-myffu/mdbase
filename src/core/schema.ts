@@ -6,6 +6,9 @@ import { typerFormules } from './formules/formule'
 // formée est écartée avec un avertissement, le reste de la base reste utilisable.
 
 export const CLE_ID = 'id'
+/** Dates écrites par l'app sur chaque ligne (spec §3) ; « _ » : jamais une clé de colonne. */
+export const CLE_CREE = '_cree'
+export const CLE_MODIFIE = '_modifie'
 
 export type Option = { label: string; couleur?: string }
 
@@ -25,6 +28,9 @@ export type ColonneRollup = Commun & {
   calcul: string
   filtre?: unknown
 }
+/** Date de création ou de dernière modification de la ligne, lue dans `_cree` / `_modifie` (spec §3). */
+export type ColonneHorodatage = Commun & { type: 'created' | 'modified' }
+export const TYPES_HORODATAGE = ['created', 'modified'] as const
 export type ColonneFormule = Commun & {
   type: 'formula'
   expression: string
@@ -32,7 +38,7 @@ export type ColonneFormule = Commun & {
   resultat?: TypeFormule
 }
 
-export type Colonne = ColonneSimple | ColonneChoix | ColonneRelation | ColonneRollup | ColonneFormule
+export type Colonne = ColonneSimple | ColonneChoix | ColonneRelation | ColonneRollup | ColonneFormule | ColonneHorodatage
 export type TypeColonne = Colonne['type']
 
 export type Schema = {
@@ -138,6 +144,8 @@ export function natureDe(c: Colonne): Nature {
     case 'number':
       return 'nombre'
     case 'date':
+    case 'created':
+    case 'modified':
       return 'date'
     case 'checkbox':
       return 'case'
@@ -160,7 +168,7 @@ export type LectureSchema = { schema: Schema | null; avertissements: string[] }
 /** Colonne dont la valeur est écrite dans les fichiers de lignes (spec §3, invariant 1). */
 export function estSaisie(c: Colonne): boolean {
   if (c.type === 'relation') return c.proprietaire
-  return c.type !== 'rollup' && c.type !== 'formula'
+  return c.type !== 'rollup' && c.type !== 'formula' && c.type !== 'created' && c.type !== 'modified'
 }
 
 export function colonne(schema: Schema, cle: string): Colonne | undefined {
@@ -232,6 +240,8 @@ function lireColonne(c: unknown): Colonne | string {
     case 'date':
     case 'checkbox':
     case 'url':
+    case 'created':
+    case 'modified':
       return { ...commun, type: c.type }
     case 'select':
     case 'multiselect':

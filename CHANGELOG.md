@@ -105,6 +105,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 - Assistant IA et serveur MCP : outil `ajouter_options` (nouvelles options d'un select existant, ou couleur d'options existantes) ; les options d'une colonne créée peuvent porter leur couleur.
 - App de bureau : le serveur MCP est dans l'app, sans Node ni paquet à installer. Module « Claude (MCP) » dans Modules : « Connecter à Claude Desktop » d'un clic, et la commande à copier pour Claude Code. Claude ouvre l'app si elle est fermée.
+- Retirer une option d'une colonne à choix : menu de la colonne, « Options… ». Les lignes qui l'ont prennent l'option choisie à la place, ou perdent la valeur. Aussi pour l'assistant et Claude (outil `retirer_option`).
+- Colonnes « Créé le » et « Modifié le » (menu « + » des colonnes) : la date de création et de dernière modification de chaque ligne, filtrables comme une date (par exemple, créées ces 7 derniers jours). L'app les tient à jour dans deux clés de chaque fichier, `_cree` et `_modifie` ; une ligne d'avant prend la date de son fichier.
+- Assistant IA et Claude : ranger une base dans un groupe de la barre latérale, créé s'il n'existe pas (outil `placer_base`).
 
 ### Changed
 - Assistant IA : le préréglage Anthropic propose Claude Haiku 5.5 (`claude-haiku-5-5`), plus capable et moins cher que Haiku 4.5. Une connexion déjà réglée garde son modèle : il se change depuis le pied du panneau.

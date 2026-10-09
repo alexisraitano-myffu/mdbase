@@ -2,9 +2,11 @@ import {
   ArrowUpRight,
   Calendar,
   CalendarDays,
+  CalendarPlus,
   ChartGantt,
   CircleDot,
   Hash,
+  History,
   LayoutGrid,
   Link,
   List,
@@ -32,6 +34,8 @@ export const ICONES: Record<Colonne['type'], LucideIcon> = {
   relation: ArrowUpRight,
   rollup: Sigma,
   formula: SquareFunction,
+  created: CalendarPlus,
+  modified: History,
 }
 
 export const ICONES_VUES: Record<TypeVue, LucideIcon> = {

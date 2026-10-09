@@ -15,6 +15,8 @@ export type OperationSchema =
   | { type: 'ordonner_options'; cle: string; labels: string[] }
   /** Couleur d'une option existante (une des couleurs nommées de l'espace). */
   | { type: 'couleur_option'; cle: string; label: string; couleur: string }
+  /** Retire une option (les lignes qui l'ont sont réécrites à part). */
+  | { type: 'retirer_option'; cle: string; label: string }
   | { type: 'renommer_base'; nom: string }
   /** Réglages d'une source externe (§16) ; `null` la retire. */
   | { type: 'source'; source: Source | null }
@@ -141,6 +143,12 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
         return i < 0 ? op.labels.length : i
       }
       options.items = options.items.map((n, i) => ({ n, i })).sort((a, b) => rang(a.n) - rang(b.n) || a.i - b.i).map((x) => x.n)
+      break
+    }
+    case 'retirer_option': {
+      const options = trouverColonne(doc, op.cle).get('options')
+      if (!isSeq(options)) break
+      options.items = options.items.filter((o) => (isMap(o) ? o.get('label') : isScalar(o) ? o.value : undefined) !== op.label)
       break
     }
     case 'couleur_option': {

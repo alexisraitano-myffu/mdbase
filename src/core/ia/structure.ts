@@ -6,7 +6,7 @@ import { compiler, ErreurFormule, stockerExpression } from '../formules/formule'
 import { boucle } from '../graphe'
 import { cleColonne, idBase } from '../identifiants'
 import { COULEURS } from '../couleurs'
-import { CALCULS, estObjet, lireSchema, natureDe, type Calcul, type Colonne, type Option, type Schema } from '../schema'
+import { CALCULS, estObjet, lireSchema, natureDe, TYPES_HORODATAGE, type Calcul, type Colonne, type Option, type Schema } from '../schema'
 import { nouveauSchema } from '../schema-ecriture'
 import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
 import { insererRemarque } from './connaissance'
@@ -25,6 +25,8 @@ export class Brouillon {
   private readonly source: EtatEspace
   readonly bases = new Map<string, BaseBrouillon>()
   readonly dashboards: { id: string; nom: string }[]
+  /** Noms des groupes de la barre latérale, ceux que le plan crée compris. */
+  readonly groupes: string[]
   /** Titres des lignes que le plan crée, par base : `ecrire_contenu` peut les viser. */
   readonly creees = new Map<string, string[]>()
 
@@ -35,6 +37,7 @@ export class Brouillon {
       if (b.depot) this.bases.set(b.id, { id: b.id, schema: b.depot.schema, lignes: b.depot.lignes(), vues: [...b.vues], nouvelle: false })
     }
     this.dashboards = etat.dashboards.map((d) => ({ id: d.id, nom: d.dashboard?.nom ?? d.id }))
+    this.groupes = etat.groupes.map((g) => g.nom)
   }
 
   /** Vue de l'état attendue par les validations de données (`plan.ts`). */
@@ -91,6 +94,8 @@ export type NouvelleColonne =
   | { type: 'relation'; nom: string; cible: string; cleMiroir: string }
   | { type: 'rollup'; nom: string; relation: string; /** Base liée par la relation, où vit `champ`. */ cible: string; champ: string; calcul: Calcul }
   | { type: 'formula'; nom: string; expression: string }
+  | { type: 'created'; nom: string }
+  | { type: 'modified'; nom: string }
 
 /** Modifications de structure, appliquées avant les données du plan. Les ids et clés sont ceux prévus au moment de la validation. */
 export type ActionStructure =
@@ -99,6 +104,8 @@ export type ActionStructure =
   | { type: 'renommer_colonne'; base: string; nomBase: string; cle: string; ancien: string; nom: string }
   /** Options ajoutées à un select existant, et couleurs changées d'options qui y étaient déjà. */
   | { type: 'ajouter_options'; base: string; nomBase: string; cle: string; nomColonne: string; ajouts: Option[]; couleurs: Required<Option>[] }
+  /** `remplacement` absent : les `lignes` qui ont l'option perdent la valeur. */
+  | { type: 'retirer_option'; base: string; nomBase: string; cle: string; nomColonne: string; option: string; remplacement?: string; lignes: number }
   | { type: 'supprimer_colonne'; base: string; nomBase: string; cle: string; nom: string; remplies: number }
   | { type: 'creer_vue'; base: string; nomBase: string; id: string; nom: string; genre: TypeVue; reglages: ModificationVue }
   | { type: 'modifier_vue'; base: string; nomBase: string; vue: string; nomVue: string; reglages: ModificationVue }
@@ -107,6 +114,8 @@ export type ActionStructure =
   | { type: 'supprimer_dashboard'; id: string; nom: string }
   /** `relations` : « Base › Colonne » des relations qui deviendront du texte. */
   | { type: 'supprimer_base'; base: string; nom: string; lignes: number; relations: string[] }
+  /** `groupe: null` : hors groupe ; `nouveau` : le groupe est créé. */
+  | { type: 'placer_base'; base: string; nom: string; groupe: string | null; nouveau: boolean }
 
 /** Actions sur les lignes appliquées après les données : suppressions, contenu des pages. */
 export type ActionSuite =
@@ -116,7 +125,7 @@ export type ActionSuite =
   /** Entrée datée ajoutée à une section de la page (spec §18), sans réécrire le reste. */
   | { type: 'ajouter_remarque'; base: string; nomBase: string; ligne: string | null; titre: string; section?: string; entree: string }
 
-export const TYPES_COLONNE = [...TYPES_CREABLES, 'relation', 'rollup', 'formula'] as const
+export const TYPES_COLONNE = [...TYPES_CREABLES, 'relation', 'rollup', 'formula', ...TYPES_HORODATAGE] as const
 export const TYPES_VUE: readonly TypeVue[] = ['tableau', 'kanban', 'collection', 'calendrier', 'timeline']
 
 /** Options données en libellés (« Ouvert ») ou avec leur couleur ({ label, couleur }) ; doublons retirés. */
@@ -131,6 +140,12 @@ function lireOptions(brut: unknown): Option[] {
     options.push(typeof couleur === 'string' ? { label, couleur } : { label })
   }
   return options
+}
+
+/** Libellés d'une cellule à choix (select : un, multiselect : plusieurs). */
+function valeursChoix(c: LigneChargee['cellules'][string] | undefined): string[] {
+  if (c?.etat !== 'ok') return []
+  return Array.isArray(c.valeur) ? c.valeur.map(String) : [String(c.valeur)]
 }
 
 const avecDate = (genre: TypeVue) => genre === 'calendrier' || genre === 'timeline'
@@ -171,6 +186,7 @@ function lireColonne(b: Brouillon, base: string, brut: unknown): { action: Actio
     if (probleme) erreur(`rollup refusé : ${probleme}`)
     return { action: action({ type, nom, relation: relation.cle, cible: cible.id, champ: champ.cle, calcul: calcul as Calcul }), colonne }
   }
+  if (type === 'created' || type === 'modified') return { action: action({ type, nom }), colonne: { cle, nom, type } }
   if (type === 'formula') {
     const texte = texteRequis(brut, 'expression')
     const essai = (expression: string): Colonne | null => {
@@ -381,6 +397,25 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       b.remplacerSchema(bb.id, { ...bb.schema, colonnes: bb.schema.colonnes.map((x) => (x.cle === c.cle ? { ...c, options } : x)) })
       return { structure: [{ type: 'ajouter_options', base: bb.id, nomBase: bb.schema.nom, cle: c.cle, nomColonne: c.nom, ajouts, couleurs }] }
     }
+    case 'retirer_option': {
+      const bb = b.base(args.base)
+      const c = trouverColonne(bb.schema, args.colonne)
+      if (c.type !== 'select' && c.type !== 'multiselect') erreur(`« ${c.nom} » n'est pas une colonne à choix (select, multiselect)`)
+      if (c.type !== 'select' && c.type !== 'multiselect') return null
+      const libelles = `[${c.options.map((o) => o.label).join(', ')}]`
+      const option = c.options.find((o) => normaliser(o.label) === normaliser(texteRequis(args, 'option')))
+      if (!option) return erreur(`option introuvable dans « ${c.nom} » : ${JSON.stringify(args.option)} (options : ${libelles})`)
+      let remplacement: string | undefined
+      if (args.remplacer_par !== undefined && args.remplacer_par !== null && args.remplacer_par !== '') {
+        const r = c.options.find((o) => normaliser(o.label) === normaliser(String(args.remplacer_par)))
+        if (!r) erreur(`remplacer_par : option parmi ${libelles} (ajouter_options d'abord pour une nouvelle)`)
+        if (r === option) erreur('remplacer_par : une autre option que celle retirée')
+        remplacement = r!.label
+      }
+      const lignes = bb.lignes.filter((l) => valeursChoix(l.cellules[c.cle]).includes(option.label)).length
+      b.remplacerSchema(bb.id, { ...bb.schema, colonnes: bb.schema.colonnes.map((x) => (x.cle === c.cle ? { ...c, options: c.options.filter((o) => o !== option) } : x)) })
+      return { structure: [{ type: 'retirer_option', base: bb.id, nomBase: bb.schema.nom, cle: c.cle, nomColonne: c.nom, option: option.label, ...(remplacement !== undefined && { remplacement }), lignes }] }
+    }
     case 'supprimer_colonne': {
       const bb = b.base(args.base)
       const c = trouverColonne(bb.schema, args.colonne)
@@ -434,6 +469,14 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       if (!d) return erreur(`dashboard inconnu : « ${ref} » (dashboards : ${b.dashboards.map((x) => x.id).join(', ') || 'aucun'})`)
       b.dashboards.splice(b.dashboards.indexOf(d), 1)
       return { structure: [{ type: 'supprimer_dashboard', id: d.id, nom: d.nom }] }
+    }
+    case 'placer_base': {
+      const bb = b.base(args.base)
+      const demande = args.groupe === null || args.groupe === undefined ? '' : String(args.groupe).trim()
+      if (demande === '') return { structure: [{ type: 'placer_base', base: bb.id, nom: bb.schema.nom, groupe: null, nouveau: false }] }
+      const existant = b.groupes.find((g) => normaliser(g) === normaliser(demande))
+      if (!existant) b.groupes.push(demande)
+      return { structure: [{ type: 'placer_base', base: bb.id, nom: bb.schema.nom, groupe: existant ?? demande, nouveau: !existant }] }
     }
     case 'supprimer_base': {
       const bb = b.base(args.base)
@@ -519,6 +562,8 @@ const NOMS_TYPES: Record<string, string> = {
   relation: 'relation',
   rollup: 'rollup',
   formula: 'formule',
+  created: 'date de création',
+  modified: 'date de modification',
 }
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
 
@@ -548,6 +593,10 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
       ]
       return { texte: `Options de « ${a.nomColonne} » (${a.nomBase}) : ${parties.join(' ; ')}`, danger: false }
     }
+    case 'retirer_option': {
+      const effet = a.lignes === 0 ? 'aucune ligne ne l’a' : a.remplacement ? `${pluriel(a.lignes, 'ligne')} passent à « ${a.remplacement} »` : `${pluriel(a.lignes, 'ligne')} perdent cette valeur`
+      return { texte: `Retirer l'option « ${a.option} » de « ${a.nomColonne} » (${a.nomBase}) : ${effet}`, danger: a.lignes > 0 && !a.remplacement }
+    }
     case 'renommer_colonne':
       return { texte: `Renommer la colonne « ${a.ancien} » en « ${a.nom} » dans ${a.nomBase}`, danger: false }
     case 'supprimer_colonne':
@@ -566,6 +615,8 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
       const relations = a.relations.length > 0 ? ` ; relations devenues texte : ${a.relations.join(', ')}` : ''
       return { texte: `Supprimer la base « ${a.nom} » et ${pluriel(a.lignes, 'ligne')} (définitif)${relations}`, danger: true }
     }
+    case 'placer_base':
+      return { texte: a.groupe === null ? `Sortir la base « ${a.nom} » de son groupe` : `Ranger la base « ${a.nom} » dans le groupe « ${a.groupe} »${a.nouveau ? ' (nouveau)' : ''}`, danger: false }
     case 'supprimer_lignes': {
       const titres = a.lignes.slice(0, 10).map((l) => l.titre).join(', ')
       const reste = a.lignes.length > 10 ? ` et ${a.lignes.length - 10} autres` : ''
@@ -654,6 +705,7 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
         if (c.type === 'relation') cle = await espace.ajouterRelation(base, c.nom, corr.base(c.cible))
         else if (c.type === 'rollup') cle = await espace.ajouterRollup(base, c.nom, corr.cle(a.base, c.relation), corr.cle(c.cible, c.champ), c.calcul)
         else if (c.type === 'formula') cle = await espace.ajouterFormule(base, c.nom, c.expression)
+        else if (c.type === 'created' || c.type === 'modified') cle = await espace.ajouterHorodatage(base, c.nom, c.type)
         else {
           cle = await espace.ajouterColonne(base, c.nom, c.type)
           for (const o of c.options) {
@@ -674,6 +726,9 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
         for (const o of a.couleurs) await espace.changerCouleurOption(base, cle, o.label, o.couleur)
         break
       }
+      case 'retirer_option':
+        await espace.retirerOption(corr.base(a.base), corr.cle(a.base, a.cle), a.option, a.remplacement)
+        break
       case 'renommer_colonne':
         await espace.renommerColonne(corr.base(a.base), corr.cle(a.base, a.cle), a.nom)
         break
@@ -701,6 +756,10 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
         break
       case 'supprimer_base':
         await espace.supprimerBase(corr.base(a.base))
+        break
+      case 'placer_base':
+        if (a.groupe !== null && !espace.etat().groupes.some((g) => g.nom === a.groupe)) await espace.ajouterGroupe(a.groupe)
+        await espace.placerBase(corr.base(a.base), a.groupe)
         break
     }
   }

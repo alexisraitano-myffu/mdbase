@@ -187,7 +187,7 @@ export const OUTILS: DefinitionOutil[] = [
   {
     nom: 'ajouter_colonnes',
     description:
-      'Ajoute des colonnes à une base. Relation : `cible` (crée aussi la colonne miroir). Rollup : `relation`, `champ`, `calcul`. Formule : `expression`. Les appels suivants peuvent remplir une colonne créée : désigne-la par son nom.',
+      'Ajoute des colonnes à une base. Relation : `cible` (crée aussi la colonne miroir). Rollup : `relation`, `champ`, `calcul`. Formule : `expression`. created / modified : date de création / de dernière modification de chaque ligne, tenue par l’app (lecture seule, filtrable comme une date). Les appels suivants peuvent remplir une colonne créée : désigne-la par son nom.',
     parametres: { type: 'object', properties: { base: { type: 'string' }, colonnes: { type: 'array', items: COLONNE } }, required: ['base', 'colonnes'] },
   },
   {
@@ -198,6 +198,21 @@ export const OUTILS: DefinitionOutil[] = [
       type: 'object',
       properties: { base: { type: 'string' }, colonne: { type: 'string', description: 'clé ou nom de la colonne' }, options: { type: 'array', items: OPTION } },
       required: ['base', 'colonne', 'options'],
+    },
+  },
+  {
+    nom: 'retirer_option',
+    description:
+      "Retire une option d'une colonne select ou multiselect. Les lignes qui l'ont prennent l'option `remplacer_par` (une option existante), ou perdent la valeur sans elle.",
+    parametres: {
+      type: 'object',
+      properties: {
+        base: { type: 'string' },
+        colonne: { type: 'string', description: 'clé ou nom de la colonne' },
+        option: { type: 'string', description: "libellé de l'option à retirer" },
+        remplacer_par: { type: 'string', description: 'libellé d’une autre option de la colonne, mise à la place dans les lignes (facultatif)' },
+      },
+      required: ['base', 'colonne', 'option'],
     },
   },
   {
@@ -239,6 +254,15 @@ export const OUTILS: DefinitionOutil[] = [
         blocs: { type: 'array', items: { type: 'object', properties: { base: { type: 'string' }, vue: { type: 'string' } }, required: ['base'] } },
       },
       required: ['nom'],
+    },
+  },
+  {
+    nom: 'placer_base',
+    description: 'Range une base dans un groupe de la barre latérale (créé s’il n’existe pas), ou hors groupe avec groupe: null. Ne déplace aucun fichier.',
+    parametres: {
+      type: 'object',
+      properties: { base: { type: 'string' }, groupe: { type: ['string', 'null'], description: 'nom du groupe ; null : hors groupe' } },
+      required: ['base', 'groupe'],
     },
   },
   {

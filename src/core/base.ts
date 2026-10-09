@@ -55,10 +55,12 @@ export async function enregistrerLigne(
   ligne: LigneChargee,
   modifs: Modifications,
   corps?: string,
+  /** Écrit dans `_modifie` (spec §3) ; omis pour les réécritures liées au schéma. */
+  horodatage?: string,
 ): Promise<LigneChargee> {
   const dateDisque = await adaptateur.dateModification(ligne.chemin)
   const source = dateDisque === ligne.date ? ligne.source : await adaptateur.lire(ligne.chemin)
-  const texte = reecrireLigne(source, schema, modifs, corps)
+  const texte = reecrireLigne(source, schema, modifs, corps, horodatage)
   await adaptateur.ecrire(ligne.chemin, texte)
   const relue = lireLigne(ligne.chemin, texte, schema)
   if (!relue.ok) throw new Error(`Relecture impossible après écriture : ${relue.raison}`)

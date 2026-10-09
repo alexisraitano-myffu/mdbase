@@ -1,5 +1,5 @@
 import { Document, isMap, isScalar, isSeq, parseDocument, type Pair, type YAMLMap } from 'yaml'
-import { CLE_ID, colonne, estObjet, estSaisie, type Schema } from './schema'
+import { CLE_CREE, CLE_ID, CLE_MODIFIE, colonne, estObjet, estSaisie, type Schema } from './schema'
 import { decoder, encoder, type Cellule, type Valeur } from './valeurs'
 
 // Fichier d'une ligne (spec §3) : frontmatter YAML + corps Markdown.
@@ -16,6 +16,9 @@ export type Ligne = {
   corps: string
   /** Texte complet lu, base de toute réécriture. */
   source: string
+  /** `_cree` et `_modifie` (spec §3), `AAAA-MM-JJTHH:mm` ; absents d'une ligne écrite hors de l'app. */
+  cree?: string
+  modifie?: string
 }
 
 export type LectureLigne = { ok: true; ligne: Ligne } | { ok: false; raison: string }
@@ -57,13 +60,16 @@ export function lireLigne(chemin: string, texte: string, schema: Schema): Lectur
 
   const cellules: Record<string, Cellule> = {}
   const inconnus: string[] = []
+  const horodatage = (brut: unknown) => (typeof brut === 'string' && /^\d{4}-\d{2}-\d{2}/.test(brut) ? brut : undefined)
+  const cree = horodatage(donnees[CLE_CREE])
+  const modifie = horodatage(donnees[CLE_MODIFIE])
   for (const [cle, brut] of Object.entries(donnees)) {
-    if (cle === CLE_ID) continue
+    if (cle === CLE_ID || cle === CLE_CREE || cle === CLE_MODIFIE) continue
     const c = colonne(schema, cle)
     if (!c || !estSaisie(c)) inconnus.push(cle)
     else if (brut !== null) cellules[cle] = decoder(c, brut)
   }
-  return { ok: true, ligne: { id: String(id), chemin, cellules, inconnus, corps: d.corps, source: texte } }
+  return { ok: true, ligne: { id: String(id), chemin, cellules, inconnus, corps: d.corps, source: texte, ...(cree && { cree }), ...(modifie && { modifie }) } }
 }
 
 /**
@@ -75,8 +81,9 @@ export function lireLigne(chemin: string, texte: string, schema: Schema): Lectur
  * conservés. Sans modification, le texte est rendu tel quel.
  *
  * @param corps nouveau corps ; omis, le corps existant est gardé à l'identique.
+ * @param horodatage date et heure écrites dans `_modifie` (spec §3) ; omis, la clé n'est pas touchée.
  */
-export function reecrireLigne(source: string, schema: Schema, modifs: Modifications, corps?: string): string {
+export function reecrireLigne(source: string, schema: Schema, modifs: Modifications, corps?: string, horodatage?: string): string {
   const d = decouper(source)
   if (!d) throw new ErreurEcriture('Fichier sans frontmatter : réécriture refusée')
   if (Object.keys(modifs).length === 0 && corps === undefined) return source
@@ -85,6 +92,7 @@ export function reecrireLigne(source: string, schema: Schema, modifs: Modificati
     throw new ErreurEcriture('Frontmatter illisible : réécriture refusée pour ne rien perdre')
   }
   appliquer(doc, doc.contents, schema, modifs)
+  if (horodatage) doc.set(CLE_MODIFIE, horodatage)
   return assembler(doc, corps ?? d.corps, d.crlf)
 }
 
@@ -103,10 +111,11 @@ export function changerIdentifiant(source: string, id: string): string {
   return assembler(doc, d.corps, d.crlf)
 }
 
-/** Texte d'une nouvelle ligne, clés dans l'ordre du schéma (spec §3). */
-export function creerLigne(schema: Schema, id: string, valeurs: Modifications = {}, corps = ''): string {
+/** Texte d'une nouvelle ligne, clés dans l'ordre du schéma (spec §3), puis `_cree` si `horodatage` est donné. */
+export function creerLigne(schema: Schema, id: string, valeurs: Modifications = {}, corps = '', horodatage?: string): string {
   const doc = new Document({ [CLE_ID]: id })
   appliquer(doc, doc.contents as YAMLMap, schema, valeurs)
+  if (horodatage) (doc.contents as YAMLMap).set(CLE_CREE, horodatage)
   return assembler(doc, corps, false)
 }
 
@@ -141,7 +150,8 @@ function positionInsertion(carte: YAMLMap, schema: Schema, cle: string): number 
   const cible = rang(cle)
   const apres = carte.items.findIndex((p) => {
     const k = cleDe(p)
-    return k !== CLE_ID && rang(k) > cible
+    // `_cree` et `_modifie` restent en fin de frontmatter.
+    return k !== CLE_ID && (k === CLE_CREE || k === CLE_MODIFIE || rang(k) > cible)
   })
   return apres >= 0 ? apres : carte.items.length
 }

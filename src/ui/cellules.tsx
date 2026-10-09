@@ -378,7 +378,7 @@ function CelluleRelation(p: {
   )
 }
 
-/** Rollup (et bientôt formule) : lecture seule, affiché selon la nature du résultat. */
+/** Rollup, formule, dates de création et de modification : lecture seule, affichés selon la nature du résultat. */
 function CelluleCalculee(p: { base: string; cellule: ValeurCellule | undefined; colonne: Colonne }) {
   const { etat } = useEspace()
   const { cellule, colonne } = p
@@ -446,7 +446,7 @@ const normaliser = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,
 export function ValeurCompacte({ base, ligne, colonne }: { base: string; ligne: LigneChargee; colonne: Colonne }) {
   const { etat } = useEspace()
   const c = ligne.cellules[colonne.cle]
-  if (colonne.type === 'rollup' || colonne.type === 'formula') {
+  if (colonne.type === 'rollup' || colonne.type === 'formula' || colonne.type === 'created' || colonne.type === 'modified') {
     return c ? <CelluleCalculee base={base} cellule={c} colonne={colonne} /> : null
   }
   if (!c) return null
