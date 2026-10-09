@@ -161,7 +161,7 @@ describe('proposer', () => {
       'ecrire_contenu',
       'ajouter_remarque',
       'creer_base',
-      'ajouter_colonnes',
+      'ajouter_colonnes', 'ajouter_options',
       'renommer_colonne',
       'supprimer_colonne',
       'creer_vue',

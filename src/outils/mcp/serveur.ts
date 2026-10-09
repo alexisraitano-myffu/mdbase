@@ -14,8 +14,8 @@ const PROPRES_A_L_APP = new Set(['repondre', 'retenir', 'oublier', 'creer_skill'
 export const INSTRUCTIONS = `mdbase : bases de données de l'utilisateur, stockées dans un dossier de fichiers Markdown + YAML.
 - Commence par \`decrire_espace\` : bases, colonnes (clés, types, options), vues, et les lignes (ou un extrait s'il y en a beaucoup).
 - Lis avant d'agir : \`chercher_lignes\` (filtres, valeurs complètes), \`chercher_texte\` (un mot dans les valeurs et les pages), \`lire_page\`.
-- Utilise exactement les ids de bases, les clés de colonnes et les ids de lignes lus. N'invente jamais un id, une colonne ou une option.
-- Colonne à choix : le libellé exact d'une option existante. Relation : ids des lignes liées, ou leurs titres. Dates AAAA-MM-JJ. null vide un champ. Les colonnes calculées sont en lecture seule.
+- Utilise exactement les ids de bases, les clés de colonnes et les ids de lignes lus. N'invente jamais un id ni une colonne.
+- Colonne à choix : le libellé exact d'une option existante ; pour une valeur nouvelle, ajoute d'abord l'option avec \`ajouter_options\` (avec sa couleur si tu veux, qui sert aussi à recolorer une option). Relation : ids des lignes liées, ou leurs titres. Dates AAAA-MM-JJ. null vide un champ. Les colonnes calculées sont en lecture seule.
 - Pour modifier toutes les lignes qui répondent à un critère, utilise \`filtres\` plutôt qu'une liste d'ids.
 - Chaque appel d'écriture est appliqué aussitôt dans les fichiers.
 - Une base synchronisée depuis Jira est en lecture seule.
