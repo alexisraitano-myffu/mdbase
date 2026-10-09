@@ -872,6 +872,7 @@ Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans u
 | Assistant IA | bouton et panneau de l'assistant, `Ctrl+J` ; réglage : la connexion (§12), avec l'avertissement d'activation | désactivé |
 | Inbox | entrée et page Inbox (§18) ; sans l'assistant, pas de bouton « Envoyer à l'IA » | désactivé |
 | Contexte IA | contexte et documents envoyés ou cherchés par l'assistant (§18) ; entrée et panneau Documents (documents rangés, édition du contexte). Demande l'assistant | désactivé |
+| Claude (MCP) | app de bureau seulement : l'app répond aux appels MCP de Claude Desktop ou Claude Code (§17) ; réglage : « Connecter à Claude Desktop » et la commande pour Claude Code | désactivé |
 
 - Désactiver un module **cache** ce qu'il montre ; aucun fichier n'est touché. Une base Jira existante reste une base lisible quand le module est désactivé (sans bandeau de synchro).
 - Les choix sont gardés **par machine** (dans le navigateur, comme la clé de l'assistant), pas dans le dossier : aucune nouvelle clé dans `_espace.yaml`.
