@@ -3,13 +3,14 @@ import type { DepotBase } from '../depot-base'
 import { TYPES_CREABLES, type DepotEspace, type EtatEspace, type TypeCreable } from '../depot-espace'
 import { correspond, type Contexte } from '../filtres'
 import { compiler, ErreurFormule, stockerExpression } from '../formules/formule'
-import { appliquerEnMemoire, BLOCS_PAR_RANGEE, estPropre, HAUTEUR_BLOC, LARGEUR_BLOC, type Bloc, type Dashboard, type FiltreGlobal, type OperationDashboard, type PlaceBloc } from '../dashboard'
+import { calculsPour } from '../calcul'
+import { appliquerEnMemoire, BLOCS_PAR_RANGEE, estPropre, HAUTEUR_BLOC, LARGEUR_BLOC, type Bloc, type Dashboard, type FiltreGlobal, type OperationDashboard, type PastilleGlobale, type PlaceBloc } from '../dashboard'
 import { boucle } from '../graphe'
 import { cleColonne, idBase } from '../identifiants'
 import { COULEURS } from '../couleurs'
 import { CALCULS, estObjet, lireSchema, natureDe, TYPES_HORODATAGE, type Calcul, type Colonne, type Option, type Schema } from '../schema'
 import { nouveauSchema } from '../schema-ecriture'
-import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
+import { PROFONDEUR_MAX, type Bande, type Filtre, type FiltreRapide, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
 import { insererRemarque } from './connaissance'
 import { erreur, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne } from './references'
 
@@ -292,6 +293,8 @@ function lireNiveaux(b: Brouillon, bb: BaseBrouillon, brut: unknown, profondeur:
       filtres: n.filtres === undefined ? [] : lireFiltres({ id: cible.id, schema: cible.schema, lignes: [...cible.lignes] }, n.filtres),
       deplier: n.deplier === undefined ? [] : lireNiveaux(b, cible, n.deplier, profondeur + 1),
       ...(n.sur_la_ligne === true && { surLaLigne: true }),
+      ...(Array.isArray(n.champs_carte) && n.champs_carte.length > 0 && { champsCarte: n.champs_carte.map((c) => trouverColonne(cible.schema, c).cle) }),
+      ...(n.sans_titre === true && { sansTitre: true }),
     }
   })
 }
@@ -316,8 +319,19 @@ function lireBandes(b: Brouillon, brut: unknown): Bande[] {
   })
 }
 
-/** Réglages de vue proposés : colonnes vérifiées, filtres comme ceux de `modifier_lignes`. */
-function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, unknown>, genre: TypeVue): ModificationVue {
+/** Liste de clés : null ou [] la retire (liste vide, la clé disparaît du fichier). */
+const listeColonnes = (brut: unknown, col: (ref: unknown) => string, nom: string): string[] => {
+  if (brut === null) return []
+  if (!Array.isArray(brut)) return erreur(`${nom} : liste de colonnes attendue (null la retire)`)
+  return brut.map(col)
+}
+
+/**
+ * Réglages de vue proposés : colonnes vérifiées, filtres comme ceux de
+ * `modifier_lignes`. `existante` : la vue modifiée ; seuls les réglages
+ * passés changent (sans elle, c'est une création et les défauts s'appliquent).
+ */
+function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, unknown>, genre: TypeVue, existante?: Vue): ModificationVue {
   const base = { id: bb.id, schema: bb.schema, lignes: [...bb.lignes] }
   const r: ModificationVue = {}
   const col = (ref: unknown) => trouverColonne(bb.schema, ref).cle
@@ -331,7 +345,46 @@ function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, u
   }
   if (args.groupe === null) r.groupe = undefined
   else if (args.groupe !== undefined) r.groupe = col(args.groupe)
-  if (Array.isArray(args.colonnes_masquees)) r.masquees = args.colonnes_masquees.map(col)
+  if (args.colonnes_masquees !== undefined) r.masquees = listeColonnes(args.colonnes_masquees, col, 'colonnes_masquees')
+  if (args.colonnes !== undefined) r.ordre = listeColonnes(args.colonnes, col, 'colonnes')
+  if (args.champs_carte !== undefined) r.champsCarte = listeColonnes(args.champs_carte, col, 'champs_carte')
+  if (typeof args.sans_titre === 'boolean') r.sansTitre = args.sans_titre
+  if (typeof args.retour_ligne === 'boolean') r.retourLigne = args.retour_ligne
+  if (args.sous_groupe === null) r.sousGroupe = undefined
+  else if (args.sous_groupe !== undefined) r.sousGroupe = col(args.sous_groupe)
+  if (args.filtres_ou !== undefined) {
+    if (args.filtres_ou !== null && !Array.isArray(args.filtres_ou)) erreur('filtres_ou : liste de groupes de filtres attendue')
+    r.filtresOu = ((args.filtres_ou ?? []) as unknown[]).map((g): Filtre[] => (Array.isArray(g) && g.length > 0 ? lireFiltres(base, g) : erreur('filtres_ou : chaque groupe est une liste non vide de filtres')))
+  }
+  if (args.filtres_rapides !== undefined) {
+    if (args.filtres_rapides !== null && !Array.isArray(args.filtres_rapides)) erreur('filtres_rapides : liste attendue ([] les retire)')
+    r.filtresRapides = ((args.filtres_rapides ?? []) as unknown[]).map((p): FiltreRapide => {
+      if (!estObjet(p)) return erreur('filtre rapide : objet { colonne, operateur, valeur } attendu')
+      if (p.operateur === undefined) return { colonne: col(p.colonne), ...(p.valeur !== undefined && { valeur: p.valeur }) }
+      const [f] = lireFiltres(base, [p])
+      return f!
+    })
+  }
+  if (args.largeurs !== undefined) {
+    if (args.largeurs !== null && !estObjet(args.largeurs)) erreur('largeurs : objet { colonne: pixels } attendu (null les retire)')
+    r.largeurs = Object.fromEntries(
+      Object.entries((args.largeurs ?? {}) as Record<string, unknown>).map(([c, px]) => {
+        if (typeof px !== 'number' || px < 40 || px > 2000) erreur(`largeurs : nombre de pixels de 40 à 2000 pour « ${c} »`)
+        return [col(c), Math.round(px as number)]
+      }),
+    )
+  }
+  if (args.calculs !== undefined) {
+    if (args.calculs !== null && !estObjet(args.calculs)) erreur('calculs : objet { colonne: calcul } attendu (null les retire)')
+    r.calculs = Object.fromEntries(
+      Object.entries((args.calculs ?? {}) as Record<string, unknown>).map(([ref, calcul]) => {
+        const c = trouverColonne(bb.schema, ref)
+        const possibles = calculsPour(c)
+        if (!possibles.includes(calcul as Calcul)) erreur(`calcul impossible sur « ${c.nom} » : ${JSON.stringify(calcul)} (possibles : ${possibles.join(', ')})`)
+        return [c.cle, calcul as string]
+      }),
+    )
+  }
   if (args.champ_debut !== undefined) r.champDebut = col(args.champ_debut)
   if (args.champ_fin === null) r.champFin = undefined
   else if (args.champ_fin !== undefined) r.champFin = col(args.champ_fin)
@@ -354,7 +407,8 @@ function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, u
     if (genre !== 'timeline') erreur('bandes : seulement pour une vue timeline')
     r.bandes = args.bandes === null ? [] : lireBandes(b, args.bandes)
   }
-  if (avecDate(genre) && !r.champDebut) {
+  // Date par défaut à la création seulement : une modification ne touche qu'aux réglages passés.
+  if (avecDate(genre) && !r.champDebut && !existante?.champDebut) {
     const date = bb.schema.colonnes.find((c) => c.type === 'date')
     if (!date) erreur(`une vue ${genre} demande une colonne date dans ${bb.id}`)
     r.champDebut = date!.cle
@@ -494,19 +548,41 @@ function lireOperation(b: Brouillon, d: Dashboard, brut: unknown): { ops: { op: 
       const bloc = d.rangees[place.rangee]!.blocs[place.bloc]!
       if (!estPropre(bloc)) return erreur(`${nomBloc(b, bloc)} affiche une vue de la base : modifie-la avec l'outil modifier_vue, ou remplace le bloc par une vue_propre`)
       const bb = b.bases.get(bloc.base) ?? erreur(`base introuvable : ${bloc.base}`)
-      const modifs = lireReglagesVue(b, bb, brut, bloc.vue.type)
+      const { largeurs: _blocs, largeurs_colonnes, ...reglages } = brut
+      const modifs = lireReglagesVue(b, bb, { ...reglages, ...(largeurs_colonnes !== undefined && { largeurs: largeurs_colonnes }) }, bloc.vue.type, bloc.vue)
       if (Object.keys(modifs).length === 0) erreur('modifier_vue : aucun réglage à changer')
       return { ops: [{ op: { type: 'modifier_vue', place, modifs }, base: bloc.base }], texte: `modifier la vue propre ${nomBloc(b, bloc)} (${Object.keys(modifs).join(', ')})` }
     }
     case 'filtres': {
-      if (!Array.isArray(brut.filtres)) return erreur('filtres : liste de { base, colonne, operateur, valeur } attendue ; vide les retire')
-      const filtres = brut.filtres.map((f): FiltreGlobal => {
-        if (!estObjet(f)) return erreur('filtre : objet { base, colonne, operateur, valeur } attendu')
-        const bb = b.base(f.base)
-        const [lu] = lireFiltres({ id: bb.id, schema: bb.schema, lignes: [...bb.lignes] }, [f])
-        return { ...lu!, base: bb.id }
-      })
-      return { ops: [{ op: { type: 'filtres', filtres } }], texte: filtres.length === 0 ? 'retirer les filtres du dashboard' : `filtres du dashboard : ${filtres.map((f) => `${f.base}.${f.colonne} ${f.operateur}`).join(', ')}` }
+      if (brut.filtres === undefined && brut.filtres_rapides === undefined) return erreur('filtres : `filtres` et/ou `filtres_rapides` attendus ([] les retire)')
+      const ops: { op: OperationDashboard }[] = []
+      const textes: string[] = []
+      if (brut.filtres !== undefined) {
+        if (!Array.isArray(brut.filtres)) return erreur('filtres : liste de { base, colonne, operateur, valeur } attendue ; vide les retire')
+        const filtres = brut.filtres.map((f): FiltreGlobal => {
+          if (!estObjet(f)) return erreur('filtre : objet { base, colonne, operateur, valeur } attendu')
+          const bb = b.base(f.base)
+          const [lu] = lireFiltres({ id: bb.id, schema: bb.schema, lignes: [...bb.lignes] }, [f])
+          return { ...lu!, base: bb.id }
+        })
+        ops.push({ op: { type: 'filtres', filtres } })
+        textes.push(filtres.length === 0 ? 'retirer les filtres du dashboard' : `filtres du dashboard : ${filtres.map((f) => `${f.base}.${f.colonne} ${f.operateur}`).join(', ')}`)
+      }
+      if (brut.filtres_rapides !== undefined) {
+        if (!Array.isArray(brut.filtres_rapides)) return erreur('filtres_rapides : liste de { base, colonne, operateur, valeur } attendue ; vide les retire')
+        const pastilles = brut.filtres_rapides.map((p): PastilleGlobale => {
+          if (!estObjet(p)) return erreur('filtre rapide : objet { base, colonne } attendu')
+          const bb = b.base(p.base)
+          // Sans colonne : le choix de lignes de la base (spec §10).
+          if (p.colonne === undefined) return { base: bb.id, ...(p.valeur !== undefined && { valeur: p.valeur }) }
+          if (p.operateur === undefined) return { base: bb.id, colonne: trouverColonne(bb.schema, p.colonne).cle, ...(p.valeur !== undefined && { valeur: p.valeur }) }
+          const [f] = lireFiltres({ id: bb.id, schema: bb.schema, lignes: [...bb.lignes] }, [p])
+          return { base: bb.id, ...f! }
+        })
+        ops.push({ op: { type: 'filtres_rapides', pastilles } })
+        textes.push(pastilles.length === 0 ? 'retirer les filtres rapides du dashboard' : `filtres rapides du dashboard : ${pastilles.map((p) => `${p.base}${p.colonne ? `.${p.colonne}` : ''}`).join(', ')}`)
+      }
+      return { ops, texte: textes.join(' ; ') }
     }
     default:
       return erreur(`type d'opération inconnu : ${JSON.stringify(brut.type)} (types : ${TYPES_OPERATION.join(', ')})`)
@@ -599,7 +675,7 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
     case 'modifier_vue': {
       const bb = b.base(args.base)
       const vue = trouverVue(bb, args.vue)
-      const reglages = lireReglagesVue(b, bb, args, vue.type)
+      const reglages = lireReglagesVue(b, bb, args, vue.type, vue)
       if (Object.keys(reglages).length === 0) erreur('modifier_vue : aucun réglage à changer')
       return { structure: [{ type: 'modifier_vue', base: bb.id, nomBase: bb.schema.nom, vue: vue.id, nomVue: vue.nom, reglages }] }
     }
@@ -859,6 +935,8 @@ export class Correspondances {
         return base ? { ...op, modifs: this.reglages(base, op.modifs) } : op
       case 'filtres':
         return { ...op, filtres: op.filtres.map((f) => ({ ...f, base: this.base(f.base), colonne: this.cle(f.base, f.colonne) })) }
+      case 'filtres_rapides':
+        return { ...op, pastilles: op.pastilles.map((p) => ({ ...p, base: this.base(p.base), ...(p.colonne && { colonne: this.cle(p.base, p.colonne) }) })) }
       default:
         return op
     }
@@ -873,6 +951,13 @@ export class Correspondances {
       ...(r.tris ? { tris: r.tris.map((t) => ({ ...t, colonne: k(t.colonne) })) } : {}),
       ...(r.groupe ? { groupe: k(r.groupe) } : {}),
       ...(r.masquees ? { masquees: r.masquees.map(k) } : {}),
+      ...(r.ordre ? { ordre: r.ordre.map(k) } : {}),
+      ...(r.champsCarte ? { champsCarte: r.champsCarte.map(k) } : {}),
+      ...(r.sousGroupe ? { sousGroupe: k(r.sousGroupe) } : {}),
+      ...(r.largeurs ? { largeurs: Object.fromEntries(Object.entries(r.largeurs).map(([c, v]) => [k(c), v])) } : {}),
+      ...(r.calculs ? { calculs: Object.fromEntries(Object.entries(r.calculs).map(([c, v]) => [k(c), v])) } : {}),
+      ...(r.filtresOu ? { filtresOu: r.filtresOu.map((g) => g.map((f) => ({ ...f, colonne: k(f.colonne) }))) } : {}),
+      ...(r.filtresRapides ? { filtresRapides: r.filtresRapides.map((p) => ({ ...p, colonne: k(p.colonne) })) } : {}),
       ...(r.champDebut ? { champDebut: k(r.champDebut) } : {}),
       ...(r.champFin ? { champFin: k(r.champFin) } : {}),
       ...(r.champsJalons ? { champsJalons: r.champsJalons.map(k) } : {}),
@@ -902,6 +987,7 @@ export class Correspondances {
         ...(n.champFin ? { champFin: k(n.champFin) } : {}),
         ...(n.champsJalons ? { champsJalons: n.champsJalons.map(k) } : {}),
         ...(n.couleurPar ? { couleurPar: k(n.couleurPar) } : {}),
+        ...(n.champsCarte ? { champsCarte: n.champsCarte.map(k) } : {}),
         filtres: n.filtres.map((f) => ({ ...f, colonne: k(f.colonne) })),
         deplier: this.niveaux(cible, n.deplier),
       }

@@ -328,7 +328,8 @@ Une formule est une colonne calculée comme les autres, intégrée au même grap
 ## 7. Vues
 
 ### Socle commun à toutes les vues
-- Filtres (ET en V1 ; groupes OU facultatifs, voir héritage), tris multiples.
+- Filtres combinés en ET, tris multiples.
+- **Groupes OU** [DÉCIDÉ, demandé par Alex le 12/10/2026] : clé facultative `filtres_ou`, une liste de groupes de filtres. Une ligne passe si tous les `filtres` sont vrais **et** si au moins un groupe est vrai (dans un groupe, tous ses filtres). Sans `filtres_ou`, rien ne change. Posés dans le fichier, par l'assistant ou par Claude ; le panneau « Filtrer » les montre en lecture et peut les retirer. L'héritage des filtres à la création (§8) les ignore.
 - Colonnes visibles et leur ordre.
 - **Filtres rapides [DÉCIDÉ]** : barre de pastilles en haut de la vue. Chaque pastille est une **colonne épinglée** (ex. « Statut ») que l'on règle directement depuis la pastille (opérateur + valeur, ex. Statut parmi En cours, À faire). Une pastille non réglée ne filtre rien. Les pastilles réglées se combinent en ET avec les filtres de la vue, qui restent le cadre fixe (panneau « Filtrer »). La valeur réglée est **enregistrée dans la vue**, comme toute configuration.
 - Mise en page utilisée pour ouvrir les lignes (§9).
@@ -423,6 +424,9 @@ filtres:
   - { colonne: statut, operateur: different_de, valeur: Terminé }
 tris:
   - { colonne: echeance, sens: asc }
+filtres_ou:                                       # optionnel : au moins un groupe vrai
+  - - { colonne: client, operateur: contient, valeur: c1 }
+  - - { colonne: urgent, operateur: egal, valeur: true }
 filtres_rapides:
   - { colonne: client }                                          # épinglée, non réglée
   - { colonne: jours_restants, operateur: inferieur, valeur: 0 } # réglée
@@ -433,7 +437,7 @@ mise_en_page: suivi
 - Commun : `vide`, `non_vide`
 - Texte / URL : `egal`, `different_de`, `contient`, `ne_contient_pas`, `commence_par`, `finit_par`
 - Nombre : `egal`, `different_de`, `superieur`, `inferieur`, `superieur_egal`, `inferieur_egal`
-- Date : `egal`, `avant`, `apres`, `entre`, relatif (`aujourdhui`, `cette_semaine`, `ce_mois`, `jours_passes: n`, `jours_a_venir: n`)
+- Date : `egal`, `avant`, `apres`, `entre`, relatif (`aujourdhui`, `cette_semaine`, `ce_mois`, `jours_passes: n`, `jours_a_venir: n`). `jours_passes` et `jours_a_venir` acceptent aussi `[n, m]` : de n à m jours, bornes comprises (« il y a 8 à 30 jours ») [DÉCIDÉ, demandé par Alex le 12/10/2026]
 - Checkbox : `egal`
 - Select : `egal`, `different_de`, `parmi`
 - Multiselect / relation : `contient`, `ne_contient_pas`
@@ -665,7 +669,7 @@ Exception à « aucun appel réseau » (validée par Alex le 25/09/2026, après 
 - **Dans le panneau** [DÉCIDÉ, validé par Alex le 27/09/2026] : réponses rendues en Markdown (titres, listes, gras, code, tableaux, liens web seulement), sans jamais injecter de HTML ; « Copier » sur chaque réponse ; la dernière demande se relance ou se reprend pour modification, sauf si son plan a été appliqué. `@` cite une base (ses lignes accompagnent la demande comme celles de la base ouverte), `/` en tête de demande choisit un skill que le modèle est prié d'appliquer. Le modèle se change depuis le pied du panneau (liste demandée au service). Historique : 20 conversations par dossier, gardées dans le navigateur ; une conversation reprise relit ses échanges mais ses plans ne sont plus applicables.
 - **Mémoire** (`_assistant/memoire.md`, §3) : le modèle retient un fait quand l'utilisateur le demande ou exprime une préférence durable ; écrit aussitôt, avec une mention « Retenu : … » annulable. Jamais une valeur de ligne.
 - **Skills** (`_assistant/skills/`, §3) : procédures nommées créées à la demande de l'utilisateur, avec confirmation comme une modification de données. Les skills et la mémoire sont envoyés au modèle avec la structure de l'espace, et l'avertissement d'activation le dit.
-- **Structure** : le modèle peut aussi créer une base, ajouter, renommer ou supprimer des colonnes (tous les types, relations avec leur miroir, rollups, formules), créer, régler ou supprimer des vues (filtres, tris, groupement, colonnes affichées), créer ou supprimer des dashboards, ranger une base dans un groupe de la barre latérale (groupe créé s'il n'existe pas, outil `placer_base`) [DÉCIDÉ, demandé par Alex le 09/10/2026], supprimer des lignes et écrire le contenu d'une page. Les appels d'une même réponse sont validés dans l'ordre sur un brouillon de l'espace : une colonne ou une base créée peut être remplie aussitôt. Application dans l'ordre structure, puis données, puis suppressions de lignes et contenu.
+- **Structure** : le modèle peut aussi créer une base, ajouter, renommer ou supprimer des colonnes (tous les types, relations avec leur miroir, rollups, formules), créer, régler ou supprimer des vues (filtres, groupes OU, filtres rapides, tris, groupement, ordre des colonnes et colonnes masquées, champs des cartes, réglages du tableau, titres et champs des niveaux dépliés ; une modification ne touche qu'aux réglages passés, les défauts comme la date de début ne valent qu'à la création) [DÉCIDÉ, demandé par Alex le 12/10/2026], créer, réorganiser ou supprimer des dashboards, ranger une base dans un groupe de la barre latérale (groupe créé s'il n'existe pas, outil `placer_base`) [DÉCIDÉ, demandé par Alex le 09/10/2026], supprimer des lignes et écrire le contenu d'une page. Les appels d'une même réponse sont validés dans l'ordre sur un brouillon de l'espace : une colonne ou une base créée peut être remplie aussitôt. Application dans l'ordre structure, puis données, puis suppressions de lignes et contenu.
 - **Connaissance** (contexte, documents, inbox, budget) : §18.
 - **Suppressions** : toujours dans l'aperçu, en rouge, avec leur portée (lignes touchées, liens retirés). Supprimer une base est possible, seulement à la demande explicite de l'utilisateur. Les données s'annulent d'un Ctrl+Z comme une action de l'utilisateur ; une base, une colonne, une vue ou un dashboard supprimé ne revient pas, et l'aperçu le dit (« définitif »).
 

@@ -40,7 +40,7 @@ export function useVueAppliquee(base: string, depot: DepotBase, vue: Vue): VueAp
   )
   const aujourdhui = useAujourdhui()
 
-  const cleVue = JSON.stringify([vue.id, vue.filtres, vue.tris, vue.filtresRapides])
+  const cleVue = JSON.stringify([vue.id, vue.filtres, vue.filtresOu, vue.tris, vue.filtresRapides])
   const [persistantes, setPersistantes] = useState<{ cle: string; ids: ReadonlySet<string> }>({ cle: cleVue, ids: new Set() })
   const ids = useMemo(() => (persistantes.cle === cleVue ? persistantes.ids : new Set<string>()), [persistantes, cleVue])
   const retenir = (id: string) => {
@@ -52,8 +52,8 @@ export function useVueAppliquee(base: string, depot: DepotBase, vue: Vue): VueAp
     [vue, depot.schema],
   )
   const lignesVue = useMemo(
-    () => appliquerVue(lignes, depot.schema, filtres, vue.tris, { aujourdhui }, ids),
-    [lignes, depot.schema, filtres, vue.tris, aujourdhui, ids],
+    () => appliquerVue(lignes, depot.schema, filtres, vue.tris, { aujourdhui }, ids, vue.filtresOu),
+    [lignes, depot.schema, filtres, vue.tris, aujourdhui, ids, vue.filtresOu],
   )
   return { lignesVue, valeursCreation: () => valeursHeritees(depot.schema, filtres), retenir }
 }

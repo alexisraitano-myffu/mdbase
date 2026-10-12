@@ -3,9 +3,9 @@ import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
 import { natureDe, type Colonne, type ColonneChoix, type ColonneRelation, type Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
-import { PROFONDEUR_MAX, type Bande, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../core/vue'
+import { PROFONDEUR_MAX, type Bande, type Filtre, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../core/vue'
 import { useLancer } from './actions'
-import { colonnesFiltrables, EditeurFiltres, entreesColonnes } from './EditeurFiltres'
+import { colonnesFiltrables, EditeurFiltres, entreesColonnes, LIBELLES_OPERATEURS } from './EditeurFiltres'
 import { MenuExporter } from './Echange'
 import { Flottant } from './flottant'
 import { useEspace } from './contexte-espace'
@@ -87,10 +87,12 @@ export function reglagesParDefaut(type: TypeVue, schema: Schema): ModificationVu
 
 /** Filtrer, Trier et Options d'une vue ; `modifier` enregistre dans le fichier de la vue ou dans le dashboard. */
 export function OutilsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
+  const nbFiltres = vue.filtres.length + (vue.filtresOu?.length ?? 0)
   return (
     <div className="outils-vue">
-      <Panneau libelle={`Filtrer${vue.filtres.length ? ` (${vue.filtres.length})` : ''}`} actif={vue.filtres.length > 0} large>
+      <Panneau libelle={`Filtrer${nbFiltres ? ` (${nbFiltres})` : ''}`} actif={nbFiltres > 0} large>
         <EditeurFiltres schema={schema} filtres={vue.filtres} changer={(filtres) => modifier({ filtres })} />
+        {vue.filtresOu?.length ? <GroupesOu schema={schema} groupes={vue.filtresOu} retirer={() => modifier({ filtresOu: [] })} /> : null}
       </Panneau>
       <Panneau libelle={`Trier${vue.tris.length ? ` (${vue.tris.length})` : ''}`} actif={vue.tris.length > 0}>
         <EditeurTris schema={schema} tris={vue.tris} changer={(tris) => modifier({ tris })} />
@@ -227,6 +229,29 @@ function Onglet(p: {
           )}
         </Flottant>
       )}
+    </div>
+  )
+}
+
+/** Groupes « OU » posés dans le fichier ou par l'assistant : montrés en lecture, retirables d'un coup. */
+function GroupesOu({ schema, groupes, retirer }: { schema: Schema; groupes: Filtre[][]; retirer: () => void }) {
+  const texte = (f: Filtre) => {
+    const nom = schema.colonnes.find((c) => c.cle === f.colonne)?.nom ?? f.colonne
+    const valeur = f.valeur === undefined ? '' : ` ${Array.isArray(f.valeur) ? f.valeur.join(', ') : String(f.valeur)}`
+    return `${nom} ${LIBELLES_OPERATEURS[f.operateur]}${valeur}`
+  }
+  return (
+    <div className="editeur-filtres groupes-ou">
+      <div className="discret">Et au moins un de ces groupes :</div>
+      {groupes.map((g, i) => (
+        <div key={i} className="ligne-filtre">
+          <span className="liaison-filtre">{i === 0 ? 'Soit' : 'Ou'}</span>
+          <span>{g.map(texte).join(' et ')}</span>
+        </div>
+      ))}
+      <button className="discret" onClick={retirer}>
+        Retirer ces groupes
+      </button>
     </div>
   )
 }

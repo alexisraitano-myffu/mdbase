@@ -77,6 +77,9 @@ describe('correspond', () => {
     expect(ok(d(1), f('echeance', 'jours_passes', 7))).toBe(false)
     expect(ok(d(7), f('echeance', 'jours_a_venir', 7))).toBe(true)
     expect(ok(d(-1), f('echeance', 'jours_a_venir', 7))).toBe(false)
+    // [N, M] : de N à M jours, bornes comprises (« il y a 8 à 30 jours »), dans un ordre ou l'autre.
+    expect([-7, -8, -30, -31, 0].map((j) => ok(d(j), f('echeance', 'jours_passes', [8, 30])))).toEqual([false, true, true, false, false])
+    expect([7, 8, 30, 31].map((j) => ok(d(j), f('echeance', 'jours_a_venir', [30, 8])))).toEqual([false, true, true, false])
   })
 
   it('checkbox : une case absente vaut faux', () => {
@@ -145,6 +148,18 @@ describe('appliquerVue', () => {
       { ligne: a, sortira: false },
       { ligne: b, sortira: true },
     ])
+  })
+})
+
+describe('appliquerVue : groupes « OU »', () => {
+  it('les filtres en ET, puis au moins un groupe vrai ; sans groupe, rien ne change', () => {
+    const a = ligne({ titre: 'a', statut: 'En cours', urgent: true })
+    const b = ligne({ titre: 'b', statut: 'Terminé', urgent: true })
+    const c = ligne({ titre: 'c', statut: 'En cours' })
+    const ids = (ou: Filtre[][]) => appliquerVue([a, b, c], schema, [f('urgent', 'egal', true)], [], ctx, new Set(), ou).map((x) => x.ligne.id)
+    expect(ids([])).toEqual([a.id, b.id])
+    expect(ids([[f('statut', 'egal', 'Terminé')], [f('titre', 'egal', 'c')]])).toEqual([b.id])
+    expect(ids([[f('statut', 'egal', 'En cours')], [f('statut', 'egal', 'Terminé')]])).toEqual([a.id, b.id])
   })
 })
 
