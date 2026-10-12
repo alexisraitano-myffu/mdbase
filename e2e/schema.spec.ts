@@ -143,6 +143,23 @@ test.describe('filtres et tris', () => {
     await expect(page.getByRole('button', { name: 'Filtrer (1)' })).toBeVisible()
   })
 
+  test('plusieurs statuts en une ligne de filtre : « parmi » par défaut, « pas parmi » pour exclure', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await page.getByRole('button', { name: 'Filtrer' }).click()
+    await page.getByRole('button', { name: 'Ajouter un filtre' }).click()
+    const ligne = page.locator('.flottant .ligne-filtre').first()
+    await choisir(ligne.getByRole('button', { name: 'Colonne du filtre' }), 'Statut')
+    await expect(ligne.getByRole('button', { name: 'Opérateur' })).toHaveText('parmi')
+    await ligne.getByRole('checkbox', { name: 'En cours' }).check()
+    await ligne.getByRole('checkbox', { name: 'À faire' }).check()
+    await expect(titres(page)).toHaveText(['Boutique en ligne', 'Site vitrine', 'Application mobile'])
+    await choisir(ligne.getByRole('button', { name: 'Opérateur' }), 'pas parmi')
+    await ligne.getByRole('checkbox', { name: 'Terminé' }).check()
+    await page.keyboard.press('Escape')
+    await expect(titres(page)).toHaveText(['Boutique en ligne', 'Site vitrine', 'Application mobile'])
+    await expect.poll(() => espace.lire('projets/_vues/tableau.yaml')).toContain('{ colonne: statut, operateur: pas_parmi, valeur: [ Terminé ] }')
+  })
+
   test('groupes « OU » posés dans le fichier : appliqués, montrés dans Filtrer, retirables', async ({ espace, page }) => {
     await espace.remplacer('projets/_vues/tableau.yaml', 'filtres_rapides:', 'filtres_ou:\n  - - { colonne: titre, operateur: contient, valeur: site }\n  - - { colonne: titre, operateur: contient, valeur: mobile }\nfiltres_rapides:')
     await espace.retourSurOnglet()

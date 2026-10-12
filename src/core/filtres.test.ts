@@ -87,6 +87,23 @@ describe('correspond', () => {
     expect(ok(ligne({ urgent: true }), f('urgent', 'egal', true))).toBe(true)
   })
 
+  it('plusieurs valeurs en un filtre : parmi / pas parmi sur un choix, l’un de / aucun de sur une liste ; une cellule vide n’est parmi rien', () => {
+    const l = ligne({ statut: 'En cours', tags: ['pro', 'client'], client: ['c1'] })
+    const vide = ligne({ titre: 'vide' })
+    expect(ok(l, f('statut', 'pas_parmi', ['Terminé', 'À faire']))).toBe(true)
+    expect(ok(l, f('statut', 'pas_parmi', ['En cours']))).toBe(false)
+    expect(ok(vide, f('statut', 'pas_parmi', ['En cours']))).toBe(true)
+    expect(ok(vide, f('statut', 'parmi', ['En cours']))).toBe(false)
+    expect(ok(l, f('tags', 'parmi', ['perso', 'client']))).toBe(true)
+    expect(ok(l, f('tags', 'parmi', ['perso']))).toBe(false)
+    expect(ok(l, f('tags', 'pas_parmi', ['perso']))).toBe(true)
+    expect(ok(l, f('tags', 'pas_parmi', ['perso', 'pro']))).toBe(false)
+    expect(ok(l, f('client', 'parmi', ['c2', 'c1']))).toBe(true)
+    expect(ok(vide, f('client', 'pas_parmi', ['c1']))).toBe(true)
+    // Une valeur seule (pastille d'avant, à « contient ») compte comme une liste d'un élément.
+    expect(ok(l, f('client', 'parmi', 'c1'))).toBe(true)
+  })
+
   it('select, multiselect, relation', () => {
     const l = ligne({ statut: 'En cours', tags: ['pro', 'client'], client: ['c1'] })
     expect(ok(l, f('statut', 'egal', 'En cours'))).toBe(true)
@@ -180,6 +197,8 @@ describe('valeursHeritees', () => {
     ).toEqual({ statut: 'En cours', urgent: true, budget: 12, echeance: '2026-10-01', client: ['c1'] })
     expect(valeursHeritees(schema, [f('statut', 'parmi', ['À faire'])])).toEqual({ statut: 'À faire' })
     expect(valeursHeritees(schema, [f('statut', 'parmi', ['À faire', 'Terminé'])])).toEqual({})
+    expect(valeursHeritees(schema, [f('client', 'parmi', ['c1'])])).toEqual({ client: ['c1'] })
+    expect(valeursHeritees(schema, [f('statut', 'pas_parmi', ['Terminé'])])).toEqual({})
     expect(valeursHeritees(schema, [f('echeance', 'egal', 'aujourdhui')])).toEqual({})
   })
 

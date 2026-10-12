@@ -28,6 +28,7 @@ export const OPERATEURS = [
   'jours_passes',
   'jours_a_venir',
   'parmi',
+  'pas_parmi',
 ] as const
 export type Operateur = (typeof OPERATEURS)[number]
 
