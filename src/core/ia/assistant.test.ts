@@ -168,6 +168,8 @@ describe('proposer', () => {
       'modifier_vue',
       'supprimer_vue',
       'creer_dashboard',
+      'modifier_dashboard',
+      'retirer_bloc',
       'placer_base',
       'supprimer_dashboard',
       'supprimer_base',

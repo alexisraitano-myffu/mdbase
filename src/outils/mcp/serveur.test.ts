@@ -37,6 +37,8 @@ describe('outils du serveur MCP', () => {
     expect(par('chercher_lignes').description).not.toContain('plus bas')
     expect(par('creer_lignes').annotations).toEqual({ readOnlyHint: false, destructiveHint: false })
     expect(par('supprimer_lignes').annotations).toEqual({ readOnlyHint: false, destructiveHint: true })
+    expect(par('modifier_dashboard').annotations).toEqual({ readOnlyHint: false, destructiveHint: false })
+    expect(par('retirer_bloc').annotations).toEqual({ readOnlyHint: false, destructiveHint: true })
     for (const o of outils) expect(o.inputSchema.type).toBe('object')
   })
 })

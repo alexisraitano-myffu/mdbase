@@ -3,6 +3,7 @@ import type { DepotBase } from '../depot-base'
 import { TYPES_CREABLES, type DepotEspace, type EtatEspace, type TypeCreable } from '../depot-espace'
 import { correspond, type Contexte } from '../filtres'
 import { compiler, ErreurFormule, stockerExpression } from '../formules/formule'
+import { appliquerEnMemoire, BLOCS_PAR_RANGEE, estPropre, HAUTEUR_BLOC, LARGEUR_BLOC, type Bloc, type Dashboard, type FiltreGlobal, type OperationDashboard, type PlaceBloc } from '../dashboard'
 import { boucle } from '../graphe'
 import { cleColonne, idBase } from '../identifiants'
 import { COULEURS } from '../couleurs'
@@ -24,7 +25,8 @@ type BaseBrouillon = { id: string; schema: Schema; lignes: readonly LigneChargee
 export class Brouillon {
   private readonly source: EtatEspace
   readonly bases = new Map<string, BaseBrouillon>()
-  readonly dashboards: { id: string; nom: string }[]
+  /** Dashboards tels qu'après les appels validés ; `dashboard` null : fichier illisible, on ne peut que le supprimer. */
+  readonly dashboards: { id: string; nom: string; dashboard: Dashboard | null }[]
   /** Noms des groupes de la barre latérale, ceux que le plan crée compris. */
   readonly groupes: string[]
   /** Titres des lignes que le plan crée, par base : `ecrire_contenu` peut les viser. */
@@ -36,7 +38,7 @@ export class Brouillon {
       // Copie des vues : `creer_vue` y ajoute la sienne, l'état réel ne doit pas la voir avant « Appliquer ».
       if (b.depot) this.bases.set(b.id, { id: b.id, schema: b.depot.schema, lignes: b.depot.lignes(), vues: [...b.vues], nouvelle: false })
     }
-    this.dashboards = etat.dashboards.map((d) => ({ id: d.id, nom: d.dashboard?.nom ?? d.id }))
+    this.dashboards = etat.dashboards.map((d) => ({ id: d.id, nom: d.dashboard?.nom ?? d.id, dashboard: d.dashboard }))
     this.groupes = etat.groupes.map((g) => g.nom)
   }
 
@@ -110,7 +112,10 @@ export type ActionStructure =
   | { type: 'creer_vue'; base: string; nomBase: string; id: string; nom: string; genre: TypeVue; reglages: ModificationVue }
   | { type: 'modifier_vue'; base: string; nomBase: string; vue: string; nomVue: string; reglages: ModificationVue }
   | { type: 'supprimer_vue'; base: string; nomBase: string; vue: string; nomVue: string }
-  | { type: 'creer_dashboard'; id: string; nom: string; blocs: { base: string; vue: string }[] }
+  | { type: 'creer_dashboard'; id: string; nom: string; rangees: { blocs: Bloc[]; hauteur?: number }[] }
+  /** Opérations sur la mise en page d'avant chacune ; `base` : celle du bloc dont la vue propre change (ses clés suivent). `resume` : une phrase par opération, pour l'aperçu. */
+  | { type: 'modifier_dashboard'; id: string; nom: string; operations: { op: OperationDashboard; base?: string }[]; resume: string[] }
+  | { type: 'retirer_bloc'; id: string; nom: string; place: PlaceBloc; bloc: string }
   | { type: 'supprimer_dashboard'; id: string; nom: string }
   /** `relations` : « Base › Colonne » des relations qui deviendront du texte. */
   | { type: 'supprimer_base'; base: string; nom: string; lignes: number; relations: string[] }
@@ -357,6 +362,159 @@ function lireReglagesVue(b: Brouillon, bb: BaseBrouillon, args: Record<string, u
   return r
 }
 
+function trouverDashboard(b: Brouillon, ref: unknown) {
+  if (typeof ref !== 'string' || ref.trim() === '') return erreur('`dashboard` manquant')
+  const d = b.dashboards.find((x) => x.id === ref) ?? b.dashboards.find((x) => normaliser(x.nom) === normaliser(ref))
+  if (!d) return erreur(`dashboard inconnu : « ${ref} » (dashboards : ${b.dashboards.map((x) => x.id).join(', ') || 'aucun'})`)
+  if (!d.dashboard) return erreur(`le fichier du dashboard « ${d.nom} » est illisible : il ne peut que se supprimer`)
+  return d
+}
+
+function lireHauteur(x: unknown): number | undefined {
+  if (x === undefined || x === null) return undefined
+  if (typeof x !== 'number' || !Number.isFinite(x)) return erreur(`hauteur : nombre de pixels attendu (${HAUTEUR_BLOC.min} à ${HAUTEUR_BLOC.max})`)
+  return Math.round(Math.max(HAUTEUR_BLOC.min, Math.min(HAUTEUR_BLOC.max, x)))
+}
+
+function lireLargeur(x: unknown): number | undefined {
+  if (x === undefined || x === null) return undefined
+  if (typeof x !== 'number' || x < LARGEUR_BLOC.min || x > LARGEUR_BLOC.max) return erreur(`largeur : pourcentage de la rangée, de ${LARGEUR_BLOC.min} à ${LARGEUR_BLOC.max}`)
+  return Math.round(x)
+}
+
+/**
+ * Bloc proposé : une vue de la base (`vue`, sa première par défaut), ou une
+ * vue propre au dashboard (`vue_propre`, réglée comme `creer_vue`). `ids` :
+ * ids des vues propres déjà prises dans le dashboard, complété au passage.
+ */
+function lireBloc(b: Brouillon, brut: unknown, ids: string[]): Bloc {
+  if (!estObjet(brut)) return erreur('bloc : objet { base, vue } ou { base, vue_propre } attendu')
+  const bb = b.base(brut.base)
+  const largeur = lireLargeur(brut.largeur)
+  const avecLargeur = largeur !== undefined ? { largeur } : {}
+  if (brut.vue_propre === undefined) return { base: bb.id, vue: trouverVue(bb, brut.vue ?? bb.vues[0]!.id).id, ...avecLargeur }
+  if (brut.vue !== undefined) erreur('bloc : `vue` ou `vue_propre`, pas les deux')
+  if (!estObjet(brut.vue_propre)) return erreur('vue_propre : objet { nom, type, ... } attendu')
+  const nom = texteRequis(brut.vue_propre, 'nom')
+  const genre = (brut.vue_propre.type ?? 'tableau') as TypeVue
+  if (!TYPES_VUE.includes(genre)) erreur(`type de vue inconnu : ${JSON.stringify(brut.vue_propre.type)} (types : ${TYPES_VUE.join(', ')})`)
+  const reglages = lireReglagesVue(b, bb, { ...brut.vue_propre, nom: undefined }, genre)
+  const id = idBase(nom, ids)
+  ids.push(id)
+  return { base: bb.id, vue: { id, nom, type: genre, filtres: [], tris: [], filtresRapides: [], ...reglages }, ...avecLargeur }
+}
+
+/** « Base › Vue », pour l'aperçu. */
+function nomBloc(b: Brouillon, bloc: Bloc): string {
+  const bb = b.bases.get(bloc.base)
+  const vue = estPropre(bloc) ? `${bloc.vue.nom} (vue propre)` : (bb?.vues.find((v) => v.id === bloc.vue)?.nom ?? bloc.vue)
+  return `${bb?.schema.nom ?? bloc.base} › ${vue}`
+}
+
+/** Numéro compté à partir de 1, rendu en indice. */
+function rang(args: Record<string, unknown>, cle: string, max: number, quoi: string): number {
+  const v = args[cle]
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > max) return erreur(`${cle} : ${quoi} de 1 à ${max} attendu${v === undefined ? '' : `, reçu ${JSON.stringify(v)}`}`)
+  return v - 1
+}
+
+/** Place d'un bloc donnée par `rangee` et `bloc`, comptés à partir de 1. */
+function lirePlace(d: Dashboard, args: Record<string, unknown>): PlaceBloc {
+  if (d.rangees.length === 0) return erreur('le dashboard n’a aucun bloc')
+  const rangee = rang(args, 'rangee', d.rangees.length, 'numéro de rangée')
+  return { rangee, bloc: rang(args, 'bloc', d.rangees[rangee]!.blocs.length, `numéro de bloc dans la rangée ${rangee + 1}`) }
+}
+
+const idsPropres = (d: Dashboard) => d.rangees.flatMap((r) => r.blocs.flatMap((x) => (estPropre(x) ? [x.vue.id] : [])))
+
+/** Une opération de `modifier_dashboard`, lue sur la mise en page qu'ont laissée les précédentes. */
+function lireOperation(b: Brouillon, d: Dashboard, brut: unknown): { ops: { op: OperationDashboard; base?: string }[]; texte: string } {
+  if (!estObjet(brut)) return erreur('objet { type, ... } attendu')
+  const n = d.rangees.length
+  const pleine = (r: number) => {
+    if (d.rangees[r]!.blocs.length >= BLOCS_PAR_RANGEE) erreur(`la rangée ${r + 1} est pleine (${BLOCS_PAR_RANGEE} blocs au plus)`)
+  }
+  switch (brut.type) {
+    case 'renommer': {
+      const nom = texteRequis(brut, 'nom')
+      return { ops: [{ op: { type: 'renommer', nom } }], texte: `renommer en « ${nom} »` }
+    }
+    case 'ajouter_bloc': {
+      const bloc = lireBloc(b, brut.nouveau, idsPropres(d))
+      if (brut.rangee === undefined || brut.rangee === n + 1) return { ops: [{ op: { type: 'ajouter_bloc', rangee: null, bloc } }], texte: `ajouter ${nomBloc(b, bloc)} dans une nouvelle rangée en bas` }
+      const rangee = rang(brut, 'rangee', n + 1, 'numéro de rangée (le suivant de la dernière : nouvelle rangée)')
+      pleine(rangee)
+      const taille = d.rangees[rangee]!.blocs.length
+      const position = brut.position === undefined ? taille : rang(brut, 'position', taille + 1, 'position')
+      return { ops: [{ op: { type: 'ajouter_bloc', rangee, position, bloc } }], texte: `ajouter ${nomBloc(b, bloc)} dans la rangée ${rangee + 1}, position ${position + 1}` }
+    }
+    case 'deplacer_bloc': {
+      const de = lirePlace(d, brut)
+      const nom = nomBloc(b, d.rangees[de.rangee]!.blocs[de.bloc]!)
+      if (brut.nouvelle_rangee !== undefined) {
+        const r = rang(brut, 'nouvelle_rangee', n + 1, 'place de la nouvelle rangée')
+        return { ops: [{ op: { type: 'deplacer_bloc', de, vers: { nouvelleRangee: r } } }], texte: `déplacer ${nom} seul dans une nouvelle rangée, place ${r + 1}` }
+      }
+      const rangee = rang(brut, 'vers_rangee', n, 'numéro de rangée')
+      if (rangee !== de.rangee) pleine(rangee)
+      const taille = d.rangees[rangee]!.blocs.length
+      const position = brut.position === undefined ? taille : rang(brut, 'position', taille + 1, 'position')
+      return { ops: [{ op: { type: 'deplacer_bloc', de, vers: { rangee, position } } }], texte: `déplacer ${nom} dans la rangée ${rangee + 1}, position ${position + 1}` }
+    }
+    case 'remplacer_bloc': {
+      const place = lirePlace(d, brut)
+      const ancien = nomBloc(b, d.rangees[place.rangee]!.blocs[place.bloc]!)
+      const bloc = lireBloc(b, brut.par, idsPropres(d))
+      return { ops: [{ op: { type: 'remplacer_bloc', place, bloc } }], texte: `remplacer ${ancien} par ${nomBloc(b, bloc)}` }
+    }
+    case 'deplacer_rangee': {
+      if (n === 0) erreur('le dashboard n’a aucune rangée')
+      const de = rang(brut, 'rangee', n, 'numéro de rangée')
+      const vers = rang(brut, 'vers', n, 'place une fois déplacée')
+      return { ops: [{ op: { type: 'deplacer_rangee', de, vers } }], texte: `déplacer la rangée ${de + 1} en place ${vers + 1}` }
+    }
+    case 'hauteur': {
+      if (n === 0) erreur('le dashboard n’a aucune rangée')
+      const rangee = rang(brut, 'rangee', n, 'numéro de rangée')
+      const hauteur = lireHauteur(brut.hauteur) ?? null
+      return { ops: [{ op: { type: 'hauteur_rangee', rangee, hauteur } }], texte: hauteur === null ? `hauteur par défaut pour la rangée ${rangee + 1}` : `hauteur de la rangée ${rangee + 1} : ${hauteur} px` }
+    }
+    case 'largeurs': {
+      if (n === 0) erreur('le dashboard n’a aucune rangée')
+      const rangee = rang(brut, 'rangee', n, 'numéro de rangée')
+      const taille = d.rangees[rangee]!.blocs.length
+      if (!Array.isArray(brut.largeurs) || brut.largeurs.length !== taille) erreur(`largeurs : une par bloc de la rangée ${rangee + 1} (${taille}), null pour une part égale`)
+      const largeurs = (brut.largeurs as unknown[]).map((x) => lireLargeur(x) ?? null)
+      const fixees = largeurs.filter((x): x is number => x !== null)
+      if (fixees.reduce((a, x) => a + x, 0) > 100) erreur('largeurs : leur somme dépasse 100 %')
+      return { ops: [{ op: { type: 'largeurs_rangee', rangee, largeurs } }], texte: `largeurs de la rangée ${rangee + 1} : ${largeurs.map((x) => (x === null ? 'part égale' : `${x} %`)).join(', ')}` }
+    }
+    case 'modifier_vue': {
+      const place = lirePlace(d, brut)
+      const bloc = d.rangees[place.rangee]!.blocs[place.bloc]!
+      if (!estPropre(bloc)) return erreur(`${nomBloc(b, bloc)} affiche une vue de la base : modifie-la avec l'outil modifier_vue, ou remplace le bloc par une vue_propre`)
+      const bb = b.bases.get(bloc.base) ?? erreur(`base introuvable : ${bloc.base}`)
+      const modifs = lireReglagesVue(b, bb, brut, bloc.vue.type)
+      if (Object.keys(modifs).length === 0) erreur('modifier_vue : aucun réglage à changer')
+      return { ops: [{ op: { type: 'modifier_vue', place, modifs }, base: bloc.base }], texte: `modifier la vue propre ${nomBloc(b, bloc)} (${Object.keys(modifs).join(', ')})` }
+    }
+    case 'filtres': {
+      if (!Array.isArray(brut.filtres)) return erreur('filtres : liste de { base, colonne, operateur, valeur } attendue ; vide les retire')
+      const filtres = brut.filtres.map((f): FiltreGlobal => {
+        if (!estObjet(f)) return erreur('filtre : objet { base, colonne, operateur, valeur } attendu')
+        const bb = b.base(f.base)
+        const [lu] = lireFiltres({ id: bb.id, schema: bb.schema, lignes: [...bb.lignes] }, [f])
+        return { ...lu!, base: bb.id }
+      })
+      return { ops: [{ op: { type: 'filtres', filtres } }], texte: filtres.length === 0 ? 'retirer les filtres du dashboard' : `filtres du dashboard : ${filtres.map((f) => `${f.base}.${f.colonne} ${f.operateur}`).join(', ')}` }
+    }
+    default:
+      return erreur(`type d'opération inconnu : ${JSON.stringify(brut.type)} (types : ${TYPES_OPERATION.join(', ')})`)
+  }
+}
+
+export const TYPES_OPERATION = ['renommer', 'ajouter_bloc', 'deplacer_bloc', 'remplacer_bloc', 'deplacer_rangee', 'hauteur', 'largeurs', 'modifier_vue', 'filtres'] as const
+
 /** Valide un appel d'outil de structure ; `null` si l'outil n'en est pas un. */
 export function validerStructure(b: Brouillon, nom: string, args: Record<string, unknown>, ctx: Contexte): { structure: ActionStructure[] } | { suite: ActionSuite } | null {
   switch (nom) {
@@ -454,14 +612,44 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
     }
     case 'creer_dashboard': {
       const nomDashboard = texteRequis(args, 'nom')
-      const blocs = (Array.isArray(args.blocs) ? args.blocs : []).map((x) => {
-        if (!estObjet(x)) return erreur('bloc : objet { base, vue } attendu')
-        const bb = b.base(x.base)
-        return { base: bb.id, vue: trouverVue(bb, x.vue ?? bb.vues[0]!.id).id }
+      // `blocs` seuls : un par rangée (forme d'avant les rangées, toujours comprise).
+      const brutes = Array.isArray(args.rangees) ? args.rangees : Array.isArray(args.blocs) ? args.blocs.map((x) => ({ blocs: [x] })) : []
+      const ids: string[] = []
+      const rangees = brutes.map((r, i) => {
+        if (!estObjet(r) || !Array.isArray(r.blocs) || r.blocs.length === 0) return erreur(`rangée ${i + 1} : objet { blocs: [...] } attendu, avec au moins un bloc`)
+        if (r.blocs.length > BLOCS_PAR_RANGEE) erreur(`rangée ${i + 1} : ${BLOCS_PAR_RANGEE} blocs au plus`)
+        const hauteur = lireHauteur(r.hauteur)
+        return { blocs: r.blocs.map((x) => lireBloc(b, x, ids)), ...(hauteur !== undefined && { hauteur }) }
       })
       const id = idBase(nomDashboard, b.dashboards.map((d) => d.id))
-      b.dashboards.push({ id, nom: nomDashboard })
-      return { structure: [{ type: 'creer_dashboard', id, nom: nomDashboard, blocs }] }
+      b.dashboards.push({ id, nom: nomDashboard, dashboard: { id, nom: nomDashboard, rangees, filtres: [], filtresRapides: [] } })
+      return { structure: [{ type: 'creer_dashboard', id, nom: nomDashboard, rangees }] }
+    }
+    case 'modifier_dashboard': {
+      const d = trouverDashboard(b, args.dashboard)
+      if (!Array.isArray(args.operations) || args.operations.length === 0) return erreur('`operations` : liste d’opérations attendue')
+      const operations: { op: OperationDashboard; base?: string }[] = []
+      const resume: string[] = []
+      args.operations.forEach((brut, i) => {
+        try {
+          const lue = lireOperation(b, d.dashboard!, brut)
+          for (const o of lue.ops) d.dashboard = appliquerEnMemoire(d.dashboard!, o.op)
+          operations.push(...lue.ops)
+          resume.push(lue.texte)
+        } catch (e) {
+          erreur(`opération ${i + 1} : ${e instanceof Error ? e.message : String(e)}`)
+        }
+      })
+      const nom = d.nom
+      d.nom = d.dashboard!.nom
+      return { structure: [{ type: 'modifier_dashboard', id: d.id, nom, operations, resume }] }
+    }
+    case 'retirer_bloc': {
+      const d = trouverDashboard(b, args.dashboard)
+      const place = lirePlace(d.dashboard!, args)
+      const bloc = nomBloc(b, d.dashboard!.rangees[place.rangee]!.blocs[place.bloc]!)
+      d.dashboard = appliquerEnMemoire(d.dashboard!, { type: 'retirer_bloc', place })
+      return { structure: [{ type: 'retirer_bloc', id: d.id, nom: d.nom, place, bloc }] }
     }
     case 'supprimer_dashboard': {
       const ref = texteRequis(args, 'dashboard')
@@ -607,8 +795,14 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
       return { texte: `Modifier la vue « ${a.nomVue} » de ${a.nomBase} (${Object.keys(a.reglages).join(', ')})`, danger: false }
     case 'supprimer_vue':
       return { texte: `Supprimer la vue « ${a.nomVue} » de ${a.nomBase} (définitif, les lignes restent)`, danger: true }
-    case 'creer_dashboard':
-      return { texte: `Créer le dashboard « ${a.nom} »${a.blocs.length > 0 ? ` avec ${pluriel(a.blocs.length, 'bloc')}` : ''}`, danger: false }
+    case 'creer_dashboard': {
+      const blocs = a.rangees.reduce((n, r) => n + r.blocs.length, 0)
+      return { texte: `Créer le dashboard « ${a.nom} »${blocs > 0 ? ` avec ${pluriel(blocs, 'bloc')} sur ${pluriel(a.rangees.length, 'rangée')}` : ''}`, danger: false }
+    }
+    case 'modifier_dashboard':
+      return { texte: `Dashboard « ${a.nom} » : ${a.resume.join(' ; ')}`, danger: false }
+    case 'retirer_bloc':
+      return { texte: `Retirer le bloc ${a.bloc} (rangée ${a.place.rangee + 1}) du dashboard « ${a.nom} » (la vue reste dans sa base)`, danger: true }
     case 'supprimer_dashboard':
       return { texte: `Supprimer le dashboard « ${a.nom} » (définitif)`, danger: true }
     case 'supprimer_base': {
@@ -636,7 +830,10 @@ export class Correspondances {
   private readonly cles = new Map<string, string>()
   private readonly vues = new Map<string, string>()
   private readonly lignes = new Map<string, string>()
+  private readonly dashboards = new Map<string, string>()
   base = (id: string) => this.bases.get(id) ?? id
+  dashboard = (id: string) => this.dashboards.get(id) ?? id
+  noterDashboard = (prevu: string, reel: string) => void this.dashboards.set(prevu, reel)
   cle = (base: string, cle: string) => this.cles.get(`${base}\u0000${cle}`) ?? cle
   vue = (base: string, vue: string) => this.vues.get(`${base}\u0000${vue}`) ?? vue
   noterBase = (prevu: string, reel: string) => void this.bases.set(prevu, reel)
@@ -645,6 +842,27 @@ export class Correspondances {
   noterLigne = (prevu: string, reel: string) => void this.lignes.set(prevu, reel)
   /** Ids d'une relation : les lignes créées par le plan prennent leur id réel ; une ligne pas encore créée est laissée de côté. */
   liens = (ids: readonly string[]): string[] => ids.map((id) => this.lignes.get(id) ?? id).filter((id) => !estIdPrevu(id))
+
+  /** Bloc aux ids réels : sa base, sa vue de la base, ou les colonnes de sa vue propre. */
+  bloc(b: Bloc): Bloc {
+    if (!estPropre(b)) return { ...b, base: this.base(b.base), vue: this.vue(b.base, b.vue) }
+    return { ...b, base: this.base(b.base), vue: { ...b.vue, ...this.reglages(b.base, b.vue) } }
+  }
+
+  /** Opération de dashboard aux ids réels. */
+  operation({ op, base }: { op: OperationDashboard; base?: string }): OperationDashboard {
+    switch (op.type) {
+      case 'ajouter_bloc':
+      case 'remplacer_bloc':
+        return { ...op, bloc: this.bloc(op.bloc) }
+      case 'modifier_vue':
+        return base ? { ...op, modifs: this.reglages(base, op.modifs) } : op
+      case 'filtres':
+        return { ...op, filtres: op.filtres.map((f) => ({ ...f, base: this.base(f.base), colonne: this.cle(f.base, f.colonne) })) }
+      default:
+        return op
+    }
+  }
 
   /** Réglages de vue dont les colonnes suivent les clés réelles. */
   reglages(base: string, r: ModificationVue): ModificationVue {
@@ -746,13 +964,21 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
         break
       case 'creer_dashboard': {
         const id = await espace.creerDashboard(a.nom)
-        for (const bloc of a.blocs) {
-          await espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: null, bloc: { base: corr.base(bloc.base), vue: corr.vue(bloc.base, bloc.vue) } })
+        corr.noterDashboard(a.id, id)
+        for (const [i, r] of a.rangees.entries()) {
+          for (const [j, bloc] of r.blocs.entries()) await espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: j === 0 ? null : i, bloc: corr.bloc(bloc) })
+          if (r.hauteur !== undefined) await espace.modifierDashboard(id, { type: 'hauteur_rangee', rangee: i, hauteur: r.hauteur })
         }
         break
       }
+      case 'modifier_dashboard':
+        for (const o of a.operations) await espace.modifierDashboard(corr.dashboard(a.id), corr.operation(o))
+        break
+      case 'retirer_bloc':
+        await espace.modifierDashboard(corr.dashboard(a.id), { type: 'retirer_bloc', place: a.place })
+        break
       case 'supprimer_dashboard':
-        await espace.supprimerDashboard(a.id)
+        await espace.supprimerDashboard(corr.dashboard(a.id))
         break
       case 'supprimer_base':
         await espace.supprimerBase(corr.base(a.base))
