@@ -23,10 +23,11 @@ export function operateursPour(c: Colonne): Operateur[] {
       return ['egal', 'avant', 'apres', 'entre', 'aujourdhui', 'cette_semaine', 'ce_mois', 'jours_passes', 'jours_a_venir', ...communs]
     case 'case':
       return ['egal']
+    // Plusieurs valeurs d'abord : une seule ligne de filtre pour « En cours ou À faire ».
     case 'choix':
-      return ['egal', 'different_de', 'parmi', ...communs]
+      return ['parmi', 'pas_parmi', 'egal', 'different_de', ...communs]
     case 'liste':
-      return ['contient', 'ne_contient_pas', ...communs]
+      return ['parmi', 'pas_parmi', 'contient', 'ne_contient_pas', ...communs]
   }
 }
 
@@ -37,8 +38,8 @@ export const SANS_VALEUR: readonly Operateur[] = ['vide', 'non_vide', 'aujourdhu
 export function operateurParDefaut(c: Colonne): Operateur {
   switch (natureDe(c)) {
     case 'choix':
-      return 'parmi'
     case 'liste':
+      return 'parmi'
     case 'texte':
       return 'contient'
     default:
@@ -76,7 +77,7 @@ export function correspond(ligne: LigneChargee, schema: Schema, f: Filtre, ctx: 
   const lue = lire(ligne, c)
   if (f.operateur === 'vide') return lue.vide
   if (f.operateur === 'non_vide') return !lue.vide
-  const negatif = f.operateur === 'different_de' || f.operateur === 'ne_contient_pas'
+  const negatif = f.operateur === 'different_de' || f.operateur === 'ne_contient_pas' || f.operateur === 'pas_parmi'
   if (lue.vide || lue.valeur === undefined) return negatif
 
   const v = lue.valeur
@@ -90,15 +91,24 @@ export function correspond(ligne: LigneChargee, schema: Schema, f: Filtre, ctx: 
     case 'case':
       return v === (f.valeur === true || f.valeur === 'true')
     case 'choix':
-      if (f.operateur === 'parmi') return Array.isArray(f.valeur) && f.valeur.includes(v)
+      if (f.operateur === 'parmi') return choisies(f).includes(String(v))
+      if (f.operateur === 'pas_parmi') return !choisies(f).includes(String(v))
       return f.operateur === 'egal' ? v === f.valeur : f.operateur === 'different_de' ? v !== f.valeur : false
     case 'liste': {
-      const liste = Array.isArray(v) ? v : [String(v)]
+      const liste = (Array.isArray(v) ? v : [v]).map(String)
+      // parmi : au moins une des valeurs choisies ; pas_parmi : aucune.
+      if (f.operateur === 'parmi' || f.operateur === 'pas_parmi') {
+        const une = liste.some((x) => choisies(f).includes(x))
+        return f.operateur === 'parmi' ? une : !une
+      }
       const contient = liste.includes(String(f.valeur))
       return f.operateur === 'contient' ? contient : f.operateur === 'ne_contient_pas' ? !contient : false
     }
   }
 }
+
+/** Valeurs choisies d'un `parmi` / `pas_parmi` ; une valeur seule (pastille d'avant) vaut une liste d'un élément. */
+const choisies = (f: Filtre): string[] => (Array.isArray(f.valeur) ? f.valeur.map(String) : f.valeur === undefined || f.valeur === '' ? [] : [String(f.valeur)])
 
 function comparerTexte(v: string, f: Filtre): boolean {
   const a = normaliser(v)
@@ -270,7 +280,7 @@ export function appliquerVue(
 /**
  * Valeurs pré-remplies d'une ligne créée depuis une vue filtrée (spec §8) :
  * `egal` sur select, checkbox, text, number, date (hors date relative) ;
- * `contient` sur relation ; `parmi` sur select à une seule valeur.
+ * `contient` sur relation ; `parmi` d'une seule valeur sur select ou relation.
  * Tout le reste est ignoré.
  */
 export function valeursHeritees(schema: Schema, filtres: readonly Filtre[]): Modifications {
@@ -287,6 +297,10 @@ export function valeursHeritees(schema: Schema, filtres: readonly Filtre[]): Mod
     }
     if (f.operateur === 'parmi' && c.type === 'select' && Array.isArray(f.valeur) && f.valeur.length === 1) {
       valeurs[c.cle] = String(f.valeur[0])
+    }
+    if (f.operateur === 'parmi' && c.type === 'relation' && Array.isArray(f.valeur) && f.valeur.length === 1) {
+      const deja = valeurs[c.cle]
+      valeurs[c.cle] = [...(Array.isArray(deja) ? deja : []), String(f.valeur[0])]
     }
     if (f.operateur === 'contient' && c.type === 'relation' && typeof f.valeur === 'string' && f.valeur !== '') {
       const deja = valeurs[c.cle]

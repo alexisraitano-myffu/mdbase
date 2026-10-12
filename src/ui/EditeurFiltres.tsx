@@ -3,7 +3,8 @@ import { operateursPour } from '../core/filtres'
 import { useEspace } from './contexte-espace'
 import { afficheValeurs, colonneOrigine, natureDe, type Colonne, type Schema } from '../core/schema'
 import type { Filtre, Operateur } from '../core/vue'
-import { Plus, X } from 'lucide-react'
+import { ChevronDown, Plus, Search, X } from 'lucide-react'
+import { Flottant } from './flottant'
 import { Icone, ICONES } from './icones'
 import { Choix, type EntreeChoix } from './Choix'
 import { couleurOption } from './couleurs'
@@ -30,6 +31,7 @@ export const LIBELLES_OPERATEURS: Record<Operateur, string> = {
   jours_passes: 'dans les jours passés',
   jours_a_venir: 'dans les jours à venir',
   parmi: 'parmi',
+  pas_parmi: 'pas parmi',
 }
 
 /** Toutes les colonnes se filtrent et se trient, calculées comprises ; les formules au jalon 10. */
@@ -43,7 +45,15 @@ export function entreesColonnes(colonnes: Colonne[]): EntreeChoix[] {
   return colonnes.map((c) => ({ valeur: c.cle, libelle: c.nom, icone: ICONES[c.type] }))
 }
 
-export const entreesOperateurs = (c: Colonne): EntreeChoix[] => operateursPour(c).map((o) => ({ valeur: o, libelle: LIBELLES_OPERATEURS[o] }))
+/** Plusieurs valeurs sur un choix multiple ou une relation : la ligne en a au moins une, ou aucune. */
+const LIBELLES_LISTE: Partial<Record<Operateur, string>> = { parmi: "contient l'un de", pas_parmi: "ne contient aucun de" }
+
+export const libelleOperateur = (c: Colonne, o: Operateur) => (natureDe(c) === 'liste' && LIBELLES_LISTE[o]) || LIBELLES_OPERATEURS[o]
+
+export const entreesOperateurs = (c: Colonne): EntreeChoix[] => operateursPour(c).map((o) => ({ valeur: o, libelle: libelleOperateur(c, o) }))
+
+/** Opérateurs à plusieurs valeurs, cochées dans une liste. */
+export const estMultiple = (o: Operateur) => o === 'parmi' || o === 'pas_parmi'
 
 /** Liste de filtres combinés en ET, éditable, une ligne par filtre. Chaque changement est remonté aussitôt. */
 export function EditeurFiltres({ schema, filtres, changer }: { schema: Schema; filtres: Filtre[]; changer: (f: Filtre[]) => void }) {
@@ -109,7 +119,28 @@ export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string;
 
   const origine = afficheValeurs(colonne) ? colonneOrigine((b) => etat.bases.get(b)?.depot?.schema, base, colonne) : undefined
   const relation = colonne.type === 'relation' ? colonne : origine?.type === 'relation' ? origine : undefined
+  if (relation && estMultiple(op)) return <ChoixLignes cible={relation.cible} valeur={filtre.valeur} changer={changer} />
   if (relation) return <ChoixLigne cible={relation.cible} valeur={String(filtre.valeur ?? '')} changer={changer} />
+  const options = colonne.type === 'select' || colonne.type === 'multiselect' ? colonne.options : origine?.type === 'select' || origine?.type === 'multiselect' ? origine.options : undefined
+  if (options && estMultiple(op)) {
+    const choisis = Array.isArray(filtre.valeur) ? filtre.valeur.map(String) : filtre.valeur ? [String(filtre.valeur)] : []
+    return (
+      <span className="choix-parmi">
+        {options.map((o) => (
+          <label key={o.label}>
+            <input
+              type="checkbox"
+              checked={choisis.includes(o.label)}
+              onChange={(e) => changer(e.target.checked ? [...choisis, o.label] : choisis.filter((x) => x !== o.label))}
+            />
+            <span className="pastille" style={{ background: couleurOption(o.couleur).fond, color: couleurOption(o.couleur).texte }}>
+              {o.label}
+            </span>
+          </label>
+        ))}
+      </span>
+    )
+  }
   if ((origine?.type === 'select' || origine?.type === 'multiselect') && natureDe(colonne) === 'liste') {
     return (
       <Choix
@@ -136,7 +167,7 @@ export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string;
     )
   }
 
-  if ((colonne.type === 'select' || colonne.type === 'multiselect') && op !== 'parmi') {
+  if (colonne.type === 'select' || colonne.type === 'multiselect') {
     return (
       <Choix
         valeur={String(filtre.valeur ?? '')}
@@ -145,26 +176,6 @@ export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string;
         vide="Choisir"
         changer={changer}
       />
-    )
-  }
-
-  if (colonne.type === 'select' && op === 'parmi') {
-    const choisis = Array.isArray(filtre.valeur) ? filtre.valeur.map(String) : []
-    return (
-      <span className="choix-parmi">
-        {colonne.options.map((o) => (
-          <label key={o.label}>
-            <input
-              type="checkbox"
-              checked={choisis.includes(o.label)}
-              onChange={(e) => changer(e.target.checked ? [...choisis, o.label] : choisis.filter((x) => x !== o.label))}
-            />
-            <span className="pastille" style={{ background: couleurOption(o.couleur).fond, color: couleurOption(o.couleur).texte }}>
-              {o.label}
-            </span>
-          </label>
-        ))}
-      </span>
     )
   }
 
@@ -273,5 +284,51 @@ function ChoixLigne({ cible, valeur, changer }: { cible: string; valeur: string;
       vide="Choisir une ligne"
       changer={changer}
     />
+  )
+}
+
+/** Plusieurs lignes liées, cochées dans une liste avec recherche (une base liée peut en avoir des centaines). */
+function ChoixLignes({ cible, valeur, changer }: { cible: string; valeur: unknown; changer: (v: unknown) => void }) {
+  const { etat } = useEspace()
+  const ancre = useRef<HTMLButtonElement>(null)
+  const [ouvert, setOuvert] = useState(false)
+  const [recherche, setRecherche] = useState('')
+  const titres = etat.titres.get(cible) ?? new Map<string, string>()
+  const choisies = Array.isArray(valeur) ? valeur.map(String) : valeur ? [String(valeur)] : []
+  const lignes = [...titres].sort(([, a], [, b]) => a.localeCompare(b, 'fr'))
+  const cherche = recherche.trim().toLocaleLowerCase('fr')
+  const visibles = cherche ? lignes.filter(([, t]) => t.toLocaleLowerCase('fr').includes(cherche)) : lignes
+  const resume = choisies.map((id) => titres.get(id) ?? id)
+  const basculer = (id: string) => changer(choisies.includes(id) ? choisies.filter((x) => x !== id) : [...choisies, id])
+  return (
+    <>
+      <button ref={ancre} type="button" className="choix" aria-label="Lignes liées" onClick={() => setOuvert(true)}>
+        <span className="valeur-choix">
+          <span className={`libelle-choix ${resume.length === 0 ? 'discret' : ''}`}>
+            {resume.length === 0 ? 'Choisir des lignes' : resume.length > 2 ? `${resume.slice(0, 2).join(', ')} +${resume.length - 2}` : resume.join(', ')}
+          </span>
+        </span>
+        <Icone de={ChevronDown} className="chevron-choix" taille={14} />
+      </button>
+      {ouvert && (
+        <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
+          <div className="panneau-pastille">
+            <label className="recherche-choix">
+              <Icone de={Search} taille={14} />
+              <input autoFocus placeholder="Chercher une ligne" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+            </label>
+            <div className="liste-lignes-pastille">
+              {visibles.map(([id, t]) => (
+                <label key={id} className="case-reglage">
+                  <input type="checkbox" checked={choisies.includes(id)} onChange={() => basculer(id)} />
+                  {t || 'Sans titre'}
+                </label>
+              ))}
+              {visibles.length === 0 && <div className="discret">Aucune ligne</div>}
+            </div>
+          </div>
+        </Flottant>
+      )}
+    </>
   )
 }

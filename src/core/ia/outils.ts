@@ -19,7 +19,7 @@ export const FILTRE = {
   properties: {
     colonne: { type: 'string', description: 'clé de la colonne' },
     operateur: { type: 'string', enum: [...OPERATEURS] },
-    valeur: { description: 'valeur comparée ; liste de libellés pour « parmi » ; jours_passes / jours_a_venir : un nombre de jours (depuis aujourd’hui), ou [N, M] pour de N à M jours, bornes comprises' },
+    valeur: { description: 'valeur comparée ; parmi / pas_parmi : une liste (libellés d’options, ou ids des lignes liées), la ligne a l’une de ces valeurs / n’en a aucune ; jours_passes / jours_a_venir : un nombre de jours (depuis aujourd’hui), ou [N, M] pour de N à M jours, bornes comprises' },
   },
   required: ['colonne', 'operateur'],
 }

@@ -30,18 +30,23 @@ export function Flottant(p: {
   const panneau = useRef<HTMLDivElement>(null)
   const { fermer, ancre, garderOuvert } = p
 
+  // Derniers `fermer` et `garderOuvert` : l'effet ne tourne qu'à l'ouverture, pour que la place
+  // dans la pile ne change pas quand un panneau parent se redessine (Échap fermerait le parent).
+  const reglages = useRef({ fermer, garderOuvert })
+  reglages.current = { fermer, garderOuvert }
+
   useEffect(() => {
     const el = panneau.current
     if (el) pile.push(el)
     // Ce panneau et ceux ouverts depuis lui (plus haut dans la pile).
     const dedans = (cible: Node) => el !== null && pile.slice(pile.indexOf(el)).some((x) => x.contains(cible))
     const clic = (e: MouseEvent) => {
-      if (!garderOuvert && !dedans(e.target as Node)) fermer()
+      if (!reglages.current.garderOuvert && !dedans(e.target as Node)) reglages.current.fermer()
     }
     const touche = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || pile.at(-1) !== el) return
       e.preventDefault()
-      fermer()
+      reglages.current.fermer()
     }
     document.addEventListener('mousedown', clic)
     document.addEventListener('keydown', touche)
@@ -50,7 +55,7 @@ export function Flottant(p: {
       document.removeEventListener('mousedown', clic)
       document.removeEventListener('keydown', touche)
     }
-  }, [fermer, garderOuvert])
+  }, [])
 
   useLayoutEffect(() => {
     const el = panneau.current

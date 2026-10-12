@@ -70,10 +70,11 @@ export function PastilleFiltre(p: { schema: Schema; colonne: Colonne; pastille: 
   // Relation, ou rollup qui affiche les lignes d'une relation : la valeur est un id, on montre le titre.
   const origine = afficheValeurs(colonne) ? colonneOrigine((b) => etat.bases.get(b)?.depot?.schema, p.schema.id, colonne) : colonne
   const relation = origine?.type === 'relation' ? origine : undefined
-  const titre = relation && typeof pastille.valeur === 'string' ? titreDe(etat, relation.cible, pastille.valeur) : undefined
+  const ids = relation ? (Array.isArray(pastille.valeur) ? pastille.valeur.map(String) : typeof pastille.valeur === 'string' ? [pastille.valeur] : []) : []
+  const titres = ids.map((id) => titreDe(etat, relation!.cible, id))
   // Une ligne liée disparue garde son id, signalé.
-  const disparue = relation !== undefined && typeof pastille.valeur === 'string' && titre === undefined
-  const valeurAffichee = titre ?? pastille.valeur
+  const disparue = titres.some((t) => t === undefined)
+  const valeurAffichee = relation && ids.length > 0 ? (Array.isArray(pastille.valeur) ? titres.map((t, i) => t ?? ids[i]) : (titres[0] ?? ids[0])) : pastille.valeur
 
   return (
     <>
@@ -140,11 +141,13 @@ function resumer(c: Colonne, operateur: Operateur, valeur: unknown): string {
   if (Array.isArray(valeur)) {
     const liste = valeur.map(texte)
     if (operateur === 'entre') return `du ${liste[0]} au ${liste[1]}`
-    return liste.length > 2 ? `${liste.slice(0, 2).join(', ')} +${liste.length - 2}` : liste.join(', ')
+    const courte = liste.length > 2 ? `${liste.slice(0, 2).join(', ')} +${liste.length - 2}` : liste.join(', ')
+    return operateur === 'pas_parmi' ? `sauf ${courte}` : courte
   }
   const prefixes: Partial<Record<Operateur, string>> = {
     different_de: '≠',
     ne_contient_pas: 'sans',
+    pas_parmi: 'sauf',
     commence_par: 'commence par',
     finit_par: 'finit par',
     superieur: '>',

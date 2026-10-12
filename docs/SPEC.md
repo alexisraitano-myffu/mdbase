@@ -439,8 +439,9 @@ mise_en_page: suivi
 - Nombre : `egal`, `different_de`, `superieur`, `inferieur`, `superieur_egal`, `inferieur_egal`
 - Date : `egal`, `avant`, `apres`, `entre`, relatif (`aujourdhui`, `cette_semaine`, `ce_mois`, `jours_passes: n`, `jours_a_venir: n`). `jours_passes` et `jours_a_venir` acceptent aussi `[n, m]` : de n à m jours, bornes comprises (« il y a 8 à 30 jours ») [DÉCIDÉ, demandé par Alex le 12/10/2026]
 - Checkbox : `egal`
-- Select : `egal`, `different_de`, `parmi`
-- Multiselect / relation : `contient`, `ne_contient_pas`
+- Select : `parmi`, `pas_parmi` (une liste de libellés, cochés dans une seule ligne de filtre), `egal`, `different_de`
+- Multiselect / relation : `parmi` (« contient l'un de ») et `pas_parmi` (« ne contient aucun de »), une liste de libellés ou d'ids ; `contient`, `ne_contient_pas` pour une seule valeur
+- Plusieurs valeurs [DÉCIDÉ, demandé par Alex le 12/10/2026] : un nouveau filtre ou une nouvelle pastille sur une colonne à choix ou une relation part sur `parmi`. Une cellule vide n'est « parmi » rien, et passe donc un `pas_parmi`. Une valeur seule à la place d'une liste compte comme une liste d'un élément.
 - Rollup et formule : opérateurs du type de leur résultat.
 
 ---
