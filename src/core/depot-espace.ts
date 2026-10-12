@@ -9,6 +9,7 @@ import { cleColonne, idBase } from './identifiants'
 import { compiler, ErreurFormule } from './formules/formule'
 import {
   appliquerEnMemoire,
+  BLOCS_PAR_RANGEE,
   ErreurDashboard,
   lireDashboard,
   modifierDashboard,
@@ -562,9 +563,17 @@ export class DepotEspace {
     if (!d) return Promise.reject(new ErreurDashboard(`Dashboard introuvable ou illisible : ${id}`))
     if (op.type === 'ajouter_bloc') {
       if (!this.bases.get(op.bloc.base)?.chargement.ok) return Promise.reject(new ErreurDashboard(`Base introuvable : ${op.bloc.base}`))
-      if (op.rangee !== null && (d.rangees[op.rangee]?.blocs.length ?? 2) >= 2) return Promise.reject(new ErreurDashboard('Une rangée tient 2 blocs au plus'))
+      if (op.rangee !== null && (d.rangees[op.rangee]?.blocs.length ?? BLOCS_PAR_RANGEE) >= BLOCS_PAR_RANGEE) {
+        return Promise.reject(new ErreurDashboard(`Une rangée tient ${BLOCS_PAR_RANGEE} blocs au plus`))
+      }
     }
-    this.dashboards.set(id, { ...this.dashboards.get(id)!, dashboard: appliquerEnMemoire(d, op) })
+    let suivant: Dashboard
+    try {
+      suivant = appliquerEnMemoire(d, op)
+    } catch (e) {
+      return Promise.reject(e instanceof Error ? e : new ErreurDashboard(String(e)))
+    }
+    this.dashboards.set(id, { ...this.dashboards.get(id)!, dashboard: suivant })
     this.publier()
     return this.apresMemoire(async () => {
       const chemin = cheminDashboard(id)

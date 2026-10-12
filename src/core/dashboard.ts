@@ -3,12 +3,13 @@ import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
 import { appliquerModificationsVue, lireVueDepuis, OPERATEURS, type Filtre, type ModificationVue, type Operateur, type Vue } from './vue'
 
-// Dashboards `_dashboards/<id>.yaml` (spec §10) : des rangées empilées d'un ou
-// deux blocs. Un bloc montre une vue d'une base : une référence à une vue de
+// Dashboards `_dashboards/<id>.yaml` (spec §10) : des rangées empilées d'un à
+// trois blocs. Un bloc montre une vue d'une base : une référence à une vue de
 // la base, ou une vue propre, écrite dans le fichier au format des `_vues/`.
 
-export type BlocReference = { base: string; vue: string }
-export type BlocPropre = { base: string; vue: Vue }
+/** `largeur` : part de la rangée en pourcentage ; absente, une part égale de ce qui reste. */
+export type BlocReference = { base: string; vue: string; largeur?: number }
+export type BlocPropre = { base: string; vue: Vue; largeur?: number }
 export type Bloc = BlocReference | BlocPropre
 /** `hauteur` : hauteur des blocs de la rangée en pixels ; absente, la hauteur par défaut. */
 export type Rangee = { blocs: Bloc[]; hauteur?: number }
@@ -24,18 +25,31 @@ export type FiltreGlobal = Filtre & { base: string }
 export type PastilleGlobale = { base: string; colonne?: string; operateur?: Operateur; valeur?: unknown }
 export type Dashboard = { id: string; nom: string; rangees: Rangee[]; filtres: FiltreGlobal[]; filtresRapides: PastilleGlobale[] }
 
-/** Deux blocs côte à côte au plus (spec §10). */
-export const BLOCS_PAR_RANGEE = 2
+/** Trois blocs côte à côte au plus (spec §10). */
+export const BLOCS_PAR_RANGEE = 3
+/** Bornes d'une largeur de bloc, en pourcentage de la rangée. */
+export const LARGEUR_BLOC = { min: 10, max: 90 } as const
 
 export const estPropre = (b: Bloc): b is BlocPropre => typeof b.vue !== 'string'
 
 /** Place d'un bloc : sa rangée et sa position dans la rangée. */
 export type PlaceBloc = { rangee: number; bloc: number }
+/**
+ * Où déposer un bloc, comptée sur la mise en page d'avant le déplacement :
+ * dans une rangée (`position` : avant le bloc de ce rang, ou en fin), ou dans
+ * une nouvelle rangée insérée à ce rang.
+ */
+export type DestinationBloc = { rangee: number; position: number } | { nouvelleRangee: number }
 
 export type OperationDashboard =
   | { type: 'renommer'; nom: string }
-  /** `rangee: null` : nouvelle rangée en bas ; sinon à droite de la rangée donnée. */
-  | { type: 'ajouter_bloc'; rangee: number | null; bloc: Bloc }
+  /** `rangee: null` : nouvelle rangée en bas ; sinon dans la rangée donnée, à `position` (en fin par défaut). */
+  | { type: 'ajouter_bloc'; rangee: number | null; position?: number; bloc: Bloc }
+  | { type: 'deplacer_bloc'; de: PlaceBloc; vers: DestinationBloc }
+  /** Remplace un bloc à sa place (vue copiée en vue propre, vue propre enregistrée dans la base) ; sa largeur reste. */
+  | { type: 'remplacer_bloc'; place: PlaceBloc; bloc: Bloc }
+  /** Largeur de chaque bloc de la rangée, dans l'ordre ; `null` : part égale. */
+  | { type: 'largeurs_rangee'; rangee: number; largeurs: (number | null)[] }
   /** Retire le bloc ; une rangée vidée disparaît. */
   | { type: 'retirer_bloc'; place: PlaceBloc }
   /** Monte ou descend une rangée entière. */
@@ -70,16 +84,17 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
         avertissements.push(`Dashboard ${id}, ${ou} ignoré : base manquante`)
         return []
       }
-      if (typeof b.vue === 'string') return [{ base: b.base, vue: b.vue }]
+      const largeur = largeurBornee(b.largeur)
+      if (typeof b.vue === 'string') return [{ base: b.base, vue: b.vue, ...(largeur && { largeur }) }]
       const idVue = estObjet(b.vue) && typeof b.vue.id === 'string' ? b.vue.id : `bloc-${i + 1}-${j + 1}`
       const lue = lireVueDepuis(b.vue, idVue)
       avertissements.push(...lue.avertissements.map((a) => `Dashboard ${id}, ${ou} : ${a}`))
       if (!lue.vue) return []
-      return [{ base: b.base, vue: lue.vue }]
+      return [{ base: b.base, vue: lue.vue, ...(largeur && { largeur }) }]
     })
     if (blocs.length > BLOCS_PAR_RANGEE) avertissements.push(`Dashboard ${id}, rangée ${i + 1} : plus de ${BLOCS_PAR_RANGEE} blocs, les suivants passent à la ligne`)
     const hauteur = estObjet(r) ? hauteurBornee(r.hauteur) : undefined
-    // Au-delà de deux blocs, on coupe en rangées plutôt que de perdre un bloc.
+    // Au-delà de trois blocs, on coupe en rangées plutôt que de perdre un bloc.
     const coupees: Rangee[] = []
     for (let k = 0; k < blocs.length; k += BLOCS_PAR_RANGEE) coupees.push({ blocs: blocs.slice(k, k + BLOCS_PAR_RANGEE), ...(hauteur && { hauteur }) })
     return coupees
@@ -106,6 +121,57 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
 export function hauteurBornee(x: unknown): number | undefined {
   if (typeof x !== 'number' || !Number.isFinite(x)) return undefined
   return Math.round(Math.min(HAUTEUR_BLOC.max, Math.max(HAUTEUR_BLOC.min, x)))
+}
+
+/** Largeur lue ou demandée, ramenée dans les bornes ; rien si ce n'est pas un nombre. */
+export function largeurBornee(x: unknown): number | undefined {
+  if (typeof x !== 'number' || !Number.isFinite(x)) return undefined
+  return Math.round(Math.min(LARGEUR_BLOC.max, Math.max(LARGEUR_BLOC.min, x)))
+}
+
+/**
+ * Parts des blocs d'une rangée, à donner en `flex-grow` : la largeur réglée,
+ * sinon une part égale de ce qui reste (au moins la largeur minimale, si les
+ * autres prennent déjà toute la rangée).
+ */
+export function partsRangee(blocs: readonly Bloc[]): number[] {
+  const reglees = blocs.flatMap((b) => (b.largeur !== undefined ? [b.largeur] : []))
+  const libres = blocs.length - reglees.length
+  const reste = 100 - reglees.reduce((a, x) => a + x, 0)
+  const part = libres === 0 ? 0 : Math.max(reste / libres, LARGEUR_BLOC.min)
+  return blocs.map((b) => b.largeur ?? part)
+}
+
+/**
+ * Déplace un bloc dans des rangées tenues en tableaux (nœuds YAML ou objets en
+ * mémoire). Une rangée vidée disparaît ; un bloc qui change de rangée perd sa
+ * largeur (`sansLargeur`). Lève `ErreurDashboard` si la destination est pleine ou introuvable.
+ */
+function deplacerDans<R, B>(rangees: R[], blocsDe: (r: R) => B[], nouvelle: (b: B) => R, sansLargeur: (b: B) => B, de: PlaceBloc, vers: DestinationBloc): void {
+  const source = rangees[de.rangee]
+  const blocs = source && blocsDe(source)
+  const bloc = blocs?.[de.bloc]
+  if (!source || !blocs || bloc === undefined) throw new ErreurDashboard('Bloc introuvable')
+  if ('nouvelleRangee' in vers) {
+    const k = Math.max(0, Math.min(vers.nouvelleRangee, rangees.length))
+    blocs.splice(de.bloc, 1)
+    rangees.splice(k, 0, nouvelle(sansLargeur(bloc)))
+    if (blocs.length === 0) rangees.splice(rangees.indexOf(source), 1)
+    return
+  }
+  const cible = rangees[vers.rangee]
+  if (!cible) throw new ErreurDashboard('Rangée introuvable')
+  const blocsCible = blocsDe(cible)
+  if (cible === source) {
+    const position = Math.max(0, Math.min(vers.position, blocs.length))
+    blocs.splice(de.bloc, 1)
+    blocs.splice(position > de.bloc ? position - 1 : position, 0, bloc)
+    return
+  }
+  if (blocsCible.length >= BLOCS_PAR_RANGEE) throw new ErreurDashboard(`Une rangée tient ${BLOCS_PAR_RANGEE} blocs au plus`)
+  blocsCible.splice(Math.max(0, Math.min(vers.position, blocsCible.length)), 0, sansLargeur(bloc))
+  blocs.splice(de.bloc, 1)
+  if (blocs.length === 0) rangees.splice(rangees.indexOf(source), 1)
 }
 
 export function nouveauDashboard(id: string, nom: string): string {
@@ -139,7 +205,38 @@ export function modifierDashboard(texte: string, op: OperationDashboard): string
       }
       const blocs = liste(doc, rangee(rangees, op.rangee), 'blocs')
       if (blocs.items.length >= BLOCS_PAR_RANGEE) throw new ErreurDashboard(`Une rangée tient ${BLOCS_PAR_RANGEE} blocs au plus`)
-      blocs.items.push(noeud)
+      blocs.items.splice(Math.max(0, Math.min(op.position ?? blocs.items.length, blocs.items.length)), 0, noeud)
+      break
+    }
+    case 'deplacer_bloc':
+      deplacerDans(
+        rangees.items as unknown[],
+        (r) => (isMap(r) ? liste(doc, r, 'blocs').items : []) as unknown[],
+        (b) => doc.createNode({ blocs: [b] }),
+        (b) => {
+          if (isMap(b)) b.delete('largeur')
+          return b
+        },
+        op.de,
+        op.vers,
+      )
+      break
+    case 'remplacer_bloc': {
+      const blocs = liste(doc, rangee(rangees, op.place.rangee), 'blocs')
+      const ancien = blocs.items[op.place.bloc]
+      if (!ancien) throw new ErreurDashboard('Bloc introuvable')
+      const largeur = isMap(ancien) ? largeurBornee(ancien.get('largeur')) : undefined
+      blocs.items[op.place.bloc] = noeudBloc(doc, { ...op.bloc, ...(largeur && { largeur }) })
+      break
+    }
+    case 'largeurs_rangee': {
+      const blocs = liste(doc, rangee(rangees, op.rangee), 'blocs')
+      blocs.items.forEach((b, i) => {
+        if (!isMap(b)) return
+        const largeur = largeurBornee(op.largeurs[i])
+        if (largeur === undefined) b.delete('largeur')
+        else b.set('largeur', largeur)
+      })
       break
     }
     case 'retirer_bloc': {
@@ -197,10 +294,41 @@ export function appliquerEnMemoire(d: Dashboard, op: OperationDashboard): Dashbo
   switch (op.type) {
     case 'renommer':
       return { ...d, nom: op.nom }
-    case 'ajouter_bloc':
-      if (op.rangee === null) rangees.push({ blocs: [op.bloc] })
-      else rangees[op.rangee]?.blocs.push(op.bloc)
+    case 'ajouter_bloc': {
+      if (op.rangee === null) {
+        rangees.push({ blocs: [op.bloc] })
+        break
+      }
+      const blocs = rangees[op.rangee]?.blocs
+      blocs?.splice(Math.max(0, Math.min(op.position ?? blocs.length, blocs.length)), 0, op.bloc)
       break
+    }
+    case 'deplacer_bloc':
+      deplacerDans(
+        rangees,
+        (r) => r.blocs,
+        (b) => ({ blocs: [b] }),
+        ({ largeur: _l, ...b }) => b,
+        op.de,
+        op.vers,
+      )
+      break
+    case 'remplacer_bloc': {
+      const r = rangees[op.place.rangee]
+      const ancien = r?.blocs[op.place.bloc]
+      if (r && ancien) r.blocs[op.place.bloc] = { ...op.bloc, ...(ancien.largeur !== undefined && { largeur: ancien.largeur }) }
+      break
+    }
+    case 'largeurs_rangee': {
+      const r = rangees[op.rangee]
+      if (r) {
+        r.blocs = r.blocs.map(({ largeur: _l, ...b }, i) => {
+          const largeur = largeurBornee(op.largeurs[i])
+          return largeur === undefined ? b : { ...b, largeur }
+        })
+      }
+      break
+    }
     case 'retirer_bloc': {
       const r = rangees[op.place.rangee]
       r?.blocs.splice(op.place.bloc, 1)
@@ -244,15 +372,16 @@ function ecrireListe(doc: Document, cle: string, items: object[]) {
 }
 
 function noeudBloc(doc: Document, b: Bloc) {
+  const largeur = largeurBornee(b.largeur)
   if (!estPropre(b)) {
-    const n = doc.createNode({ base: b.base, vue: b.vue }) as YAMLMap
+    const n = doc.createNode({ base: b.base, vue: b.vue, ...(largeur && { largeur }) }) as YAMLMap
     n.flow = true
     return n
   }
   const vue = doc.createNode({ id: b.vue.id, nom: b.vue.nom, type: b.vue.type }) as YAMLMap
   const { id: _i, nom: _n, type: _t, implicite: _x, ...reglages } = b.vue
   appliquerModificationsVue(doc, vue, reglages)
-  return doc.createNode({ base: b.base, vue })
+  return doc.createNode({ base: b.base, vue, ...(largeur && { largeur }) })
 }
 
 function rangee(rangees: YAMLSeq, i: number): YAMLMap {

@@ -41,7 +41,9 @@ describe('dashboards dans un espace', () => {
     // Une vue propre n'apparaît pas dans les vues de la base (spec §10).
     expect(espace.etat().bases.get('taches')!.vues.map((v) => v.id)).toEqual(['tableau'])
 
-    await expect(espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: 0, bloc: { base: 'clients', vue: 'tableau' } })).rejects.toThrow('2 blocs')
+    await espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: 0, bloc: { base: 'clients', vue: 'tableau' } })
+    await expect(espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: 0, bloc: { base: 'clients', vue: 'tableau' } })).rejects.toThrow('3 blocs')
+    await expect(espace.modifierDashboard(id, { type: 'deplacer_bloc', de: { rangee: 4, bloc: 0 }, vers: { nouvelleRangee: 0 } })).rejects.toThrow('Bloc introuvable')
     await expect(espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: null, bloc: { base: 'inconnue', vue: 'tableau' } })).rejects.toThrow('Base introuvable')
 
     a.ecritures = []

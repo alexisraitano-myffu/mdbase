@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appliquerEnMemoire, lireDashboard, modifierDashboard, nouveauDashboard, type OperationDashboard } from './dashboard'
+import { appliquerEnMemoire, lireDashboard, modifierDashboard, nouveauDashboard, partsRangee, type OperationDashboard } from './dashboard'
 import { vueParDefaut } from './vue'
 
 const PILOTAGE = `id: pilotage
@@ -49,12 +49,12 @@ describe('lireDashboard', () => {
     })
   })
 
-  it('tolérant : bloc sans base écarté, trois blocs coupés en deux rangées, fichier illisible refusé', () => {
+  it('tolérant : bloc sans base écarté, quatre blocs coupés en deux rangées, fichier illisible refusé', () => {
     const { dashboard, avertissements } = lireDashboard(
-      'rangees:\n  - blocs:\n      - { vue: x }\n      - { base: a, vue: v }\n      - { base: b, vue: v }\n      - { base: c, vue: v }\n',
+      'rangees:\n  - blocs:\n      - { vue: x }\n      - { base: a, vue: v }\n      - { base: b, vue: v }\n      - { base: c, vue: v }\n      - { base: d, vue: v }\n',
       'd',
     )
-    expect(dashboard?.rangees.map((r) => r.blocs.map((b) => b.base))).toEqual([['a', 'b'], ['c']])
+    expect(dashboard?.rangees.map((r) => r.blocs.map((b) => b.base))).toEqual([['a', 'b', 'c'], ['d']])
     expect(avertissements).toHaveLength(2)
     expect(lireDashboard('rangees: [', 'd').dashboard).toBeNull()
   })
@@ -99,7 +99,52 @@ rangees:
     expect(lireDashboard(sans, 'p').dashboard!.rangees).toHaveLength(1)
     const inverse = modifierDashboard(PILOTAGE, { type: 'deplacer_rangee', de: 1, vers: 0 })
     expect(lireDashboard(inverse, 'p').dashboard!.rangees[1]!.blocs[0]).toEqual({ base: 'projets', vue: 'kanban-statut' })
-    expect(() => modifierDashboard(PILOTAGE, { type: 'ajouter_bloc', rangee: 1, bloc: { base: 'x', vue: 'y' } })).toThrow('2 blocs au plus')
+    const trois = modifierDashboard(PILOTAGE, { type: 'ajouter_bloc', rangee: 1, position: 0, bloc: { base: 'x', vue: 'y' } })
+    expect(lireDashboard(trois, 'p').dashboard!.rangees[1]!.blocs.map((b) => b.base)).toEqual(['x', 'taches', 'clients'])
+    expect(() => modifierDashboard(trois, { type: 'ajouter_bloc', rangee: 1, bloc: { base: 'z', vue: 'y' } })).toThrow('3 blocs au plus')
+  })
+
+  describe('déplacer un bloc', () => {
+    const bases = (texte: string) => lireDashboard(texte, 'p').dashboard!.rangees.map((r) => r.blocs.map((b) => b.base))
+    const ops: [string, OperationDashboard, string[][]][] = [
+      ['dans sa rangée', { type: 'deplacer_bloc', de: { rangee: 1, bloc: 0 }, vers: { rangee: 1, position: 2 } }, [['projets'], ['clients', 'taches']]],
+      ['dans une autre rangée', { type: 'deplacer_bloc', de: { rangee: 1, bloc: 1 }, vers: { rangee: 0, position: 0 } }, [['clients', 'projets'], ['taches']]],
+      ['seul dans sa rangée : elle disparaît', { type: 'deplacer_bloc', de: { rangee: 0, bloc: 0 }, vers: { rangee: 1, position: 1 } }, [['taches', 'projets', 'clients']]],
+      ['entre deux rangées : une nouvelle rangée', { type: 'deplacer_bloc', de: { rangee: 1, bloc: 0 }, vers: { nouvelleRangee: 1 } }, [['projets'], ['taches'], ['clients']]],
+      ['en tête, depuis une rangée vidée', { type: 'deplacer_bloc', de: { rangee: 0, bloc: 0 }, vers: { nouvelleRangee: 2 } }, [['taches', 'clients'], ['projets']]],
+    ]
+    it.each(ops)('%s : fichier et mémoire d’accord', (_, op, attendu) => {
+      expect(bases(modifierDashboard(PILOTAGE, op))).toEqual(attendu)
+      const memoire = appliquerEnMemoire(lireDashboard(PILOTAGE, 'p').dashboard!, op)
+      expect(memoire.rangees.map((r) => r.blocs.map((b) => b.base))).toEqual(attendu)
+    })
+
+    it('refuse une rangée pleine ; le bloc qui change de rangée perd sa largeur', () => {
+      const pleine = modifierDashboard(PILOTAGE, { type: 'ajouter_bloc', rangee: 1, bloc: { base: 'x', vue: 'y' } })
+      expect(() => modifierDashboard(pleine, { type: 'deplacer_bloc', de: { rangee: 0, bloc: 0 }, vers: { rangee: 1, position: 0 } })).toThrow('3 blocs au plus')
+      const large = modifierDashboard(PILOTAGE, { type: 'largeurs_rangee', rangee: 1, largeurs: [70, null] })
+      expect(large).toContain('{ base: clients, vue: tableau-principal }')
+      const deplace = modifierDashboard(large, { type: 'deplacer_bloc', de: { rangee: 1, bloc: 0 }, vers: { rangee: 0, position: 1 } })
+      expect(deplace).not.toContain('largeur')
+    })
+  })
+
+  it('largeurs : bornées entre 10 et 90, null les retire ; parts des blocs sans largeur', () => {
+    const texte = modifierDashboard(PILOTAGE, { type: 'largeurs_rangee', rangee: 1, largeurs: [95, 5] })
+    const r = lireDashboard(texte, 'p').dashboard!.rangees[1]!
+    expect(r.blocs.map((b) => b.largeur)).toEqual([90, 10])
+    expect(texte).toContain('{ base: clients, vue: tableau-principal, largeur: 10 }')
+    expect(modifierDashboard(texte, { type: 'largeurs_rangee', rangee: 1, largeurs: [null, null] })).not.toContain('largeur')
+    expect(partsRangee([{ base: 'a', vue: 'v', largeur: 60 }, { base: 'b', vue: 'v' }, { base: 'c', vue: 'v' }])).toEqual([60, 20, 20])
+    expect(partsRangee([{ base: 'a', vue: 'v' }, { base: 'b', vue: 'v' }])).toEqual([50, 50])
+  })
+
+  it('remplacer un bloc garde sa place et sa largeur', () => {
+    const large = modifierDashboard(PILOTAGE, { type: 'largeurs_rangee', rangee: 1, largeurs: [null, 40] })
+    const propre = { ...vueParDefaut(), id: 'copie', nom: 'Copie' }
+    delete propre.implicite
+    const texte = modifierDashboard(large, { type: 'remplacer_bloc', place: { rangee: 1, bloc: 1 }, bloc: { base: 'clients', vue: propre } })
+    expect(lireDashboard(texte, 'p').dashboard!.rangees[1]!.blocs[1]).toMatchObject({ base: 'clients', vue: { id: 'copie' }, largeur: 40 })
   })
 
   it('hauteur d’une rangée : écrite sur la rangée, bornée, retirée pour revenir au défaut', () => {

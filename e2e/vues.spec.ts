@@ -705,7 +705,7 @@ test.describe('dashboards et recherche', () => {
     // Le dashboard aussi : plus d'ajout de bloc.
     await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
     await expect(page.locator('.bloc-dashboard').first()).toBeVisible()
-    await expect(page.locator('.ajout-bloc, .deplacer-rangee, .poignee-hauteur')).toHaveCount(0)
+    await expect(page.locator('.ajout-bloc, .deplacer-rangee, .poignee-hauteur, .poignee-glisse, .poignee-largeur')).toHaveCount(0)
 
     await page.locator('body').press('Control+e')
     await expect(page.getByRole('button', { name: 'Passer en consultation (Ctrl+E)' })).toBeVisible()
@@ -741,6 +741,71 @@ test.describe('dashboards et recherche', () => {
     await poignee.dblclick()
     await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).not.toContain('hauteur')
     await expect.poll(async () => Math.round((await contenu.boundingBox())!.height)).toBe(Math.round(avant))
+  })
+
+  test('mise en page libre : glisser un bloc dans une autre rangée, puis entre deux rangées ; glisser une rangée', async ({ espace, page }) => {
+    await page.setViewportSize({ width: 1400, height: 1400 }) // les trois rangées tiennent à l’écran
+    await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
+    const rangees = page.locator('.rangee-dashboard')
+    await expect(rangees).toHaveCount(2)
+    // Vise le centre de la fente, remesurée avant de lâcher : la zone défile toute seule près des bords.
+    const glisser = async (poignee: Locator, fente: Locator) => {
+      const b = (await poignee.boundingBox())!
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(b.x + b.width / 2 + 10, b.y + b.height / 2 + 10, { steps: 3 })
+      for (const steps of [10, 2]) {
+        const f = (await fente.boundingBox())!
+        await page.mouse.move(f.x + f.width / 2, f.y + f.height / 2, { steps })
+      }
+      await page.mouse.up()
+    }
+    // « Clients › Cartes » (2e rangée) à droite du kanban des projets (1re rangée).
+    await glisser(page.getByRole('button', { name: /Déplacer le bloc Clients/ }), rangees.nth(0).locator('.fente-bloc').last())
+    await expect(rangees.nth(0).locator('.bloc-dashboard')).toHaveCount(2)
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toMatch(/- \{ base: projets, vue: par-statut \}\n      - \{ base: clients, vue: cartes \}/)
+
+    // Puis seul dans une nouvelle rangée, sous la dernière.
+    await glisser(page.getByRole('button', { name: /Déplacer le bloc Clients/ }), page.locator('.fente-rangee').last())
+    await expect(rangees).toHaveCount(3)
+    await expect(rangees.last()).toContainText('Clients')
+
+    // La dernière rangée remonte en tête par sa poignée.
+    await glisser(page.getByRole('button', { name: 'Déplacer la rangée 3' }), page.locator('.fente-rangee').first())
+    await expect(rangees.first()).toContainText('Clients')
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toMatch(/rangees:\n  - blocs:\n      - \{ base: clients, vue: cartes \}/)
+  })
+
+  test('largeur des blocs : tirer la séparation l’écrit en pourcentages, double-clic revient aux parts égales', async ({ espace, page }) => {
+    await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
+    const rangee = page.locator('.rangee-dashboard').nth(1)
+    const blocs = rangee.locator('.bloc-dashboard')
+    await expect(blocs).toHaveCount(2)
+    const avant = (await blocs.first().boundingBox())!.width
+    const poignee = rangee.locator('.poignee-largeur')
+    const b = (await poignee.boundingBox())!
+    await page.mouse.move(b.x + b.width / 2, b.y + 40)
+    await page.mouse.down()
+    await page.mouse.move(b.x + b.width / 2 + 150, b.y + 40, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(async () => (await blocs.first().boundingBox())!.width).toBeGreaterThan(avant + 100)
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toMatch(/largeur: \d+/)
+    await poignee.dblclick()
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).not.toContain('largeur')
+  })
+
+  test('copier une vue de la base en vue propre, puis l’enregistrer comme vue de la base', async ({ espace, page }) => {
+    await page.locator('.entree-base', { hasText: 'Pilotage' }).click()
+    const bloc = page.locator('.bloc-dashboard').first()
+    await bloc.getByRole('button', { name: 'Options du bloc' }).click()
+    await page.getByRole('button', { name: 'Copier en vue propre' }).click()
+    await expect(bloc.locator('.etiquette-bloc')).toHaveText('vue propre')
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toMatch(/- base: projets\n        vue:\n          id: par-statut/)
+    await bloc.getByRole('button', { name: 'Options du bloc' }).click()
+    await page.getByRole('button', { name: 'Enregistrer comme vue de la base' }).click()
+    await expect(bloc.locator('.etiquette-bloc')).toHaveText('vue de la base')
+    await expect.poll(() => espace.lister('projets/_vues')).toContain('par-statut-2.yaml')
+    await expect.poll(() => espace.lire('_dashboards/pilotage.yaml')).toContain('{ base: projets, vue: par-statut-2 }')
   })
 
   test('raccourcis clavier : le bouton et « ? » ouvrent la liste, Échap la ferme, jamais pendant une saisie', async ({ espace, page }) => {

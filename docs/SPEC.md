@@ -551,7 +551,12 @@ contenus:                                  # optionnel : contenus liés sous le 
 
 - Listés en haut de la barre latérale, dans l'ordre de `barre_laterale.dashboards` (`_espace.yaml`), puis ceux qu'il ne cite pas. **Réordonnables par glisser-déposer** [DÉCIDÉ, demandé par Alex le 01/10/2026] : un dépôt réécrit la liste complète.
 - **Dupliquer** [DÉCIDÉ, demandé par Alex le 01/10/2026] : depuis le ⋯ (ou le clic droit), le fichier est copié tel quel sous un nouvel id, nommé « <nom> (copie) », placé juste après l'original.
-- Un dashboard = une suite de **blocs empilés verticalement**, chaque bloc pouvant être seul ou à deux côte à côte sur une rangée.
+- Un dashboard = une suite de **rangées empilées verticalement**, chacune d'**un à trois blocs côte à côte** [DÉCIDÉ, demandé par Alex le 12/10/2026 ; deux au plus avant]. Un fichier qui en met plus sur une rangée est lu en passant les suivants à la ligne.
+- **Mise en page libre** [DÉCIDÉ, demandé par Alex le 12/10/2026] :
+  - un bloc se **glisse** par sa poignée (en tête du bloc) : à une autre place de sa rangée, dans une autre rangée qui a de la place, ou entre deux rangées, où il en crée une ;
+  - une rangée se glisse par sa poignée (à sa gauche) entre deux autres ;
+  - **largeur** : tirer la séparation entre deux blocs règle leur part de la rangée ; un double-clic revient aux parts égales. Fichier : `largeur` sur le bloc, en pourcentage de la rangée (entre 10 et 90) ; un bloc sans `largeur` prend une part égale de ce qui reste. Un bloc qui change de rangée perd sa largeur ;
+  - une vue de la base se **copie en vue propre** (menu du bloc), pour la modifier sans toucher à la base ; une vue propre s'**enregistre comme vue de la base** (elle rejoint les onglets de la base, le bloc la montre désormais).
 - **Hauteur d'une rangée** [DÉCIDÉ, demandé par Alex le 01/10/2026] : tirer le bord bas d'une rangée règle la hauteur de ses blocs (une timeline longue, un tableau de beaucoup de lignes) ; un double-clic revient à la hauteur par défaut (380 px). Bornée entre 160 et 2400 px. Fichier : `hauteur` sur la rangée, en pixels.
 - Un bloc = une vue d'une base : soit une **référence** à une vue existante de la base, soit une **vue propre au dashboard**, écrite directement dans le fichier du dashboard, au même format qu'un fichier `_vues/*.yaml`. Une vue propre n'apparaît pas dans la liste des vues de la base.
 
@@ -570,7 +575,7 @@ rangees:
           type: tableau
           filtres:
             - { colonne: echeance, operateur: avant, valeur: aujourdhui }
-      - { base: clients, vue: tableau-principal }
+      - { base: clients, vue: tableau-principal, largeur: 40 }   # largeur : facultative, en % de la rangée
 filtres:                                             # filtres globaux (optionnels)
   - { base: projets, colonne: statut, operateur: egal, valeur: En cours }
 filtres_rapides:                                     # pastilles globales
@@ -578,6 +583,11 @@ filtres_rapides:                                     # pastilles globales
   - { base: taches, colonne: priorite, operateur: parmi }
 ```
 
+- **Pour l'assistant et Claude (MCP)** [DÉCIDÉ, demandé par Alex le 12/10/2026] : les mêmes possibilités, par les mêmes outils pour les deux.
+  - `creer_dashboard` : des rangées d'un à trois blocs ; chaque bloc montre une vue de la base ou une vue propre (type, filtres, tris, comme `creer_vue`), avec sa largeur.
+  - `modifier_dashboard` : une liste d'opérations appliquées dans l'ordre (renommer, ajouter un bloc à une place donnée, déplacer un bloc ou une rangée, hauteur, largeurs, réglages d'une vue propre, filtres et filtres rapides du dashboard). Les places se comptent à partir de 1 et chaque opération voit le résultat des précédentes.
+  - `retirer_bloc` : à part, marqué destructeur (une vue propre retirée est perdue).
+  - La description de l'espace montre la mise en page de chaque dashboard : rangées, blocs (base, vue, propre ou non, largeur), hauteurs et filtres.
 - **Filtres globaux** [DÉCIDÉ, validé par Alex le 25/09/2026] : un dashboard peut porter des filtres et des filtres rapides qui valent pour tous ses blocs. Chacun porte sur une base (« Projets › Statut = En cours »), qu'elle ait un bloc ou non.
   - Un bloc de cette base est filtré directement. Un bloc d'une autre base suit ses relations vers elle : il garde les lignes liées à au moins une ligne retenue (les tâches des projets en cours). Un bloc sans relation vers la base filtrée n'est pas filtré, et son en-tête le dit.
   - Plusieurs bases filtrées se combinent en ET. Ces filtres s'ajoutent à ceux de la vue du bloc, sans les modifier.
