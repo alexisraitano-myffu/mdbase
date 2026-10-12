@@ -213,7 +213,7 @@ _modifie: 2026-10-12T09:05
 - L'app (interface, assistant, serveur MCP) écrit `_cree` à la création d'une ligne, puis `_modifie` à chaque écriture qu'elle y fait : cellule, contenu de la page, annulation. Format `AAAA-MM-JJTHH:mm`, heure locale. Les deux clés vont en fin de frontmatter.
 - Le « _ » initial les protège : aucune clé de colonne ne commence par « _ » (une base Jira a déjà sa colonne `cree`, sans conflit).
 - **Ne les mettent pas à jour** : une modification faite à la main dans le fichier ; la synchro Jira, qui a ses propres dates ; les réécritures de toute une colonne liées au schéma (colonne supprimée, option retirée ou renommée), qui marqueraient sinon toute la base comme modifiée. Une ligne dupliquée reçoit son propre `_cree`.
-- Deux types de colonnes les montrent : **`created`** (« Créé le ») et **`modified`** (« Modifié le »). Calculées, en lecture seule, de nature date : filtres (« les 7 derniers jours » pour repérer le nouveau), tris, groupements, formules et rollups comme une date. Valeur de « Créé le » : `_cree`, à défaut la date du fichier sur le disque. Valeur de « Modifié le » : `_modifie`, à défaut `_cree`, à défaut la date du fichier. Le repli couvre les lignes d'avant et les fichiers créés hors de l'app.
+- Deux types de colonnes les montrent : **`created`** (« Créé le ») et **`modified`** (« Modifié le »). Calculées, en lecture seule, de nature date : filtres (« les 7 derniers jours » pour repérer le nouveau), tris, groupements, formules et rollups comme une date. Valeur de « Créé le » : `_cree`, et vide sans lui (lignes d'avant, fichiers créés hors de l'app) ; aucun rattrapage [DÉCIDÉ, demandé par Alex le 12/10/2026]. Valeur de « Modifié le » : `_modifie`, à défaut `_cree`, à défaut la date du fichier.
 
 ---
 

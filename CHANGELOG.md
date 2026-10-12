@@ -113,6 +113,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Assistant IA et Claude : `creer_dashboard` accepte des rangées de un à trois blocs, des vues propres au dashboard et des largeurs ; `modifier_dashboard` réorganise un dashboard existant par une liste d'opérations (ajouter, déplacer ou remplacer un bloc, déplacer une rangée, hauteurs, largeurs, vue propre, filtres, nom) ; `retirer_bloc` retire un bloc, comme une suppression. La description de l'espace montre la mise en page de chaque dashboard.
 
 ### Changed
+- Colonne « Créé le » : une ligne sans date de création enregistrée (créée avant cette colonne, ou hors de l'app) reste vide, au lieu de prendre la date de son fichier. « Modifié le » garde ce repli.
 - Assistant IA : le préréglage Anthropic propose Claude Haiku 5.5 (`claude-haiku-5-5`), plus capable et moins cher que Haiku 4.5. Une connexion déjà réglée garde son modèle : il se change depuis le pied du panneau.
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
 - Icônes Lucide (embarquées dans le build) à la place des caractères Unicode : types de colonnes, vues, menus, fermer, chevrons, coches, cases à cocher.

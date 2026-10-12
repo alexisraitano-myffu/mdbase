@@ -754,10 +754,17 @@ test.describe('dashboards et recherche', () => {
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
       await page.mouse.down()
       await page.mouse.move(b.x + b.width / 2 + 10, b.y + b.height / 2 + 10, { steps: 3 })
+      await expect(fente).not.toHaveClass(/inactive/)
       for (const steps of [10, 2]) {
         const f = (await fente.boundingBox())!
         await page.mouse.move(f.x + f.width / 2, f.y + f.height / 2, { steps })
       }
+      // Lâcher seulement quand la fente se montre survolée (sous charge, dnd-kit peut avoir un temps de retard).
+      await expect(async () => {
+        const f = (await fente.boundingBox())!
+        await page.mouse.move(f.x + f.width / 2, f.y + f.height / 2 + 1)
+        await expect(fente).toHaveClass(/survolee/, { timeout: 300 })
+      }).toPass()
       await page.mouse.up()
     }
     // « Clients › Cartes » (2e rangée) à droite du kanban des projets (1re rangée).
