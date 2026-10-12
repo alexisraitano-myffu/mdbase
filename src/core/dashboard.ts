@@ -1,4 +1,5 @@
 import { Document, isMap, isSeq, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
+import { lireBlocAnalyse, lireParametres, lireRequetes, objetBlocAnalyse, objetParametre, type BlocAnalyse, type Parametre } from './bi/analyse'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
 import { appliquerModificationsVue, lireVueDepuis, OPERATEURS, type Filtre, type ModificationVue, type Operateur, type Vue } from './vue'
@@ -6,11 +7,13 @@ import { appliquerModificationsVue, lireVueDepuis, OPERATEURS, type Filtre, type
 // Dashboards `_dashboards/<id>.yaml` (spec §10) : des rangées empilées d'un à
 // trois blocs. Un bloc montre une vue d'une base : une référence à une vue de
 // la base, ou une vue propre, écrite dans le fichier au format des `_vues/`.
+// Un bloc d'analyse (spec §10 « Analyse ») montre le résultat d'une requête SQL.
 
 /** `largeur` : part de la rangée en pourcentage ; absente, une part égale de ce qui reste. */
 export type BlocReference = { base: string; vue: string; largeur?: number }
 export type BlocPropre = { base: string; vue: Vue; largeur?: number }
-export type Bloc = BlocReference | BlocPropre
+export type BlocVue = BlocReference | BlocPropre
+export type Bloc = BlocVue | BlocAnalyse
 /** `hauteur` : hauteur des blocs de la rangée en pixels ; absente, la hauteur par défaut. */
 export type Rangee = { blocs: Bloc[]; hauteur?: number }
 
@@ -23,14 +26,24 @@ export type FiltreGlobal = Filtre & { base: string }
  * vue ; sans colonne, `valeur` est la liste des lignes choisies de la base.
  */
 export type PastilleGlobale = { base: string; colonne?: string; operateur?: Operateur; valeur?: unknown }
-export type Dashboard = { id: string; nom: string; rangees: Rangee[]; filtres: FiltreGlobal[]; filtresRapides: PastilleGlobale[] }
+export type Dashboard = {
+  id: string
+  nom: string
+  rangees: Rangee[]
+  filtres: FiltreGlobal[]
+  filtresRapides: PastilleGlobale[]
+  /** Requêtes SQL nommées (spec §10 « Analyse »), dans l'ordre du fichier. */
+  requetes: Record<string, string>
+  parametres: Parametre[]
+}
 
 /** Trois blocs côte à côte au plus (spec §10). */
 export const BLOCS_PAR_RANGEE = 3
 /** Bornes d'une largeur de bloc, en pourcentage de la rangée. */
 export const LARGEUR_BLOC = { min: 10, max: 90 } as const
 
-export const estPropre = (b: Bloc): b is BlocPropre => typeof b.vue !== 'string'
+export const estAnalyse = (b: Bloc): b is BlocAnalyse => !('base' in b)
+export const estPropre = (b: Bloc): b is BlocPropre => 'base' in b && typeof b.vue !== 'string'
 
 /** Place d'un bloc : sa rangée et sa position dans la rangée. */
 export type PlaceBloc = { rangee: number; bloc: number }
@@ -60,6 +73,15 @@ export type OperationDashboard =
   | { type: 'modifier_vue'; place: PlaceBloc; modifs: ModificationVue }
   | { type: 'filtres'; filtres: FiltreGlobal[] }
   | { type: 'filtres_rapides'; pastilles: PastilleGlobale[] }
+  /** Réglages d'un bloc d'analyse ; une clé à `null` est retirée. */
+  | { type: 'modifier_analyse'; place: PlaceBloc; modifs: ModificationAnalyse }
+  /** Ajoute, remplace (`sql`) ou retire (`null`) une requête nommée. */
+  | { type: 'requete'; nom: string; sql: string | null }
+  | { type: 'parametres'; parametres: Parametre[] }
+  /** Valeur choisie d'un paramètre ; `null` revient au défaut. */
+  | { type: 'valeur_parametre'; nom: string; valeur: unknown }
+
+export type ModificationAnalyse = { [K in Exclude<keyof BlocAnalyse, 'largeur'>]?: BlocAnalyse[K] | null }
 
 export class ErreurDashboard extends Error {
   constructor(message: string) {
@@ -80,6 +102,11 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
   const rangees = (Array.isArray(brut.rangees) ? brut.rangees : []).flatMap((r, i): Rangee[] => {
     const blocs = (estObjet(r) && Array.isArray(r.blocs) ? r.blocs : []).flatMap((b, j): Bloc[] => {
       const ou = `rangée ${i + 1}, bloc ${j + 1}`
+      if (estObjet(b) && b.base === undefined && b.type !== undefined) {
+        const bloc = lireBlocAnalyse(b, `Dashboard ${id}, ${ou}`, avertissements)
+        const largeur = largeurBornee(b.largeur)
+        return bloc ? [{ ...bloc, ...(largeur && { largeur }) }] : []
+      }
       if (!estObjet(b) || typeof b.base !== 'string') {
         avertissements.push(`Dashboard ${id}, ${ou} ignoré : base manquante`)
         return []
@@ -114,7 +141,9 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
     const operateur = (OPERATEURS as readonly string[]).includes(String(p.operateur)) ? (p.operateur as Operateur) : undefined
     return [{ base: p.base, ...(typeof p.colonne === 'string' && { colonne: p.colonne }), ...(operateur && { operateur }), ...(p.valeur !== undefined && { valeur: p.valeur }) }]
   })
-  return { dashboard: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, rangees, filtres, filtresRapides }, avertissements }
+  const requetes = lireRequetes(brut.requetes, id, avertissements)
+  const parametres = lireParametres(brut.parametres, id, avertissements)
+  return { dashboard: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, rangees, filtres, filtresRapides, requetes, parametres }, avertissements }
 }
 
 /** Hauteur lue ou demandée, ramenée dans les bornes ; rien si ce n'est pas un nombre. */
@@ -281,6 +310,36 @@ export function modifierDashboard(texte: string, op: OperationDashboard): string
         })),
       )
       break
+    case 'modifier_analyse': {
+      const b = liste(doc, rangee(rangees, op.place.rangee), 'blocs').items[op.place.bloc]
+      if (!isMap(b) || b.has('base')) throw new ErreurDashboard('Ce bloc n’est pas un bloc d’analyse')
+      b.flow = false
+      for (const [cle, v] of Object.entries(op.modifs)) {
+        if (v === null || v === undefined) b.delete(cle)
+        else b.set(cle, enLigne(doc.createNode(cle === 'y' && Array.isArray(v) && v.length === 1 ? v[0] : v)))
+      }
+      break
+    }
+    case 'requete': {
+      const n = doc.get('requetes')
+      const requetes = isMap(n) ? n : (doc.createNode({}) as YAMLMap)
+      if (op.sql === null) requetes.delete(op.nom)
+      else requetes.set(op.nom, op.sql)
+      if (requetes.items.length === 0) doc.delete('requetes')
+      else doc.set('requetes', requetes)
+      break
+    }
+    case 'parametres':
+      ecrireListe(doc, 'parametres', op.parametres.map(objetParametre))
+      break
+    case 'valeur_parametre': {
+      const n = doc.get('parametres')
+      const p = isSeq(n) ? n.items.find((x) => isMap(x) && x.get('nom') === op.nom) : undefined
+      if (!isMap(p)) throw new ErreurDashboard(`Paramètre « ${op.nom} » introuvable`)
+      if (op.valeur === null || op.valeur === undefined) p.delete('valeur')
+      else p.set('valeur', doc.createNode(op.valeur))
+      break
+    }
   }
   return doc.toString(OPTIONS_SORTIE_CONFIG)
 }
@@ -356,6 +415,34 @@ export function appliquerEnMemoire(d: Dashboard, op: OperationDashboard): Dashbo
       return { ...d, filtres: op.filtres }
     case 'filtres_rapides':
       return { ...d, filtresRapides: op.pastilles }
+    case 'modifier_analyse': {
+      const r = rangees[op.place.rangee]
+      const b = r?.blocs[op.place.bloc]
+      if (r && b && estAnalyse(b)) {
+        const modifie: Record<string, unknown> = { ...b }
+        for (const [cle, v] of Object.entries(op.modifs)) {
+          if (v === null || v === undefined) delete modifie[cle]
+          else modifie[cle] = v
+        }
+        r.blocs[op.place.bloc] = modifie as BlocAnalyse
+      }
+      break
+    }
+    case 'requete': {
+      const { [op.nom]: _ancienne, ...requetes } = d.requetes
+      return { ...d, requetes: op.sql === null ? requetes : d.requetes[op.nom] !== undefined ? { ...d.requetes, [op.nom]: op.sql } : { ...requetes, [op.nom]: op.sql } }
+    }
+    case 'parametres':
+      return { ...d, parametres: op.parametres }
+    case 'valeur_parametre':
+      return {
+        ...d,
+        parametres: d.parametres.map((p) => {
+          if (p.nom !== op.nom) return p
+          const { valeur: _v, ...reste } = p
+          return op.valeur === null || op.valeur === undefined ? reste : { ...p, valeur: op.valeur }
+        }),
+      }
   }
   return { ...d, rangees }
 }
@@ -373,6 +460,15 @@ function ecrireListe(doc: Document, cle: string, items: object[]) {
 
 function noeudBloc(doc: Document, b: Bloc) {
   const largeur = largeurBornee(b.largeur)
+  if (estAnalyse(b)) {
+    const objet = objetBlocAnalyse({ ...b, largeur })
+    if (Array.isArray(objet.y) && objet.y.length === 1) objet.y = objet.y[0]
+    const n = doc.createNode(objet) as YAMLMap
+    for (const p of n.items) enLigne(p.value)
+    // Un bloc court tient sur une ligne, comme un bloc vue.
+    n.flow = n.items.length <= 4 && Object.values(objet).every((v) => typeof v !== 'object' && !String(v).includes('\n') && String(v).length <= 60)
+    return n
+  }
   if (!estPropre(b)) {
     const n = doc.createNode({ base: b.base, vue: b.vue, ...(largeur && { largeur }) }) as YAMLMap
     n.flow = true
@@ -382,6 +478,15 @@ function noeudBloc(doc: Document, b: Bloc) {
   const { id: _i, nom: _n, type: _t, implicite: _x, ...reglages } = b.vue
   appliquerModificationsVue(doc, vue, reglages)
   return doc.createNode({ base: b.base, vue, ...(largeur && { largeur }) })
+}
+
+/** Listes de valeurs simples et règles écrites sur une ligne (`y: [ n, m ]`, `{ si: '> 5', couleur: rouge }`). */
+function enLigne<T>(n: T): T {
+  if (isSeq(n)) {
+    if (n.items.every((x) => !isMap(x) && !isSeq(x))) n.flow = true
+    for (const x of n.items) if (isMap(x)) x.flow = true
+  } else if (isMap(n) && n.items.every((p) => !isMap(p.value) && !isSeq(p.value))) n.flow = true
+  return n
 }
 
 function rangee(rangees: YAMLSeq, i: number): YAMLMap {

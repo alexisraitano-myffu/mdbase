@@ -1,4 +1,5 @@
 import type { DepotEspace } from '../core/depot-espace'
+import { sessionSql } from '../adapters/sql/session-app'
 import { avecSkill, proposer, type Echange } from '../core/ia/assistant'
 import { DemandeArretee, type MessageIA, type Progression } from '../core/ia/modele'
 import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../core/ia/plan'
@@ -218,6 +219,7 @@ export class SessionAssistant {
     try {
       const r = await proposer(modeleCompatibleOpenAI(o.reglages), this.espace, texte, {
         aujourdhui: aujourdhui(),
+        sql: sessionSql,
         baseOuverte: o.baseOuverte,
         basesCitees: d.bases,
         skill: d.skill,

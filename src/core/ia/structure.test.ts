@@ -351,7 +351,7 @@ describe('assistant : dashboards', () => {
   const disposition = async (a: AdaptateurCompteur) => {
     const relu = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier, aujourdhui: () => AUJOURDHUI })
     const d = relu.etat().dashboards[0]!.dashboard!
-    return { nom: d.nom, rangees: d.rangees.map((r) => r.blocs.map((b) => `${b.base}/${typeof b.vue === 'string' ? b.vue : `propre:${b.vue.nom}`}${b.largeur ? ` ${b.largeur}%` : ''}`)) }
+    return { nom: d.nom, rangees: d.rangees.map((r) => r.blocs.map((b) => ('base' in b ? `${b.base}/${typeof b.vue === 'string' ? b.vue : `propre:${b.vue.nom}`}` : `analyse:${b.type}`) + (b.largeur ? ` ${b.largeur}%` : ''))) }
   }
 
   it('rangées de plusieurs blocs, vue propre, largeur et hauteur ; la description de l’espace montre la mise en page', async () => {

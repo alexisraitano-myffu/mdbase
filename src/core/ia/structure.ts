@@ -4,8 +4,10 @@ import { TYPES_CREABLES, type DepotEspace, type EtatEspace, type TypeCreable } f
 import { correspond, type Contexte } from '../filtres'
 import { compiler, ErreurFormule, stockerExpression } from '../formules/formule'
 import { calculsPour } from '../calcul'
-import { appliquerEnMemoire, BLOCS_PAR_RANGEE, estPropre, HAUTEUR_BLOC, LARGEUR_BLOC, type Bloc, type Dashboard, type FiltreGlobal, type OperationDashboard, type PastilleGlobale, type PlaceBloc } from '../dashboard'
+import { appliquerEnMemoire, BLOCS_PAR_RANGEE, estAnalyse, estPropre, HAUTEUR_BLOC, LARGEUR_BLOC, type Bloc, type Dashboard, type FiltreGlobal, type OperationDashboard, type PastilleGlobale, type PlaceBloc } from '../dashboard'
 import { boucle } from '../graphe'
+import { nomAnalyse, type Parametre } from '../bi/analyse'
+import { lireBlocAnalyseIA, lireModifsAnalyse, lireParametresIA, lireRequetesIA } from './analyse'
 import { cleColonne, idBase } from '../identifiants'
 import { COULEURS } from '../couleurs'
 import { CALCULS, estObjet, lireSchema, natureDe, TYPES_HORODATAGE, type Calcul, type Colonne, type Option, type Schema } from '../schema'
@@ -113,7 +115,7 @@ export type ActionStructure =
   | { type: 'creer_vue'; base: string; nomBase: string; id: string; nom: string; genre: TypeVue; reglages: ModificationVue }
   | { type: 'modifier_vue'; base: string; nomBase: string; vue: string; nomVue: string; reglages: ModificationVue }
   | { type: 'supprimer_vue'; base: string; nomBase: string; vue: string; nomVue: string }
-  | { type: 'creer_dashboard'; id: string; nom: string; rangees: { blocs: Bloc[]; hauteur?: number }[] }
+  | { type: 'creer_dashboard'; id: string; nom: string; rangees: { blocs: Bloc[]; hauteur?: number }[]; requetes: Record<string, string>; parametres: Parametre[] }
   /** Opérations sur la mise en page d'avant chacune ; `base` : celle du bloc dont la vue propre change (ses clés suivent). `resume` : une phrase par opération, pour l'aperçu. */
   | { type: 'modifier_dashboard'; id: string; nom: string; operations: { op: OperationDashboard; base?: string }[]; resume: string[] }
   | { type: 'retirer_bloc'; id: string; nom: string; place: PlaceBloc; bloc: string }
@@ -441,11 +443,13 @@ function lireLargeur(x: unknown): number | undefined {
  * vue propre au dashboard (`vue_propre`, réglée comme `creer_vue`). `ids` :
  * ids des vues propres déjà prises dans le dashboard, complété au passage.
  */
-function lireBloc(b: Brouillon, brut: unknown, ids: string[]): Bloc {
-  if (!estObjet(brut)) return erreur('bloc : objet { base, vue } ou { base, vue_propre } attendu')
-  const bb = b.base(brut.base)
+function lireBloc(b: Brouillon, brut: unknown, ids: string[], requetes: Readonly<Record<string, string>>): Bloc {
+  if (!estObjet(brut)) return erreur('bloc : objet { base, vue }, { base, vue_propre } ou { type, donnees | sql, … } (analyse) attendu')
   const largeur = lireLargeur(brut.largeur)
   const avecLargeur = largeur !== undefined ? { largeur } : {}
+  // Bloc d'analyse (spec §10 « Analyse ») : un `type` de visuel et pas de base.
+  if (brut.base === undefined && brut.type !== undefined) return { ...lireBlocAnalyseIA(brut, requetes), ...avecLargeur }
+  const bb = b.base(brut.base)
   if (brut.vue_propre === undefined) return { base: bb.id, vue: trouverVue(bb, brut.vue ?? bb.vues[0]!.id).id, ...avecLargeur }
   if (brut.vue !== undefined) erreur('bloc : `vue` ou `vue_propre`, pas les deux')
   if (!estObjet(brut.vue_propre)) return erreur('vue_propre : objet { nom, type, ... } attendu')
@@ -460,6 +464,7 @@ function lireBloc(b: Brouillon, brut: unknown, ids: string[]): Bloc {
 
 /** « Base › Vue », pour l'aperçu. */
 function nomBloc(b: Brouillon, bloc: Bloc): string {
+  if (estAnalyse(bloc)) return nomAnalyse(bloc)
   const bb = b.bases.get(bloc.base)
   const vue = estPropre(bloc) ? `${bloc.vue.nom} (vue propre)` : (bb?.vues.find((v) => v.id === bloc.vue)?.nom ?? bloc.vue)
   return `${bb?.schema.nom ?? bloc.base} › ${vue}`
@@ -494,7 +499,7 @@ function lireOperation(b: Brouillon, d: Dashboard, brut: unknown): { ops: { op: 
       return { ops: [{ op: { type: 'renommer', nom } }], texte: `renommer en « ${nom} »` }
     }
     case 'ajouter_bloc': {
-      const bloc = lireBloc(b, brut.nouveau, idsPropres(d))
+      const bloc = lireBloc(b, brut.nouveau, idsPropres(d), d.requetes)
       if (brut.rangee === undefined || brut.rangee === n + 1) return { ops: [{ op: { type: 'ajouter_bloc', rangee: null, bloc } }], texte: `ajouter ${nomBloc(b, bloc)} dans une nouvelle rangée en bas` }
       const rangee = rang(brut, 'rangee', n + 1, 'numéro de rangée (le suivant de la dernière : nouvelle rangée)')
       pleine(rangee)
@@ -518,7 +523,7 @@ function lireOperation(b: Brouillon, d: Dashboard, brut: unknown): { ops: { op: 
     case 'remplacer_bloc': {
       const place = lirePlace(d, brut)
       const ancien = nomBloc(b, d.rangees[place.rangee]!.blocs[place.bloc]!)
-      const bloc = lireBloc(b, brut.par, idsPropres(d))
+      const bloc = lireBloc(b, brut.par, idsPropres(d), d.requetes)
       return { ops: [{ op: { type: 'remplacer_bloc', place, bloc } }], texte: `remplacer ${ancien} par ${nomBloc(b, bloc)}` }
     }
     case 'deplacer_rangee': {
@@ -584,12 +589,39 @@ function lireOperation(b: Brouillon, d: Dashboard, brut: unknown): { ops: { op: 
       }
       return { ops, texte: textes.join(' ; ') }
     }
+    case 'modifier_bloc': {
+      const place = lirePlace(d, brut)
+      const bloc = d.rangees[place.rangee]!.blocs[place.bloc]!
+      if (!estAnalyse(bloc)) return erreur(`${nomBloc(b, bloc)} montre une vue : règle-la avec modifier_vue`)
+      const modifs = lireModifsAnalyse(brut, bloc, d.requetes)
+      return { ops: [{ op: { type: 'modifier_analyse', place, modifs } }], texte: `régler ${nomBloc(b, bloc)} (${Object.keys(modifs).join(', ')})` }
+    }
+    case 'requete': {
+      const nom = texteRequis(brut, 'nom')
+      if (brut.sql === null) {
+        if (d.requetes[nom] === undefined) return erreur(`requête « ${nom} » inconnue (requêtes : ${Object.keys(d.requetes).join(', ') || 'aucune'})`)
+        const utilisee = d.rangees.flatMap((r) => r.blocs).find((x) => estAnalyse(x) && x.donnees === nom)
+        if (utilisee) return erreur(`la requête « ${nom} » sert encore à ${nomBloc(b, utilisee)} : change d’abord ses données`)
+        return { ops: [{ op: { type: 'requete', nom, sql: null } }], texte: `retirer la requête « ${nom} »` }
+      }
+      const sql = lireRequetesIA({ [nom]: brut.sql })[nom]!
+      return { ops: [{ op: { type: 'requete', nom, sql } }], texte: `${d.requetes[nom] === undefined ? 'ajouter' : 'remplacer'} la requête « ${nom} »` }
+    }
+    case 'parametres': {
+      const parametres = lireParametresIA(brut.parametres)
+      return { ops: [{ op: { type: 'parametres', parametres } }], texte: parametres.length === 0 ? 'retirer les paramètres' : `paramètres : ${parametres.map((p) => `${p.nom} (${p.type})`).join(', ')}` }
+    }
+    case 'valeur_parametre': {
+      const nom = texteRequis(brut, 'nom')
+      if (!d.parametres.some((p) => p.nom === nom)) return erreur(`paramètre « ${nom} » inconnu (paramètres : ${d.parametres.map((p) => p.nom).join(', ') || 'aucun'})`)
+      return { ops: [{ op: { type: 'valeur_parametre', nom, valeur: brut.valeur ?? null } }], texte: brut.valeur === null || brut.valeur === undefined ? `paramètre ${nom} : valeur par défaut` : `paramètre ${nom} = ${JSON.stringify(brut.valeur)}` }
+    }
     default:
       return erreur(`type d'opération inconnu : ${JSON.stringify(brut.type)} (types : ${TYPES_OPERATION.join(', ')})`)
   }
 }
 
-export const TYPES_OPERATION = ['renommer', 'ajouter_bloc', 'deplacer_bloc', 'remplacer_bloc', 'deplacer_rangee', 'hauteur', 'largeurs', 'modifier_vue', 'filtres'] as const
+export const TYPES_OPERATION = ['renommer', 'ajouter_bloc', 'deplacer_bloc', 'remplacer_bloc', 'deplacer_rangee', 'hauteur', 'largeurs', 'modifier_vue', 'filtres', 'modifier_bloc', 'requete', 'parametres', 'valeur_parametre'] as const
 
 /** Valide un appel d'outil de structure ; `null` si l'outil n'en est pas un. */
 export function validerStructure(b: Brouillon, nom: string, args: Record<string, unknown>, ctx: Contexte): { structure: ActionStructure[] } | { suite: ActionSuite } | null {
@@ -691,15 +723,17 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       // `blocs` seuls : un par rangée (forme d'avant les rangées, toujours comprise).
       const brutes = Array.isArray(args.rangees) ? args.rangees : Array.isArray(args.blocs) ? args.blocs.map((x) => ({ blocs: [x] })) : []
       const ids: string[] = []
+      const requetes = lireRequetesIA(args.requetes)
+      const parametres = args.parametres === undefined ? [] : lireParametresIA(args.parametres)
       const rangees = brutes.map((r, i) => {
         if (!estObjet(r) || !Array.isArray(r.blocs) || r.blocs.length === 0) return erreur(`rangée ${i + 1} : objet { blocs: [...] } attendu, avec au moins un bloc`)
         if (r.blocs.length > BLOCS_PAR_RANGEE) erreur(`rangée ${i + 1} : ${BLOCS_PAR_RANGEE} blocs au plus`)
         const hauteur = lireHauteur(r.hauteur)
-        return { blocs: r.blocs.map((x) => lireBloc(b, x, ids)), ...(hauteur !== undefined && { hauteur }) }
+        return { blocs: r.blocs.map((x) => lireBloc(b, x, ids, requetes)), ...(hauteur !== undefined && { hauteur }) }
       })
       const id = idBase(nomDashboard, b.dashboards.map((d) => d.id))
-      b.dashboards.push({ id, nom: nomDashboard, dashboard: { id, nom: nomDashboard, rangees, filtres: [], filtresRapides: [] } })
-      return { structure: [{ type: 'creer_dashboard', id, nom: nomDashboard, rangees }] }
+      b.dashboards.push({ id, nom: nomDashboard, dashboard: { id, nom: nomDashboard, rangees, filtres: [], filtresRapides: [], requetes, parametres } })
+      return { structure: [{ type: 'creer_dashboard', id, nom: nomDashboard, rangees, requetes, parametres }] }
     }
     case 'modifier_dashboard': {
       const d = trouverDashboard(b, args.dashboard)
@@ -873,7 +907,9 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
       return { texte: `Supprimer la vue « ${a.nomVue} » de ${a.nomBase} (définitif, les lignes restent)`, danger: true }
     case 'creer_dashboard': {
       const blocs = a.rangees.reduce((n, r) => n + r.blocs.length, 0)
-      return { texte: `Créer le dashboard « ${a.nom} »${blocs > 0 ? ` avec ${pluriel(blocs, 'bloc')} sur ${pluriel(a.rangees.length, 'rangée')}` : ''}`, danger: false }
+      const requetes = Object.keys(a.requetes).length
+      const analyse = [requetes > 0 && pluriel(requetes, 'requête'), a.parametres.length > 0 && pluriel(a.parametres.length, 'paramètre')].filter(Boolean).join(', ')
+      return { texte: `Créer le dashboard « ${a.nom} »${blocs > 0 ? ` avec ${pluriel(blocs, 'bloc')} sur ${pluriel(a.rangees.length, 'rangée')}` : ''}${analyse ? ` (${analyse})` : ''}`, danger: false }
     }
     case 'modifier_dashboard':
       return { texte: `Dashboard « ${a.nom} » : ${a.resume.join(' ; ')}`, danger: false }
@@ -921,6 +957,7 @@ export class Correspondances {
 
   /** Bloc aux ids réels : sa base, sa vue de la base, ou les colonnes de sa vue propre. */
   bloc(b: Bloc): Bloc {
+    if (estAnalyse(b)) return b
     if (!estPropre(b)) return { ...b, base: this.base(b.base), vue: this.vue(b.base, b.vue) }
     return { ...b, base: this.base(b.base), vue: { ...b.vue, ...this.reglages(b.base, b.vue) } }
   }
@@ -1051,6 +1088,8 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
       case 'creer_dashboard': {
         const id = await espace.creerDashboard(a.nom)
         corr.noterDashboard(a.id, id)
+        for (const [nom, sql] of Object.entries(a.requetes)) await espace.modifierDashboard(id, { type: 'requete', nom, sql })
+        if (a.parametres.length > 0) await espace.modifierDashboard(id, { type: 'parametres', parametres: a.parametres })
         for (const [i, r] of a.rangees.entries()) {
           for (const [j, bloc] of r.blocs.entries()) await espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: j === 0 ? null : i, bloc: corr.bloc(bloc) })
           if (r.hauteur !== undefined) await espace.modifierDashboard(id, { type: 'hauteur_rangee', rangee: i, hauteur: r.hauteur })

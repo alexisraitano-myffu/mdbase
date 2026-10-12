@@ -82,7 +82,7 @@ function PanneauFiltres({ dashboard: d, changer }: { dashboard: Dashboard; chang
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
   const bases = [...etat.bases.values()].filter((b) => b.depot)
-  const premiere = d.filtres[0]?.base ?? d.rangees[0]?.blocs[0]?.base ?? bases[0]?.id
+  const premiere = d.filtres[0]?.base ?? d.rangees.flatMap((r) => r.blocs).find((b) => 'base' in b)?.base ?? bases[0]?.id
   const [base, setBase] = useState(premiere)
   const schema = base ? etat.bases.get(base)?.depot?.schema : undefined
   const compte = (id: string) => d.filtres.filter((f) => f.base === id).length

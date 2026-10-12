@@ -818,6 +818,45 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .contenu-bloc { height: var(--hauteur-bloc, 380px); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .contenu-bloc > * { min-height: 0; }
 .ajout-bloc { align-self: flex-start; }
+/* Analyse (spec §10 « Analyse ») : blocs calculés en SQL, paramètres, réglages. */
+.titre-et-outils-dashboard { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.titre-et-outils-dashboard h1 { margin-right: auto; }
+.titre-et-outils-dashboard > .espaceur { display: none; }
+.parametres-dashboard { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.parametre-dashboard { display: flex; align-items: center; gap: 6px; font-size: 0.9em; }
+.parametre-dashboard > span { color: var(--discret); }
+.parametre-dashboard input, .parametre-dashboard select { padding: 0.2rem 0.4rem; }
+.contenu-analyse { overflow: auto; }
+.graphique-analyse { flex: 1; min-height: 0; width: 100%; }
+.valeur-cle { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 6px; padding: 0 6px; }
+.valeur-cle .chiffre { font-size: clamp(2rem, 5vw, 3.4rem); font-weight: 650; letter-spacing: -0.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.valeur-cle .ecart { display: flex; align-items: center; gap: 4px; font-size: 0.95em; font-variant-numeric: tabular-nums; }
+.valeur-cle .ecart.hausse { color: #3f8a5a; }
+.valeur-cle .ecart.baisse { color: var(--rouge-texte); }
+.tableau-sql { overflow: auto; min-height: 0; }
+.tableau-sql table { border-collapse: collapse; width: 100%; font-size: 0.9em; }
+.tableau-sql th { position: sticky; top: 0; background: var(--surface); text-align: left; color: var(--discret); font-weight: 500; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--bordure); white-space: nowrap; }
+.tableau-sql td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--trait); }
+.tableau-sql :is(th, td).nombre { text-align: right; font-variant-numeric: tabular-nums; }
+.texte-analyse { padding: 0 4px; }
+.erreur-requete { display: flex; gap: 6px; align-items: flex-start; white-space: pre-wrap; font-size: 0.9em; }
+.note-coupe { font-size: 0.8em; margin: 4px 0 0; }
+textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85em; width: 100%; resize: vertical; tab-size: 2; }
+.reglages-analyse { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 8px; width: min(34rem, 90vw); max-height: 70vh; overflow: auto; }
+.reglages-analyse > label, .reglages-analyse fieldset > label:not(.case) { display: flex; flex-direction: column; gap: 3px; font-size: 0.85em; color: var(--discret); }
+.reglages-analyse :is(.large, fieldset) { grid-column: 1 / -1; }
+.reglages-analyse fieldset { border: 1px solid var(--bordure); border-radius: 8px; padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; }
+.reglages-analyse legend { font-size: 0.85em; color: var(--discret); padding: 0 4px; }
+.reglages-analyse label.case { display: flex; flex-direction: row; align-items: center; gap: 4px; font-size: 0.9em; color: var(--texte); }
+.regles-analyse { flex-direction: column; }
+.regle-analyse { display: flex; align-items: center; gap: 6px; }
+.regle-analyse input:not([type]) { width: 7rem; }
+.fenetre-analyse h3 { font-size: 1rem; margin: 1rem 0 0.5rem; }
+.requete-analyse { border: 1px solid var(--bordure); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; }
+.entete-requete { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; min-width: 0; }
+.entete-requete .discret { font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ajout-requete, .parametre-analyse { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.en-capture :is([aria-label="Options du bloc"], [aria-label="Réglages du bloc"], .poignee-glisse, .deplacer-rangee, .poignee-largeur, .poignee-hauteur, .ajout-bloc, .titre-et-outils-dashboard button) { visibility: hidden; }
 .ajout-bloc.compact { align-self: stretch; width: 36px; padding: 0; font-size: 1.2em; border: 1px dashed var(--bordure-forte); border-radius: 8px; }
 .deplacer-rangee { width: 24px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; visibility: hidden; margin-left: -6px; }
 .rangee-dashboard:hover .deplacer-rangee { visibility: visible; }

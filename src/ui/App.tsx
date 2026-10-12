@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { sessionSql } from '../adapters/sql/session-app'
 import { AdaptateurFsa } from '../adapters/fsa/adaptateur-fsa'
 import {
   choisirDossier,
@@ -228,7 +229,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
     let fini = false
     void getVersion().then((version) => {
       if (fini) return
-      arret = ecouterMcp(serveurMcp(espace, { version, aujourdhui }))
+      arret = ecouterMcp(serveurMcp(espace, { version, aujourdhui, sql: sessionSql }))
     })
     return () => {
       fini = true

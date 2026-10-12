@@ -154,6 +154,7 @@ describe('proposer', () => {
     expect(modele.requetes[0]!.outils.map((o) => o.nom)).toEqual([
       'chercher_lignes',
       'chercher_texte',
+      'executer_sql',
       'lire_page',
       'modifier_lignes',
       'creer_lignes',

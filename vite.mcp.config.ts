@@ -46,7 +46,14 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'node20',
     minify: false,
-    rollupOptions: { output: { entryFileNames: 'mdbase-mcp.mjs', format: 'es' } },
+    rollupOptions: {
+      output: {
+        entryFileNames: 'mdbase-mcp.mjs',
+        format: 'es',
+        // Le moteur SQL (DuckDB-WASM, écrit en CommonJS) lit `__dirname`, absent d'un module ES.
+        banner: "import { dirname as __dossierDe } from 'node:path'; import { fileURLToPath as __cheminDe } from 'node:url'; const __dirname = __dossierDe(__cheminDe(import.meta.url));",
+      },
+    },
   },
   ssr: { noExternal: true, target: 'node' },
   plugins: [
@@ -55,6 +62,8 @@ export default defineConfig({
       closeBundle() {
         writeFileSync(`${SORTIE}/manifest.json`, `${JSON.stringify(manifeste, null, 2)}\n`)
         copyFileSync('public/icone-512.png', `${SORTIE}/icon.png`)
+        // Moteur SQL des dashboards, chargé par le serveur à côté de lui.
+        copyFileSync('node_modules/@duckdb/duckdb-wasm/dist/duckdb-eh.wasm', `${SORTIE}/server/duckdb-eh.wasm`)
       },
     },
   ],

@@ -4,6 +4,7 @@ import { estObjet } from '../schema'
 import type { Cellule } from '../valeurs'
 import type { Tri } from '../vue'
 import type { AppelOutil, DefinitionOutil } from './modele'
+import { executerSqlOutil, type ContexteSql } from './analyse'
 import { FILTRE } from './outils'
 import { erreur, ErreurProposition, lireFiltres, normaliser, trouverBase, trouverColonne, trouverLigne } from './references'
 
@@ -49,6 +50,19 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
     },
   },
   {
+    nom: 'executer_sql',
+    description:
+      "Exécute une requête SQL de lecture (DuckDB) sur les bases de l'espace et renvoie au plus 200 lignes : pour explorer, compter, agréger, croiser des bases, et préparer les requêtes d'un dashboard. Chaque base est une table du nom de son id, une colonne par clé de colonne (colonnes calculées comprises), plus id, _cree et _modifie ; une relation ou un choix multiple est une liste (unnest, list_contains). Avec `dashboard`, ses filtres s'appliquent et ses paramètres se citent {{nom}}.",
+    parametres: {
+      type: 'object',
+      properties: {
+        sql: { type: 'string', description: 'une seule requête select (ou with … select)' },
+        dashboard: { type: 'string', description: 'id ou nom d’un dashboard : ses filtres et ses paramètres valent pour la requête' },
+      },
+      required: ['sql'],
+    },
+  },
+  {
     nom: 'lire_page',
     description: "Lit le contenu (corps Markdown) de la page d'une ligne.",
     parametres: { type: 'object', properties: { base: { type: 'string' }, ligne: { type: 'string', description: 'id de la ligne' } }, required: ['base', 'ligne'] },
@@ -57,6 +71,19 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
 
 const NOMS = new Set(OUTILS_LECTURE.map((o) => o.nom))
 export const estLecture = (appel: AppelOutil) => NOMS.has(appel.nom)
+
+/** Toute lecture, `executer_sql` compris (qui passe par le moteur SQL, donc attend). */
+export async function lireTout(etat: EtatEspace, appel: AppelOutil, ctx: Contexte & ContexteSql): Promise<string> {
+  if (appel.nom !== 'executer_sql') return lire(etat, appel, ctx)
+  try {
+    const args: unknown = JSON.parse(appel.arguments || '{}')
+    if (!estObjet(args)) return erreur("objet d'arguments attendu")
+    return await executerSqlOutil(etat, args, ctx)
+  } catch (e) {
+    if (e instanceof ErreurProposition || e instanceof SyntaxError) return `Erreur : ${e.message}`
+    throw e
+  }
+}
 
 function texte(c: Cellule | undefined): string | null {
   if (!c || c.etat !== 'ok') return null

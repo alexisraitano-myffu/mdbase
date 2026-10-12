@@ -46,6 +46,8 @@ describe('lireDashboard', () => {
       ],
       filtres: [],
       filtresRapides: [],
+      requetes: {},
+      parametres: [],
     })
   })
 
@@ -54,7 +56,7 @@ describe('lireDashboard', () => {
       'rangees:\n  - blocs:\n      - { vue: x }\n      - { base: a, vue: v }\n      - { base: b, vue: v }\n      - { base: c, vue: v }\n      - { base: d, vue: v }\n',
       'd',
     )
-    expect(dashboard?.rangees.map((r) => r.blocs.map((b) => b.base))).toEqual([['a', 'b', 'c'], ['d']])
+    expect(dashboard?.rangees.map((r) => r.blocs.map((b) => ('base' in b ? b.base : b.type)))).toEqual([['a', 'b', 'c'], ['d']])
     expect(avertissements).toHaveLength(2)
     expect(lireDashboard('rangees: [', 'd').dashboard).toBeNull()
   })
@@ -100,12 +102,12 @@ rangees:
     const inverse = modifierDashboard(PILOTAGE, { type: 'deplacer_rangee', de: 1, vers: 0 })
     expect(lireDashboard(inverse, 'p').dashboard!.rangees[1]!.blocs[0]).toEqual({ base: 'projets', vue: 'kanban-statut' })
     const trois = modifierDashboard(PILOTAGE, { type: 'ajouter_bloc', rangee: 1, position: 0, bloc: { base: 'x', vue: 'y' } })
-    expect(lireDashboard(trois, 'p').dashboard!.rangees[1]!.blocs.map((b) => b.base)).toEqual(['x', 'taches', 'clients'])
+    expect(lireDashboard(trois, 'p').dashboard!.rangees[1]!.blocs.map((b) => ('base' in b ? b.base : b.type))).toEqual(['x', 'taches', 'clients'])
     expect(() => modifierDashboard(trois, { type: 'ajouter_bloc', rangee: 1, bloc: { base: 'z', vue: 'y' } })).toThrow('3 blocs au plus')
   })
 
   describe('déplacer un bloc', () => {
-    const bases = (texte: string) => lireDashboard(texte, 'p').dashboard!.rangees.map((r) => r.blocs.map((b) => b.base))
+    const bases = (texte: string) => lireDashboard(texte, 'p').dashboard!.rangees.map((r) => r.blocs.map((b) => ('base' in b ? b.base : b.type)))
     const ops: [string, OperationDashboard, string[][]][] = [
       ['dans sa rangée', { type: 'deplacer_bloc', de: { rangee: 1, bloc: 0 }, vers: { rangee: 1, position: 2 } }, [['projets'], ['clients', 'taches']]],
       ['dans une autre rangée', { type: 'deplacer_bloc', de: { rangee: 1, bloc: 1 }, vers: { rangee: 0, position: 0 } }, [['clients', 'projets'], ['taches']]],
@@ -116,7 +118,7 @@ rangees:
     it.each(ops)('%s : fichier et mémoire d’accord', (_, op, attendu) => {
       expect(bases(modifierDashboard(PILOTAGE, op))).toEqual(attendu)
       const memoire = appliquerEnMemoire(lireDashboard(PILOTAGE, 'p').dashboard!, op)
-      expect(memoire.rangees.map((r) => r.blocs.map((b) => b.base))).toEqual(attendu)
+      expect(memoire.rangees.map((r) => r.blocs.map((b) => ('base' in b ? b.base : b.type)))).toEqual(attendu)
     })
 
     it('refuse une rangée pleine ; le bloc qui change de rangée perd sa largeur', () => {
@@ -197,5 +199,93 @@ describe('filtres globaux', () => {
     const lu = lireDashboard('nom: X\nfiltres:\n  - { colonne: statut, operateur: egal }\n', 'x')
     expect(lu.dashboard!.filtres).toEqual([])
     expect(lu.avertissements).toEqual(['Dashboard x : filtre global ignoré (base, colonne ou opérateur manquant)'])
+  })
+})
+
+// Analyse (spec §10 « Analyse ») : requêtes, paramètres et blocs d'analyse.
+const TICKETS = `id: pilotage-tickets
+nom: Pilotage tickets
+parametres:
+  - { nom: mois, libelle: Mois, type: mois, defaut: courant }
+  - { nom: equipe, libelle: Équipe, type: choix, options: [Support, Produit], valeur: Support }
+requetes:
+  par_statut: |
+    select statut, count(*) as n
+    from tickets
+    where strftime(cree_le, '%Y-%m') = {{mois}} and equipe = {{equipe}}
+    group by statut order by n desc
+  total: select count(*) as n, count(*) filter (where statut = 'Bloqué') as bloques from tickets
+rangees:
+  - blocs:
+      - { type: valeur, titre: Tickets, donnees: total, valeur: n }
+      - type: valeur
+        titre: Bloqués
+        donnees: total
+        valeur: bloques
+        regles: [{ si: '> 5', couleur: rouge }]
+      - { type: barres, titre: Par statut, donnees: par_statut, x: statut, y: n, largeur: 50 }
+  - blocs:
+      - type: tableau
+        sql: select titre, statut, jours_restants from projets order by jours_restants
+        format: { jours_restants: entier }
+        regles:
+          - { colonne: jours_restants, si: '< 0', couleur: rouge }
+          - { colonne: statut, si: '= Terminé', couleur: vert, ligne: true }
+      - type: texte
+        texte: "**{{total.n}} tickets** ce mois-ci, dont {{total.bloques}} bloqués."
+`
+
+describe('dashboard avec analyse', () => {
+  it('lit l’exemple de la spec', () => {
+    const { dashboard, avertissements } = lireDashboard(TICKETS, 'pilotage-tickets')
+    expect(avertissements).toEqual([])
+    expect(Object.keys(dashboard!.requetes)).toEqual(['par_statut', 'total'])
+    expect(dashboard!.parametres).toEqual([
+      { nom: 'mois', libelle: 'Mois', type: 'mois', defaut: 'courant' },
+      { nom: 'equipe', libelle: 'Équipe', type: 'choix', options: ['Support', 'Produit'], valeur: 'Support' },
+    ])
+    expect(dashboard!.rangees[0]!.blocs).toEqual([
+      { type: 'valeur', titre: 'Tickets', donnees: 'total', valeur: 'n' },
+      { type: 'valeur', titre: 'Bloqués', donnees: 'total', valeur: 'bloques', regles: [{ si: '> 5', couleur: 'rouge' }] },
+      { type: 'barres', titre: 'Par statut', donnees: 'par_statut', x: 'statut', y: ['n'], largeur: 50 },
+    ])
+    expect(dashboard!.rangees[1]!.blocs[0]).toMatchObject({ type: 'tableau', format: { jours_restants: 'entier' }, regles: [{ colonne: 'jours_restants', si: '< 0', couleur: 'rouge' }, { colonne: 'statut', si: '= Terminé', couleur: 'vert', ligne: true }] })
+    expect(dashboard!.rangees[1]!.blocs[1]).toEqual({ type: 'texte', texte: '**{{total.n}} tickets** ce mois-ci, dont {{total.bloques}} bloqués.' })
+  })
+
+  it('bloc d’analyse ajouté, modifié, déplacé ; requêtes et paramètres réécrits', () => {
+    const ops: OperationDashboard[] = [
+      { type: 'ajouter_bloc', rangee: null, bloc: { type: 'courbe', sql: 'select mois, n\nfrom t', x: 'mois', y: ['n'] } },
+      { type: 'modifier_analyse', place: { rangee: 0, bloc: 0 }, modifs: { titre: 'Évolution', y: ['n', 'm'], x: null } },
+      { type: 'requete', nom: 'total', sql: 'select 1 as n' },
+      { type: 'requete', nom: 'autre', sql: 'select 2 as n' },
+      { type: 'requete', nom: 'total', sql: null },
+      { type: 'parametres', parametres: [{ nom: 'mois', type: 'mois', defaut: 'courant' }] },
+      { type: 'valeur_parametre', nom: 'mois', valeur: '2026-09' },
+    ]
+    let texte = nouveauDashboard('d', 'D')
+    let memoire = lireDashboard(texte, 'd').dashboard!
+    for (const op of ops) {
+      texte = modifierDashboard(texte, op)
+      memoire = appliquerEnMemoire(memoire, op)
+    }
+    expect(texte).toBe(`id: d
+nom: D
+rangees:
+  - blocs:
+      - type: courbe
+        sql: |-
+          select mois, n
+          from t
+        y: [ n, m ]
+        titre: Évolution
+requetes:
+  autre: select 2 as n
+parametres:
+  - { nom: mois, type: mois, defaut: courant, valeur: 2026-09 }
+`)
+    expect(lireDashboard(texte, 'd').dashboard).toEqual(memoire)
+    expect(() => modifierDashboard(texte, { type: 'valeur_parametre', nom: 'absent', valeur: 1 })).toThrow('introuvable')
+    expect(() => modifierDashboard(PILOTAGE, { type: 'modifier_analyse', place: { rangee: 0, bloc: 0 }, modifs: { titre: 'x' } })).toThrow('n’est pas un bloc d’analyse')
   })
 })

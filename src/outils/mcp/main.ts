@@ -1,12 +1,15 @@
 import { webcrypto } from 'node:crypto'
 import { stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { DepotEspace } from '../../core/depot-espace'
 import { AdaptateurNode } from '../commun/fichiers-node'
 import { executer, INSTRUCTIONS, outilsMcp } from '../../core/ia/mcp'
+import { SessionSql } from '../../core/bi/calcul'
+import { moteurNode } from '../../adapters/sql/duckdb-node'
 
 // Serveur MCP de mdbase, lancé par le client (Claude Desktop) sur stdio :
 //   node mdbase-mcp.mjs "<dossier de l'espace>"
@@ -36,13 +39,15 @@ async function principal(): Promise<void> {
     },
   })
 
+  // Moteur SQL des dashboards (spec §10 « Analyse ») : le fichier du moteur est livré à côté du serveur.
+  const sql = new SessionSql(() => moteurNode(join(dirname(fileURLToPath(import.meta.url)), 'duckdb-eh.wasm')))
   const serveur = new Server({ name: 'mdbase', version: __VERSION__ }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS })
   serveur.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: outilsMcp() }))
   // Un appel à la fois : chaque écriture voit l'espace laissé par la précédente.
   let file: Promise<unknown> = Promise.resolve()
   serveur.setRequestHandler(CallToolRequestSchema, (requete) => {
     const suite = file.then(async () => {
-      const r = await executer(espace, requete.params.name, requete.params.arguments, jour(new Date()))
+      const r = await executer(espace, requete.params.name, requete.params.arguments, jour(new Date()), sql)
       return { content: [{ type: 'text' as const, text: r.texte }], isError: r.erreur ?? false }
     })
     file = suite.catch(() => {})
