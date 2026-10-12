@@ -1,5 +1,7 @@
 import type { DepotEspace } from '../depot-espace'
-import { estLecture, lire, OUTILS_LECTURE } from './lecture'
+import type { SessionSql } from '../bi/calcul'
+import { verifierAnalyse } from './analyse'
+import { estLecture, lireTout, OUTILS_LECTURE } from './lecture'
 import type { DefinitionOutil } from './modele'
 import { decrireEspace, OUTILS } from './outils'
 import { appliquerPlan, ErreurProposition, resumerPlan, validerAppel, type Plan } from './plan'
@@ -56,12 +58,12 @@ export type Resultat = { texte: string; erreur?: true }
  * Exécute un appel d'outil. L'espace est relu d'abord : l'app ou un autre
  * outil a pu changer les fichiers depuis l'appel précédent.
  */
-export async function executer(espace: DepotEspace, nom: string, args: unknown, aujourdhui: string): Promise<Resultat> {
-  const ctx = { aujourdhui }
+export async function executer(espace: DepotEspace, nom: string, args: unknown, aujourdhui: string, sql?: SessionSql): Promise<Resultat> {
+  const ctx = { aujourdhui, ...(sql && { sql }) }
   await espace.rafraichir()
   if (nom === DECRIRE.nom) return { texte: decrireEspace(espace.etat(), { aujourdhui, baseOuverte: null, candidats: [] }) }
   const appel = { id: nom, nom, arguments: JSON.stringify(args ?? {}) }
-  if (estLecture(appel)) return { texte: lire(espace.etat(), appel, ctx) }
+  if (estLecture(appel)) return { texte: await lireTout(espace.etat(), appel, ctx) }
   if (PROPRES_A_L_APP.has(nom) || !OUTILS.some((o) => o.nom === nom)) return { texte: `Outil inconnu : ${nom}`, erreur: true }
 
   let plan: Plan
@@ -70,7 +72,12 @@ export async function executer(espace: DepotEspace, nom: string, args: unknown, 
     if (r.type === 'operation') {
       if (r.operation.lignes.length === 0) return { texte: 'Rien à changer : les valeurs sont déjà celles demandées.' }
       plan = { operations: [r.operation] }
-    } else if (r.type === 'structure') plan = { structure: r.actions, operations: [] }
+    } else if (r.type === 'structure') {
+      // Les requêtes d'un dashboard sont exécutées avant d'être acceptées (spec §10 « Analyse »).
+      const erreurs = await verifierAnalyse(espace.etat(), r.actions, ctx)
+      if (erreurs.length > 0) return { texte: `Refusé, rien n'a été écrit : ${erreurs.join(' ; ')}`, erreur: true }
+      plan = { structure: r.actions, operations: [] }
+    }
     else if (r.type === 'suite') plan = { operations: [], suite: [r.action] }
     else return { texte: `Outil inconnu : ${nom}`, erreur: true }
   } catch (e) {
@@ -107,7 +114,7 @@ type Requete = { jsonrpc?: string; id?: string | number | null; method?: string;
  * Répond aux messages d'un client MCP sur l'espace ouvert. Renvoie le texte de la réponse,
  * ou `null` pour une notification (rien à renvoyer). Les appels d'outils passent un par un.
  */
-export function serveurMcp(espace: DepotEspace, o: { version: string; aujourdhui: () => string }): (message: string) => Promise<string | null> {
+export function serveurMcp(espace: DepotEspace, o: { version: string; aujourdhui: () => string; sql?: SessionSql }): (message: string) => Promise<string | null> {
   let file: Promise<unknown> = Promise.resolve()
   const enFile = <T>(f: () => Promise<T>): Promise<T> => {
     const suite = file.then(f)
@@ -141,7 +148,7 @@ export function serveurMcp(espace: DepotEspace, o: { version: string; aujourdhui
       case 'tools/call': {
         const nom = typeof r.params?.name === 'string' ? r.params.name : ''
         try {
-          const res = await enFile(() => executer(espace, nom, r.params?.arguments, o.aujourdhui()))
+          const res = await enFile(() => executer(espace, nom, r.params?.arguments, o.aujourdhui(), o.sql))
           return repondre({ content: [{ type: 'text', text: res.texte }], isError: res.erreur ?? false })
         } catch (e) {
           return repondre({ content: [{ type: 'text', text: `Erreur : ${e instanceof Error ? e.message : String(e)}` }], isError: true })

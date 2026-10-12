@@ -1,7 +1,9 @@
 import type { DepotEspace } from '../depot-espace'
 import type { AppelOutil, MessageIA, ModeleIA, RequeteIA } from './modele'
 import { CONSIGNE_INBOX, decrireInbox, DOCUMENTS_LISTES, estLectureDocument, lireDocuments, OUTILS_DOCUMENTS, OUTILS_INBOX, type ActionConnaissance, type Connaissance, type Incoherence } from './connaissance'
-import { estLecture, lire, OUTILS_LECTURE } from './lecture'
+import type { SessionSql } from '../bi/calcul'
+import { verifierAnalyse } from './analyse'
+import { estLecture, lireTout, OUTILS_LECTURE } from './lecture'
 import { CONSIGNE, decrireEspace, OUTILS } from './outils'
 import { ErreurProposition, validerAppel, type ActionMemoire, type AppelValide, type Operation, type Plan, type SkillPropose } from './plan'
 import { Brouillon, type ActionStructure, type ActionSuite } from './structure'
@@ -49,6 +51,8 @@ export type OptionsDemande = {
   contexte?: boolean
   /** Éléments de l'inbox à traiter (spec §18), ids : ils accompagnent la demande. */
   inbox?: readonly string[]
+  /** Moteur SQL (spec §10 « Analyse ») : `executer_sql`, et vérification des requêtes d'un dashboard proposé. */
+  sql?: SessionSql
 }
 
 /** Échanges renvoyés au modèle : assez pour suivre une conversation, sans alourdir chaque demande. */
@@ -141,7 +145,7 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
           role: 'tool',
           idAppel: appel.id,
           contenu: estLecture(appel)
-            ? lire(etat, appel, { aujourdhui: o.aujourdhui })
+            ? await lireTout(etat, appel, { aujourdhui: o.aujourdhui, ...(o.sql && { sql: o.sql }) })
             : estLectureDocument(appel)
               ? lireDocuments(connaissance.documents, appel)
               : 'Pas retenu : propose les modifications dans une réponse sans lecture, une fois tes lectures finies.',
@@ -167,6 +171,12 @@ export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: s
         throw e
       }
     })
+    // Les requêtes d'un dashboard proposé sont exécutées avant d'être retenues.
+    for (const [i, r] of resultats.entries()) {
+      if (r instanceof ErreurProposition || r.type !== 'structure') continue
+      const refus = await verifierAnalyse(espace.etat(), r.actions, { aujourdhui: o.aujourdhui, ...(o.sql && { sql: o.sql }) })
+      if (refus.length > 0) resultats[i] = new ErreurProposition(refus.join(' ; '))
+    }
     const erreurs = resultats.filter((r): r is ErreurProposition => r instanceof ErreurProposition)
     if (erreurs.length > 0 && relances < RELANCES) {
       relances++

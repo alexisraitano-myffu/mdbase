@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState, type CSSProperties, type PointerEvent as PointerReact, type ReactNode } from 'react'
 import { DndContext, DragOverlay, MeasuringStrategy, pointerWithin, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { BLOCS_PAR_RANGEE, estPropre, HAUTEUR_BLOC, hauteurBornee, LARGEUR_BLOC, partsRangee, type Bloc, type Dashboard, type OperationDashboard, type PlaceBloc } from '../core/dashboard'
+import { BLOCS_PAR_RANGEE, estAnalyse, estPropre, HAUTEUR_BLOC, hauteurBornee, LARGEUR_BLOC, partsRangee, type Bloc, type BlocVue, type Dashboard, type OperationDashboard, type PlaceBloc } from '../core/dashboard'
 import type { DepotBase } from '../core/depot-base'
 import type { DepotEspace, EtatDashboard } from '../core/depot-espace'
 import { idBase } from '../core/identifiants'
+import type { Schema } from '../core/schema'
 import type { ModificationVue, TypeVue, Vue } from '../core/vue'
 import { vueParDefaut } from '../core/vue'
 import { useLancer } from './actions'
@@ -18,9 +19,12 @@ import { FiltresDashboard, useRetenues } from './FiltresDashboard'
 import { filtrerBloc } from '../core/filtre-global'
 import { usePageOuverte } from './usePageOuverte'
 import { DonneesDe, useConsultation } from './mode'
-import { ArrowDown, ArrowUp, ChevronRight, Ellipsis, GripVertical, Plus, TriangleAlert } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, Database, Ellipsis, GripVertical, ImageDown, Plus, TriangleAlert } from 'lucide-react'
+import { nomAnalyse, type BlocAnalyse, type TypeVisuel } from '../core/bi/analyse'
+import { BlocAnalyseDashboard, enregistrerImage, ICONES_VISUEL, ParametresDashboard, useAnalyse } from './Analyse'
+import { FenetreAnalyse } from './ReglagesAnalyse'
 
-const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [] }
+const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [], requetes: {}, parametres: [] }
 
 type Props = {
   espace: DepotEspace
@@ -41,6 +45,9 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
   const d = etat.dashboard
   const modifier = (op: Parameters<DepotEspace['modifierDashboard']>[1]) => void lancer(espace.modifierDashboard(etat.id, op))
   const retenues = useRetenues(d ?? SANS_FILTRES)
+  const analyse = useAnalyse(d, retenues)
+  const [fenetreAnalyse, setFenetreAnalyse] = useState(false)
+  const zone = useRef<HTMLDivElement>(null)
   const [glisse, setGlisse] = useState<Glisse | null>(null)
   const capteurs = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -63,7 +70,8 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
 
   return (
     <div className={`zone-vue ${page ? 'avec-page' : ''} ${pleinEcran ? 'page-plein-ecran' : ''}`}>
-      <div className="zone-tableau zone-dashboard">
+      <div ref={zone} className="zone-tableau zone-dashboard">
+        <div className="titre-et-outils-dashboard">
         {edition ? (
           <input
             className="champ-en-ligne titre-dashboard"
@@ -84,6 +92,21 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
             {d.nom}
           </h1>
         )}
+          <span className="espaceur" />
+          {!lecture && (
+            <button className="discret" onClick={() => setFenetreAnalyse(true)} title="Requêtes SQL et paramètres du dashboard">
+              <Icone de={Database} /> Requêtes
+            </button>
+          )}
+          <button
+            className="discret"
+            onClick={() => zone.current && void lancer(enregistrerImage(zone.current, d.nom))}
+            title="Le dashboard entier en image PNG, filtres et paramètres réglés compris"
+          >
+            <Icone de={ImageDown} /> Exporter en image
+          </button>
+        </div>
+        {fenetreAnalyse && <FenetreAnalyse dashboard={d} resultats={analyse.resultats} modifier={modifier} fermer={() => setFenetreAnalyse(false)} />}
         {etat.avertissements.length > 0 && (
           <details className="avertissements">
             <summary>
@@ -102,6 +125,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
           changerFiltres={(filtres) => modifier({ type: 'filtres', filtres })}
           changerPastilles={(pastilles) => modifier({ type: 'filtres_rapides', pastilles })}
         />
+        <ParametresDashboard dashboard={d} analyse={analyse} changer={(nom, valeur) => modifier({ type: 'valeur_parametre', nom, valeur })} />
         {d.rangees.length === 0 && <p className="discret">Dashboard vide : ajoute un premier bloc, une vue d'une de tes bases.</p>}
         <DndContext
           sensors={capteurs}
@@ -138,6 +162,20 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
                   {r.blocs.flatMap((b, j) => [
                     <FenteBloc key={`fente-${j}`} rangee={i} position={j} taille={r.blocs.length} glisse={glisse} />,
                     j > 0 && !lecture && <PoigneeLargeur key={`largeur-${j}`} changer={(largeurs) => modifier({ type: 'largeurs_rangee', rangee: i, largeurs })} />,
+                    estAnalyse(b) ? (
+                      <BlocAnalyseDashboard
+                        key={`analyse/${j}`}
+                        dashboard={d}
+                        place={{ rangee: i, bloc: j }}
+                        bloc={b}
+                        part={parts[j]!}
+                        glisse={glisse?.type === 'bloc' && glisse.place.rangee === i && glisse.place.bloc === j}
+                        analyse={analyse}
+                        poignee={!lecture && <PoigneeGlisse id={`bloc-${i}-${j}`} donnees={{ type: 'bloc', place: { rangee: i, bloc: j } }} libelle={`Déplacer le bloc ${nomAnalyse(b)}`} />}
+                        modifier={(modifs) => modifier({ type: 'modifier_analyse', place: { rangee: i, bloc: j }, modifs })}
+                        retirer={() => modifier({ type: 'retirer_bloc', place: { rangee: i, bloc: j } })}
+                      />
+                    ) : (
                     <BlocDashboard
                       key={`${b.base}/${estPropre(b) ? `propre:${b.vue.id}` : b.vue}/${j}`}
                       espace={espace}
@@ -152,11 +190,12 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
                       allerABase={allerABase}
                       retenues={retenues}
                       retirer={() => modifier({ type: 'retirer_bloc', place: { rangee: i, bloc: j } })}
-                    />,
+                    />
+                    ),
                   ])}
                   <FenteBloc rangee={i} position={r.blocs.length} taille={r.blocs.length} glisse={glisse} />
                   {r.blocs.length < BLOCS_PAR_RANGEE && !lecture && (
-                    <AjoutBloc idsPropres={idsPropres} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: i, bloc })} compact />
+                    <AjoutBloc idsPropres={idsPropres} requetes={Object.keys(d.requetes)} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: i, bloc })} compact />
                   )}
                   {!lecture && <PoigneeHauteur changer={(hauteur) => modifier({ type: 'hauteur_rangee', rangee: i, hauteur })} />}
                 </div>
@@ -166,7 +205,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
           <FenteRangee rang={d.rangees.length} glisse={glisse} />
           <DragOverlay dropAnimation={null}>{glisse && <ApercuGlisse dashboard={d} glisse={glisse} />}</DragOverlay>
         </DndContext>
-        {!lecture && <AjoutBloc idsPropres={idsPropres} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: null, bloc })} />}
+        {!lecture && <AjoutBloc idsPropres={idsPropres} requetes={Object.keys(d.requetes)} ajouter={(bloc) => modifier({ type: 'ajouter_bloc', rangee: null, bloc })} />}
       </div>
       {page && (
         <Page
@@ -187,7 +226,7 @@ type PropsBloc = {
   espace: DepotEspace
   idDashboard: string
   place: PlaceBloc
-  bloc: Bloc
+  bloc: BlocVue
   /** Part de la rangée (`flex-grow`), d'après les largeurs réglées. */
   part: number
   /** Le bloc est en train d'être glissé : il s'estompe à sa place. */
@@ -346,8 +385,35 @@ function BlocVue({ espace, idDashboard, place, bloc, part, glisse, idsPropres, r
   )
 }
 
-/** Ajout d'un bloc : une base, puis une de ses vues ou une vue propre au dashboard. */
-function AjoutBloc({ idsPropres, ajouter, compact }: { idsPropres: string[]; ajouter: (b: Bloc) => void; compact?: boolean }) {
+const LIBELLES_ANALYSE: { type: TypeVisuel; nom: string }[] = [
+  { type: 'valeur', nom: 'Chiffre clé' },
+  { type: 'barres', nom: 'Barres' },
+  { type: 'courbe', nom: 'Courbe' },
+  { type: 'aire', nom: 'Aire' },
+  { type: 'secteurs', nom: 'Secteurs' },
+  { type: 'nuage', nom: 'Nuage de points' },
+  { type: 'tableau', nom: 'Tableau SQL' },
+  { type: 'texte', nom: 'Texte' },
+]
+
+/**
+ * Bloc d'analyse de départ : la première requête du dashboard, sinon une
+ * requête propre qui montre déjà quelque chose de la première base.
+ */
+function analyseParDefaut(type: TypeVisuel, requetes: string[], schema: Schema | undefined): BlocAnalyse {
+  if (type === 'texte') return { type, texte: 'Texte libre en Markdown. Cite un résultat avec {{requete.colonne}}.' }
+  if (requetes[0]) return { type, donnees: requetes[0] }
+  if (!schema) return { type, sql: 'select 1 as valeur' }
+  const table = /^[a-z_][a-z0-9_]*$/.test(schema.id) ? schema.id : `"${schema.id}"`
+  if (type === 'valeur') return { type, titre: schema.nom, sql: `select count(*) as total from ${table}` }
+  if (type === 'tableau') return { type, titre: schema.nom, sql: `select * from ${table}` }
+  const choix = schema.colonnes.find((c) => c.type === 'select')
+  if (!choix) return { type, sql: `select count(*) as total from ${table}` }
+  return { type, titre: `${schema.nom} par ${choix.nom.toLowerCase()}`, sql: `select ${choix.cle}, count(*) as n\nfrom ${table}\ngroup by ${choix.cle}\norder by n desc` }
+}
+
+/** Ajout d'un bloc : une base, puis une de ses vues ou une vue propre au dashboard ; ou un bloc d'analyse. */
+function AjoutBloc({ idsPropres, requetes, ajouter, compact }: { idsPropres: string[]; requetes: string[]; ajouter: (b: Bloc) => void; compact?: boolean }) {
   const { etat } = useEspace()
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
@@ -381,6 +447,20 @@ function AjoutBloc({ idsPropres, ajouter, compact }: { idsPropres: string[]; ajo
               {bases.map((b) => (
                 <button key={b.id} className="option" onClick={() => setBase(b.id)}>
                   {b.depot!.schema.nom}
+                </button>
+              ))}
+              <div className="option discret">Ou un bloc d'analyse (SQL) :</div>
+              {LIBELLES_ANALYSE.map((t) => (
+                <button
+                  key={t.type}
+                  className="option"
+                  onClick={() => {
+                    ajouter(analyseParDefaut(t.type, requetes, bases[0]?.depot?.schema))
+                    fermer()
+                  }}
+                >
+                  <Icone de={ICONES_VISUEL[t.type]} />
+                  {t.nom}
                 </button>
               ))}
             </>
@@ -490,6 +570,7 @@ function FenteBloc({ rangee, position, taille, glisse }: { rangee: number; posit
 function ApercuGlisse({ dashboard, glisse }: { dashboard: Dashboard; glisse: Glisse }) {
   const { etat } = useEspace()
   const nom = (b: Bloc) => {
+    if (estAnalyse(b)) return b.titre ?? nomAnalyse(b)
     const base = etat.bases.get(b.base)
     const vue = estPropre(b) ? b.vue.nom : (base?.vues.find((v) => v.id === b.vue)?.nom ?? b.vue)
     return `${base?.depot?.schema.nom ?? b.base} › ${vue}`

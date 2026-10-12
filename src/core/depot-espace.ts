@@ -433,7 +433,7 @@ export class DepotEspace {
       relations.push(`${this.schema(b).nom} › ${c.nom}`)
       dependants.push(...this.dependants(b, c.cle).filter((d) => !d.startsWith(`${this.schema(id).nom} › `)))
     }
-    const blocs = [...this.dashboards.values()].flatMap((d) => d.dashboard?.rangees.flatMap((r) => r.blocs) ?? []).filter((b) => b.base === id).length
+    const blocs = [...this.dashboards.values()].flatMap((d) => d.dashboard?.rangees.flatMap((r) => r.blocs) ?? []).filter((b) => 'base' in b && b.base === id).length
     return { lignes, relations, dependants: [...new Set(dependants)], blocs }
   }
 
@@ -460,7 +460,7 @@ export class DepotEspace {
         await this.depot(b).reecrireColonne(c.cle, valeurs)
       }
       for (const [idDash, d] of this.dashboards) {
-        const places = (d.dashboard?.rangees ?? []).flatMap((r, rangee) => r.blocs.map((bloc, i) => ({ rangee, bloc: i, base: bloc.base })))
+        const places = (d.dashboard?.rangees ?? []).flatMap((r, rangee) => r.blocs.map((bloc, i) => ({ rangee, bloc: i, base: 'base' in bloc ? bloc.base : undefined })))
         const retirees = places.filter((p) => p.base === id).reverse()
         if (retirees.length === 0) continue
         const chemin = cheminDashboard(idDash)
@@ -562,7 +562,7 @@ export class DepotEspace {
     const d = this.dashboards.get(id)?.dashboard
     if (!d) return Promise.reject(new ErreurDashboard(`Dashboard introuvable ou illisible : ${id}`))
     if (op.type === 'ajouter_bloc') {
-      if (!this.bases.get(op.bloc.base)?.chargement.ok) return Promise.reject(new ErreurDashboard(`Base introuvable : ${op.bloc.base}`))
+      if ('base' in op.bloc && !this.bases.get(op.bloc.base)?.chargement.ok) return Promise.reject(new ErreurDashboard(`Base introuvable : ${op.bloc.base}`))
       if (op.rangee !== null && (d.rangees[op.rangee]?.blocs.length ?? BLOCS_PAR_RANGEE) >= BLOCS_PAR_RANGEE) {
         return Promise.reject(new ErreurDashboard(`Une rangée tient ${BLOCS_PAR_RANGEE} blocs au plus`))
       }

@@ -590,13 +590,96 @@ filtres_rapides:                                     # pastilles globales
 
 - **Pour l'assistant et Claude (MCP)** [DÉCIDÉ, demandé par Alex le 12/10/2026] : les mêmes possibilités, par les mêmes outils pour les deux.
   - `creer_dashboard` : des rangées d'un à trois blocs ; chaque bloc montre une vue de la base ou une vue propre (type, filtres, tris, comme `creer_vue`), avec sa largeur.
-  - `modifier_dashboard` : une liste d'opérations appliquées dans l'ordre (renommer, ajouter un bloc à une place donnée, déplacer un bloc ou une rangée, remplacer un bloc, hauteur, largeurs, réglages d'une vue propre, filtres du dashboard). Les filtres rapides restent un réglage à la main. Les places se comptent à partir de 1 et chaque opération voit le résultat des précédentes.
+  - `modifier_dashboard` : une liste d'opérations appliquées dans l'ordre (renommer, ajouter un bloc à une place donnée, déplacer un bloc ou une rangée, remplacer un bloc, hauteur, largeurs, réglages d'une vue propre, filtres et filtres rapides du dashboard). Les places se comptent à partir de 1 et chaque opération voit le résultat des précédentes.
   - `retirer_bloc` : à part, marqué destructeur (une vue propre retirée est perdue).
   - La description de l'espace montre la mise en page de chaque dashboard : rangées, blocs (base, vue, propre ou non, largeur), hauteurs et filtres.
 - **Filtres globaux** [DÉCIDÉ, validé par Alex le 25/09/2026] : un dashboard peut porter des filtres et des filtres rapides qui valent pour tous ses blocs. Chacun porte sur une base (« Projets › Statut = En cours »), qu'elle ait un bloc ou non.
   - Un bloc de cette base est filtré directement. Un bloc d'une autre base suit ses relations vers elle : il garde les lignes liées à au moins une ligne retenue (les tâches des projets en cours). Un bloc sans relation vers la base filtrée n'est pas filtré, et son en-tête le dit.
   - Plusieurs bases filtrées se combinent en ET. Ces filtres s'ajoutent à ceux de la vue du bloc, sans les modifier.
   - Pastille globale sans colonne : le choix de lignes de la base (« Projets : Site vitrine, Boutique »), par cases à cocher. Comme toute pastille, non réglée elle ne filtre rien.
+
+### Analyse : blocs calculés en SQL [PROPOSÉ, demandé par Alex le 12/10/2026]
+
+Des dashboards complexes à la manière de Power BI, à partir des données de l'espace : des chiffres clés, des graphiques et des tableaux calculés par des requêtes SQL, avec des paramètres, des règles de calcul et une mise en forme conditionnelle. Le principe vient d'evidence.dev (requêtes SQL nommées, visuels qui en citent le résultat), sans l'intégrer. Ces blocs vivent dans les dashboards, à côté des blocs vue, avec la même mise en page. Des rapports à part (ancien §20) restent possibles plus tard.
+
+**Moteur**
+- **DuckDB-WASM**, le moteur d'Evidence. Il tourne dans la page, **sans appel réseau** (fichiers du moteur livrés avec l'app, jamais un CDN), et ne se charge qu'à l'ouverture d'un dashboard qui a des requêtes. Le serveur MCP Node (§17) embarque le même moteur.
+- **Lecture seule** : une base en mémoire, recréée à chaque calcul, sans accès aux fichiers ni au réseau. Une requête ne peut rien écrire dans l'espace.
+- Recalculé quand les bases changent (saisie, relecture du dossier) ou qu'un filtre ou un paramètre change.
+
+**Tables**
+- Chaque base est une **table** du nom de son id (`projets`, `taches`), une colonne par clé de colonne, **colonnes calculées comprises** (rollups, formules, Créé le, Modifié le) : on lit ce que l'app affiche. S'y ajoutent `id` et, toujours, `_cree` et `_modifie` (vides quand la ligne ne les a pas).
+- Types : nombre → `DOUBLE`, case à cocher → `BOOLEAN`, date → `DATE` (ou `TIMESTAMP` avec l'heure), le reste → texte. Une **relation** ou un **choix multiple** est une liste (ids des lignes liées, libellés), qu'on déplie par `unnest`. Une cellule en erreur ou vide vaut `NULL`.
+- Les **filtres et filtres rapides du dashboard** valent aussi pour les requêtes : chaque table ne contient que les lignes que le dashboard retient, selon la même règle que les blocs vue (une base filtrée directement, les autres par leurs relations). Une pastille réglée filtre donc tous les visuels, comme un segment Power BI.
+
+**Fichier**
+
+```yaml
+id: pilotage-tickets
+nom: Pilotage tickets
+parametres:
+  - { nom: mois, libelle: Mois, type: mois, defaut: courant }
+  - { nom: equipe, libelle: Équipe, type: choix, options: [Support, Produit], valeur: Support }
+requetes:
+  par_statut: |
+    select statut, count(*) as n
+    from tickets
+    where strftime(cree_le, '%Y-%m') = {{mois}} and equipe = {{equipe}}
+    group by statut order by n desc
+  total: select count(*) as n, count(*) filter (where statut = 'Bloqué') as bloques from tickets
+rangees:
+  - blocs:
+      - { type: valeur, titre: Tickets, donnees: total, valeur: n }
+      - type: valeur
+        titre: Bloqués
+        donnees: total
+        valeur: bloques
+        regles: [{ si: '> 5', couleur: rouge }]
+      - { type: barres, titre: Par statut, donnees: par_statut, x: statut, y: n, largeur: 50 }
+  - blocs:
+      - type: tableau
+        sql: select titre, statut, jours_restants from projets order by jours_restants
+        format: { jours_restants: entier }
+        regles:
+          - { colonne: jours_restants, si: '< 0', couleur: rouge }
+          - { colonne: statut, si: '= Terminé', couleur: vert, ligne: true }
+      - type: texte
+        texte: "**{{total.n}} tickets** ce mois-ci, dont {{total.bloques}} bloqués."
+```
+
+- `requetes` : des requêtes nommées, à partager entre plusieurs blocs. Un bloc peut aussi porter sa propre requête (`sql`) à la place de `donnees`.
+- Un bloc d'analyse a un `type` au lieu d'une `base` ; il garde `largeur`, sa rangée garde `hauteur`, et il se glisse comme les autres. `titre` facultatif.
+
+| `type` | Montre | Réglages |
+| --- | --- | --- |
+| `valeur` | un chiffre clé (première ligne du résultat) | `valeur` (colonne), `comparer` (colonne de référence : écart et flèche), `format`, `regles` |
+| `barres` | barres verticales | `x`, `y` (une colonne ou une liste), `serie` (colonne qui découpe en séries), `empile`, `horizontal`, `format` |
+| `courbe`, `aire` | évolution | `x`, `y`, `serie`, `empile` (aire), `format` |
+| `secteurs` | parts d'un tout | `x` (libellé), `y` (valeur) |
+| `nuage` | deux mesures croisées | `x`, `y`, `serie`, `taille` |
+| `tableau` | le résultat tel quel | `colonnes` (choix et ordre), `format` (par colonne), `regles` |
+| `texte` | du Markdown | `texte`, où `{{requete.colonne}}` cite la première ligne d'un résultat |
+
+- **Format** : `nombre` (par défaut), `entier`, `decimal` (deux chiffres), `pourcent` (un ratio : 0,25 → 25 %), `euros`, `date`. Sur un tableau, un format par colonne. Un rollup en pourcentage (« % cochées ») vaut de 0 à 100 dans sa table, comme à l'écran : on le divise par 100 pour le format `pourcent`.
+- **Mise en forme conditionnelle** (`regles`) : une liste lue dans l'ordre, la première qui s'applique gagne. `si` = un opérateur (`>`, `>=`, `<`, `<=`, `=`, `!=`) et une valeur (nombre, texte, date), ou le nom d'une autre colonne du résultat (`'< objectif'`). `couleur` : une couleur de l'espace (§3). `colonne` : la colonne testée, par défaut la mesure du bloc (`valeur`, ou `y` d'un graphique). Sur un tableau, la cellule testée prend la couleur ; avec `ligne: true`, toute la ligne. Sur un graphique, la règle colore les barres ou les points qui la remplissent.
+- Couleurs des séries : celles des options quand l'axe ou la série est une colonne à choix de la base, sinon la palette de l'espace. Graphiques à la demande (ECharts), aux couleurs du thème clair ou sombre.
+
+**Paramètres**
+- `parametres` : des choix montrés en haut du dashboard, à côté des filtres rapides. `type` : `choix` (`options` : une liste, ou le nom d'une requête dont la première colonne donne les options), `texte`, `nombre`, `date`, `mois` (`courant`, `precedent` ou `AAAA-MM`), `periode` (deux dates). `defaut` : la valeur de départ ; `valeur` : la valeur choisie, écrite dans le fichier comme une pastille.
+- Dans une requête, `{{nom}}` est remplacé par la valeur **en littéral SQL échappé** (jamais collée telle quelle) ; une période donne `{{nom.debut}}` et `{{nom.fin}}`. Un paramètre sans valeur vaut `NULL`.
+
+**Erreurs**
+- Une requête en erreur (SQL, table ou colonne inconnue, paramètre absent) montre son message dans chacun de ses blocs ; le reste du dashboard s'affiche. Une colonne de réglage absente du résultat (`x: statut` sans colonne `statut`) le dit dans le bloc.
+- Un résultat se coupe à 5 000 lignes, et le bloc le dit.
+
+**Captures**
+- Menu de chaque bloc : **Copier l'image** et **Enregistrer l'image** (PNG). Menu du dashboard : **Exporter en image** (le dashboard entier, paramètres et filtres réglés compris). C'est le mode de partage : pas de publication en ligne.
+
+**Pour l'assistant et Claude (MCP)**, mêmes outils pour les deux (§17) :
+- `executer_sql` (lecture) : exécute une requête sur les tables de l'espace et renvoie les 200 premières lignes, pour explorer avant d'écrire un bloc. Les filtres d'un dashboard s'appliquent si on le nomme.
+- `creer_dashboard` accepte les blocs d'analyse (un `type` de visuel à la place de `base`), `requetes` et `parametres`. `modifier_dashboard` a quatre opérations de plus : `modifier_bloc` (réglages d'un bloc d'analyse, `nouveau_type` pour changer de visuel, `null` retire un réglage), `requete` (ajouter, remplacer, ou retirer avec `sql: null` ; refusé tant qu'un bloc s'en sert), `parametres` (remplace la liste) et `valeur_parametre`.
+- Chaque requête est exécutée avant d'être acceptée : une erreur SQL, ou une colonne de réglage absente du résultat, refuse l'appel avec son message. Un réglage inconnu est refusé en listant ceux qui existent.
+- La description de l'espace donne les tables SQL (colonnes et types), et, pour chaque dashboard, ses requêtes, ses paramètres et ses blocs d'analyse.
 
 ---
 
@@ -914,54 +997,9 @@ Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans u
 
 ---
 
-## 20. Rapports [PROPOSÉ, demandé par Alex le 09/10/2026]
+## 20. Rapports [PLUS TARD]
 
-Des pages d'analyse à la manière d'evidence.dev : du Markdown, des requêtes SQL sur les bases, des graphiques qui en citent les résultats. evidence.dev lui-même n'est pas intégré (générateur de site SvelteKit, avec compilation et serveur) : on en reprend le principe, dans l'app et en fichiers.
-
-### Principe
-
-- Un rapport = un fichier `_rapports/<id>.md` à la racine de l'espace. Lisible et modifiable dans n'importe quel éditeur, comme le reste.
-- Moteur : **DuckDB-WASM**, le même qu'Evidence. Il tourne dans la page, **sans aucun appel réseau** (fichiers du moteur embarqués dans l'app, jamais un CDN), et ne se charge qu'à l'ouverture d'un rapport, comme la lecture des PDF.
-- Chaque base est une **table** du nom de son id (`projets`, `taches`), une colonne par clé de colonne, **colonnes calculées comprises** (rollups, formules) : on lit ce que l'app affiche. Types : nombre, texte, date, booléen ; une relation ou un choix multiple est une liste (ids des lignes liées, valeurs), qu'on déplie par `unnest`.
-- **Lecture seule** : les tables sont une copie recréée à chaque calcul, une requête ne peut rien écrire dans l'espace.
-- Recalculé quand les bases changent (saisie, relecture du dossier).
-
-### Fichier d'un rapport
-
-````markdown
----
-nom: Charge par client
----
-
-# Charge par client
-
-```sql charge
-select c.nom as client, count(*) as taches
-from taches t, unnest(t.projet) as p(id)
-join projets pr on pr.id = p.id
-join clients c on list_contains(pr.client, c.id)
-group by client order by taches desc
-```
-
-```graphique
-type: barres
-donnees: charge
-x: client
-y: taches
-```
-````
-
-- Un bloc ```` ```sql <nom> ```` exécute une requête et nomme son résultat ; un bloc ```` ```graphique ```` (YAML) le montre : `barres`, `courbe`, `secteurs`, `valeur` (un chiffre clé), `tableau`. Le texte autour est du Markdown ordinaire.
-- Les blocs SQL s'affichent repliés en lecture, dépliables. Une requête en erreur montre son message à sa place, le reste du rapport s'affiche.
-- Librairie de graphiques chargée à la demande : choix à faire à l'implémentation (ECharts comme Evidence, ou plus léger), aux couleurs de l'espace.
-
-### Dans l'app
-
-- Nouveau module **Rapports** (§19), désactivé par défaut : une section Rapports dans la barre latérale, sous les dashboards.
-- Édition du rapport dans l'éditeur des pages (CodeMirror), aperçu des résultats sous chaque bloc.
-- Fonctionne dans le navigateur comme dans l'app de bureau.
-- À trancher : un rapport peut-il aussi être un bloc de dashboard (§10), ou les deux restent-ils séparés ?
-- [PLUS TARD] L'assistant écrit un rapport à la demande (« combien de tâches par client ce mois-ci »), montré avant d'être enregistré comme toute proposition.
+Proposés le 09/10/2026 comme des fichiers `_rapports/<id>.md` à part (Markdown, blocs SQL et graphiques). Le 12/10/2026, Alex choisit de commencer dans les dashboards : voir §10 « Analyse ». Les séparer reste possible plus tard, avec le même moteur et les mêmes visuels.
 
 ---
 

@@ -7,9 +7,10 @@ import { OPERATEURS, type Niveau, type Vue } from '../vue'
 import type { Skill } from './memoire'
 import type { DefinitionOutil } from './modele'
 import { TYPES_COLONNE, TYPES_OPERATION, TYPES_VUE } from './structure'
-import { estPropre, type Bloc } from '../dashboard'
+import { estAnalyse, estPropre, type Bloc } from '../dashboard'
 import { CALCULS } from '../schema'
 import { COULEURS } from '../couleurs'
+import { detailAnalyse, FORMATS, TYPES_PARAMETRE, TYPES_VISUEL } from '../bi/analyse'
 
 // Ce que voit le modèle (spec §12, « Module IA ») : la consigne, les outils,
 // et une description compacte de l'espace ouvert. Rien d'autre ne quitte la machine.
@@ -139,10 +140,51 @@ const REGLAGES_VUE = {
 /** Réglages d'une vue propre dans une opération : `largeurs` y désigne celle des blocs. */
 const { largeurs: _largeurs, ...REGLAGES_VUE_BLOC } = REGLAGES_VUE
 
+/** Réglages d'un bloc d'analyse (spec §10 « Analyse ») ; `colonnes` est partagé avec les réglages de vue. */
+const REGLAGES_ANALYSE = {
+  titre: { type: 'string' },
+  donnees: { type: 'string', description: 'analyse : nom d’une requête du dashboard (ou `sql`)' },
+  sql: { type: 'string', description: 'analyse : requête propre au bloc, à la place de `donnees`. Tables : une par base (son id), colonnes = clés, + id, _cree, _modifie ; relation ou choix multiple = liste (unnest). {{parametre}} cite un paramètre' },
+  x: { type: 'string', description: 'graphique : colonne des catégories (secteurs : libellé ; nuage : nombre)' },
+  y: { type: ['string', 'array'], items: { type: 'string' }, description: 'graphique : colonne(s) de mesure' },
+  serie: { type: 'string', description: 'graphique : colonne qui découpe en séries' },
+  taille: { type: 'string', description: 'nuage : colonne de la taille des points' },
+  valeur: { type: 'string', description: 'chiffre clé : colonne montrée (première ligne) ; valeur_parametre : la valeur choisie' },
+  comparer: { type: 'string', description: 'chiffre clé : colonne de référence (écart et flèche)' },
+  empile: { type: 'boolean' },
+  horizontal: { type: 'boolean', description: 'barres horizontales' },
+  format: { type: ['string', 'object'], description: `analyse : ${FORMATS.join(', ')} ; ou { colonne: format } pour un tableau` },
+  regles: {
+    type: 'array',
+    items: { type: 'object', properties: { si: { type: 'string', description: "'> 50', '= Bloqué', '< objectif' (autre colonne)" }, couleur: { type: 'string', enum: [...COULEURS] }, colonne: { type: 'string', description: 'colonne testée (par défaut la mesure)' }, ligne: { type: 'boolean', description: 'tableau : colore la ligne entière' } }, required: ['si', 'couleur'] },
+    description: 'analyse : mise en forme conditionnelle, la première règle remplie gagne',
+  },
+  texte: { type: 'string', description: 'bloc texte : Markdown ; {{requete.colonne}} cite la première ligne d’un résultat' },
+}
+
+const PARAMETRES = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      nom: { type: 'string', description: 'minuscules, chiffres, _ ; cité {{nom}} dans le SQL (période : {{nom.debut}}, {{nom.fin}})' },
+      libelle: { type: 'string' },
+      type: { type: 'string', enum: [...TYPES_PARAMETRE] },
+      options: { type: ['array', 'string'], items: { type: 'string' }, description: 'choix : liste, ou nom d’une requête dont la 1re colonne donne les options' },
+      defaut: { description: "mois : 'courant', 'precedent' ou AAAA-MM ; période : [début, fin]" },
+    },
+    required: ['nom', 'type'],
+  },
+  description: 'paramètres du dashboard, réglables en haut ; un paramètre sans valeur vaut NULL dans le SQL',
+}
+
 const BLOC = {
   type: 'object',
+  description: 'bloc vue : { base, vue | vue_propre } ; bloc d’analyse : { type, donnees | sql, … } sans base',
   properties: {
     base: { type: 'string' },
+    type: { type: 'string', enum: [...TYPES_VISUEL], description: 'bloc d’analyse : le visuel (valeur = chiffre clé, tableau = résultat SQL, texte = Markdown)' },
+    ...REGLAGES_ANALYSE,
     vue: { type: 'string', description: 'id ou nom d’une vue de la base (par défaut : sa première)' },
     vue_propre: {
       type: 'object',
@@ -152,7 +194,6 @@ const BLOC = {
     },
     largeur: { type: 'number', description: 'en % de la rangée (10 à 90) ; sans : part égale du reste' },
   },
-  required: ['base'],
 }
 
 const HAUTEUR = { type: ['number', 'null'], description: 'hauteur des blocs de la rangée en pixels (160 à 2400) ; null : par défaut' }
@@ -288,11 +329,13 @@ export const OUTILS: DefinitionOutil[] = [
   {
     nom: 'creer_dashboard',
     description:
-      'Crée un dashboard : des rangées de 1 à 3 blocs côte à côte. Chaque bloc affiche une vue de la base (existante ou créée plus haut), ou une vue propre au dashboard réglée comme creer_vue.',
+      'Crée un dashboard : des rangées de 1 à 3 blocs côte à côte. Chaque bloc affiche une vue de la base (existante ou créée plus haut), une vue propre au dashboard réglée comme creer_vue, ou un bloc d’analyse : chiffre clé, graphique, tableau ou texte calculé par une requête SQL (DuckDB) sur les bases. Explore d’abord avec executer_sql ; chaque requête est exécutée avant d’être acceptée.',
     parametres: {
       type: 'object',
       properties: {
         nom: { type: 'string' },
+        requetes: { type: 'object', additionalProperties: { type: 'string' }, description: 'requêtes SQL nommées { nom: "select …" }, partagées par les blocs (donnees: nom)' },
+        parametres: PARAMETRES,
         rangees: {
           type: 'array',
           items: { type: 'object', properties: { blocs: { type: 'array', items: BLOC, minItems: 1, maxItems: 3 }, hauteur: HAUTEUR }, required: ['blocs'] },
@@ -319,7 +362,7 @@ export const OUTILS: DefinitionOutil[] = [
                 type: 'string',
                 enum: [...TYPES_OPERATION],
                 description:
-                  'renommer (nom) ; ajouter_bloc (nouveau, rangee, position) ; deplacer_bloc (rangee, bloc, puis vers_rangee et position, ou nouvelle_rangee) ; remplacer_bloc (rangee, bloc, par) ; deplacer_rangee (rangee, vers) ; hauteur (rangee, hauteur) ; largeurs (rangee, largeurs) ; modifier_vue (rangee, bloc, réglages comme modifier_vue : vue propre seulement) ; filtres (filtres et/ou filtres_rapides du dashboard)',
+                  'renommer (nom) ; ajouter_bloc (nouveau, rangee, position) ; deplacer_bloc (rangee, bloc, puis vers_rangee et position, ou nouvelle_rangee) ; remplacer_bloc (rangee, bloc, par) ; deplacer_rangee (rangee, vers) ; hauteur (rangee, hauteur) ; largeurs (rangee, largeurs) ; modifier_vue (rangee, bloc, réglages comme modifier_vue : vue propre seulement) ; filtres (filtres et/ou filtres_rapides du dashboard) ; modifier_bloc (rangee, bloc, réglages d’analyse ; nouveau_type change le visuel ; null retire un réglage) ; requete (nom, sql ; sql null la retire) ; parametres (parametres : remplace la liste) ; valeur_parametre (nom, valeur ; null : défaut)',
               },
               nom: { type: 'string' },
               rangee: { type: 'integer', description: 'numéro de rangée ; ajouter_bloc sans rangee : nouvelle rangée en bas' },
@@ -333,6 +376,10 @@ export const OUTILS: DefinitionOutil[] = [
               hauteur: HAUTEUR,
               largeurs: { type: 'array', items: { type: ['number', 'null'] }, description: 'une par bloc de la rangée, en % (10 à 90) ; null : part égale' },
               ...REGLAGES_VUE_BLOC,
+              ...REGLAGES_ANALYSE,
+              colonnes: { type: 'array', items: { type: 'string' }, description: 'modifier_vue : ordre des colonnes ; modifier_bloc : colonnes d’un tableau d’analyse' },
+              nouveau_type: { type: 'string', enum: [...TYPES_VISUEL], description: 'modifier_bloc : change le visuel' },
+              parametres: PARAMETRES,
               largeurs_colonnes: { ...REGLAGES_VUE.largeurs, description: 'modifier_vue : largeur des colonnes du tableau, { colonne: px } ; null les retire' },
               filtres_rapides: {
                 type: 'array',
@@ -555,13 +602,22 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
       parties.push(`${d.id} « ${d.dashboard?.nom ?? d.id} »${d.dashboard ? '' : ' (fichier illisible)'}`)
       if (!d.dashboard) continue
       const bloc = (b: Bloc, j: number) => {
+        if (estAnalyse(b)) return `${j + 1}. ${detailAnalyse(b)}${b.largeur ? `, largeur ${b.largeur} %` : ''}`
         const vue = estPropre(b) ? `vue propre « ${b.vue.nom} » (${b.vue.type}${detailTemps(b.vue)}${detailVue(b.vue)})` : `vue ${b.vue}`
         return `${j + 1}. ${b.base}, ${vue}${b.largeur ? `, largeur ${b.largeur} %` : ''}`
       }
       d.dashboard.rangees.forEach((r, i) => parties.push(`- rangée ${i + 1}${r.hauteur ? ` (hauteur ${r.hauteur} px)` : ''} : ${r.blocs.map(bloc).join(' | ')}`))
       if (d.dashboard.filtres.length > 0) parties.push(`- filtres : ${d.dashboard.filtres.map((f) => `${f.base}.${filtreLisible(f)}`).join(', ')}`)
       if (d.dashboard.filtresRapides.length > 0) parties.push(`- filtres rapides : ${d.dashboard.filtresRapides.map((p) => `${p.base}${p.colonne ? `.${p.colonne}` : ' (choix de lignes)'}`).join(', ')}`)
+      for (const [nom, sql] of Object.entries(d.dashboard.requetes)) parties.push(`- requête ${nom} : ${sql.replace(/\s+/g, ' ').trim()}`)
+      if (d.dashboard.parametres.length > 0) {
+        parties.push(`- paramètres : ${d.dashboard.parametres.map((p) => `${p.nom} (${p.type}${p.options ? `, options ${Array.isArray(p.options) ? p.options.join('/') : `de la requête ${p.options}`}` : ''}${p.defaut !== undefined ? `, défaut ${JSON.stringify(p.defaut)}` : ''}${p.valeur !== undefined ? `, valeur ${JSON.stringify(p.valeur)}` : ''})`).join(', ')}`)
+      }
     }
+    parties.push(
+      '',
+      "Blocs d'analyse et executer_sql : SQL DuckDB en lecture ; chaque base est une table nommée par son id, une colonne par clé (colonnes calculées comprises), plus id, _cree et _modifie (horodatages) ; une relation (ids liés) ou un choix multiple est une liste VARCHAR[] (unnest, list_contains) ; nombre DOUBLE, date DATE, case BOOLEAN ; un rollup en pourcentage vaut de 0 à 100 (le format pourcent attend un ratio : diviser par 100).",
+    )
   }
   // Mémoire et skills avant ce qui change à chaque demande : le début du message reste identique d'une demande à l'autre.
   if (o.memoire?.length) parties.push('', '## Mémoire', ...o.memoire.map((f) => `- ${f}`))
