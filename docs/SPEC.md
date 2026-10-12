@@ -598,7 +598,7 @@ filtres_rapides:                                     # pastilles globales
   - Plusieurs bases filtrées se combinent en ET. Ces filtres s'ajoutent à ceux de la vue du bloc, sans les modifier.
   - Pastille globale sans colonne : le choix de lignes de la base (« Projets : Site vitrine, Boutique »), par cases à cocher. Comme toute pastille, non réglée elle ne filtre rien.
 
-### Analyse : blocs calculés en SQL [PROPOSÉ, demandé par Alex le 12/10/2026]
+### Analyse : blocs calculés en SQL [DÉCIDÉ, demandé par Alex le 12/10/2026, validé le 12/10/2026]
 
 Des dashboards complexes à la manière de Power BI, à partir des données de l'espace : des chiffres clés, des graphiques et des tableaux calculés par des requêtes SQL, avec des paramètres, des règles de calcul et une mise en forme conditionnelle. Le principe vient d'evidence.dev (requêtes SQL nommées, visuels qui en citent le résultat), sans l'intégrer. Ces blocs vivent dans les dashboards, à côté des blocs vue, avec la même mise en page. Des rapports à part (ancien §20) restent possibles plus tard.
 
