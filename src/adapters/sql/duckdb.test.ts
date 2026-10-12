@@ -41,6 +41,8 @@ describe('tables', () => {
       { nom: '_modifie', nature: 'date' },
     ])
     expect(r.ok && r.resultat.lignes[0]).toEqual({ id: 't0000001', titre: 'A', projet: ['p0000001'], statut: 'À faire', heures: 3, fait: true, echeance: '2026-10-01', _cree: null, _modifie: null })
+    // Une case absente du fichier est décochée : `false`, pas `NULL`.
+    expect(await lignes('select count(*) as n from taches where not fait')).toEqual([{ n: 2 }])
     expect(await lignes('select titre, heures from projets order by titre')).toEqual([
       { titre: 'Navi', heures: 8 },
       { titre: 'Seul', heures: null },

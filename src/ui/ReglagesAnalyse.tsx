@@ -5,6 +5,7 @@ import type { ResultatsAnalyse } from '../core/bi/calcul'
 import type { ResultatSql } from '../core/bi/sql'
 import { COULEURS } from '../core/couleurs'
 import type { Dashboard, ModificationAnalyse, OperationDashboard } from '../core/dashboard'
+import { Choix } from './Choix'
 import { Fenetre } from './fenetre'
 import { Icone } from './icones'
 
@@ -27,16 +28,7 @@ const LIBELLES_PARAMETRE: Record<TypeParametre, string> = { choix: 'Choix', text
 /** Une liste de colonnes du résultat, ou un champ libre quand le résultat n'est pas encore là. */
 function ChoixColonne({ libelle, valeur, colonnes, changer, vide = '(automatique)' }: { libelle: string; valeur: string | undefined; colonnes: string[]; changer: (v: string | null) => void; vide?: string }) {
   if (colonnes.length === 0) return <input aria-label={libelle} defaultValue={valeur ?? ''} onBlur={(e) => changer(e.target.value.trim() || null)} placeholder="colonne" />
-  return (
-    <select aria-label={libelle} value={valeur ?? ''} onChange={(e) => changer(e.target.value || null)}>
-      <option value="">{vide}</option>
-      {[...new Set([...colonnes, ...(valeur ? [valeur] : [])])].map((c) => (
-        <option key={c} value={c}>
-          {c}
-        </option>
-      ))}
-    </select>
-  )
+  return <Choix libelle={libelle} valeur={valeur ?? ''} vide={vide} entrees={[{ valeur: '', libelle: vide }, ...colonnes.map((c) => ({ valeur: c, libelle: c }))]} changer={(v) => changer(v || null)} />
 }
 
 export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboard: Dashboard; bloc: BlocAnalyse; resultat: ResultatSql | undefined; modifier: (m: ModificationAnalyse) => void }) {
@@ -50,13 +42,7 @@ export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboar
     <div className="reglages-analyse" aria-label={`Réglages de ${nomAnalyse(bloc)}`}>
       <label>
         Type
-        <select aria-label="Type" value={bloc.type} onChange={(e) => modifier({ type: e.target.value as TypeVisuel })}>
-          {TYPES_VISUEL.map((t) => (
-            <option key={t} value={t}>
-              {LIBELLES_TYPE[t]}
-            </option>
-          ))}
-        </select>
+        <Choix libelle="Type" valeur={bloc.type} entrees={TYPES_VISUEL.map((t) => ({ valeur: t, libelle: LIBELLES_TYPE[t] }))} changer={(v) => modifier({ type: v as TypeVisuel })} />
       </label>
       {bloc.type === 'texte' ? (
         <label className="large">
@@ -67,23 +53,16 @@ export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboar
         <>
           <label>
             Données
-            <select
-              aria-label="Données"
-              value={source}
-              onChange={(e) => {
-                const v = e.target.value
+            <Choix
+              libelle="Données"
+              valeur={source}
+              vide="(aucune)"
+              entrees={[{ valeur: '', libelle: '(aucune)' }, ...requetes.map((r) => ({ valeur: r, libelle: `Requête « ${r} »` })), { valeur: 'sql', libelle: 'Requête propre au bloc' }]}
+              changer={(v) => {
                 if (v === 'sql') modifier({ sql: bloc.sql ?? (bloc.donnees ? dashboard.requetes[bloc.donnees] : undefined) ?? 'select 1 as valeur', donnees: null })
                 else modifier({ donnees: v || null, sql: null })
               }}
-            >
-              <option value="">(aucune)</option>
-              {requetes.map((r) => (
-                <option key={r} value={r}>
-                  Requête « {r} »
-                </option>
-              ))}
-              <option value="sql">Requête propre au bloc</option>
-            </select>
+            />
           </label>
           {bloc.sql !== undefined && (
             <label className="large">
@@ -179,14 +158,12 @@ export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboar
       {bloc.type !== 'texte' && bloc.type !== 'tableau' && (
         <label>
           Format
-          <select aria-label="Format" value={formatUnique ?? ''} onChange={(e) => modifier({ format: (e.target.value as Format) || null })}>
-            <option value="">Nombre</option>
-            {FORMATS.filter((f) => f !== 'nombre').map((f) => (
-              <option key={f} value={f}>
-                {LIBELLES_FORMAT[f]}
-              </option>
-            ))}
-          </select>
+          <Choix
+            libelle="Format"
+            valeur={formatUnique ?? ''}
+            entrees={[{ valeur: '', libelle: 'Nombre' }, ...FORMATS.filter((f) => f !== 'nombre').map((f) => ({ valeur: f, libelle: LIBELLES_FORMAT[f] }))]}
+            changer={(v) => modifier({ format: (v as Format) || null })}
+          />
         </label>
       )}
       {bloc.type === 'tableau' && colonnes.length > 0 && (
@@ -197,21 +174,16 @@ export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboar
             return (
               <label key={c}>
                 {c}
-                <select
-                  value={parColonne[c] ?? ''}
-                  onChange={(e) => {
+                <Choix
+                  libelle={`Format de ${c}`}
+                  valeur={parColonne[c] ?? ''}
+                  entrees={[{ valeur: '', libelle: 'Automatique' }, ...FORMATS.map((f) => ({ valeur: f, libelle: LIBELLES_FORMAT[f] }))]}
+                  changer={(v) => {
                     const { [c]: _ancien, ...reste } = parColonne
-                    const suivant = e.target.value ? { ...reste, [c]: e.target.value as Format } : reste
+                    const suivant = v ? { ...reste, [c]: v as Format } : reste
                     modifier({ format: Object.keys(suivant).length > 0 ? suivant : null })
                   }}
-                >
-                  <option value="">Automatique</option>
-                  {FORMATS.map((f) => (
-                    <option key={f} value={f}>
-                      {LIBELLES_FORMAT[f]}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
             )
           })}
@@ -231,13 +203,7 @@ function EditeurRegles({ regles, colonnes, tableau, changer }: { regles: Regle[]
         <div key={i} className="regle-analyse">
           <ChoixColonne libelle="Colonne testée" valeur={r.colonne} colonnes={colonnes} changer={(c) => remplacer(i, { ...r, ...(c ? { colonne: c } : { colonne: undefined }) })} vide={tableau ? '(colonne ?)' : '(la mesure)'} />
           <input defaultValue={r.si} placeholder="> 50" aria-label="Condition" onBlur={(e) => e.target.value.trim() && remplacer(i, { ...r, si: e.target.value.trim() })} />
-          <select value={r.couleur} onChange={(e) => remplacer(i, { ...r, couleur: e.target.value })} aria-label="Couleur">
-            {COULEURS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <Choix libelle="Couleur" valeur={r.couleur} entrees={COULEURS.map((c) => ({ valeur: c, libelle: c, couleur: c }))} changer={(c) => remplacer(i, { ...r, couleur: c })} />
           {tableau && (
             <label className="case" title="Colorer toute la ligne">
               <input type="checkbox" checked={!!r.ligne} onChange={(e) => remplacer(i, { ...r, ligne: e.target.checked || undefined })} />
@@ -318,13 +284,7 @@ function EditeurParametres({ parametres, requetes, changer }: { parametres: Para
         <div key={i} className="parametre-analyse">
           <input defaultValue={p.nom} aria-label="Nom" onBlur={(e) => NOM_VALIDE.test(e.target.value) && e.target.value !== p.nom && remplacer(i, { ...p, nom: e.target.value })} />
           <input defaultValue={p.libelle ?? ''} placeholder="Libellé" aria-label="Libellé" onBlur={(e) => remplacer(i, { ...p, libelle: e.target.value.trim() || undefined })} />
-          <select value={p.type} aria-label="Type" onChange={(e) => remplacer(i, { nom: p.nom, ...(p.libelle && { libelle: p.libelle }), type: e.target.value as TypeParametre })}>
-            {TYPES_PARAMETRE.map((t) => (
-              <option key={t} value={t}>
-                {LIBELLES_PARAMETRE[t]}
-              </option>
-            ))}
-          </select>
+          <Choix libelle="Type" valeur={p.type} entrees={TYPES_PARAMETRE.map((t) => ({ valeur: t, libelle: LIBELLES_PARAMETRE[t] }))} changer={(t) => remplacer(i, { nom: p.nom, ...(p.libelle && { libelle: p.libelle }), type: t as TypeParametre })} />
           {p.type === 'choix' && (
             <input
               defaultValue={typeof p.options === 'string' ? p.options : (p.options ?? []).join(', ')}
@@ -339,11 +299,16 @@ function EditeurParametres({ parametres, requetes, changer }: { parametres: Para
             />
           )}
           {p.type === 'mois' && (
-            <select value={typeof p.defaut === 'string' && ['courant', 'precedent'].includes(p.defaut) ? p.defaut : ''} aria-label="Par défaut" onChange={(e) => remplacer(i, { ...p, defaut: e.target.value || undefined })}>
-              <option value="">Sans défaut</option>
-              <option value="courant">Mois courant</option>
-              <option value="precedent">Mois précédent</option>
-            </select>
+            <Choix
+              libelle="Par défaut"
+              valeur={typeof p.defaut === 'string' && ['courant', 'precedent'].includes(p.defaut) ? p.defaut : ''}
+              entrees={[
+                { valeur: '', libelle: 'Sans défaut' },
+                { valeur: 'courant', libelle: 'Mois courant' },
+                { valeur: 'precedent', libelle: 'Mois précédent' },
+              ]}
+              changer={(v) => remplacer(i, { ...p, defaut: v || undefined })}
+            />
           )}
           <button className="discret" onClick={() => changer(parametres.filter((_, k) => k !== i))} aria-label={`Retirer le paramètre ${p.nom}`}>
             <Icone de={Trash2} />

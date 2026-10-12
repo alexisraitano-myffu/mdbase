@@ -1,5 +1,5 @@
 import { axe, mesures, type BlocAnalyse } from '../core/bi/analyse'
-import { couleurRegle, formatDe, formater } from '../core/bi/regles'
+import { couleurRegle, formatDe, formater, formaterCompact } from '../core/bi/regles'
 import type { ResultatSql, ValeurSql } from '../core/bi/sql'
 import type { Schema } from '../core/schema'
 
@@ -21,7 +21,7 @@ export const VIVES: Record<string, string> = {
 }
 const ORDRE = Object.values(VIVES)
 
-export type Theme = { texte: string; discret: string; trait: string; fond: string }
+export type Theme = { texte: string; discret: string; trait: string; fond: string; police: string }
 
 /** Couleur d'option d'une valeur, quand la colonne du résultat porte le nom d'une colonne à choix d'une base. */
 export function couleursOptions(schemas: readonly Schema[], colonne: string | undefined): Map<string, string> {
@@ -46,11 +46,12 @@ export function optionGraphique(b: BlocAnalyse, r: ResultatSql, schemas: readonl
   const fmtY = fmt(ys[0] ?? '')
   const base = {
     animation: false,
-    textStyle: { fontFamily: 'inherit', color: theme.texte },
+    // La vraie police : ECharts mesure les textes avec, « inherit » faisait se chevaucher les légendes.
+    textStyle: { fontFamily: theme.police, color: theme.texte },
     tooltip: { trigger: b.type === 'secteurs' || b.type === 'nuage' ? 'item' : 'axis', valueFormatter: fmtY, confine: true },
     grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
   }
-  const axeValeurs = { type: 'value', axisLabel: { color: theme.discret, formatter: fmtY }, splitLine: { lineStyle: { color: theme.trait } } }
+  const axeValeurs = { type: 'value', axisLabel: { color: theme.discret, formatter: (v: number) => formaterCompact(v, formatDe(b.format, ys[0] ?? '')) }, splitLine: { lineStyle: { color: theme.trait } } }
   const regle = (ligne: Record<string, ValeurSql>, mesure: string) => {
     const c = couleurRegle(b.regles, ligne, (rg) => rg.colonne ?? mesure)
     return c ? VIVES[c] : undefined
@@ -65,9 +66,10 @@ export function optionGraphique(b: BlocAnalyse, r: ResultatSql, schemas: readonl
       series: [
         {
           type: 'pie',
-          radius: ['38%', '62%'],
+          radius: ['34%', '56%'],
           avoidLabelOverlap: true,
-          label: { color: theme.texte, formatter: (p: { name: string; percent: number }) => `${p.name}\n${formater(p.percent / 100, 'pourcent')}` },
+          // Un nom long passe à la ligne au lieu d'être coupé en « … ».
+          label: { color: theme.texte, overflow: 'break', formatter: (p: { name: string; percent: number }) => `${p.name}\n${formater(p.percent / 100, 'pourcent')}` },
           labelLine: { length: 8, length2: 8 },
           data: r.lignes.map((l, i) => {
             const nom = cle(x === undefined ? undefined : l[x])
@@ -91,8 +93,8 @@ export function optionGraphique(b: BlocAnalyse, r: ResultatSql, schemas: readonl
     const max = Math.max(1, ...tailles)
     return {
       ...base,
-      ...(b.serie && { legend: { type: 'scroll', top: 0, textStyle: { color: theme.discret } } }),
-      xAxis: { ...axeValeurs, axisLabel: { color: theme.discret, formatter: x ? fmt(x) : undefined }, scale: true },
+      ...(b.serie && { legend: { type: 'scroll', itemGap: 16, top: 0, textStyle: { color: theme.discret } } }),
+      xAxis: { ...axeValeurs, axisLabel: { color: theme.discret, formatter: (v: number) => formaterCompact(v, x ? formatDe(b.format, x) : undefined) }, scale: true },
       yAxis: { ...axeValeurs, scale: true },
       series: [...groupes].map(([nom, lignes], i) => ({
         type: 'scatter',
@@ -135,7 +137,7 @@ export function optionGraphique(b: BlocAnalyse, r: ResultatSql, schemas: readonl
   const uneSeule = series.length === 1
   return {
     ...base,
-    ...(!uneSeule && { legend: { type: 'scroll', top: 0, textStyle: { color: theme.discret } } }),
+    ...(!uneSeule && { legend: { type: 'scroll', itemGap: 16, top: 0, textStyle: { color: theme.discret } } }),
     xAxis: horizontal ? axeValeurs : axeCategories,
     yAxis: horizontal ? { ...axeCategories, inverse: true } : axeValeurs,
     series: series.map((s, i) => {
