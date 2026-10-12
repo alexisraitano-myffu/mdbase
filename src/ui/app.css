@@ -798,7 +798,7 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .titre-dashboard { font-size: 1.9rem; font-weight: 700; margin: 0 0 0.75rem; }
 .rangee-dashboard { position: relative; display: flex; gap: 14px; align-items: stretch; flex-shrink: 0; }
 .bloc-dashboard {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -819,11 +819,26 @@ button.principal:disabled { opacity: 0.45; cursor: default; }
 .contenu-bloc > * { min-height: 0; }
 .ajout-bloc { align-self: flex-start; }
 .ajout-bloc.compact { align-self: stretch; width: 36px; padding: 0; font-size: 1.2em; border: 1px dashed var(--bordure-forte); border-radius: 8px; }
-.deplacer-rangee { width: 24px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; visibility: hidden; }
+.deplacer-rangee { width: 24px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; visibility: hidden; margin-left: -6px; }
 .rangee-dashboard:hover .deplacer-rangee { visibility: visible; }
 .deplacer-rangee button { padding: 0 6px; }
+/* Mise en page libre (spec §10) : poignées, fentes de dépôt, séparation de largeur. */
+.rangee-dashboard-place { display: flex; flex-direction: column; flex-shrink: 0; }
+.poignee-glisse { padding: 0 2px; cursor: grab; touch-action: none; color: var(--discret); }
+.poignee-glisse:active { cursor: grabbing; }
+.bloc-dashboard.glisse, .rangee-dashboard.glissee { opacity: 0.4; }
+.fente-rangee { height: 24px; margin: -12px 0; position: relative; z-index: 2; }
+.fente-rangee.inactive, .fente-bloc.inactive { pointer-events: none; }
+.fente-rangee.survolee::after { content: ''; position: absolute; left: 0; right: 0; top: 9px; height: 6px; border-radius: 3px; background: var(--accent); }
+/* Fentes et séparation : une vraie largeur (le glisser-déposer mesure l'élément), annulée par les marges pour ne rien décaler. */
+.fente-bloc { width: 32px; margin: 0 -23px; position: relative; flex-shrink: 0; z-index: 2; }
+.fente-bloc.survolee::after { content: ''; position: absolute; top: 0; bottom: 0; left: 13px; width: 6px; border-radius: 3px; background: var(--accent); }
+.poignee-largeur { width: 10px; margin: 0 -12px; position: relative; flex-shrink: 0; z-index: 1; cursor: ew-resize; border-radius: 4px; }
+.poignee-largeur:hover, .redimensionne-largeur .poignee-largeur:active { background: rgba(var(--accent-rgb), 0.12); }
+.redimensionne-largeur, .redimensionne-largeur * { cursor: ew-resize !important; user-select: none; }
+.apercu-glisse { padding: 6px 10px; border: 1px solid var(--bordure-forte); border-radius: 8px; background: var(--surface); box-shadow: var(--ombre); font-weight: 500; white-space: nowrap; width: max-content; }
 /* Bord bas d'une rangée : tirer règle la hauteur de ses blocs. */
-.poignee-hauteur { position: absolute; left: 0; right: 24px; bottom: -10px; height: 8px; cursor: ns-resize; border-radius: 4px; }
+.poignee-hauteur { position: absolute; left: 24px; right: 0; bottom: -10px; height: 8px; cursor: ns-resize; border-radius: 4px; }
 .poignee-hauteur:hover, .redimensionne-hauteur .poignee-hauteur:active { background: rgba(var(--accent-rgb), 0.12); }
 .redimensionne-hauteur, .redimensionne-hauteur * { cursor: ns-resize !important; user-select: none; }
 
