@@ -93,6 +93,18 @@ describe('modifierVue', () => {
   })
 })
 
+describe('filtres_ou', () => {
+  it('écrits groupe par groupe, un filtre par ligne, relus, retirés quand vidés ; un groupe vide est ignoré', () => {
+    const vue = lireVue(KANBAN, 'k').vue!
+    const groupes = [[{ colonne: 'client', operateur: 'contient' as const, valeur: 'c1' }], [{ colonne: 'statut', operateur: 'egal' as const, valeur: 'En cours' }, { colonne: 'urgent', operateur: 'egal' as const, valeur: true }]]
+    const apres = modifierVue(KANBAN, vue, { filtresOu: groupes })
+    expect(apres).toContain('filtres_ou:\n  - - { colonne: client, operateur: contient, valeur: c1 }\n  - - { colonne: statut, operateur: egal, valeur: En cours }\n    - { colonne: urgent, operateur: egal, valeur: true }\n')
+    expect(lireVue(apres, 'k').vue!.filtresOu).toEqual(groupes)
+    expect(lireVue(`${KANBAN}filtres_ou:\n  - []\n`, 'k').vue!.filtresOu).toBeUndefined()
+    expect(modifierVue(apres, vue, { filtresOu: [] })).not.toContain('filtres_ou')
+  })
+})
+
 describe('réglages de la vue', () => {
   it('écrit et relit ordre, colonnes masquées, largeurs, retour à la ligne, calculs, groupe', () => {
     const vue = vueParDefaut()

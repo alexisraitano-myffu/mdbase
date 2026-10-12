@@ -111,6 +111,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Dashboards, mise en page libre : un bloc se glisse par sa poignée vers une autre place de sa rangée, dans une autre rangée ou seul dans une nouvelle rangée, et une rangée entière se glisse par la poignée de gauche. Jusqu'à trois blocs par rangée ; la séparation entre deux blocs se tire pour régler leur largeur (enregistrée en pourcentage), un double-clic revient aux parts égales.
 - Dashboards : « Copier en vue propre » garde dans le dashboard une copie d'une vue de la base, à régler sans toucher à la base ; « Enregistrer comme vue de la base » fait l'inverse.
 - Assistant IA et Claude : `creer_dashboard` accepte des rangées de un à trois blocs, des vues propres au dashboard et des largeurs ; `modifier_dashboard` réorganise un dashboard existant par une liste d'opérations (ajouter, déplacer ou remplacer un bloc, déplacer une rangée, hauteurs, largeurs, vue propre, filtres, nom) ; `retirer_bloc` retire un bloc, comme une suppression. La description de l'espace montre la mise en page de chaque dashboard.
+- Vues : groupes de filtres « OU » (clé `filtres_ou`) : une ligne passe si elle satisfait les filtres et au moins un groupe. Posés par l'assistant, par Claude ou dans le fichier ; le panneau « Filtrer » les montre et peut les retirer.
+- Filtres de date « dans les jours passés » et « dans les jours à venir » : un intervalle `[8, 30]` (de 8 à 30 jours) en plus d'un nombre.
+- Assistant IA et Claude : dans `creer_vue`, `modifier_vue` et les vues propres de dashboard, ordre des colonnes (`colonnes`), filtres rapides, groupes OU, champs des cartes, barres sans titre, couloirs du kanban, réglages du tableau (retour à la ligne, largeurs, calculs), et pour les niveaux dépliés d'une timeline, titre masqué et champs des barres. `modifier_dashboard` pose aussi les filtres rapides du dashboard. La description de l'espace montre les réglages de chaque vue.
 
 ### Changed
 - Colonne « Créé le » : une ligne sans date de création enregistrée (créée avant cette colonne, ou hors de l'app) reste vide, au lieu de prendre la date de son fichier. « Modifié le » garde ce repli.
@@ -158,6 +161,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 - Assistant IA : il relit le détail des quatre derniers échanges (ce qu'il a lu et proposé, pas seulement le texte de sa réponse), pour mieux suivre la conversation d'une demande à l'autre.
 ### Fixed
+- Assistant IA et Claude : modifier une vue de calendrier ou de timeline (ses filtres, par exemple) remplaçait sa date de début par la première colonne date de la base.
 - Inbox : un texte tapé juste après « Ajouter », pendant l'écriture du précédent, était effacé.
 - Éditeur des pages : seuls les titres ont un chevron pour se replier (les paragraphes, citations et blocs de code de plusieurs lignes en avaient un aussi).
 - App de bureau : les liens du texte s'ouvrent dans le navigateur du système.

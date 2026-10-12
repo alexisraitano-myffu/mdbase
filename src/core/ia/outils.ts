@@ -19,7 +19,7 @@ export const FILTRE = {
   properties: {
     colonne: { type: 'string', description: 'clé de la colonne' },
     operateur: { type: 'string', enum: [...OPERATEURS] },
-    valeur: { description: 'valeur comparée ; liste de libellés pour « parmi », nombre de jours pour jours_passes / jours_a_venir' },
+    valeur: { description: 'valeur comparée ; liste de libellés pour « parmi » ; jours_passes / jours_a_venir : un nombre de jours (depuis aujourd’hui), ou [N, M] pour de N à M jours, bornes comprises' },
   },
   required: ['colonne', 'operateur'],
 }
@@ -76,6 +76,8 @@ const NIVEAU = {
       description:
         'true : les lignes de ce niveau se dessinent sur la rangée de leur parent, à la suite (un lot et ses phases sur une ligne, comme un Gantt) ; le niveau ne se déplie pas plus bas',
     },
+    sans_titre: { type: 'boolean', description: 'barres de ce niveau sans leur titre' },
+    champs_carte: { type: 'array', items: { type: 'string' }, description: 'colonnes de la base liée affichées sur les barres du niveau' },
   },
   required: ['relation'],
 }
@@ -87,7 +89,24 @@ const REGLAGES_VUE = {
     type: 'array',
     items: { type: 'object', properties: { colonne: { type: 'string' }, sens: { type: 'string', enum: ['asc', 'desc'] } }, required: ['colonne'] },
   },
-  colonnes_masquees: { type: 'array', items: { type: 'string' } },
+  filtres_ou: {
+    type: ['array', 'null'],
+    items: { type: 'array', items: FILTRE },
+    description: 'groupes « OU » : en plus de filtres, une ligne doit satisfaire au moins un groupe (dans un groupe, tous les filtres) ; null ou [] les retire',
+  },
+  filtres_rapides: {
+    type: ['array', 'null'],
+    items: { type: 'object', properties: { colonne: { type: 'string' }, operateur: FILTRE.properties.operateur, valeur: FILTRE.properties.valeur }, required: ['colonne'] },
+    description: 'pastilles au-dessus de la vue, que l’utilisateur règle d’un clic ; sans valeur, une pastille ne filtre rien. Remplacent les existantes ; [] les retire',
+  },
+  colonnes: { type: ['array', 'null'], items: { type: 'string' }, description: 'ordre des colonnes affichées (clés ou noms) ; celles non citées suivent, dans l’ordre de la base ; null ou [] le retire' },
+  colonnes_masquees: { type: ['array', 'null'], items: { type: 'string' } },
+  champs_carte: { type: ['array', 'null'], items: { type: 'string' }, description: 'kanban, collection, calendrier, timeline : colonnes affichées sous le titre' },
+  sans_titre: { type: 'boolean', description: 'timeline : barres sans leur titre (la légende et l’infobulle le donnent)' },
+  sous_groupe: { type: ['string', 'null'], description: 'kanban : colonne des couloirs horizontaux ; null la retire' },
+  retour_ligne: { type: 'boolean', description: 'tableau : le texte long passe à la ligne au lieu d’être coupé' },
+  largeurs: { type: ['object', 'null'], additionalProperties: { type: 'number' }, description: 'tableau : largeur des colonnes en pixels, { colonne: px } ; null les retire' },
+  calculs: { type: ['object', 'null'], additionalProperties: { type: 'string', enum: [...CALCULS] }, description: 'tableau : calcul en pied de colonne, { colonne: calcul } ; null les retire' },
   champ_debut: { type: 'string', description: 'calendrier, timeline : colonne date' },
   champ_fin: { type: ['string', 'null'], description: 'calendrier, timeline : colonne date de fin (facultative) ; null la retire' },
   ...COULEUR,
@@ -116,6 +135,9 @@ const REGLAGES_VUE = {
       "timeline : les lignes d'autres bases (moratoires, congés, sprints…) en bandes verticales qui traversent toute la timeline. Remplace les sources existantes ; null ou [] les retire.",
   },
 }
+
+/** Réglages d'une vue propre dans une opération : `largeurs` y désigne celle des blocs. */
+const { largeurs: _largeurs, ...REGLAGES_VUE_BLOC } = REGLAGES_VUE
 
 const BLOC = {
   type: 'object',
@@ -297,7 +319,7 @@ export const OUTILS: DefinitionOutil[] = [
                 type: 'string',
                 enum: [...TYPES_OPERATION],
                 description:
-                  'renommer (nom) ; ajouter_bloc (nouveau, rangee, position) ; deplacer_bloc (rangee, bloc, puis vers_rangee et position, ou nouvelle_rangee) ; remplacer_bloc (rangee, bloc, par) ; deplacer_rangee (rangee, vers) ; hauteur (rangee, hauteur) ; largeurs (rangee, largeurs) ; modifier_vue (rangee, bloc, réglages comme modifier_vue : vue propre seulement) ; filtres (filtres)',
+                  'renommer (nom) ; ajouter_bloc (nouveau, rangee, position) ; deplacer_bloc (rangee, bloc, puis vers_rangee et position, ou nouvelle_rangee) ; remplacer_bloc (rangee, bloc, par) ; deplacer_rangee (rangee, vers) ; hauteur (rangee, hauteur) ; largeurs (rangee, largeurs) ; modifier_vue (rangee, bloc, réglages comme modifier_vue : vue propre seulement) ; filtres (filtres et/ou filtres_rapides du dashboard)',
               },
               nom: { type: 'string' },
               rangee: { type: 'integer', description: 'numéro de rangée ; ajouter_bloc sans rangee : nouvelle rangée en bas' },
@@ -310,7 +332,13 @@ export const OUTILS: DefinitionOutil[] = [
               par: BLOC,
               hauteur: HAUTEUR,
               largeurs: { type: 'array', items: { type: ['number', 'null'] }, description: 'une par bloc de la rangée, en % (10 à 90) ; null : part égale' },
-              ...REGLAGES_VUE,
+              ...REGLAGES_VUE_BLOC,
+              largeurs_colonnes: { ...REGLAGES_VUE.largeurs, description: 'modifier_vue : largeur des colonnes du tableau, { colonne: px } ; null les retire' },
+              filtres_rapides: {
+                type: 'array',
+                items: { type: 'object', properties: { base: { type: 'string', description: 'type filtres : base de la pastille du dashboard' }, colonne: { type: 'string' }, operateur: FILTRE.properties.operateur, valeur: FILTRE.properties.valeur } },
+                description: 'type filtres : remplacent les filtres rapides du dashboard, chacun avec sa base (sans colonne : choix de lignes de la base) ; modifier_vue : ceux de la vue propre ; [] les retire',
+              },
               filtres: {
                 type: 'array',
                 items: { ...FILTRE, properties: { base: { type: 'string', description: 'type filtres : base filtrée (les autres blocs suivent leurs relations vers elle)' }, ...FILTRE.properties } },
@@ -460,6 +488,26 @@ export type OptionsContexte = {
   skills?: readonly Skill[]
 }
 
+const filtreLisible = (f: { colonne: string; operateur: string; valeur?: unknown }) => `${f.colonne} ${f.operateur}${f.valeur === undefined ? '' : ` ${JSON.stringify(f.valeur)}`}`
+
+/** Réglages communs d'une vue, en clair : `modifier_vue` remplace ses listes, le modèle doit voir celles en place. */
+function detailVue(v: Vue): string {
+  const r = [
+    v.filtres.length > 0 && `filtres [${v.filtres.map(filtreLisible).join(' ; ')}]`,
+    v.filtresOu?.length && `filtres_ou [${v.filtresOu.map((g) => g.map(filtreLisible).join(' et ')).join(' | ')}]`,
+    v.filtresRapides.length > 0 && `filtres rapides [${v.filtresRapides.map((p) => (p.operateur ? filtreLisible({ ...p, operateur: p.operateur }) : p.colonne)).join(' ; ')}]`,
+    v.tris.length > 0 && `tris [${v.tris.map((t) => `${t.colonne} ${t.sens}`).join(', ')}]`,
+    v.groupe && `groupe ${v.groupe}`,
+    v.sousGroupe && `sous-groupe ${v.sousGroupe}`,
+    v.ordre?.length && `colonnes [${v.ordre.join(', ')}]`,
+    v.masquees?.length && `masquées [${v.masquees.join(', ')}]`,
+    v.champsCarte?.length && `champs carte [${v.champsCarte.join(', ')}]`,
+    v.sansTitre && 'sans titre',
+    v.retourLigne && 'retour à la ligne',
+  ].filter(Boolean)
+  return r.length > 0 ? ` ; ${r.join(', ')}` : ''
+}
+
 /** Réglages d'une vue temporelle, en clair : pour la modifier sans repartir de zéro (niveaux dépliés compris). */
 function detailTemps(v: Vue): string {
   if (v.type !== 'calendrier' && v.type !== 'timeline') return ''
@@ -471,6 +519,8 @@ function detailTemps(v: Vue): string {
       n.couleurPar && `couleur selon ${n.couleurPar}`,
       n.couleur && `couleur ${n.couleur}`,
       n.surLaLigne && 'sur la ligne du parent',
+      n.sansTitre && 'sans titre',
+      n.champsCarte?.length && `champs ${n.champsCarte.join(', ')}`,
       n.deplier.length > 0 && `puis ${n.deplier.map(niveau).join(' ; ')}`,
     ]
       .filter(Boolean)
@@ -497,7 +547,7 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
     parties.push(`${id} « ${schema.nom} »${schema.source ? ` (synchronisée depuis ${nomSource(schema.source.type)} : LECTURE SEULE)` : ''}`)
     for (const c of schema.colonnes) parties.push(`- ${c.cle} « ${c.nom} » : ${typeLisible(c)}${c.cle === schema.champTitre ? ' (titre de la ligne)' : ''}`)
     const vues = etat.bases.get(id)?.vues ?? []
-    parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type}${detailTemps(v)})`).join(', ')}`)
+    parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type}${detailTemps(v)}${detailVue(v)})`).join(', ')}`)
   }
   if (etat.dashboards.length > 0) {
     parties.push('', '## Dashboards (rangées de haut en bas, blocs de gauche à droite, comptés à partir de 1)')
@@ -505,11 +555,12 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
       parties.push(`${d.id} « ${d.dashboard?.nom ?? d.id} »${d.dashboard ? '' : ' (fichier illisible)'}`)
       if (!d.dashboard) continue
       const bloc = (b: Bloc, j: number) => {
-        const vue = estPropre(b) ? `vue propre « ${b.vue.nom} » (${b.vue.type}${detailTemps(b.vue)})` : `vue ${b.vue}`
+        const vue = estPropre(b) ? `vue propre « ${b.vue.nom} » (${b.vue.type}${detailTemps(b.vue)}${detailVue(b.vue)})` : `vue ${b.vue}`
         return `${j + 1}. ${b.base}, ${vue}${b.largeur ? `, largeur ${b.largeur} %` : ''}`
       }
       d.dashboard.rangees.forEach((r, i) => parties.push(`- rangée ${i + 1}${r.hauteur ? ` (hauteur ${r.hauteur} px)` : ''} : ${r.blocs.map(bloc).join(' | ')}`))
-      if (d.dashboard.filtres.length > 0) parties.push(`- filtres : ${d.dashboard.filtres.map((f) => `${f.base}.${f.colonne} ${f.operateur}${f.valeur === undefined ? '' : ` ${JSON.stringify(f.valeur)}`}`).join(', ')}`)
+      if (d.dashboard.filtres.length > 0) parties.push(`- filtres : ${d.dashboard.filtres.map((f) => `${f.base}.${filtreLisible(f)}`).join(', ')}`)
+      if (d.dashboard.filtresRapides.length > 0) parties.push(`- filtres rapides : ${d.dashboard.filtresRapides.map((p) => `${p.base}${p.colonne ? `.${p.colonne}` : ' (choix de lignes)'}`).join(', ')}`)
     }
   }
   // Mémoire et skills avant ce qui change à chaque demande : le début du message reste identique d'une demande à l'autre.

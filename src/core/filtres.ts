@@ -171,9 +171,15 @@ function comparerDate(v: string, f: Filtre, ctx: Contexte): boolean {
     case 'ce_mois':
       return v.slice(0, 7) === ctx.aujourdhui.slice(0, 7)
     case 'jours_passes':
-      return v <= ctx.aujourdhui && v >= decaler(ctx.aujourdhui, -Math.abs(Number(f.valeur) || 0))
-    case 'jours_a_venir':
-      return v >= ctx.aujourdhui && v <= decaler(ctx.aujourdhui, Math.abs(Number(f.valeur) || 0))
+    case 'jours_a_venir': {
+      // Un nombre N : de aujourd'hui à N jours ; [N, M] : de N à M jours, bornes comprises.
+      const [n, m] = Array.isArray(f.valeur) ? f.valeur.map((x) => Math.abs(Number(x) || 0)) : [0, Math.abs(Number(f.valeur) || 0)]
+      const [pres, loin] = [Math.min(n ?? 0, m ?? 0), Math.max(n ?? 0, m ?? 0)]
+      const sens = f.operateur === 'jours_passes' ? -1 : 1
+      const a = decaler(ctx.aujourdhui, sens * pres)
+      const b = decaler(ctx.aujourdhui, sens * loin)
+      return v >= (a < b ? a : b) && v <= (a < b ? b : a)
+    }
     default:
       return false
   }
@@ -243,10 +249,13 @@ export function appliquerVue(
   tris: readonly Tri[],
   ctx: Contexte,
   persistantes: ReadonlySet<string> = new Set(),
+  /** Groupes « OU » de la vue : au moins un doit être satisfait (aucun groupe : pas de condition). */
+  ou: readonly (readonly Filtre[])[] = [],
 ): LigneVue[] {
   const retenues: LigneVue[] = []
+  const tous = (groupe: readonly Filtre[], ligne: LigneChargee) => groupe.every((f) => correspond(ligne, schema, f, ctx))
   for (const ligne of lignes) {
-    const ok = filtres.every((f) => correspond(ligne, schema, f, ctx))
+    const ok = tous(filtres, ligne) && (ou.length === 0 || ou.some((g) => tous(g, ligne)))
     if (ok || persistantes.has(ligne.id)) retenues.push({ ligne, sortira: !ok })
   }
   const triees = trier(

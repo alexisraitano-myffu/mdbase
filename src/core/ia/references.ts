@@ -62,6 +62,9 @@ export function lireFiltres(base: BaseOuverte, brut: unknown): Filtre[] {
     const c = trouverColonne(base.schema, f.colonne)
     const operateurs = operateursPour(c)
     if (!operateurs.includes(f.operateur as Operateur)) erreur(`opérateur « ${String(f.operateur)} » impossible sur ${c.cle} (possibles : ${operateurs.join(', ')})`)
+    if ((f.operateur === 'jours_passes' || f.operateur === 'jours_a_venir') && Array.isArray(f.valeur)) {
+      if (f.valeur.length !== 2 || !f.valeur.every((x) => typeof x === 'number' && x >= 0)) erreur(`${f.operateur} : un nombre de jours, ou [N, M] (de N à M jours, bornes comprises)`)
+    }
     return { colonne: c.cle, operateur: f.operateur as Operateur, ...(f.valeur !== undefined ? { valeur: f.valeur } : {}) }
   })
 }

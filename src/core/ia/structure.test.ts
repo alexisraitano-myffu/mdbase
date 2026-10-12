@@ -379,7 +379,7 @@ describe('assistant : dashboards', () => {
     expect(await disposition(a)).toEqual({ nom: 'Suivi', rangees: [['taches/par-statut 60%', 'taches/propre:À faire'], ['clients/tableau']] })
     expect(await a.lire('_dashboards/suivi.yaml')).toContain('hauteur: 500')
     const description = decrireEspace(espace.etat(), { aujourdhui: AUJOURDHUI, baseOuverte: null, candidats: [] })
-    expect(description).toContain('suivi « Suivi »\n- rangée 1 (hauteur 500 px) : 1. taches, vue par-statut, largeur 60 % | 2. taches, vue propre « À faire » (tableau)\n- rangée 2 : 1. clients, vue tableau')
+    expect(description).toContain('suivi « Suivi »\n- rangée 1 (hauteur 500 px) : 1. taches, vue par-statut, largeur 60 % | 2. taches, vue propre « À faire » (tableau ; filtres [fait egal false])\n- rangée 2 : 1. clients, vue tableau')
   })
 
   it('modifier_dashboard : chaque opération part de la mise en page laissée par la précédente', async () => {
@@ -429,5 +429,95 @@ describe('assistant : dashboards', () => {
     await appliquerPlan(espace, p)
     await ecrire()
     expect(await disposition(a)).toEqual({ nom: 'Suivi', rangees: [['clients/tableau']] })
+  })
+})
+
+describe('assistant : réglages de vue', () => {
+  const vueTaches = async (a: AdaptateurCompteur, debut: string) => a.lire(`taches/_vues/${(await a.lister('taches/_vues')).find((e) => e.nom.startsWith(debut))!.nom}`)
+
+  it('modifier_vue ne touche qu’aux réglages passés : la date de début d’une timeline reste', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    await appliquerPlan(
+      espace,
+      await plan(
+        espace,
+        appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Début', type: 'date' }] }),
+        appel('creer_vue', { base: 'taches', nom: 'Planning', type: 'timeline', champ_debut: 'Début' }),
+      ),
+    )
+    await ecrire()
+    expect(await vueTaches(a, 'planning')).toContain('champ_debut: debut')
+    await appliquerPlan(espace, await plan(espace, appel('modifier_vue', { base: 'taches', vue: 'Planning', filtres: [{ colonne: 'fait', operateur: 'egal', valeur: false }] })))
+    await ecrire()
+    const vue = await vueTaches(a, 'planning')
+    expect(vue).toContain('champ_debut: debut')
+    expect(vue).toContain('operateur: egal')
+  })
+
+  it('ordre des colonnes, filtres rapides, groupes OU, réglages du tableau ; null ou [] les retire', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    await appliquerPlan(
+      espace,
+      await plan(
+        espace,
+        appel('creer_vue', {
+          base: 'taches',
+          nom: 'Suivi',
+          colonnes: ['Statut', 'titre'],
+          filtres_rapides: [{ colonne: 'statut' }, { colonne: 'echeance', operateur: 'jours_passes', valeur: [8, 30] }],
+          filtres_ou: [[{ colonne: 'fait', operateur: 'egal', valeur: true }], [{ colonne: 'heures', operateur: 'superieur', valeur: 3 }]],
+          retour_ligne: true,
+          largeurs: { titre: 320 },
+          calculs: { heures: 'somme' },
+        }),
+      ),
+    )
+    await ecrire()
+    const vue = await vueTaches(a, 'suivi')
+    expect(vue).toContain('colonnes: [ statut, titre ]')
+    expect(vue).toContain('filtres_rapides:\n  - { colonne: statut }\n  - { colonne: echeance, operateur: jours_passes, valeur: [ 8, 30 ] }')
+    expect(vue).toContain('filtres_ou:\n  - - { colonne: fait, operateur: egal, valeur: true }\n  - - { colonne: heures, operateur: superieur, valeur: 3 }')
+    expect(vue).toMatch(/retour_ligne: true[\s\S]*largeurs: \{ titre: 320 \}|largeurs: \{ titre: 320 \}[\s\S]*retour_ligne: true/)
+    expect(vue).toContain('calculs: { heures: somme }')
+    await appliquerPlan(espace, await plan(espace, appel('modifier_vue', { base: 'taches', vue: 'Suivi', colonnes: null, filtres_rapides: [], filtres_ou: null })))
+    await ecrire()
+    const apres = await vueTaches(a, 'suivi')
+    for (const cle of ['colonnes:', 'filtres_rapides', 'filtres_ou']) expect(apres).not.toContain(cle)
+    expect(apres).toContain('calculs: { heures: somme }')
+  })
+
+  it('niveaux dépliés : sans titre et champs des barres, dans la base liée', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    await appliquerPlan(
+      espace,
+      await plan(
+        espace,
+        appel('ajouter_colonnes', { base: 'projets', colonnes: [{ nom: 'Début', type: 'date' }] }),
+        appel('creer_vue', { base: 'projets', nom: 'Feuille', type: 'timeline', sans_titre: true, deplier: [{ relation: 'taches', sur_la_ligne: true, sans_titre: true, champs_carte: ['Statut'] }] }),
+      ),
+    )
+    await ecrire()
+    const vue = await a.lire(`projets/_vues/${(await a.lister('projets/_vues')).find((e) => e.nom.startsWith('feuille'))!.nom}`)
+    expect(vue).toMatch(/^sans_titre: true$/m)
+    expect(vue).toMatch(/relation: taches[\s\S]*sur_la_ligne: true\n\s+champs_carte: \[ statut \]\n\s+sans_titre: true/)
+  })
+
+  it('refus : calcul impossible, intervalle de jours mal formé', async () => {
+    const { espace } = await ouvrir()
+    const b = new Brouillon(espace.etat())
+    const ctx = { aujourdhui: AUJOURDHUI }
+    expect(() => validerStructure(b, 'creer_vue', { base: 'taches', nom: 'X', calculs: { titre: 'somme' } }, ctx)).toThrow('calcul impossible sur « Titre »')
+    expect(() => validerStructure(b, 'creer_vue', { base: 'taches', nom: 'X', filtres: [{ colonne: 'echeance', operateur: 'jours_passes', valeur: [8] }] }, ctx)).toThrow('[N, M]')
+  })
+
+  it('modifier_dashboard pose les filtres rapides du dashboard', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    await appliquerPlan(espace, await plan(espace, appel('creer_dashboard', { nom: 'Suivi', rangees: [{ blocs: [{ base: 'taches' }] }] })))
+    await ecrire()
+    const p = await plan(espace, appel('modifier_dashboard', { dashboard: 'Suivi', operations: [{ type: 'filtres', filtres_rapides: [{ base: 'projets' }, { base: 'taches', colonne: 'Statut' }] }] }))
+    expect(resumerPlan(p)).toContain('filtres rapides du dashboard : projets, taches.statut')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await a.lire('_dashboards/suivi.yaml')).toMatch(/filtres_rapides:\n  - \{ base: projets \}\n  - \{ base: taches, colonne: statut \}/)
   })
 })

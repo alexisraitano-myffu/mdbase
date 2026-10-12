@@ -81,6 +81,8 @@ export type Vue = {
   nom: string
   type: TypeVue
   filtres: Filtre[]
+  /** Groupes « OU » : en plus de `filtres`, une ligne doit satisfaire au moins un groupe (chaque groupe en ET). */
+  filtresOu?: Filtre[][]
   tris: Tri[]
   filtresRapides: FiltreRapide[]
   miseEnPage?: string
@@ -158,7 +160,7 @@ const REGLAGES = {
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
 /** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
-export const CHAMPS_MODIFIABLES = [...Object.keys(REGLAGES), 'filtres', 'tris', 'filtresRapides', 'deplier', 'bandes'] as (keyof ModificationVue)[]
+export const CHAMPS_MODIFIABLES = [...Object.keys(REGLAGES), 'filtres', 'filtresOu', 'tris', 'filtresRapides', 'deplier', 'bandes'] as (keyof ModificationVue)[]
 
 /** Profondeur maximale des niveaux dépliés : au-delà, le fichier est ignoré (et une boucle de relations, bornée). */
 export const PROFONDEUR_MAX = 5
@@ -281,6 +283,10 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
           ]
         })
   const deplier = niveaux(brut.deplier, 1)
+  const filtresOu = (Array.isArray(brut.filtres_ou) ? brut.filtres_ou : []).flatMap((g, i): Filtre[][] => {
+    const groupe = filtres(g, `filtres_ou, groupe ${i + 1}`)
+    return groupe.length > 0 ? [groupe] : []
+  })
   const bandes = (Array.isArray(brut.bandes) ? brut.bandes : []).flatMap((b): Bande[] => {
     if (!estObjet(b) || typeof b.base !== 'string') {
       avertissements.push(`Vue ${id} : bande ignorée (base manquante)`)
@@ -305,6 +311,7 @@ export function lireVueDepuis(brut: unknown, id: string): { vue: Vue | null; ave
       nom: typeof brut.nom === 'string' ? brut.nom : id,
       type,
       filtres: filtres(brut.filtres, 'filtres'),
+      ...(filtresOu.length > 0 && { filtresOu }),
       tris,
       filtresRapides,
       ...lireReglages(brut),
@@ -355,6 +362,19 @@ export function appliquerModificationsVue(doc: Document, cible: YAMLMap, modifs:
       })),
     ],
   ]
+  if ('filtresOu' in modifs) {
+    const groupes = (modifs.filtresOu ?? []).filter((g) => g.length > 0)
+    if (groupes.length === 0) cible.delete('filtres_ou')
+    else {
+      const seq = doc.createNode([]) as YAMLSeq
+      for (const g of groupes) {
+        const groupe = doc.createNode(g.map(ecrireFiltre)) as YAMLSeq
+        for (const item of groupe.items) if (isMap(item)) item.flow = true
+        seq.items.push(groupe)
+      }
+      cible.set('filtres_ou', seq)
+    }
+  }
   if ('deplier' in modifs) {
     if (!modifs.deplier?.length) cible.delete('deplier')
     else cible.set('deplier', noeudNiveaux(doc, modifs.deplier))

@@ -143,6 +143,21 @@ test.describe('filtres et tris', () => {
     await expect(page.getByRole('button', { name: 'Filtrer (1)' })).toBeVisible()
   })
 
+  test('groupes « OU » posés dans le fichier : appliqués, montrés dans Filtrer, retirables', async ({ espace, page }) => {
+    await espace.remplacer('projets/_vues/tableau.yaml', 'filtres_rapides:', 'filtres_ou:\n  - - { colonne: titre, operateur: contient, valeur: site }\n  - - { colonne: titre, operateur: contient, valeur: mobile }\nfiltres_rapides:')
+    await espace.retourSurOnglet()
+    await espace.base('Projets')
+    await expect(titres(page)).toHaveText(['Site vitrine', 'Application mobile'])
+    await page.getByRole('button', { name: 'Filtrer (2)' }).click()
+    const groupes = page.locator('.flottant .groupes-ou')
+    await expect(groupes).toContainText('Et au moins un de ces groupes')
+    await expect(groupes.locator('.ligne-filtre')).toHaveText(['SoitTitre contient site', 'OuTitre contient mobile'])
+    await groupes.getByRole('button', { name: 'Retirer ces groupes' }).click()
+    await page.keyboard.press('Escape')
+    await expect(titres(page)).toHaveCount(4)
+    await expect.poll(() => espace.lire('projets/_vues/tableau.yaml')).not.toContain('filtres_ou')
+  })
+
   test('liste de choix : flèches et Entrée, recherche au-delà de huit entrées, Échap ne ferme que la liste', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.getByRole('button', { name: 'Filtrer' }).click()

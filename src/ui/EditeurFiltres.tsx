@@ -170,6 +170,17 @@ export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string;
 
   if (natureDe(colonne) === 'date') {
     if (op === 'jours_passes' || op === 'jours_a_venir') {
+      // [N, M] : de N à M jours (posé dans le fichier ou par l'assistant).
+      if (Array.isArray(filtre.valeur)) {
+        const [a, b] = filtre.valeur.map((x) => String(x ?? ''))
+        return (
+          <span className="valeurs-filtre">
+            <ChampTexte valeur={a ?? ''} type="number" changer={(v) => changer([Number(v) || 0, Number(b) || 0])} />
+            <span className="discret">à</span>
+            <ChampTexte valeur={b ?? ''} type="number" suffixe="jours" changer={(v) => changer([Number(a) || 0, Number(v) || 0])} />
+          </span>
+        )
+      }
       return <ChampTexte valeur={String(filtre.valeur ?? '')} type="number" suffixe="jours" changer={(v) => changer(v === '' ? undefined : Number(v))} />
     }
     if (op === 'entre') {
