@@ -55,8 +55,10 @@ export function calculer(bases: ReadonlyMap<string, BaseACalculer>, ctx: Context
     if (enBoucle.has(noeud(base, colonne.cle))) continue
     if (colonne.type === 'created' || colonne.type === 'modified') {
       for (const l of lignes) {
-        const v = colonne.type === 'created' ? l.cree : (l.modifie ?? l.cree)
-        poser(base, l.id, colonne.cle, { etat: 'ok', valeur: v ?? dateLocale(l.date) })
+        // « Créé le » sans `_cree` reste vide : une date de fichier n'est pas une date de création.
+        if (colonne.type === 'created') {
+          if (l.cree) poser(base, l.id, colonne.cle, { etat: 'ok', valeur: l.cree })
+        } else poser(base, l.id, colonne.cle, { etat: 'ok', valeur: l.modifie ?? l.cree ?? dateLocale(l.date) })
       }
     } else if (colonne.type === 'relation') {
       calculerInverse(base, colonne, lignes, bases, poser)

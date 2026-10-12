@@ -70,13 +70,18 @@ test.describe('bases, groupes et colonnes', () => {
     expect(await espace.lire('projets/_schema.yaml')).not.toContain('label: Terminé')
   })
 
-  test('colonne « Créé le » : en lecture seule, une ligne créée y montre sa date', async ({ espace, page }) => {
+  test('colonne « Créé le » : en lecture seule, vide pour les lignes d’avant, une ligne créée y montre sa date', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.cellule-entete.ajout').click()
     await page.locator('.flottant .option', { hasText: 'Créé le' }).click()
     await expect(entetes(page).filter({ hasText: 'Créé le' })).toHaveCount(1)
     await expect.poll(() => espace.lire('projets/_schema.yaml')).toContain('type: created')
-    await expect(page.locator('.rangee .cellule.calculee').filter({ hasText: /\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/ }).first()).toBeVisible()
+    const datees = page.locator('.rangee .cellule.calculee').filter({ hasText: /\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/ })
+    await expect(datees).toHaveCount(0)
+    await page.getByRole('button', { name: 'Nouvelle ligne' }).first().click()
+    await page.keyboard.type('Refonte')
+    await page.keyboard.press('Enter') // ouvre aussi une ligne suivante, datée elle aussi
+    await expect(datees).not.toHaveCount(0)
   })
 })
 

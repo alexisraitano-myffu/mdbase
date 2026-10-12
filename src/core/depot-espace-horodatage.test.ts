@@ -59,13 +59,14 @@ describe('dans l’espace', () => {
     expect(texte).not.toContain('_modifie')
   })
 
-  it('colonnes « Créé le » et « Modifié le » : les clés, sinon la date du fichier', async () => {
+  it('colonnes « Créé le » et « Modifié le » : les clés ; sans elles, « Créé le » reste vide et « Modifié le » prend la date du fichier', async () => {
     const { a, espace, ecrire, changerHeure } = await ouvrir()
     await espace.ajouterHorodatage('taches', 'Créé le', 'created')
     await espace.ajouterHorodatage('taches', 'Modifié le', 'modified')
     expect(await a.lire('taches/_schema.yaml')).toMatch(/cle: cree_le[\s\S]*type: created[\s\S]*cle: modifie_le[\s\S]*type: modified/)
     const fichier = dateLocale(await a.dateModification('taches/a--t0000001.md'))
-    expect(calcul(espace, 'taches', 't0000001', 'cree_le')).toEqual({ etat: 'ok', valeur: fichier })
+    expect(calcul(espace, 'taches', 't0000001', 'cree_le')).toBeUndefined()
+    expect(calcul(espace, 'taches', 't0000001', 'modifie_le')).toEqual({ etat: 'ok', valeur: fichier })
     const ligne = await espace.creerLigne('taches', { titre: 'Nouvelle' })
     expect(calcul(espace, 'taches', ligne.id, 'modifie_le')).toEqual({ etat: 'ok', valeur: '2026-10-09T14:32' })
     changerHeure('2026-10-12T10:00')
