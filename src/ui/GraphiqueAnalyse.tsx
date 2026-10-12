@@ -16,7 +16,7 @@ echarts.use([BarChart, LineChart, PieChart, ScatterChart, GridComponent, LegendC
 function theme(): Theme {
   const s = getComputedStyle(document.documentElement)
   const v = (n: string, d: string) => s.getPropertyValue(n).trim() || d
-  return { texte: v('--texte', '#1f2328'), discret: v('--discret', '#6b7480'), trait: v('--bordure', '#e8eaee'), fond: v('--fond', '#fff') }
+  return { texte: v('--texte', '#1f2328'), discret: v('--discret', '#6b7480'), trait: v('--bordure', '#e8eaee'), fond: v('--fond', '#fff'), police: getComputedStyle(document.body).fontFamily || 'sans-serif' }
 }
 
 export function GraphiqueAnalyse({ bloc, resultat, schemas }: { bloc: BlocAnalyse; resultat: ResultatSql; schemas: readonly Schema[] }) {

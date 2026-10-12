@@ -17,6 +17,7 @@ import { VIVES } from './graphiques'
 import { Icone } from './icones'
 import { ContenuMarkdown } from './Markdown'
 import { useConsultation } from './mode'
+import { Choix } from './Choix'
 import { ReglagesBloc } from './ReglagesAnalyse'
 import { useAujourdhui } from './useAujourdhui'
 
@@ -330,14 +331,7 @@ export function ParametresDashboard({ dashboard, analyse, changer }: { dashboard
               ? [...new Set(source.resultat.lignes.map((l) => Object.values(l)[0]).filter((v) => v !== null && v !== undefined).map(String))]
               : []
           champ = (
-            <select aria-label={libelle} value={texte(actuelle)} onChange={(e) => changer(p.nom, e.target.value || null)}>
-              <option value="">(tous)</option>
-              {[...new Set([...options, ...(texte(actuelle) ? [texte(actuelle)] : [])])].map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
+            <Choix libelle={libelle} valeur={texte(actuelle)} vide="(tous)" entrees={[{ valeur: '', libelle: '(tous)' }, ...options.map((o) => ({ valeur: o, libelle: o }))]} changer={(v) => changer(p.nom, v || null)} />
           )
         } else if (p.type === 'mois') {
           const aujourdhui = new Date()

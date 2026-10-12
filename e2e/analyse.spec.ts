@@ -1,4 +1,4 @@
-import { expect, test } from './espace'
+import { choisir, expect, test } from './espace'
 
 // Analyse dans les dashboards (spec §10 « Analyse ») : requêtes SQL sur les
 // bases (DuckDB-WASM), paramètres, chiffres clés, graphiques, tableaux, texte.
@@ -55,7 +55,7 @@ test.describe('analyse', () => {
   test('un paramètre recalcule les blocs et s’écrit dans le fichier', async ({ espace, page }) => {
     const chiffre = page.locator('.bloc-analyse').first().locator('.chiffre')
     await expect(chiffre).toHaveText('4')
-    await page.getByLabel('Statut', { exact: true }).selectOption('En cours')
+    await choisir(page.getByRole('button', { name: 'Statut', exact: true }), 'En cours')
     await expect(chiffre).toHaveText('2')
     await expect(chiffre).not.toHaveAttribute('style', /color/)
     await expect.poll(() => espace.lire('_dashboards/analyse.yaml')).toContain('{ nom: statut, libelle: Statut, type: choix, options: statuts, valeur: En cours }')
@@ -67,12 +67,13 @@ test.describe('analyse', () => {
     await expect.poll(() => espace.lire('_dashboards/analyse.yaml')).toContain('  - blocs:\n      - { type: valeur, donnees: statuts }')
     const nouveau = page.locator('.bloc-analyse').last()
     await nouveau.getByRole('button', { name: 'Réglages du bloc' }).click()
-    await page.locator('.reglages-analyse').getByLabel('Données').selectOption('total')
+    const reglages = page.locator('.reglages-analyse')
+    await choisir(reglages.getByRole('button', { name: 'Données' }), 'Requête « total »')
     // Les colonnes proposées sont celles du résultat, une fois la requête recalculée.
-    const valeur = page.locator('.reglages-analyse').getByLabel('Valeur', { exact: true })
-    await expect(valeur).toHaveJSProperty('tagName', 'SELECT')
-    await valeur.selectOption('budget')
-    await page.locator('.reglages-analyse').getByLabel('Format').selectOption('euros')
+    const valeur = reglages.getByLabel('Valeur', { exact: true })
+    await expect(valeur).toHaveJSProperty('tagName', 'BUTTON')
+    await choisir(valeur, 'budget')
+    await choisir(reglages.getByRole('button', { name: 'Format', exact: true }), 'Euros')
     await page.keyboard.press('Escape')
     await expect(nouveau.locator('.chiffre')).toContainText('€')
     await expect.poll(() => espace.lire('_dashboards/analyse.yaml')).toMatch(/type: valeur\n\s+donnees: total\n\s+valeur: budget\n\s+format: euros/)

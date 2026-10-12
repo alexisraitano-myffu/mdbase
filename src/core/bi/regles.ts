@@ -66,6 +66,17 @@ const FORMATEURS = {
   euros: new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }),
 }
 
+const COMPACTS = {
+  nombre: new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }),
+  euros: new Intl.NumberFormat('fr-FR', { notation: 'compact', style: 'currency', currency: 'EUR', maximumFractionDigits: 1 }),
+  pourcent: new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 0 }),
+}
+
+/** Graduation d'un axe : courte (« 35 k€ », « 1,2 M »), pour ne pas déborder. */
+export function formaterCompact(v: number, format?: Format): string {
+  return (format === 'euros' ? COMPACTS.euros : format === 'pourcent' ? COMPACTS.pourcent : COMPACTS.nombre).format(v)
+}
+
 /** Format d'une colonne : celui du bloc, ou celui donné pour cette colonne. */
 export const formatDe = (format: Format | Record<string, Format> | undefined, colonne: string): Format | undefined =>
   typeof format === 'string' ? format : format?.[colonne]

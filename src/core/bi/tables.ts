@@ -42,6 +42,8 @@ function typeDe(c: Colonne, cellules: (Cellule | undefined)[]): TypeSql {
 
 /** Valeur d'une cellule pour une colonne SQL ; `null` si vide, en erreur ou d'un autre type. */
 function valeurDe(type: TypeSql, cellule: Cellule | undefined): unknown {
+  // Une case absente du fichier est décochée, comme à l'écran : `false`, pas `NULL`.
+  if (type === 'BOOLEAN' && cellule === undefined) return false
   if (cellule?.etat !== 'ok') return null
   const v = cellule.valeur
   switch (type) {
