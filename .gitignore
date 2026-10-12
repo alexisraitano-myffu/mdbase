@@ -16,3 +16,6 @@ banc/resultats/
 # App de bureau : compilation Rust et schémas générés
 src-tauri/target/
 src-tauri/gen/schemas/
+
+# Captures écrites par les tests e2e
+test-results/
