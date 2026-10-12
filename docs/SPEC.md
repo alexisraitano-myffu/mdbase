@@ -585,7 +585,7 @@ filtres_rapides:                                     # pastilles globales
 
 - **Pour l'assistant et Claude (MCP)** [DÉCIDÉ, demandé par Alex le 12/10/2026] : les mêmes possibilités, par les mêmes outils pour les deux.
   - `creer_dashboard` : des rangées d'un à trois blocs ; chaque bloc montre une vue de la base ou une vue propre (type, filtres, tris, comme `creer_vue`), avec sa largeur.
-  - `modifier_dashboard` : une liste d'opérations appliquées dans l'ordre (renommer, ajouter un bloc à une place donnée, déplacer un bloc ou une rangée, hauteur, largeurs, réglages d'une vue propre, filtres et filtres rapides du dashboard). Les places se comptent à partir de 1 et chaque opération voit le résultat des précédentes.
+  - `modifier_dashboard` : une liste d'opérations appliquées dans l'ordre (renommer, ajouter un bloc à une place donnée, déplacer un bloc ou une rangée, remplacer un bloc, hauteur, largeurs, réglages d'une vue propre, filtres du dashboard). Les filtres rapides restent un réglage à la main. Les places se comptent à partir de 1 et chaque opération voit le résultat des précédentes.
   - `retirer_bloc` : à part, marqué destructeur (une vue propre retirée est perdue).
   - La description de l'espace montre la mise en page de chaque dashboard : rangées, blocs (base, vue, propre ou non, largeur), hauteurs et filtres.
 - **Filtres globaux** [DÉCIDÉ, validé par Alex le 25/09/2026] : un dashboard peut porter des filtres et des filtres rapides qui valent pour tous ses blocs. Chacun porte sur une base (« Projets › Statut = En cours »), qu'elle ait un bloc ou non.

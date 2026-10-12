@@ -7,6 +7,8 @@ import type { AppelOutil, ModeleIA, ReponseIA } from './modele'
 import type { EtatEspace } from '../depot-espace'
 import { appliquerPlan, resumerPlan, type Plan } from './plan'
 import { trouverLigne } from './references'
+import { decrireEspace } from './outils'
+import { Brouillon, validerStructure } from './structure'
 
 // Outils de structure de l'assistant : validés dans l'ordre sur un brouillon,
 // rien d'écrit avant l'application ; une colonne créée peut être remplie aussitôt.
@@ -341,5 +343,91 @@ describe('assistant : structure', () => {
     expect(await refus(appel('creer_vue', { base: 'clients', nom: 'Agenda', type: 'calendrier' }))).toContain('colonne date')
     expect(await refus(appel('supprimer_vue', { base: 'taches', vue: 'tableau' }))).toContain('au moins une vue')
     expect(await refus(appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'F', type: 'formula', expression: 'prop("inconnue") +' }] }))).toContain('formule refusée')
+  })
+})
+
+describe('assistant : dashboards', () => {
+  /** Mise en page lue sur le disque : « base/vue » par bloc, une liste par rangée. */
+  const disposition = async (a: AdaptateurCompteur) => {
+    const relu = await DepotEspace.ouvrir(a, { aleatoire, planifier: minuteur().planifier, aujourdhui: () => AUJOURDHUI })
+    const d = relu.etat().dashboards[0]!.dashboard!
+    return { nom: d.nom, rangees: d.rangees.map((r) => r.blocs.map((b) => `${b.base}/${typeof b.vue === 'string' ? b.vue : `propre:${b.vue.nom}`}${b.largeur ? ` ${b.largeur}%` : ''}`)) }
+  }
+
+  it('rangées de plusieurs blocs, vue propre, largeur et hauteur ; la description de l’espace montre la mise en page', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(
+      espace,
+      appel('creer_vue', { base: 'taches', nom: 'Par statut', type: 'kanban', groupe: 'statut' }),
+      appel('creer_dashboard', {
+        nom: 'Suivi',
+        rangees: [
+          {
+            blocs: [
+              { base: 'taches', vue: 'Par statut', largeur: 60 },
+              { base: 'taches', vue_propre: { nom: 'À faire', type: 'tableau', filtres: [{ colonne: 'fait', operateur: 'egal', valeur: false }] } },
+            ],
+            hauteur: 500,
+          },
+          { blocs: [{ base: 'clients' }] },
+        ],
+      }),
+    )
+    expect(resumerPlan(p)).toContain('Créer le dashboard « Suivi » avec 3 blocs sur 2 rangées')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await disposition(a)).toEqual({ nom: 'Suivi', rangees: [['taches/par-statut 60%', 'taches/propre:À faire'], ['clients/tableau']] })
+    expect(await a.lire('_dashboards/suivi.yaml')).toContain('hauteur: 500')
+    const description = decrireEspace(espace.etat(), { aujourdhui: AUJOURDHUI, baseOuverte: null, candidats: [] })
+    expect(description).toContain('suivi « Suivi »\n- rangée 1 (hauteur 500 px) : 1. taches, vue par-statut, largeur 60 % | 2. taches, vue propre « À faire » (tableau)\n- rangée 2 : 1. clients, vue tableau')
+  })
+
+  it('modifier_dashboard : chaque opération part de la mise en page laissée par la précédente', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    await appliquerPlan(espace, await plan(espace, appel('creer_dashboard', { nom: 'Suivi', rangees: [{ blocs: [{ base: 'taches' }] }, { blocs: [{ base: 'projets' }] }, { blocs: [{ base: 'clients' }] }] })))
+    await ecrire()
+    const p = await plan(
+      espace,
+      appel('modifier_dashboard', {
+        dashboard: 'Suivi',
+        operations: [
+          { type: 'deplacer_bloc', rangee: 3, bloc: 1, vers_rangee: 1 },
+          { type: 'ajouter_bloc', rangee: 2, nouveau: { base: 'projets', vue_propre: { nom: 'Heures', tris: [{ colonne: 'heures', sens: 'desc' }] } } },
+          { type: 'deplacer_rangee', rangee: 2, vers: 1 },
+          { type: 'largeurs', rangee: 1, largeurs: [30, null] },
+          { type: 'modifier_vue', rangee: 1, bloc: 2, nom: 'Heures passées' },
+          { type: 'renommer', nom: 'Pilotage' },
+        ],
+      }),
+    )
+    expect(resumerPlan(p)).toContain('Dashboard « Suivi » : déplacer Clients › Tableau dans la rangée 1, position 2 ; ajouter Projets › Heures (vue propre) dans la rangée 2, position 2')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await disposition(a)).toEqual({ nom: 'Pilotage', rangees: [['projets/tableau 30%', 'projets/propre:Heures passées'], ['taches/tableau', 'clients/tableau']] })
+  })
+
+  it('refus clairs : rangée pleine, place inexistante, vue de la base modifiée par le dashboard', async () => {
+    const { espace } = await ouvrir()
+    const b = new Brouillon(espace.etat())
+    const ctx = { aujourdhui: AUJOURDHUI }
+    validerStructure(b, 'creer_dashboard', { nom: 'Suivi', rangees: [{ blocs: [{ base: 'taches' }, { base: 'projets' }, { base: 'clients' }] }, { blocs: [{ base: 'taches' }] }] }, ctx)
+    const ops = (...operations: unknown[]) => () => validerStructure(b, 'modifier_dashboard', { dashboard: 'suivi', operations }, ctx)
+    expect(ops({ type: 'deplacer_bloc', rangee: 2, bloc: 1, vers_rangee: 1 })).toThrow('opération 1 : la rangée 1 est pleine (3 blocs au plus)')
+    expect(ops({ type: 'hauteur', rangee: 1, hauteur: 300 }, { type: 'deplacer_rangee', rangee: 3, vers: 1 })).toThrow('opération 2 : rangee : numéro de rangée de 1 à 2 attendu, reçu 3')
+    expect(ops({ type: 'modifier_vue', rangee: 1, bloc: 1, nom: 'X' })).toThrow("affiche une vue de la base : modifie-la avec l'outil modifier_vue")
+    expect(() => validerStructure(b, 'creer_dashboard', { nom: 'Trop', rangees: [{ blocs: [{ base: 'taches' }, { base: 'taches' }, { base: 'taches' }, { base: 'taches' }] }] }, ctx)).toThrow('rangée 1 : 3 blocs au plus')
+  })
+
+  it('retirer_bloc est une suppression : signalée dans l’aperçu, la rangée vidée disparaît', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(
+      espace,
+      appel('creer_dashboard', { nom: 'Suivi', rangees: [{ blocs: [{ base: 'taches' }] }, { blocs: [{ base: 'clients' }] }] }),
+      appel('retirer_bloc', { dashboard: 'Suivi', rangee: 1, bloc: 1 }),
+    )
+    expect(resumerPlan(p)).toContain('Retirer le bloc Tâches › Tableau (rangée 1) du dashboard « Suivi » (la vue reste dans sa base)')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await disposition(a)).toEqual({ nom: 'Suivi', rangees: [['clients/tableau']] })
   })
 })

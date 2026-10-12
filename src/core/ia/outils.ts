@@ -6,7 +6,8 @@ import type { Cellule } from '../valeurs'
 import { OPERATEURS, type Niveau, type Vue } from '../vue'
 import type { Skill } from './memoire'
 import type { DefinitionOutil } from './modele'
-import { TYPES_COLONNE, TYPES_VUE } from './structure'
+import { TYPES_COLONNE, TYPES_OPERATION, TYPES_VUE } from './structure'
+import { estPropre, type Bloc } from '../dashboard'
 import { CALCULS } from '../schema'
 import { COULEURS } from '../couleurs'
 
@@ -115,6 +116,24 @@ const REGLAGES_VUE = {
       "timeline : les lignes d'autres bases (moratoires, congés, sprints…) en bandes verticales qui traversent toute la timeline. Remplace les sources existantes ; null ou [] les retire.",
   },
 }
+
+const BLOC = {
+  type: 'object',
+  properties: {
+    base: { type: 'string' },
+    vue: { type: 'string', description: 'id ou nom d’une vue de la base (par défaut : sa première)' },
+    vue_propre: {
+      type: 'object',
+      properties: { nom: { type: 'string' }, type: { type: 'string', enum: [...TYPES_VUE] }, ...REGLAGES_VUE },
+      required: ['nom'],
+      description: 'à la place de vue : une vue gardée dans le dashboard, pas dans la base',
+    },
+    largeur: { type: 'number', description: 'en % de la rangée (10 à 90) ; sans : part égale du reste' },
+  },
+  required: ['base'],
+}
+
+const HAUTEUR = { type: ['number', 'null'], description: 'hauteur des blocs de la rangée en pixels (160 à 2400) ; null : par défaut' }
 
 const LIGNES_VISEES = {
   lignes: { type: 'array', items: { type: 'string' }, description: 'ids des lignes' },
@@ -246,14 +265,72 @@ export const OUTILS: DefinitionOutil[] = [
   },
   {
     nom: 'creer_dashboard',
-    description: 'Crée un dashboard ; chaque bloc affiche une vue existante (ou créée plus haut) d’une base, un bloc par rangée.',
+    description:
+      'Crée un dashboard : des rangées de 1 à 3 blocs côte à côte. Chaque bloc affiche une vue de la base (existante ou créée plus haut), ou une vue propre au dashboard réglée comme creer_vue.',
     parametres: {
       type: 'object',
       properties: {
         nom: { type: 'string' },
-        blocs: { type: 'array', items: { type: 'object', properties: { base: { type: 'string' }, vue: { type: 'string' } }, required: ['base'] } },
+        rangees: {
+          type: 'array',
+          items: { type: 'object', properties: { blocs: { type: 'array', items: BLOC, minItems: 1, maxItems: 3 }, hauteur: HAUTEUR }, required: ['blocs'] },
+          description: 'de haut en bas',
+        },
       },
       required: ['nom'],
+    },
+  },
+  {
+    nom: 'modifier_dashboard',
+    description:
+      "Change un dashboard (id ou nom) par une liste d'opérations, faites dans l'ordre : chacune voit la mise en page laissée par les précédentes. Rangées et blocs se comptent à partir de 1, de haut en bas et de gauche à droite (la mise en page actuelle est dans la description de l'espace). Retirer un bloc : outil retirer_bloc.",
+    parametres: {
+      type: 'object',
+      properties: {
+        dashboard: { type: 'string' },
+        operations: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              type: {
+                type: 'string',
+                enum: [...TYPES_OPERATION],
+                description:
+                  'renommer (nom) ; ajouter_bloc (nouveau, rangee, position) ; deplacer_bloc (rangee, bloc, puis vers_rangee et position, ou nouvelle_rangee) ; remplacer_bloc (rangee, bloc, par) ; deplacer_rangee (rangee, vers) ; hauteur (rangee, hauteur) ; largeurs (rangee, largeurs) ; modifier_vue (rangee, bloc, réglages comme modifier_vue : vue propre seulement) ; filtres (filtres)',
+              },
+              nom: { type: 'string' },
+              rangee: { type: 'integer', description: 'numéro de rangée ; ajouter_bloc sans rangee : nouvelle rangée en bas' },
+              bloc: { type: 'integer', description: 'numéro du bloc dans la rangée' },
+              position: { type: 'integer', description: 'place dans la rangée d’arrivée (par défaut : à la fin)' },
+              vers_rangee: { type: 'integer', description: 'deplacer_bloc : rangée d’arrivée' },
+              nouvelle_rangee: { type: 'integer', description: 'deplacer_bloc : le bloc part seul dans une nouvelle rangée insérée à cette place (comptée avant le déplacement)' },
+              vers: { type: 'integer', description: 'deplacer_rangee : sa place une fois déplacée' },
+              nouveau: BLOC,
+              par: BLOC,
+              hauteur: HAUTEUR,
+              largeurs: { type: 'array', items: { type: ['number', 'null'] }, description: 'une par bloc de la rangée, en % (10 à 90) ; null : part égale' },
+              ...REGLAGES_VUE,
+              filtres: {
+                type: 'array',
+                items: { ...FILTRE, properties: { base: { type: 'string', description: 'type filtres : base filtrée (les autres blocs suivent leurs relations vers elle)' }, ...FILTRE.properties } },
+                description: 'type filtres : remplacent les filtres du dashboard, chacun avec sa base ([] les retire) ; modifier_vue : remplacent ceux de la vue propre',
+              },
+            },
+            required: ['type'],
+          },
+        },
+      },
+      required: ['dashboard', 'operations'],
+    },
+  },
+  {
+    nom: 'retirer_bloc',
+    description: "Retire un bloc d'un dashboard (rangée et bloc comptés à partir de 1) ; une rangée vidée disparaît, la vue reste dans sa base. Seulement si l'utilisateur le demande.",
+    parametres: {
+      type: 'object',
+      properties: { dashboard: { type: 'string' }, rangee: { type: 'integer' }, bloc: { type: 'integer' } },
+      required: ['dashboard', 'rangee', 'bloc'],
     },
   },
   {
@@ -423,7 +500,17 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
     parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type}${detailTemps(v)})`).join(', ')}`)
   }
   if (etat.dashboards.length > 0) {
-    parties.push('', '## Dashboards', ...etat.dashboards.map((d) => `${d.id} « ${d.dashboard?.nom ?? d.id} »`))
+    parties.push('', '## Dashboards (rangées de haut en bas, blocs de gauche à droite, comptés à partir de 1)')
+    for (const d of etat.dashboards) {
+      parties.push(`${d.id} « ${d.dashboard?.nom ?? d.id} »${d.dashboard ? '' : ' (fichier illisible)'}`)
+      if (!d.dashboard) continue
+      const bloc = (b: Bloc, j: number) => {
+        const vue = estPropre(b) ? `vue propre « ${b.vue.nom} » (${b.vue.type}${detailTemps(b.vue)})` : `vue ${b.vue}`
+        return `${j + 1}. ${b.base}, ${vue}${b.largeur ? `, largeur ${b.largeur} %` : ''}`
+      }
+      d.dashboard.rangees.forEach((r, i) => parties.push(`- rangée ${i + 1}${r.hauteur ? ` (hauteur ${r.hauteur} px)` : ''} : ${r.blocs.map(bloc).join(' | ')}`))
+      if (d.dashboard.filtres.length > 0) parties.push(`- filtres : ${d.dashboard.filtres.map((f) => `${f.base}.${f.colonne} ${f.operateur}${f.valeur === undefined ? '' : ` ${JSON.stringify(f.valeur)}`}`).join(', ')}`)
+    }
   }
   // Mémoire et skills avant ce qui change à chaque demande : le début du message reste identique d'une demande à l'autre.
   if (o.memoire?.length) parties.push('', '## Mémoire', ...o.memoire.map((f) => `- ${f}`))
