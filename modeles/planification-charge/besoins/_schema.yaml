@@ -1,0 +1,18 @@
+version: 1
+id: besoins
+nom: Besoins
+champ_titre: nom
+colonnes:
+  - { cle: nom, nom: Besoin, type: text }
+  - { cle: projet, nom: Projet, type: relation, cible: projets, proprietaire: true, inverse: besoins }
+  - cle: role
+    nom: Rôle
+    type: select
+    options:
+      - { label: Développement, couleur: bleu }
+      - { label: Design, couleur: violet }
+      - { label: Test, couleur: vert }
+      - { label: Pilotage, couleur: orange }
+  - { cle: jours, nom: Jours, type: number }
+  - { cle: avant, nom: À faire avant, type: date }
+vues: [ tableau ]

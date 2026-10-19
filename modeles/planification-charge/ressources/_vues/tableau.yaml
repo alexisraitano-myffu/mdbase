@@ -1,0 +1,6 @@
+id: tableau
+nom: Par rôle
+type: tableau
+groupe: role
+tris:
+  - { colonne: nom, sens: asc }

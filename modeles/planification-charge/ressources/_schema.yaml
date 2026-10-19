@@ -1,0 +1,19 @@
+version: 1
+id: ressources
+nom: Ressources
+champ_titre: nom
+colonnes:
+  - { cle: nom, nom: Nom, type: text }
+  - cle: role
+    nom: Rôle
+    type: select
+    options:
+      - { label: Développement, couleur: bleu }
+      - { label: Design, couleur: violet }
+      - { label: Test, couleur: vert }
+      - { label: Pilotage, couleur: orange }
+  - { cle: capacite, nom: Capacité (jours par semaine), type: number }
+  - { cle: affectations, nom: Affectations, type: relation, cible: affectations, proprietaire: false, inverse: ressource }
+  - { cle: absences, nom: Absences, type: relation, cible: absences, proprietaire: false, inverse: ressource }
+  - { cle: jours_affectes, nom: Jours par semaine affectés, type: rollup, relation: affectations, champ: jours, calcul: somme }
+vues: [ tableau ]

@@ -1,0 +1,12 @@
+version: 1
+id: affectations
+nom: Affectations
+champ_titre: nom
+colonnes:
+  - { cle: nom, nom: Affectation, type: text }
+  - { cle: ressource, nom: Ressource, type: relation, cible: ressources, proprietaire: true, inverse: affectations }
+  - { cle: projet, nom: Projet, type: relation, cible: projets, proprietaire: true, inverse: affectations }
+  - { cle: debut, nom: Début, type: date }
+  - { cle: fin, nom: Fin, type: date }
+  - { cle: jours, nom: Jours par semaine, type: number }
+vues: [ tableau ]

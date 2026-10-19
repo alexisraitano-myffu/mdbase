@@ -1,0 +1,17 @@
+version: 1
+id: absences
+nom: Absences
+champ_titre: nom
+colonnes:
+  - { cle: nom, nom: Absence, type: text }
+  - { cle: ressource, nom: Ressource, type: relation, cible: ressources, proprietaire: true, inverse: absences }
+  - { cle: debut, nom: Début, type: date }
+  - { cle: fin, nom: Fin, type: date }
+  - cle: type
+    nom: Type
+    type: select
+    options:
+      - { label: Congés, couleur: jaune }
+      - { label: Formation, couleur: bleu }
+      - { label: Autre, couleur: gris }
+vues: [ tableau, calendrier ]

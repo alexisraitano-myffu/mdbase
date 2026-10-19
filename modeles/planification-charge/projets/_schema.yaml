@@ -1,0 +1,19 @@
+version: 1
+id: projets
+nom: Projets
+champ_titre: nom
+colonnes:
+  - { cle: nom, nom: Nom, type: text }
+  - cle: statut
+    nom: Statut
+    type: select
+    options:
+      - { label: À venir, couleur: gris }
+      - { label: En cours, couleur: bleu }
+      - { label: Livré, couleur: vert }
+  - { cle: debut, nom: Début, type: date }
+  - { cle: echeance, nom: Échéance, type: date }
+  - { cle: besoins, nom: Besoins, type: relation, cible: besoins, proprietaire: false, inverse: projet }
+  - { cle: affectations, nom: Affectations, type: relation, cible: affectations, proprietaire: false, inverse: projet }
+  - { cle: jours_demandes, nom: Jours demandés, type: rollup, relation: besoins, champ: jours, calcul: somme }
+vues: [ tableau, planning ]

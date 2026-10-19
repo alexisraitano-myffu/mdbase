@@ -1,0 +1,8 @@
+id: calendrier
+nom: Calendrier
+type: calendrier
+champ_debut: debut
+champ_fin: fin
+champs_carte: [ ressource ]
+couleur_par: type
+echelle: mois

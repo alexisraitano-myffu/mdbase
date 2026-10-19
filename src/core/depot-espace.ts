@@ -5,7 +5,8 @@ import { DepotBase, type OptionsDepot } from './depot-base'
 import { barreLaterale, lireEspace, modifierEspace, ordreDashboards, type ConfigEspace, type ConfigTaches, type Groupe, type OperationEspace, type Theme } from './espace-config'
 import { listerBases } from './espace'
 import { FichierIntrouvable, joindre, type AdaptateurFichiers } from './fichiers'
-import { cleColonne, idBase } from './identifiants'
+import { cleColonne, dedoublonner, idBase } from './identifiants'
+import { dashboardsDe, preparerModele, type Modele } from './modeles'
 import { compiler, ErreurFormule } from './formules/formule'
 import {
   appliquerEnMemoire,
@@ -328,6 +329,43 @@ export class DepotEspace {
       await this.chargerBase(id)
       this.publier()
       return id
+    })
+  }
+
+  /**
+   * Installe un modèle (spec §19 « Modèles ») : ses bases dans un nouveau groupe
+   * nommé comme lui, ses dashboards à la suite. N'écrit que des fichiers neufs ;
+   * un identifiant déjà pris est dédoublonné, et ses références suivent.
+   */
+  utiliserModele(m: Modele): Promise<{ groupe: string; bases: string[]; dashboards: string[] }> {
+    return this.enFile(async () => {
+      const prises = new Set((await this.adaptateur.lister('')).map((e) => e.nom))
+      const ids = new Map<string, string>()
+      for (const b of m.bases) {
+        const id = dedoublonner(b, prises, '-')
+        prises.add(id)
+        ids.set(b, id)
+      }
+      const dashboards = new Map<string, string>()
+      const dashboardsPris = new Set(this.dashboards.keys())
+      for (const d of dashboardsDe(m)) {
+        const id = dedoublonner(d, dashboardsPris, '-')
+        dashboardsPris.add(id)
+        dashboards.set(d, id)
+      }
+      for (const [chemin, texte] of Object.entries(preparerModele(m, ids, dashboards, this.options.aujourdhui()))) await this.adaptateur.ecrire(chemin, texte)
+      const groupe = dedoublonner(m.nom, new Set(this.config.groupes.map((g) => g.nom)), ' ')
+      await this.modifierEspace({ type: 'ajouter_groupe', nom: groupe })
+      for (const id of ids.values()) {
+        await this.modifierEspace({ type: 'placer_base', base: id, groupe })
+        await this.chargerBase(id)
+      }
+      for (const id of dashboards.values()) {
+        this.dashboards.set(id, { id, ...lireDashboard(await this.adaptateur.lire(cheminDashboard(id)), id) })
+        await this.modifierEspace({ type: 'ajouter_dashboard', id })
+      }
+      this.publier()
+      return { groupe, bases: [...ids.values()], dashboards: [...dashboards.values()] }
     })
   }
 
