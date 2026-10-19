@@ -13,7 +13,8 @@ import { Icone, ICONES, ICONES_VUES } from './icones'
 import { TYPES_GROUPE_KANBAN } from './Kanban'
 import { OrdreGroupes } from './OrdreGroupes'
 import { Pastilles } from './Pastilles'
-import { ArrowDown, ArrowUp, ChartGantt, ChevronRight, Plus, Tag, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChartGantt, ChevronRight, Plus, Store, Tag, X } from 'lucide-react'
+import { ouvrirMagasin, useTypesActifs } from './modules'
 import { Choix, type EntreeChoix } from './Choix'
 import { Interrupteur, Reglage, Section, Visibilite } from './reglages'
 import { useConsultation } from './mode'
@@ -124,6 +125,7 @@ function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: 
   const lancer = useLancer()
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
+  const actif = useTypesActifs()
   const creer = async (type: TypeVue, nom: string) => {
     setOuvert(false)
     const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, reglagesParDefaut(type, p.schema)))
@@ -136,12 +138,24 @@ function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: 
       </button>
       {ouvert && (
         <Flottant ancre={ancre.current} fermer={() => setOuvert(false)}>
-          {TYPES_CREABLES.map((t) => (
+          {TYPES_CREABLES.filter((t) => actif(t.type)).map((t) => (
             <button key={t.type} className="option" onClick={() => void creer(t.type, t.nom)}>
               <Icone de={ICONES_VUES[t.type]} />
               {t.nom}
             </button>
           ))}
+          {TYPES_CREABLES.some((t) => !actif(t.type)) && (
+            <button
+              className="option discret"
+              onClick={() => {
+                setOuvert(false)
+                ouvrirMagasin()
+              }}
+            >
+              <Icone de={Store} />
+              Plus de vues
+            </button>
+          )}
         </Flottant>
       )}
     </>

@@ -2,7 +2,7 @@ import { webcrypto } from 'node:crypto'
 import { AdaptateurMemoire } from '../src/core/adaptateur-memoire'
 import { synchroniser, type ClientJira } from '../src/core/jira/synchro'
 import type { TicketJira } from '../src/core/jira/ticket'
-import { expect, test, type Espace } from './espace'
+import { ajouterModule, expect, test, type Espace } from './espace'
 
 // Base Jira (spec §16) : créée dans l'app, remplie par le script (simulé ici
 // par le vrai cœur de synchro, sur une copie en mémoire), en lecture seule.
@@ -43,9 +43,7 @@ async function passerLeScript(espace: Espace, base: string, tickets: TicketJira[
 async function creerBaseJira(espace: Espace) {
   const page = espace.page
   // Module Jira (spec §19) : caché tant que l'espace n'a pas de base Jira.
-  await page.getByRole('button', { name: 'Modules' }).click()
-  await page.getByRole('dialog', { name: 'Modules' }).getByRole('switch', { name: 'Jira' }).click()
-  await page.keyboard.press('Escape')
+  await ajouterModule(page, 'Jira')
   await page.getByRole('button', { name: 'Nouvelle base Jira' }).click()
   const fenetre = page.locator('.fenetre')
   await fenetre.getByLabel('Site Jira').fill('https://exemple.atlassian.net/jira/software/projects/APP/boards/1')

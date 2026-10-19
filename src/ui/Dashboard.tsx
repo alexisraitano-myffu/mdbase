@@ -10,6 +10,7 @@ import { vueParDefaut } from '../core/vue'
 import { useLancer } from './actions'
 import { OutilsVue, reglagesParDefaut, TYPES_CREABLES } from './BarreVue'
 import { Icone, ICONES_VUES } from './icones'
+import { useTypesActifs } from './modules'
 import { ContenuVue, useVueAppliquee } from './ContenuVue'
 import { useEspace } from './contexte-espace'
 import { Flottant } from './flottant'
@@ -424,6 +425,7 @@ function AjoutBloc({ idsPropres, requetes, ajouter, compact }: { idsPropres: str
   const ancre = useRef<HTMLButtonElement>(null)
   const [ouvert, setOuvert] = useState(false)
   const [base, setBase] = useState<string | null>(null)
+  const typeActif = useTypesActifs()
   const fermer = () => {
     setOuvert(false)
     setBase(null)
@@ -487,7 +489,7 @@ function AjoutBloc({ idsPropres, requetes, ajouter, compact }: { idsPropres: str
                 </button>
               ))}
               <div className="option discret">Ou une vue propre à ce dashboard :</div>
-              {TYPES_CREABLES.map((t) => (
+              {TYPES_CREABLES.filter((t) => typeActif(t.type)).map((t) => (
                 <button key={t.type} className="option" onClick={() => creerPropre(t.type, t.nom)}>
                   <Icone de={ICONES_VUES[t.type]} />
                   {t.nom}

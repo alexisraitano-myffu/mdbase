@@ -4,11 +4,12 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Blocks, BookOpen, ChevronRight, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
+import { BookOpen, ChevronRight, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Store, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 import { FenetreBaseJira } from './Jira'
 import { useConsultation } from './mode'
+import type { ModulesActifs } from './modules'
 
 type Props = {
   espace: DepotEspace
@@ -31,7 +32,7 @@ type Props = {
   relu: { enCours: boolean; a: Date | null }
   /** Modules activés (spec §19) : ce qu'ils montrent dans la barre. */
   assistantActif: boolean
-  modules: { jira: boolean; inbox: boolean; contexte: boolean }
+  modules: Pick<ModulesActifs, 'jira' | 'inbox' | 'contexte' | 'taches' | 'dashboards'>
   /** Entrée Inbox : éléments en attente, panneau ouvert, ouvrir ou fermer. */
   inbox: { compte: number; ouverte: boolean; basculer: () => void }
   ouvrirModules: () => void
@@ -175,10 +176,12 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
           <kbd className="discret">{/Mac/.test(navigator.platform) ? '⌘J' : 'Ctrl+J'}</kbd>
         </button>
       )}
-      <button className={`entree-taches ${selection?.type === 'taches' ? 'active' : ''}`} onClick={toutesLesTaches} aria-current={selection?.type === 'taches' ? 'page' : undefined}>
-        <Icone de={ListChecks} />
-        Toutes les tâches
-      </button>
+      {modules.taches && (
+        <button className={`entree-taches ${selection?.type === 'taches' ? 'active' : ''}`} onClick={toutesLesTaches} aria-current={selection?.type === 'taches' ? 'page' : undefined}>
+          <Icone de={ListChecks} />
+          Toutes les tâches
+        </button>
+      )}
       {!lecture && modules.inbox && (
         <button className={`entree-taches ${inbox.ouverte ? 'active' : ''}`} onClick={inbox.basculer} aria-expanded={inbox.ouverte}>
           <Icone de={Inbox} />
@@ -194,6 +197,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         </button>
       )}
 
+      {modules.dashboards && (
       <section className={`groupe dashboards ${cible === 'dashboards' ? 'cible' : ''}`} {...deposableDashboard('dashboards')}>
         <div className="titre-groupe">
           <BasculeSection nom="Dashboards" replie={replis.has('dashboards')} basculer={() => basculer('dashboards')} caches={etat.dashboards.filter((d) => !(selection?.type === 'dashboard' && selection.id === d.id)).length} />
@@ -232,6 +236,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
           />
         )}
       </section>
+      )}
 
       {etat.groupes.map((g) => (
         <section key={g.nom} className={`groupe ${cible === `groupe:${g.nom}` ? 'cible' : ''}`} {...deposable(`groupe:${g.nom}`, g.nom)}>
@@ -291,9 +296,9 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
 
       <AlerteCopies espace={espace} copies={etat.copiesConflit} />
       {!lecture && (
-        <button className="discret modules-barre" onClick={ouvrirModules} title="Activer Jira, l’assistant IA, l’inbox, le contexte de l’assistant">
-          <Icone de={Blocks} />
-          Modules
+        <button className="discret modules-barre" onClick={ouvrirModules} title="Ajouter des vues, les tâches, les dashboards, l’assistant IA, Jira">
+          <Icone de={Store} />
+          Magasin
         </button>
       )}
       <button

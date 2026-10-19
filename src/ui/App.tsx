@@ -29,7 +29,7 @@ import { AideRaccourcis } from './Raccourcis'
 import { ToutesLesTaches } from './Taches'
 import { PanneauInbox, useInbox } from './Inbox'
 import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
-import { FenetreModules, useModules } from './modules'
+import { FenetreModules, useModules, useOuvertureMagasin } from './modules'
 import { useSynchroJiraBureau } from './synchroJira'
 import { getVersion } from '@tauri-apps/api/app'
 import { ecouterMcp } from '../adapters/tauri/mcp'
@@ -221,6 +221,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
   const panneauIA = panneau === 'ia'
   const [fenetreModules, setFenetreModules] = useState(false)
   const modules = useModules(etat)
+  useOuvertureMagasin(useCallback(() => setFenetreModules(true), []))
   useSynchroJiraBureau(espace, BUREAU && modules.jira)
   // Claude (MCP) : l'app répond aux messages relayés par `mdbase --mcp`, sur l'espace ouvert.
   useEffect(() => {

@@ -1320,8 +1320,28 @@ button.lien { background: none; border: none; padding: 0; color: var(--accent); 
 .bilan-inbox { margin: 3px 0 0; padding-left: 1.1rem; font-size: 0.95em; color: var(--texte-doux); display: flex; flex-direction: column; gap: 1px; }
 .traites .libelle-choix { color: var(--texte-doux); }
 /* Modules (spec §19) et contexte de l'assistant */
-.modules { display: flex; flex-direction: column; gap: 0.25rem; }
-.modules > p { margin: 0 0 0.25rem; font-size: 0.9em; }
+/* Magasin de modules (spec §19) : un catalogue de fiches, par catégorie, avec un croquis de ce que montre chaque module. */
+.magasin { display: flex; flex-direction: column; gap: 1.25rem; }
+.magasin > p { margin: 0; font-size: 0.9em; max-width: 46rem; }
+.categorie-magasin h3 { font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--discret); margin: 0 0 0.5rem; }
+.fiches-magasin { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.75rem; }
+.fiche-module { display: flex; flex-direction: column; border: 1px solid var(--bordure); border-radius: 10px; background: var(--surface); overflow: hidden; transition: border-color 150ms var(--ease-out); }
+.fiche-module:hover { border-color: var(--bordure-forte); }
+.apercu-module { height: 6.5rem; padding: 0.75rem 1.25rem; background: var(--fond-doux); border-bottom: 1px solid var(--bordure); color: var(--texte); }
+.apercu-module .carte, .apercu-module .case { fill: var(--surface); stroke: var(--bordure-forte); stroke-width: 0.8; }
+.apercu-module .plein { fill: var(--accent); }
+.apercu-module .doux { fill: var(--gris-moyen); }
+.apercu-module .trait { fill: var(--tres-discret); }
+.apercu-module .grille { stroke: var(--bordure-forte); stroke-width: 0.6; fill: none; }
+.apercu-module .bac { fill: var(--surface); stroke: var(--discret); stroke-width: 1; stroke-linejoin: round; }
+.apercu-module .lien { stroke: var(--discret); stroke-width: 1.2; stroke-dasharray: 3 2; }
+.texte-module { flex: 1; padding: 0.7rem 0.85rem 0.25rem; display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.texte-module h4 { margin: 0; font-size: 0.95em; display: flex; align-items: center; gap: 6px; }
+.texte-module p { margin: 0; font-size: 0.85em; color: var(--texte-doux); line-height: 1.4; }
+.pied-module { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.85rem 0.7rem; font-size: 0.85em; min-height: 2.6rem; }
+.usage-module { display: inline-flex; align-items: center; gap: 4px; color: var(--texte-doux); min-width: 0; }
+.pied-module button { flex-shrink: 0; }
+.pied-module button:disabled { opacity: 0.45; cursor: default; }
 .lien-module { align-self: flex-start; font-size: 0.85em; padding: 2px 6px; text-decoration: underline; text-underline-offset: 2px; }
 /* Documents et contexte de l'assistant (spec §18) : un panneau comme l'inbox */
 .onglets-documents { flex: 1; display: flex; gap: 2px; }

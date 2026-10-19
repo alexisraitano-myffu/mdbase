@@ -59,6 +59,7 @@ src/
     conflits.ts            ids en double, copies de conflit de synchro (suffixe de machine OneDrive)
     liens-internes.ts      références à une ligne dans le corps (`[[chemin--id|Titre]]`) : lecture, écriture, résolution par l'id
     taches.ts              cases à cocher du corps (`- [ ]`) : lecture, cocher en vérifiant la ligne, ajout ; affichées par l'onglet Tâches et « Toutes les tâches »
+    modules.ts             magasin de modules (spec §19) : modules utilisés par l'espace, déduits des fichiers (vues, dashboards, tâches, Jira), toujours actifs
     base-taches.ts         base des tâches (clé `taches` de `_espace.yaml`) : résolution contre le schéma, faite / valeur à écrire, échéance, tri, tâches liées à une page
     historique.ts          annuler / rétablir : changements notés par DepotBase (journal), étapes groupées par DepotEspace.enUneEtape
     ia/                    assistant IA (spec §12, « Module IA ») : modele.ts (interface ModeleIA,

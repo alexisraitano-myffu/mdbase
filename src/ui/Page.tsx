@@ -32,6 +32,7 @@ import { ContenusLies, ReglageContenus } from './ContenusLies'
 import { Corps } from './Corps'
 import { Interrupteur, Reglage, Section } from './reglages'
 import { OngletTaches, restantesDeLaPage } from './Taches'
+import { useModules } from './modules'
 
 type Props = {
   base: string
@@ -387,6 +388,7 @@ function ReglagesPage(p: {
   const relationsOnglet = mep.onglets.flatMap((o) => (o.type === 'relation' ? [{ relation: o.relation, colonnes: o.colonnes }] : []))
   const corps = corpsEnOnglet(mep)
   const taches = ongletTaches(mep) ?? null
+  const tachesActives = useModules(etat).taches
   const premiereRelation = schema.colonnes.find((c) => c.type === 'relation')?.cle
   const modifier = (m: Parameters<typeof espace.modifierMiseEnPage>[2]) => void lancer(espace.modifierMiseEnPage(p.base, mep.id, m))
   const ecrireChamps = (liste: typeof champs) => modifier({ champs: liste.map((c) => ({ cle: c.colonne.cle, affichage: c.affichage })) })
@@ -512,6 +514,7 @@ function ReglagesPage(p: {
                 changer={(v) => modifier({ onglets: ongletsDe(relationsOnglet, v, taches) })}
               />
             </Section>
+            {tachesActives && (
             <Section titre="Tâches" aide="Les cases à cocher du contenu, rassemblées dans un onglet. Cocher depuis l’onglet écrit la case dans le contenu.">
               <Interrupteur
                 libelle="Onglet Tâches"
@@ -532,6 +535,7 @@ function ReglagesPage(p: {
                 <ReglageContenus schema={schema} niveau={taches.liees} changer={(n) => modifier({ onglets: ongletsDe(relationsOnglet, corps, { type: 'taches', liees: n }) })} />
               )}
             </Section>
+            )}
             <Section titre="Contenus liés" aide="Sous le corps, le contenu des lignes liées, dépliable et modifiable sur place. Chaque texte reste dans le fichier de sa ligne.">
               <Interrupteur
                 libelle="Afficher le contenu des lignes liées"

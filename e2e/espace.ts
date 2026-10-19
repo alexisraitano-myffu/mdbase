@@ -121,6 +121,13 @@ export class Espace {
   }
 }
 
+/** Ajoute un module depuis le magasin (spec §19) ; l'assistant ouvre alors son activation, le reste referme le magasin. */
+export async function ajouterModule(page: Page, module: string) {
+  await page.getByRole('button', { name: 'Magasin' }).click()
+  await page.getByRole('dialog', { name: 'Magasin' }).getByRole('article', { name: module, exact: true }).getByRole('button', { name: 'Ajouter' }).click()
+  if (module !== 'Assistant IA') await page.keyboard.press('Escape')
+}
+
 /** Choisit une entrée d'une liste de choix (`Choix`) : ouvre le bouton, clique l'option par son libellé exact. */
 export async function choisir(bouton: Locator, libelle: string) {
   await bouton.click()

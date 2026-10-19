@@ -1135,11 +1135,11 @@ Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans u
 | Contexte IA | contexte et documents envoyés ou cherchés par l'assistant (§18) ; entrée et panneau Documents (documents rangés, édition du contexte). Demande l'assistant | désactivé |
 | Claude (MCP) | app de bureau seulement : l'app répond aux appels MCP de Claude Desktop ou Claude Code (§17) ; réglage : « Connecter à Claude Desktop » et la commande pour Claude Code | désactivé |
 
-- Désactiver un module **cache** ce qu'il montre ; aucun fichier n'est touché. Une base Jira existante reste une base lisible quand le module est désactivé (sans bandeau de synchro).
+- Désactiver un module **cache** ce qu'il montre ; aucun fichier n'est touché. Un espace qui contient une base Jira garde le module actif (règle du magasin, plus bas).
 - Les choix sont gardés **par machine** (dans le navigateur, comme la clé de l'assistant), pas dans le dossier : aucune nouvelle clé dans `_espace.yaml`.
 - Les modules suivants (intégrations tierces) s'ajoutent à la même fenêtre.
 
-### Magasin de modules [PROPOSÉ, demandé par Alex le 19/10/2026]
+### Magasin de modules [DÉCIDÉ, validé par Alex le 19/10/2026]
 But : un outil **très simple à l'installation**, où l'on ajoute ce qui sert quand on le voit. Le magasin est **interne** : tout le code est dans l'app, rien n'est téléchargé ni exécuté depuis l'extérieur (principe « aucun code n'est exécuté depuis les données », §1). Il remplace la fenêtre Modules, au même endroit.
 - **Socle**, toujours là : bases, vue tableau, pages (propriétés, corps, onglets relation, contenus liés), relations, rollups, formules, filtres et tris, recherche, annulation, import et export. De quoi créer une petite base simple sans rien voir d'autre.
 - **Catalogue** par catégories ; chaque module a un nom, une phrase, une image de ce qu'il montre, et « Ajouter » ou « Retirer » :
@@ -1147,7 +1147,7 @@ But : un outil **très simple à l'installation**, où l'on ajoute ce qui sert q
   - Organisation : Tâches (§9), Dashboards (blocs de vues, analyse SQL, fiches, §10) ;
   - Assistant : Assistant IA, Inbox, Contexte IA ;
   - Intégrations : Jira, Claude (MCP).
-  Un module retiré disparaît des menus (« Nouvelle vue », « Ajouter un bloc », barre latérale) ; rien d'autre ne change.
+  Un module retiré disparaît des menus (« Nouvelle vue », « Ajouter un bloc », barre latérale) ; rien d'autre ne change. Quand des vues manquent au menu « Nouvelle vue », sa dernière entrée, « Plus de vues », ouvre le magasin.
 - **Ne jamais casser un espace** (règle de toute nouvelle version et de tout module) :
   - ajouter ou retirer un module ne touche aucun fichier ;
   - **un module dont l'espace se sert est toujours actif**, sans réglage : une vue de son type, un dashboard, la clé `taches`, un onglet Tâches, une base Jira… L'interrupteur est alors grisé et dit pourquoi (« utilisé par 3 vues »). Une version qui fait passer une fonction du socle à un module, ou qui en ajoute un, ne cache donc jamais ce qu'un espace contient ; on n'en perd que les menus pour créer du neuf, jusqu'à « Ajouter » ;
@@ -1159,7 +1159,7 @@ But : un outil **très simple à l'installation**, où l'on ajoute ce qui sert q
 
 ---
 
-## 21. Plan de charge [PROPOSÉ, demandé par Alex le 19/10/2026]
+## 21. Plan de charge [DÉCIDÉ, validé par Alex le 19/10/2026]
 
 But : planifier la charge d'une équipe partagée entre plusieurs projets (une dizaine à une vingtaine de personnes), sans Excel : chaque projet a ses échéances, les ressources doivent tenir entre les projets, avec les absences et les rôles. Module « Plan de charge » (§19, magasin), désactivé par défaut. Modèle général, pas propre à un métier : ressources, projets, échéances.
 

@@ -1,6 +1,6 @@
 import type { Page, Request } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { choisir, expect, test } from './espace'
+import { ajouterModule, choisir, expect, test } from './espace'
 
 // Assistant IA (spec §12, « Module IA ») : désactivé par défaut, avertissement
 // avant activation, aperçu avant toute écriture. Le service est simulé.
@@ -22,12 +22,7 @@ async function simulerService(page: Page, ...messages: object[]) {
 const appel = (nom: string, args: object) => ({ content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: nom, arguments: JSON.stringify(args) } }] })
 
 /** Active l'assistant ; le faux service liste `modeles` (demandés à l'ouverture du panneau). */
-/** Allume un module dans la fenêtre Modules (spec §19) ; l'assistant ouvre alors son activation. */
-async function allumer(page: Page, module: string) {
-  await page.getByRole('button', { name: 'Modules' }).click()
-  await page.getByRole('dialog', { name: 'Modules' }).getByRole('switch', { name: module }).click()
-  if (module !== 'Assistant IA') await page.keyboard.press('Escape')
-}
+const allumer = ajouterModule
 
 async function activer(page: Page, modeles: string[] = []) {
   await page.route(`${SERVICE}/models`, (route) => route.fulfill({ json: { data: modeles.map((id) => ({ id })) }, headers: { 'Access-Control-Allow-Origin': '*' } }))
@@ -580,10 +575,11 @@ test('modules : Jira caché par défaut, le contexte s’édite et part avec cha
   await expect(page.getByRole('button', { name: 'Nouvelle base Jira' })).toBeVisible()
 
   await activer(page)
-  await page.getByRole('button', { name: 'Modules' }).click()
-  const modules = page.getByRole('dialog', { name: 'Modules' })
-  await modules.getByRole('switch', { name: 'Contexte IA' }).click()
-  await expect(modules.getByRole('switch', { name: 'Contexte IA' })).toBeChecked()
+  await page.getByRole('button', { name: 'Magasin' }).click()
+  const modules = page.getByRole('dialog', { name: 'Magasin' })
+  const contexte = modules.getByRole('article', { name: 'Contexte IA' })
+  await contexte.getByRole('button', { name: 'Ajouter' }).click()
+  await expect(contexte.getByRole('button', { name: 'Retirer' })).toBeEnabled()
   await page.screenshot({ path: 'test-results/modules.png' })
   await modules.getByRole('button', { name: 'Éditer le contexte' }).click()
   // Le contexte s'édite dans le panneau Documents, à la place de l'assistant.
