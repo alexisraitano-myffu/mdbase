@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { lireBlocAnalyse, lireCondition, lireParametres, lireRequetes, type BlocAnalyse, type Parametre } from './analyse'
 import { couleurJours, enrichir, etatDe, expressionEtat, fenetreFrise, grilleEtapes, joursJusqua, moisDe, position, prochaine, selection } from './fiche'
-import { citer, type EtatRequete } from './calcul'
+import { citer, messageErreur, type EtatRequete } from './calcul'
 import { couleurRegle, formater, remplit } from './regles'
 import { envelopper, litteral, litteralDate, substituer, valeurParametre, type ResultatSql, type ValeurSql } from './sql'
 
@@ -170,5 +170,13 @@ describe('fiches', () => {
     expect(position('2026-10-01', f)).toBe(0)
     expect(position('2028-01-01', f)).toBe(1)
     expect(joursJusqua('2026-10-20', '2026-10-16')).toBe(4)
+  })
+})
+
+describe('date du jour', () => {
+  it('{{aujourdhui}} est intégré, sauf si un paramètre porte ce nom', () => {
+    expect(substituer('select {{aujourdhui}}', [], '2026-10-19')).toBe("select DATE '2026-10-19'")
+    expect(substituer('select {{aujourdhui}}', [{ nom: 'aujourdhui', type: 'texte', valeur: 'x' }], '2026-10-19')).toBe("select 'x'")
+    expect(messageErreur(new Error("Extension Autoloading Error: An error occurred while trying to automatically install the required extension 'icu':\nplus"))).toContain('{{aujourdhui}}')
   })
 })

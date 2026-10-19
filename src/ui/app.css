@@ -858,6 +858,69 @@ textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, mono
 .regle-analyse { display: flex; align-items: center; gap: 6px; }
 .regle-analyse input:not([type]) { width: 7rem; }
 .fenetre-analyse h3 { font-size: 1rem; margin: 1rem 0 0.5rem; }
+
+/* Fiches (spec §10 « Fiches ») : cartes blanches à ombre légère sur fond gris clair, dans tous les dashboards ;
+   la couleur ne dit qu'un état. */
+.contenu:has(> .zone-vue > .zone-dashboard) { background: var(--fond-doux); }
+.zone-dashboard { container-type: inline-size; }
+.bloc-dashboard { border: none; border-radius: 12px; padding: 12px 14px 14px; background: var(--surface); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.05); }
+.bloc-dashboard .entete-bloc .nom-vue-bloc, .bloc-dashboard .entete-bloc .lien-base { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texte-doux); }
+.bloc-fiche .contenu-bloc { height: auto; overflow: visible; }
+.bloc-fiche .entete-bloc > button { opacity: 0; }
+.bloc-fiche:hover .entete-bloc > button, .bloc-fiche:focus-within .entete-bloc > button, .bloc-fiche .entete-bloc > button[aria-expanded='true'] { opacity: 1; }
+.bloc-entete { position: relative; background: transparent; box-shadow: none; padding: 4px 0 8px; }
+.bloc-entete .entete-bloc { position: absolute; top: -6px; right: 0; opacity: 0; background: var(--fond-doux); border-radius: 8px; }
+.bloc-entete:hover .entete-bloc, .bloc-entete:focus-within .entete-bloc { opacity: 1; }
+.bloc-fiche .entete-bloc > svg.icone { display: none; }
+@container (max-width: 400px) {
+  .rangee-dashboard { flex-direction: column; }
+  .rangee-dashboard > .bloc-dashboard { flex-basis: auto; }
+}
+:root { --fiche-vide: #eceff4; --fiche-pointille: #d5dae2; }
+.point-fiche { display: inline-block; flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+.point-fiche.aucune { border: 1px dashed var(--fiche-pointille); box-sizing: border-box; }
+.legende-fiche { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--texte-doux); margin-top: 10px; }
+.vide-fiche { color: var(--texte-doux); font-style: italic; margin: 0; }
+.selecteur-ligne { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.selecteur-ligne button { display: flex; align-items: center; font-size: 13px; font-weight: 600; color: var(--texte-doux); background: var(--surface); border: 1px solid var(--bordure); border-radius: 999px; padding: 5px 14px; }
+.selecteur-ligne button:hover { border-color: var(--bordure-forte); color: var(--texte); }
+.selecteur-ligne button.actif { background: var(--texte); border-color: var(--texte); color: var(--fond); }
+.selecteur-ligne .point-fiche { width: 8px; height: 8px; margin-right: 7px; }
+.entete-fiche { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.entete-fiche h2 { margin: 0; font-size: 26px; font-weight: 600; }
+.etat-fiche { font-weight: 600; white-space: nowrap; }
+.compte-a-rebours .jours { font-size: 40px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.compte-a-rebours .jours.vide { color: var(--tres-discret-texte); }
+.etapes-fiche { --colonnes-etapes: repeat(var(--etapes), minmax(0, 1fr)); overflow-x: auto; }
+.ligne-etapes { display: grid; grid-template-columns: 150px minmax(420px, 1fr); align-items: start; gap: 12px; margin: 6px 0; }
+.ligne-etapes .cases { display: grid; grid-template-columns: var(--colonnes-etapes); gap: 3px; }
+.bandeau { margin-bottom: 8px; }
+.bandeau .cases { gap: 0; background: #1f4e8c; border-radius: 6px; padding: 6px 0; font-size: 11px; font-weight: 700; color: #fff; line-height: 1.2; }
+.bandeau .cases > div { text-align: center; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bandeau .cases > div + div { border-left: 1px solid rgba(255, 255, 255, 0.25); }
+.nom-element { font-size: 13px; font-weight: 600; line-height: 16px; margin-top: -4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.case-etape { height: 8px; border-radius: 4px; }
+.case-etape.aucune { border: 1px dashed var(--fiche-pointille); box-sizing: border-box; }
+.dates-etapes span { font-size: 11px; font-weight: 600; text-align: center; color: var(--texte-doux); height: 16px; margin-top: 2px; }
+.titre-groupe-etapes { font-weight: 600; margin: 14px 0 4px; }
+.titre-groupe-etapes .discret { font-weight: 400; }
+.liste-fiche .ligne-liste { padding: 6px 0; }
+.liste-fiche .ligne-liste.ecartee { opacity: 0.6; }
+.libelle-liste { font-weight: 600; }
+.lien-autres { padding: 4px 0; font-size: 12px; text-decoration: underline; }
+.barre-repartition { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.repartition .legende-fiche { font-size: 13px; color: var(--texte); }
+.repartition .legende-fiche b { font-weight: 600; }
+.frise { overflow-x: auto; }
+.frise svg { display: block; }
+.frise .texte-mois { font-size: 12px; font-weight: 700; fill: var(--texte-doux); }
+.frise .trait-mois { stroke: var(--trait); }
+.frise .texte-ligne-frise { font-size: 12px; font-weight: 600; fill: var(--texte); }
+.frise .texte-jalon { font-size: 11px; font-weight: 700; fill: var(--texte); }
+.frise .texte-periode { font-size: 11px; font-weight: 700; fill: var(--rouge-texte); }
+.frise .trait-aujourdhui { stroke: var(--texte); stroke-width: 1.5; }
+.frise .texte-aujourdhui { font-size: 10px; font-weight: 700; fill: var(--texte); text-anchor: middle; }
+.frise rect.previsionnel { stroke: var(--texte); stroke-opacity: 0.35; stroke-dasharray: 3 2; }
 .requete-analyse { border: 1px solid var(--bordure); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; }
 .entete-requete { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; min-width: 0; }
 .entete-requete .discret { font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

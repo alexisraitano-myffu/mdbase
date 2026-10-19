@@ -668,6 +668,7 @@ rangees:
 **Paramètres**
 - `parametres` : des choix montrés en haut du dashboard, à côté des filtres rapides. `type` : `choix` (`options` : une liste, ou le nom d'une requête dont la première colonne donne les options), `texte`, `nombre`, `date`, `mois` (`courant`, `precedent` ou `AAAA-MM`), `periode` (deux dates). `defaut` : la valeur de départ ; `valeur` : la valeur choisie, écrite dans le fichier comme une pastille.
 - Dans une requête, `{{nom}}` est remplacé par la valeur **en littéral SQL échappé** (jamais collée telle quelle) ; une période donne `{{nom.debut}}` et `{{nom.fin}}`. Un paramètre sans valeur vaut `NULL`.
+- `{{aujourdhui}}` est intégré : la date du jour de l'app, en `DATE`. Le moteur n'a pas l'extension des fuseaux horaires (il ne télécharge rien) : `current_date` et `today()` échouent, avec un message qui renvoie à `{{aujourdhui}}`.
 
 **Erreurs**
 - Une requête en erreur (SQL, table ou colonne inconnue, paramètre absent) montre son message dans chacun de ses blocs ; le reste du dashboard s'affiche. Une colonne de réglage absente du résultat (`x: statut` sans colonne `statut`) le dit dans le bloc.

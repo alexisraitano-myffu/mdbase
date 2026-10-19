@@ -21,7 +21,7 @@ import { usePageOuverte } from './usePageOuverte'
 import { DonneesDe, useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronRight, Database, Ellipsis, GripVertical, ImageDown, Plus, TriangleAlert } from 'lucide-react'
 import { nomAnalyse, type BlocAnalyse, type TypeVisuel } from '../core/bi/analyse'
-import { BlocAnalyseDashboard, enregistrerImage, ICONES_VISUEL, ParametresDashboard, useAnalyse } from './Analyse'
+import { BlocAnalyseDashboard, enregistrerImage, ICONES_VISUEL, ParametresDashboard, useAnalyse, useSelecteurs } from './Analyse'
 import { FenetreAnalyse } from './ReglagesAnalyse'
 
 const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [], requetes: {}, parametres: [], couleurs: {}, etats: {} }
@@ -45,7 +45,9 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
   const d = etat.dashboard
   const modifier = (op: Parameters<DepotEspace['modifierDashboard']>[1]) => void lancer(espace.modifierDashboard(etat.id, op))
   const retenues = useRetenues(d ?? SANS_FILTRES)
-  const analyse = useAnalyse(d, retenues)
+  // Le calcul et les paramètres voient les choix des sélecteurs de ligne, retenus sur la machine.
+  const [dCalcul, choisirLigne] = useSelecteurs(d)
+  const analyse = useAnalyse(dCalcul, retenues)
   const [fenetreAnalyse, setFenetreAnalyse] = useState(false)
   const zone = useRef<HTMLDivElement>(null)
   const [glisse, setGlisse] = useState<Glisse | null>(null)
@@ -125,7 +127,7 @@ export function VueDashboard({ espace, etat, allerABase }: Props) {
           changerFiltres={(filtres) => modifier({ type: 'filtres', filtres })}
           changerPastilles={(pastilles) => modifier({ type: 'filtres_rapides', pastilles })}
         />
-        <ParametresDashboard dashboard={d} analyse={analyse} changer={(nom, valeur) => modifier({ type: 'valeur_parametre', nom, valeur })} />
+        <ParametresDashboard dashboard={dCalcul ?? d} analyse={analyse} changer={(nom, valeur) => modifier({ type: 'valeur_parametre', nom, valeur })} choisir={choisirLigne} />
         {d.rangees.length === 0 && <p className="discret">Dashboard vide : ajoute un premier bloc, une vue d'une de tes bases.</p>}
         <DndContext
           sensors={capteurs}

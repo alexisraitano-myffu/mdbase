@@ -71,6 +71,8 @@ export async function chargerTables(moteur: MoteurSql, tables: readonly TableSql
 /** Message d'erreur lisible : celui de DuckDB sans sa pile, ou le nôtre. */
 export function messageErreur(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e)
+  // Le moteur n'a pas l'extension des fuseaux horaires (et ne peut pas la télécharger).
+  if (/Extension Autoloading Error[\s\S]*'icu'/.test(m)) return 'current_date, today() et les fuseaux horaires ne sont pas disponibles : écris {{aujourdhui}} pour la date du jour.'
   return m.split('\n')[0]!.trim()
 }
 

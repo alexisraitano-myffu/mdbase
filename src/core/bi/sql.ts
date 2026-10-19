@@ -79,6 +79,8 @@ export function valeurParametre(p: Parametre, aujourdhui: string): unknown {
 export function substituer(sql: string, parametres: readonly Parametre[], aujourdhui: string): string {
   return sql.replace(/\{\{\s*([a-z_][a-z0-9_]*)(?:\.(debut|fin))?\s*\}\}/g, (_, nom: string, borne?: string) => {
     const p = parametres.find((x) => x.nom === nom)
+    // Paramètre intégré : la date du jour de l'app (current_date demande une extension absente du moteur).
+    if (!p && nom === 'aujourdhui' && !borne) return litteralDate(aujourdhui)
     if (!p) throw new ErreurSql(`paramètre « ${nom} » inconnu`)
     const v = valeurParametre(p, aujourdhui)
     if (p.type === 'periode') {

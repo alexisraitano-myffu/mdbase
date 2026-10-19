@@ -1,5 +1,4 @@
-import { COULEURS } from '../couleurs'
-import { lireCondition, type Format, type Regle } from './analyse'
+import { estCouleur, lireCondition, type Format, type Regle } from './analyse'
 import type { ValeurSql } from './sql'
 
 // Mise en forme conditionnelle et formats des blocs d'analyse (spec §10
@@ -52,7 +51,7 @@ export function remplit(si: string, valeur: ValeurSql | undefined, ligne: Record
 export function couleurRegle(regles: readonly Regle[] | undefined, ligne: Record<string, ValeurSql>, testee: (r: Regle) => string | undefined): string | undefined {
   for (const r of regles ?? []) {
     const colonne = testee(r)
-    if (colonne !== undefined && remplit(r.si, ligne[colonne], ligne)) return (COULEURS as readonly string[]).includes(r.couleur) ? r.couleur : undefined
+    if (colonne !== undefined && remplit(r.si, ligne[colonne], ligne)) return estCouleur(r.couleur) ? r.couleur : undefined
   }
   return undefined
 }

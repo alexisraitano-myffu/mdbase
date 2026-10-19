@@ -616,7 +616,7 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
     }
     parties.push(
       '',
-      "Blocs d'analyse et executer_sql : SQL DuckDB en lecture ; chaque base est une table nommée par son id, une colonne par clé (colonnes calculées comprises), plus id, _cree et _modifie (horodatages) ; une relation (ids liés) ou un choix multiple est une liste VARCHAR[] (unnest, list_contains) ; nombre DOUBLE, date DATE, case BOOLEAN ; un rollup en pourcentage vaut de 0 à 100 (le format pourcent attend un ratio : diviser par 100).",
+      "Blocs d'analyse et executer_sql : SQL DuckDB en lecture ; chaque base est une table nommée par son id, une colonne par clé (colonnes calculées comprises), plus id, _cree et _modifie (horodatages) ; une relation (ids liés) ou un choix multiple est une liste VARCHAR[] (unnest, list_contains) ; nombre DOUBLE, date DATE, case BOOLEAN ; un rollup en pourcentage vaut de 0 à 100 (le format pourcent attend un ratio : diviser par 100) ; la date du jour s'écrit {{aujourdhui}} (current_date et today() ne marchent pas).",
     )
   }
   // Mémoire et skills avant ce qui change à chaque demande : le début du message reste identique d'une demande à l'autre.

@@ -54,7 +54,7 @@ export function optionGraphique(b: BlocAnalyse, r: ResultatSql, schemas: readonl
   const axeValeurs = { type: 'value', axisLabel: { color: theme.discret, formatter: (v: number) => formaterCompact(v, formatDe(b.format, ys[0] ?? '')) }, splitLine: { lineStyle: { color: theme.trait } } }
   const regle = (ligne: Record<string, ValeurSql>, mesure: string) => {
     const c = couleurRegle(b.regles, ligne, (rg) => rg.colonne ?? mesure)
-    return c ? VIVES[c] : undefined
+    return c ? (VIVES[c] ?? (c.startsWith('#') ? c : undefined)) : undefined
   }
 
   if (b.type === 'secteurs') {
