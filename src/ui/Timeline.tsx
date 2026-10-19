@@ -6,7 +6,7 @@ import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
 import type { Modifications } from '../core/ligne'
 import { colonne as colonneDe, estSaisie, type Colonne, type Schema } from '../core/schema'
-import { enfantsDe, type Noeud, type SourceArbre } from '../core/arbre-temps'
+import { enfantsDe, sousElements, type Noeud, type SourceArbre } from '../core/arbre-temps'
 import { CLE_VIDE, groupables, grouper, type Groupe } from '../core/groupes'
 import {
   ajouterMois,
@@ -268,9 +268,10 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
 
   // Niveaux dépliés : les lignes liées, avec l'axe de leur niveau.
   const deplier = vue.deplier
-  const arbres = useMemo(() => {
+  const { arbres, sousLignes } = useMemo(() => {
     const arbres = new Map<string, { noeud: Noeud; rangee: Rangee }[][]>()
-    if (!deplier?.length) return arbres
+    const sousLignes = new Set<string>()
+    if (!deplier?.length) return { arbres, sousLignes }
     const bases = [...etat.bases.values()].filter((b) => b.depot)
     const src: SourceArbre = {
       schemas: new Map(bases.map((b) => [b.id, b.depot!.schema])),
@@ -290,6 +291,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
         const a = axeNiveau(noeud)
         return a ? [{ noeud, rangee: rangeeDe(noeud.ligne, false, a) }] : []
       })
+    const deplies: [string, Noeud[]][] = []
     for (const r of rangees) {
       const racine = `${base}:${r.ligne.id}`
       // Les nœuds par fratrie, la première étant celle des enfants directs.
@@ -299,10 +301,14 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
         parParent.push(avecRangees(noeuds))
         for (const n of noeuds) parcourir(n.enfants)
       }
-      parcourir(enfantsDe(src, base, r.ligne, deplier, { aujourdhui }, racine))
+      const noeuds = enfantsDe(src, base, r.ligne, deplier, { aujourdhui }, racine)
+      deplies.push([r.ligne.id, noeuds])
+      parcourir(noeuds)
       arbres.set(racine, parParent)
     }
-    return arbres
+    // Auto-relation : une sous-tâche dépliée sous sa parente n'est pas répétée en tête.
+    const schemaVue = src.schemas.get(base)
+    return { arbres, sousLignes: schemaVue ? sousElements(schemaVue, deplies) : sousLignes }
   }, [deplier, etat, rangees, base, aujourdhui])
   /** Rangée de chaque nœud déplié, par clé. */
   const rangeesNoeuds = useMemo(() => new Map([...arbres.values()].flat(2).map((x) => [x.noeud.cle, x])), [arbres])
@@ -441,7 +447,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
       return [el, ...(replie ? [] : deroule(enfants, groupe, deplier?.length ?? 0))]
     }
     const ajout: Element[] = lecture ? [] : [{ type: 'ajout' }]
-    if (!colGroupe) return [...rangees.flatMap((r) => premierNiveau(r)), ...ajout]
+    if (!colGroupe) return [...rangees.filter((r) => !sousLignes.has(r.ligne.id)).flatMap((r) => premierNiveau(r)), ...ajout]
     const parChemin = new Map(rangees.map((r) => [r.ligne.chemin, r]))
     const grouperPar = (lignes: readonly LigneVue[], colonne: Colonne) => {
       // Un rollup se groupe par les valeurs de sa colonne d'origine (titres d'une relation, options d'un select).
@@ -452,7 +458,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
     }
     /** Un groupe (ou un sous-groupe) : son en-tête, qui porte la barre de ses lignes, puis ses lignes ou ses sous-groupes. */
     const groupe = (g: Groupe, cle: string, parent?: Groupe): Element[] => {
-      const siennes = g.lignes.map((l) => parChemin.get(l.ligne.chemin)!)
+      const siennes = g.lignes.map((l) => parChemin.get(l.ligne.chemin)!).filter((r) => !sousLignes.has(r.ligne.id))
       const replie = replies.has(cle)
       const entete: Element = { type: 'groupe', groupe: g, plage: enveloppe(siennes.map((r) => r.plage)), replie, cle, ...(parent && { parent }) }
       if (replie) return [entete]
@@ -460,7 +466,7 @@ export function Timeline({ espace, base, depot, vue, modifierVue, lignesVue, val
       return [entete, ...siennes.flatMap((rangee) => premierNiveau(rangee, cle))]
     }
     return [...grouperPar(lignesVue, colGroupe).flatMap((g) => groupe(g, g.cle)), ...ajout]
-  }, [rangees, lignesVue, colGroupe, colSous, replies, etat, arbres, rangeesNoeuds, lignesRepliees, base, axe, deplier, lecture])
+  }, [rangees, lignesVue, colGroupe, colSous, replies, etat, arbres, sousLignes, rangeesNoeuds, lignesRepliees, base, axe, deplier, lecture])
   const largeur = (ecartJours(e.debut, e.fin) + 1) * px
   const x = (jour: string) => ecartJours(e.debut, jour) * px
   const enArbre = (deplier?.length ?? 0) > 0

@@ -87,3 +87,38 @@ export function enfantsDe(
 export function descendants(noeuds: readonly Noeud[]): Noeud[] {
   return noeuds.flatMap((n) => [n, ...descendants(n.enfants)])
 }
+
+/**
+ * Lignes de la vue à ne pas répéter en tête (spec §7, auto-relation) : celles
+ * dépliées sous une autre ligne de la vue par une chaîne de relations de la
+ * base vers elle-même (sous-tâches). Une boucle sans entrée (D sous E, E sous
+ * D) garde sa première ligne en tête, pour qu'aucune ne disparaisse.
+ * `arbres` : les enfants dépliés de chaque ligne de la vue, dans l'ordre de la vue.
+ */
+export function sousElements(schema: Schema, arbres: readonly (readonly [string, readonly Noeud[]])[]): Set<string> {
+  const atteintes = new Map<string, Set<string>>()
+  const descendre = (noeuds: readonly Noeud[], vues: Set<string>) => {
+    for (const n of noeuds) {
+      const rel = colonne(schema, n.niveau.relation)
+      if (n.base !== schema.id || rel?.type !== 'relation' || rel.cible !== schema.id) continue
+      vues.add(n.ligne.id)
+      descendre(n.enfants, vues)
+    }
+  }
+  for (const [id, noeuds] of arbres) {
+    const vues = new Set<string>()
+    descendre(noeuds, vues)
+    vues.delete(id)
+    atteintes.set(id, vues)
+  }
+  const masquees = new Set([...atteintes.values()].flatMap((v) => [...v]))
+  // Ce que les lignes gardées en tête déplient vraiment ; une ligne masquée que rien de gardé n'atteint revient.
+  const couvertes = new Set<string>()
+  for (const [id] of arbres) if (!masquees.has(id)) for (const x of atteintes.get(id)!) couvertes.add(x)
+  for (const [id] of arbres) {
+    if (!masquees.has(id) || couvertes.has(id)) continue
+    masquees.delete(id)
+    for (const x of atteintes.get(id)!) couvertes.add(x)
+  }
+  return masquees
+}

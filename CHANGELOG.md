@@ -122,6 +122,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Thème de l'espace dans `_espace.yaml` : teinte exacte des couleurs nommées dans les graphiques et les fiches, police des dashboards, logo SVG dans l'en-tête des fiches.
 - Assistant IA et Claude : `creer_dashboard` et `modifier_dashboard` posent les fiches (nouveaux blocs, états, tables de couleurs, sélecteur à boutons) ; un état ou une table encore utilisé ne se retire pas.
 - Barre latérale : chaque groupe et la section des dashboards se replient d'un clic sur leur titre, retenu sur la machine ; l'entrée ouverte reste visible et le nombre d'entrées cachées s'affiche.
+- Base des tâches : une base de l'espace peut servir de base des tâches (Options de « Toutes les tâches », ou « Créer une base Tâches »). Ses lignes sont des tâches, en plus des cases à cocher des textes : en tête de « Toutes les tâches », triées par échéance (en rouge si passée), cochées par leur colonne « fait » (case ou choix), et dans l'onglet Tâches des pages auxquelles elles sont liées.
+- Sous-tâches : une tâche en contient d'autres de la base, affichées en arbre sous elle, avec « Ajouter une sous-tâche ». Liens d'une tâche en pastilles, « Lier » et « @ » dans la saisie vers une ligne de n'importe quelle base ; une relation manquante est créée à la volée, masquée dans les vues existantes.
+- Auto-relation : une relation peut viser sa propre base (tâche parente / sous-tâches). Une ligne ne se lie jamais à elle-même ; dans une timeline, une sous-tâche dépliée sous sa parente n'est pas répétée en tête.
 
 ### Changed
 - Colonne « Créé le » : une ligne sans date de création enregistrée (créée avant cette colonne, ou hors de l'app) reste vide, au lieu de prendre la date de son fichier. « Modifié le » garde ce repli.

@@ -381,6 +381,23 @@ test.describe('timeline en arbre', () => {
     await expect.poll(() => espace.lire('taches/integration--tinte002.md')).not.toBe(avant)
   })
 
+  test('auto-relation : une sous-tâche se déplie sous sa parente et n’est pas répétée en tête', async ({ espace, page }) => {
+    const schema = await espace.lire('taches/_schema.yaml')
+    await espace.ecrire('taches/_schema.yaml', schema.replace('vues: [', '  - { cle: parente, nom: Tâche parente, type: relation, cible: taches, proprietaire: true, inverse: sous_taches }\n  - { cle: sous_taches, nom: Sous-tâches, type: relation, cible: taches, proprietaire: false, inverse: parente }\nvues: ['))
+    await espace.remplacer('taches/maquettes--tmaqu001.md', 'titre: Maquettes\n', 'titre: Maquettes\nparente: tinte002\n')
+    await espace.ecrire('taches/_vues/arbre.yaml', 'id: arbre\nnom: Arbre\ntype: timeline\nchamp_debut: debut\nchamp_fin: echeance\nechelle: mois\ndeplier:\n  - relation: sous_taches\n    champ_debut: debut\n    champ_fin: echeance\n')
+    await espace.retourSurOnglet()
+    await espace.base('Tâches')
+    await expect(async () => {
+      await espace.retourSurOnglet()
+      await page.locator('.onglet', { hasText: 'Arbre' }).click({ timeout: 1000 })
+      await expect(page.locator('.tl-enfant', { hasText: 'Maquettes' })).toBeVisible({ timeout: 1000 })
+    }).toPass()
+    // Maquettes n'apparaît qu'une fois : sous Intégration, plus en tête.
+    await expect(page.locator('.tl-titre', { hasText: 'Maquettes' })).toHaveCount(1)
+    await expect(page.locator('.tl-titre', { hasText: 'Intégration' })).toHaveCount(1)
+  })
+
   test('couleurs : les barres prennent la couleur de l’option (projets selon leur statut, tâches selon leur priorité), réglable en Options', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.onglet', { hasText: 'Feuille de route' }).click()
