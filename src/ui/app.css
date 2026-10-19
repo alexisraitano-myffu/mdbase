@@ -1872,6 +1872,9 @@ kbd.touche svg.icone { margin: 0; }
 .grille-charge { border-collapse: separate; border-spacing: 3px; font-size: 0.85em; user-select: none; }
 .grille-charge th { font-weight: 500; text-align: center; color: var(--discret); white-space: nowrap; padding: 2px 4px; }
 .grille-charge th.periode-courante { color: var(--texte); font-weight: 600; }
+.bandeau-charge th:not(.nom-charge) { color: var(--texte); font-weight: 600; text-align: left; border-bottom: 1px solid var(--bordure); padding: 2px 4px 4px; }
+.bandeau-charge th:not(.nom-charge)::first-letter { text-transform: uppercase; }
+.grille-charge .bandeau-charge .nom-charge { vertical-align: bottom; }
 .grille-charge th { position: relative; }
 .jalon-charge { display: inline-block; width: 7px; height: 7px; background: var(--accent); transform: rotate(45deg); margin-left: 5px; vertical-align: 1px; }
 .grille-charge.maille-jour td { min-width: 2.4rem; }

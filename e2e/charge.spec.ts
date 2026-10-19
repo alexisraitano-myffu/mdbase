@@ -52,6 +52,9 @@ test('à la journée : une colonne par jour ouvré, glisser crée une affectatio
   await expect.poll(() => espace.lire('ressources/_vues/charge.yaml')).toContain('maille: jour')
   const sami = page.locator('.grille-charge .ressource-charge', { hasText: 'Sami' })
   await expect(sami.locator('.case-charge')).toHaveCount(20)
+  // Bandeau : le mois et l'année au-dessus des jours (20 jours ouvrés couvrent un ou deux mois).
+  const mois = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date())
+  await expect(page.locator('.bandeau-charge')).toContainText(mois.replace(/^./, (c) => c.toUpperCase()), { ignoreCase: true })
   const avant = await espace.lister('affectations')
   await sami.locator('.case-charge').nth(0).hover()
   await page.mouse.down()

@@ -21,7 +21,7 @@ import { COULEURS, couleurDeLigne } from '../core/couleurs'
 import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
 import { colonne as colonneDe, type Schema } from '../core/schema'
-import { decaler, jourDe, jourSemaine, JOURS_COURTS, MOIS_COURTS } from '../core/temps'
+import { decaler, jourDe, jourSemaine, JOURS_COURTS, libelleMois, MOIS_COURTS } from '../core/temps'
 import type { ModificationVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
 import { Choix } from './Choix'
@@ -66,6 +66,18 @@ function libellePeriode(maille: Maille, p: Periode): string {
   if (maille === 'mois') return `${MOIS_COURTS[Number(p.debut.slice(5, 7)) - 1]} ${p.debut.slice(2, 4)}`
   if (maille === 'semaine') return libelleJour(p.debut)
   return `${JOURS_COURTS[(jourSemaine(p.debut) + 6) % 7]} ${Number(p.debut.slice(8, 10))}`
+}
+
+/** Bandeau au-dessus des colonnes : le mois et l'année (jour, semaine), l'année (mois). */
+function bandeau(maille: Maille, colonnes: Periode[]): { libelle: string; n: number }[] {
+  const bandes: { libelle: string; n: number }[] = []
+  for (const p of colonnes) {
+    const libelle = maille === 'mois' ? p.debut.slice(0, 4) : libelleMois(p.debut)
+    const der = bandes.at(-1)
+    if (der?.libelle === libelle) der.n++
+    else bandes.push({ libelle, n: 1 })
+  }
+  return bandes
 }
 
 /** Mélange de deux couleurs `#rrggbb` : `t` = 0 donne `a`, 1 donne `b`. */
@@ -257,8 +269,17 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
         <div className="grille-charge-defilement">
           <table className={`grille-charge maille-${maille}`} onPointerLeave={() => !glisse.current && setSelection(null)}>
             <thead>
+              <tr className="bandeau-charge">
+                <th className="nom-charge" rowSpan={2}>
+                  Ressource
+                </th>
+                {bandeau(maille, colonnes).map((b, i) => (
+                  <th key={i} colSpan={b.n}>
+                    {b.libelle}
+                  </th>
+                ))}
+              </tr>
               <tr>
-                <th className="nom-charge">Ressource</th>
                 {colonnes.map((p) => {
                   const ici = jalonsDe(p)
                   return (
