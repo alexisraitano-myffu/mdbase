@@ -48,6 +48,8 @@ describe('lireDashboard', () => {
       filtresRapides: [],
       requetes: {},
       parametres: [],
+      couleurs: {},
+      etats: {},
     })
   })
 
@@ -287,5 +289,96 @@ parametres:
     expect(lireDashboard(texte, 'd').dashboard).toEqual(memoire)
     expect(() => modifierDashboard(texte, { type: 'valeur_parametre', nom: 'absent', valeur: 1 })).toThrow('introuvable')
     expect(() => modifierDashboard(PILOTAGE, { type: 'modifier_analyse', place: { rangee: 0, bloc: 0 }, modifs: { titre: 'x' } })).toThrow('n’est pas un bloc d’analyse')
+  })
+})
+
+const FICHE = `id: fiche
+nom: Fiche
+couleurs:
+  etape: { Fait: vert, En cours: orange, Planifié: '#2f6fc2', N/A: aucune, Bof: fuchsia }
+etats:
+  meteo:
+    - { si: 'risque >= 6', couleur: rouge, libelle: Vigilance forte, raison: risque élevé }
+    - { couleur: vert, libelle: Nominal }
+parametres:
+  - { nom: projet, type: choix, options: projets, affichage: boutons, pastille: meteo }
+requetes:
+  projets: select titre from projets
+rangees:
+  - blocs:
+      - { type: entete, donnees: projets, titre: titre, etat: meteo }
+      - { type: compte_a_rebours, titre: MEP, sql: select 1, date: d, libelle: l, seuils: [5, 20] }
+  - blocs:
+      - type: etapes
+        donnees: projets
+        element: lot
+        etapes: [ Validation, { nom: Recette métier, court: Rec. métier } ]
+        couleurs: etape
+      - type: liste
+        donnees: projets
+        libelle: titre
+        pastille: statut
+        couleurs: { Bloqué: rouge }
+        garder: "statut <> 'Fait'"
+        max: 4
+      - type: frise
+        donnees: projets
+        ligne: lot
+        debut: d
+        fin: f
+        jalons: { sql: select 1, date: d, libelle: l }
+        periodes: { titre: oubli }
+`
+
+describe('fiches', () => {
+  it('lit couleurs, états, sélecteur et nouveaux blocs ; écarte ce qui est mal formé en le disant', () => {
+    const { dashboard, avertissements } = lireDashboard(FICHE, 'fiche')
+    expect(avertissements).toEqual([
+      'Dashboard fiche, rangée 2, bloc 3, periodes ignoré : ni « donnees » ni « sql »',
+      'Dashboard fiche, couleurs etape : couleur « fuchsia » de « Bof » inconnue (une couleur de l\'espace, #rrggbb, vide ou aucune)',
+    ])
+    const d = dashboard!
+    expect(d.couleurs).toEqual({ etape: { Fait: 'vert', 'En cours': 'orange', Planifié: '#2f6fc2', 'N/A': 'aucune' } })
+    expect(d.etats.meteo).toEqual([{ si: 'risque >= 6', couleur: 'rouge', libelle: 'Vigilance forte', raison: 'risque élevé' }, { couleur: 'vert', libelle: 'Nominal' }])
+    expect(d.parametres[0]).toEqual({ nom: 'projet', type: 'choix', options: 'projets', affichage: 'boutons', pastille: 'meteo' })
+    expect(d.rangees[0]!.blocs[1]).toMatchObject({ type: 'compte_a_rebours', seuils: [5, 20] })
+    expect(d.rangees[1]!.blocs[0]).toMatchObject({ etapes: [{ nom: 'Validation' }, { nom: 'Recette métier', court: 'Rec. métier' }], couleurs: 'etape' })
+    expect(d.rangees[1]!.blocs[1]).toMatchObject({ couleurs: { Bloqué: 'rouge' }, garder: "statut <> 'Fait'", max: 4 })
+    expect(d.rangees[1]!.blocs[2]).toMatchObject({ jalons: { sql: 'select 1', date: 'd', libelle: 'l' } })
+    expect(d.rangees[1]!.blocs[2]).not.toHaveProperty('periodes')
+  })
+
+  it('tables de couleurs et états : écrits en tête du fichier, retirés, la mémoire suit', () => {
+    const ops: OperationDashboard[] = [
+      { type: 'ajouter_bloc', rangee: null, bloc: { type: 'liste', sql: 'select 1', pastille: 'meteo', max: 3 } },
+      { type: 'couleurs', nom: 'etape', table: { Fait: 'vert', 'N/A': 'aucune' } },
+      { type: 'etat', nom: 'meteo', entrees: [{ si: 'n > 1', couleur: 'rouge', libelle: 'Haut' }, { couleur: 'vert' }] },
+      { type: 'couleurs', nom: 'autre', table: { A: '#112233' } },
+      { type: 'couleurs', nom: 'autre', table: null },
+      { type: 'parametres', parametres: [{ nom: 'projet', type: 'choix', options: ['A'], affichage: 'boutons', pastille: 'meteo' }] },
+    ]
+    let texte = nouveauDashboard('d', 'D')
+    let memoire = lireDashboard(texte, 'd').dashboard!
+    for (const op of ops) {
+      texte = modifierDashboard(texte, op)
+      memoire = appliquerEnMemoire(memoire, op)
+    }
+    expect(texte).toBe(`id: d
+nom: D
+couleurs:
+  etape: { Fait: vert, N/A: aucune }
+etats:
+  meteo:
+    - { si: n > 1, couleur: rouge, libelle: Haut }
+    - { couleur: vert }
+rangees:
+  - blocs:
+      - { type: liste, sql: select 1, pastille: meteo, max: 3 }
+parametres:
+  - { nom: projet, type: choix, options: [ A ], affichage: boutons, pastille: meteo }
+`)
+    expect(lireDashboard(texte, 'd').dashboard).toEqual(memoire)
+    texte = modifierDashboard(texte, { type: 'etat', nom: 'meteo', entrees: null })
+    expect(texte).not.toContain('etats')
   })
 })

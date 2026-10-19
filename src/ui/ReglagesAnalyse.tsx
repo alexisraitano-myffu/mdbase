@@ -21,6 +21,12 @@ const LIBELLES_TYPE: Record<TypeVisuel, string> = {
   nuage: 'Nuage de points',
   tableau: 'Tableau',
   texte: 'Texte',
+  entete: 'En-tête de fiche',
+  compte_a_rebours: 'Compte à rebours',
+  etapes: 'Barres d’étapes',
+  liste: 'Liste à pastilles',
+  repartition: 'Répartition',
+  frise: 'Frise',
 }
 const LIBELLES_FORMAT: Record<Format, string> = { nombre: 'Nombre', entier: 'Entier', decimal: 'Deux décimales', pourcent: 'Pourcentage', euros: 'Euros', date: 'Date' }
 const LIBELLES_PARAMETRE: Record<TypeParametre, string> = { choix: 'Choix', texte: 'Texte', nombre: 'Nombre', date: 'Date', mois: 'Mois', periode: 'Période' }

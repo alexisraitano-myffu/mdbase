@@ -718,7 +718,7 @@ Une fiche se lit en 10 secondes : ce qui arrive, ce qui bloque, où en est chaqu
 | `frise` | des bandes par ligne sur une échelle de temps, ligne « aujourd'hui », mois en tête | `ligne`, `debut`, `fin`, `categorie`, `previsionnel` (colonne vraie : contour pointillé), `couleurs`, `jalons` et `periodes` (voir ci-dessous) |
 
 - `etapes` lit le résultat **une ligne par élément et par étape** (`element`, `etape`, `statut`, `date`) : une étape absente du résultat est `vide`. Une base qui range ses étapes en colonnes se déplie par `unpivot` ; les dates prises dans des lignes liées (phases d'un lot, jalons d'une version) se joignent dans la requête, pas dans le bloc. Une date à venir dans les `seuils` prend leur couleur.
-- `liste` : `garder` et `max` écartent des lignes, jamais en silence. Un lien « N autres » montre ce qui a été écarté.
+- `liste` : `garder` et `max` écartent des lignes, jamais en silence. Un lien « N autres » montre ce qui a été écarté. Une condition `garder` qui vaut `NULL` (colonne vide : `etat <> 'Fait'` sur une ligne sans état) garde la ligne.
 - `frise` : fenêtre automatique, du début du mois d'il y a deux semaines à la fin du mois de la dernière date. `jalons: { donnees, date, libelle, ligne, couleur }` dessine des losanges, sur leur ligne ou en tête quand `ligne` manque. `periodes: { donnees, debut, fin, libelle }` dessine des bandes hachurées sur toute la hauteur (moratoires, gels).
 
 **Fichier** (la fiche projet de la maquette, en abrégé)

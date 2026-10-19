@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ChartArea, ChartColumn, ChartLine, ChartPie, ChartScatter, Ellipsis, Hash, LoaderCircle, SlidersHorizontal, Table2, TrendingDown, TrendingUp, TriangleAlert, Type, type LucideIcon } from 'lucide-react'
+import { CalendarRange, ChartArea, ChartBarStacked, ChartColumn, ChartGantt, ChartLine, ChartPie, ChartScatter, Ellipsis, List, PanelTop, Timer, Hash, LoaderCircle, SlidersHorizontal, Table2, TrendingDown, TrendingUp, TriangleAlert, Type, type LucideIcon } from 'lucide-react'
 import { domToBlob } from 'modern-screenshot'
 import { colonnesManquantes, nomAnalyse, type BlocAnalyse, type TypeVisuel } from '../core/bi/analyse'
 import { citer, executerAnalyse, type EtatRequete, type ResultatsAnalyse } from '../core/bi/calcul'
@@ -36,6 +36,12 @@ export const ICONES_VISUEL: Record<TypeVisuel, LucideIcon> = {
   nuage: ChartScatter,
   tableau: Table2,
   texte: Type,
+  entete: PanelTop,
+  compte_a_rebours: Timer,
+  etapes: ChartGantt,
+  liste: List,
+  repartition: ChartBarStacked,
+  frise: CalendarRange,
 }
 
 export type EtatAnalyse = { calcul: 'inactif' | 'en_cours' | 'pret'; resultats: ResultatsAnalyse | null; erreur: string | null }

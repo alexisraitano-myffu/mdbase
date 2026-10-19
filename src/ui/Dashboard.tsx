@@ -24,7 +24,7 @@ import { nomAnalyse, type BlocAnalyse, type TypeVisuel } from '../core/bi/analys
 import { BlocAnalyseDashboard, enregistrerImage, ICONES_VISUEL, ParametresDashboard, useAnalyse } from './Analyse'
 import { FenetreAnalyse } from './ReglagesAnalyse'
 
-const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [], requetes: {}, parametres: [] }
+const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [], requetes: {}, parametres: [], couleurs: {}, etats: {} }
 
 type Props = {
   espace: DepotEspace

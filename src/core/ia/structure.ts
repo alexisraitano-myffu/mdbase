@@ -732,7 +732,7 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
         return { blocs: r.blocs.map((x) => lireBloc(b, x, ids, requetes)), ...(hauteur !== undefined && { hauteur }) }
       })
       const id = idBase(nomDashboard, b.dashboards.map((d) => d.id))
-      b.dashboards.push({ id, nom: nomDashboard, dashboard: { id, nom: nomDashboard, rangees, filtres: [], filtresRapides: [], requetes, parametres } })
+      b.dashboards.push({ id, nom: nomDashboard, dashboard: { id, nom: nomDashboard, rangees, filtres: [], filtresRapides: [], requetes, parametres, couleurs: {}, etats: {} } })
       return { structure: [{ type: 'creer_dashboard', id, nom: nomDashboard, rangees, requetes, parametres }] }
     }
     case 'modifier_dashboard': {

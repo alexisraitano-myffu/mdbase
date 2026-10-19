@@ -1,5 +1,5 @@
-import { Document, isMap, isSeq, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
-import { lireBlocAnalyse, lireParametres, lireRequetes, objetBlocAnalyse, objetParametre, type BlocAnalyse, type Parametre } from './bi/analyse'
+import { Document, isMap, isScalar, isSeq, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
+import { lireBlocAnalyse, lireCouleurs, lireEtats, lireParametres, lireRequetes, objetBlocAnalyse, objetParametre, type BlocAnalyse, type EntreeEtat, type Parametre } from './bi/analyse'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
 import { appliquerModificationsVue, lireVueDepuis, OPERATEURS, type Filtre, type ModificationVue, type Operateur, type Vue } from './vue'
@@ -35,6 +35,10 @@ export type Dashboard = {
   /** Requêtes SQL nommées (spec §10 « Analyse »), dans l'ordre du fichier. */
   requetes: Record<string, string>
   parametres: Parametre[]
+  /** Tables valeur → couleur nommées (spec §10 « Fiches »). */
+  couleurs: Record<string, Record<string, string>>
+  /** États nommés : listes ordonnées de conditions SQL et de couleurs. */
+  etats: Record<string, EntreeEtat[]>
 }
 
 /** Trois blocs côte à côte au plus (spec §10). */
@@ -80,6 +84,10 @@ export type OperationDashboard =
   | { type: 'parametres'; parametres: Parametre[] }
   /** Valeur choisie d'un paramètre ; `null` revient au défaut. */
   | { type: 'valeur_parametre'; nom: string; valeur: unknown }
+  /** Ajoute, remplace ou retire (`null`) une table de couleurs. */
+  | { type: 'couleurs'; nom: string; table: Record<string, string> | null }
+  /** Ajoute, remplace ou retire (`null`) un état. */
+  | { type: 'etat'; nom: string; entrees: EntreeEtat[] | null }
 
 export type ModificationAnalyse = { [K in Exclude<keyof BlocAnalyse, 'largeur'>]?: BlocAnalyse[K] | null }
 
@@ -143,7 +151,9 @@ export function lireDashboard(texte: string, id: string): { dashboard: Dashboard
   })
   const requetes = lireRequetes(brut.requetes, id, avertissements)
   const parametres = lireParametres(brut.parametres, id, avertissements)
-  return { dashboard: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, rangees, filtres, filtresRapides, requetes, parametres }, avertissements }
+  const couleurs = lireCouleurs(brut.couleurs, id, avertissements)
+  const etats = lireEtats(brut.etats, id, avertissements)
+  return { dashboard: { id, nom: typeof brut.nom === 'string' ? brut.nom : id, rangees, filtres, filtresRapides, requetes, parametres, couleurs, etats }, avertissements }
 }
 
 /** Hauteur lue ou demandée, ramenée dans les bornes ; rien si ce n'est pas un nombre. */
@@ -332,6 +342,18 @@ export function modifierDashboard(texte: string, op: OperationDashboard): string
     case 'parametres':
       ecrireListe(doc, 'parametres', op.parametres.map(objetParametre))
       break
+    case 'couleurs':
+    case 'etat': {
+      const cle = op.type === 'couleurs' ? 'couleurs' : 'etats'
+      const n = doc.get(cle)
+      const tables = isMap(n) ? n : (doc.createNode({}) as YAMLMap)
+      const contenu = op.type === 'couleurs' ? op.table : op.entrees
+      if (contenu === null) tables.delete(op.nom)
+      else tables.set(op.nom, enLigne(doc.createNode(contenu)))
+      if (tables.items.length === 0) doc.delete(cle)
+      else if (!isMap(n)) poserEnTete(doc, cle, tables)
+      break
+    }
     case 'valeur_parametre': {
       const n = doc.get('parametres')
       const p = isSeq(n) ? n.items.find((x) => isMap(x) && x.get('nom') === op.nom) : undefined
@@ -434,6 +456,14 @@ export function appliquerEnMemoire(d: Dashboard, op: OperationDashboard): Dashbo
     }
     case 'parametres':
       return { ...d, parametres: op.parametres }
+    case 'couleurs': {
+      const { [op.nom]: _t, ...couleurs } = d.couleurs
+      return { ...d, couleurs: op.table === null ? couleurs : { ...d.couleurs, [op.nom]: op.table } }
+    }
+    case 'etat': {
+      const { [op.nom]: _e, ...etats } = d.etats
+      return { ...d, etats: op.entrees === null ? etats : { ...d.etats, [op.nom]: op.entrees } }
+    }
     case 'valeur_parametre':
       return {
         ...d,
@@ -445,6 +475,16 @@ export function appliquerEnMemoire(d: Dashboard, op: OperationDashboard): Dashbo
       }
   }
   return { ...d, rangees }
+}
+
+/** Une nouvelle clé de tête (`couleurs`, `etats`) se pose avant les paramètres, les requêtes et les rangées, comme dans la spec. */
+function poserEnTete(doc: Document, cle: string, valeur: YAMLMap) {
+  const racine = doc.contents
+  if (!isMap(racine)) return void doc.set(cle, valeur)
+  const i = racine.items.findIndex((p) => ['parametres', 'requetes', 'rangees', 'filtres', 'filtres_rapides'].includes(String(isScalar(p.key) ? p.key.value : p.key)))
+  const paire = doc.createPair(cle, valeur)
+  if (i < 0) racine.items.push(paire)
+  else racine.items.splice(i, 0, paire)
 }
 
 /** Une liste de filtres à la racine, un par ligne ; vide, la clé disparaît. */

@@ -1,4 +1,5 @@
-import type { BlocAnalyse, Parametre } from './analyse'
+import type { BlocAnalyse, EntreeEtat, Parametre, SourceSecondaire } from './analyse'
+import { enrichir } from './fiche'
 import { ErreurSql, identifiant, requete, substituer, type MoteurSql, type ResultatSql } from './sql'
 import { instructionsChargement, type TableSql } from './tables'
 
@@ -8,12 +9,19 @@ import { instructionsChargement, type TableSql } from './tables'
 export type EtatRequete = { ok: true; resultat: ResultatSql & { coupe: boolean } } | { ok: false; erreur: string }
 
 /** Ce qu'il faut d'un dashboard pour calculer son analyse. */
-export type SourceAnalyse = { requetes: Readonly<Record<string, string>>; parametres: readonly Parametre[]; blocs: readonly { place: string; bloc: BlocAnalyse }[] }
+export type SourceAnalyse = {
+  requetes: Readonly<Record<string, string>>
+  parametres: readonly Parametre[]
+  blocs: readonly { place: string; bloc: BlocAnalyse }[]
+  etats?: Readonly<Record<string, readonly EntreeEtat[]>>
+}
 
 export type ResultatsAnalyse = {
   requetes: ReadonlyMap<string, EtatRequete>
-  /** Par place de bloc (`rangée.bloc`, à partir de 0) : le résultat montré par chaque bloc. */
+  /** Par place de bloc (`rangée.bloc`, à partir de 0) : le résultat montré par chaque bloc ; `place/jalons` et `place/periodes` pour une frise. */
   blocs: ReadonlyMap<string, EtatRequete>
+  /** Options d'un sélecteur à pastilles, avec le rang d'état de chacune. */
+  options: ReadonlyMap<string, EtatRequete>
 }
 
 /**
@@ -75,16 +83,55 @@ export async function executerRequete(moteur: MoteurSql, sql: string, parametres
   }
 }
 
+const introuvable = (nom: string): EtatRequete => ({ ok: false, erreur: new ErreurSql(`requête « ${nom} » introuvable dans le dashboard`).message })
+
+/** Ce qu'une fiche ajoute à la requête d'un bloc : l'état de l'en-tête ou des pastilles, la sélection d'une liste. */
+function ajoutDe(bloc: BlocAnalyse, etats: Readonly<Record<string, readonly EntreeEtat[]>>): { etat?: readonly EntreeEtat[]; garder?: string; tri?: string } | string {
+  const nomEtat = bloc.type === 'entete' ? bloc.etat : bloc.type === 'liste' && bloc.pastille && Object.hasOwn(etats, bloc.pastille) ? bloc.pastille : undefined
+  if (nomEtat !== undefined && !Object.hasOwn(etats, nomEtat)) return `état « ${nomEtat} » introuvable dans le dashboard`
+  return {
+    ...(nomEtat !== undefined && { etat: etats[nomEtat] }),
+    ...(bloc.type === 'liste' && bloc.garder && { garder: bloc.garder }),
+    ...(bloc.type === 'liste' && bloc.tri && { tri: bloc.tri }),
+  }
+}
+
 /** Requêtes à exécuter (tables déjà chargées) ; une requête en erreur ne bloque pas les autres. */
 export async function executerAnalyse(moteur: MoteurSql, src: SourceAnalyse, aujourdhui: string): Promise<ResultatsAnalyse> {
+  const etats = src.etats ?? {}
+  const executer = (sql: string) => executerRequete(moteur, sql, src.parametres, aujourdhui)
   const requetes = new Map<string, EtatRequete>()
-  for (const [nom, sql] of Object.entries(src.requetes)) requetes.set(nom, await executerRequete(moteur, sql, src.parametres, aujourdhui))
+  for (const [nom, sql] of Object.entries(src.requetes)) requetes.set(nom, await executer(sql))
+  const sqlDe = (d: { donnees?: string; sql?: string }) => d.sql ?? (d.donnees !== undefined ? src.requetes[d.donnees] : undefined)
+  const source = async (d: SourceSecondaire | BlocAnalyse): Promise<EtatRequete | undefined> => {
+    const sql = sqlDe(d)
+    return sql === undefined ? (d.donnees !== undefined ? introuvable(d.donnees) : undefined) : executer(sql)
+  }
+
   const blocs = new Map<string, EtatRequete>()
   for (const { place, bloc } of src.blocs) {
-    if (bloc.sql) blocs.set(place, await executerRequete(moteur, bloc.sql, src.parametres, aujourdhui))
-    else if (bloc.donnees) blocs.set(place, requetes.get(bloc.donnees) ?? { ok: false, erreur: new ErreurSql(`requête « ${bloc.donnees} » introuvable dans le dashboard`).message })
+    const sql = sqlDe(bloc)
+    const ajout = ajoutDe(bloc, etats)
+    if (typeof ajout === 'string') blocs.set(place, { ok: false, erreur: ajout })
+    else if (sql === undefined) {
+      if (bloc.donnees !== undefined) blocs.set(place, introuvable(bloc.donnees))
+    } else if (Object.keys(ajout).length === 0 && bloc.donnees !== undefined && !bloc.sql) blocs.set(place, requetes.get(bloc.donnees)!)
+    else blocs.set(place, await executer(enrichir(sql, ajout)))
+    for (const cle of ['jalons', 'periodes'] as const) {
+      const d = bloc.type === 'frise' ? bloc[cle] : undefined
+      const r = d && (await source(d))
+      if (r) blocs.set(`${place}/${cle}`, r)
+    }
   }
-  return { requetes, blocs }
+
+  const options = new Map<string, EtatRequete>()
+  for (const p of src.parametres) {
+    if (!p.pastille || typeof p.options !== 'string') continue
+    const sql = src.requetes[p.options]
+    const entrees = etats[p.pastille]
+    options.set(p.nom, sql === undefined ? introuvable(p.options) : !entrees ? { ok: false, erreur: `état « ${p.pastille} » introuvable dans le dashboard` } : await executer(enrichir(sql, { etat: entrees })))
+  }
+  return { requetes, blocs, options }
 }
 
 /**

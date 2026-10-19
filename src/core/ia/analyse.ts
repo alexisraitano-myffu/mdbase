@@ -163,7 +163,7 @@ export async function executerSqlOutil(etat: EtatEspace, args: Record<string, un
 
 /** Le dashboard tel qu'il sera après une action de structure, s'il porte de l'analyse à vérifier. */
 function dashboardApres(etat: EtatEspace, a: ActionStructure): Dashboard | null {
-  if (a.type === 'creer_dashboard') return { id: a.id, nom: a.nom, rangees: a.rangees, filtres: [], filtresRapides: [], requetes: a.requetes, parametres: a.parametres }
+  if (a.type === 'creer_dashboard') return { id: a.id, nom: a.nom, rangees: a.rangees, filtres: [], filtresRapides: [], requetes: a.requetes, parametres: a.parametres, couleurs: {}, etats: {} }
   if (a.type !== 'modifier_dashboard') return null
   const touche = a.operations.some(({ op }) => ['requete', 'parametres', 'valeur_parametre', 'modifier_analyse'].includes(op.type) || ((op.type === 'ajouter_bloc' || op.type === 'remplacer_bloc') && estAnalyse(op.bloc)))
   const avant = etat.dashboards.find((x) => x.id === a.id)?.dashboard

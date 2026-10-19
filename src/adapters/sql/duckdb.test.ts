@@ -100,3 +100,47 @@ describe('lecture seule et erreurs', () => {
     expect(coupee.ok && [coupee.resultat.lignes.length, coupee.resultat.coupe]).toEqual([4, true])
   })
 })
+
+describe('fiches', () => {
+  it('états, sélection d’une liste, options à pastilles et requêtes d’une frise', async () => {
+    const etats = {
+      charge: [
+        { si: 'heures >= 8', couleur: 'rouge', libelle: 'Chargé' },
+        { si: 'heures > 0', couleur: 'orange', libelle: 'En cours' },
+        { couleur: 'vert', libelle: 'Libre' },
+      ],
+    }
+    const r = await executerAnalyse(
+      moteur,
+      {
+        requetes: { projets: 'select titre, coalesce(heures, 0) as heures from projets order by titre', fiche: 'select titre, heures from projets where titre = {{projet}}' },
+        parametres: [{ nom: 'projet', type: 'choix', options: 'projets', affichage: 'boutons', pastille: 'charge', valeur: 'Navi' }],
+        etats,
+        blocs: [
+          { place: '0.0', bloc: { type: 'entete', donnees: 'fiche', titre: 'titre', etat: 'charge' } },
+          { place: '0.1', bloc: { type: 'liste', sql: 'select titre, statut, heures from taches', libelle: 'titre', garder: "statut <> 'Terminé'", tri: 'heures desc', max: 1 } },
+          { place: '0.2', bloc: { type: 'entete', donnees: 'fiche', etat: 'absent' } },
+          { place: '1.0', bloc: { type: 'frise', donnees: 'projets', jalons: { sql: "select date '2026-11-01' as d", date: 'd' }, periodes: { donnees: 'absente' } } },
+        ],
+      },
+      '2026-10-12',
+    )
+    const ok = (cle: string, m: ReadonlyMap<string, unknown> = r.blocs) => {
+      const e = m.get(cle) as { ok: boolean; resultat?: { lignes: unknown[] }; erreur?: string }
+      if (!e?.ok) throw new Error(`${cle} : ${e?.erreur}`)
+      return e.resultat!.lignes
+    }
+    expect(ok('0.0')).toEqual([{ titre: 'Navi', heures: 8, _etat: 0 }])
+    // Gardées d'abord, triées ; la tâche terminée est écartée mais reste dans le résultat. C, sans statut, est gardée.
+    expect(ok('0.1').map((l) => (l as { titre: string }).titre)).toEqual(['A', 'C', 'B'])
+    expect(ok('0.1').map((l) => (l as { _garde: boolean })._garde)).toEqual([true, true, false])
+    expect(r.blocs.get('0.2')).toEqual({ ok: false, erreur: 'état « absent » introuvable dans le dashboard' })
+    expect(ok('projet', r.options)).toEqual([
+      { titre: 'Navi', heures: 8, _etat: 0 },
+      { titre: 'Seul', heures: 0, _etat: 2 },
+      { titre: 'sinam', heures: 2, _etat: 1 },
+    ])
+    expect(ok('1.0/jalons')).toEqual([{ d: '2026-11-01' }])
+    expect(r.blocs.get('1.0/periodes')).toMatchObject({ ok: false, erreur: expect.stringContaining('absente') })
+  })
+})
