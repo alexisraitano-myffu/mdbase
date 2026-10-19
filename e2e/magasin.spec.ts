@@ -35,3 +35,19 @@ test('un module utilisé par l’espace reste actif ; retiré, il quitte les men
   await page.getByTitle('Nouvelle vue').click()
   await expect(page.getByRole('button', { name: 'Collection', exact: true })).toBeVisible()
 })
+
+test('modèle : « Utiliser ce modèle » crée ses bases dans un nouveau groupe et ajoute ses vues', async ({ espace, page }) => {
+  await page.getByRole('button', { name: 'Magasin' }).click()
+  const modele = page.getByRole('dialog', { name: 'Magasin' }).getByRole('article', { name: 'Planification de charge' })
+  await expect(modele).toContainText('Ressources, Projets, Besoins, Affectations, Absences')
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'test-results/magasin-modeles.png' })
+  await modele.getByRole('button', { name: 'Utiliser ce modèle' }).click()
+  await expect(page.getByRole('dialog', { name: 'Magasin' })).toHaveCount(0)
+  await expect(page.locator('h1', { hasText: 'Ressources' })).toBeVisible()
+  await expect(page.locator('.titre-groupe', { hasText: 'Planification de charge' })).toBeVisible()
+  // La démo a déjà une base « projets » : celle du modèle prend un autre identifiant.
+  await expect.poll(() => espace.lire('affectations/_schema.yaml')).toContain('cible: projets-2')
+  await expect.poll(() => espace.lire('_espace.yaml')).toContain('Planification de charge')
+  await page.screenshot({ path: 'test-results/modele-installe.png' })
+})

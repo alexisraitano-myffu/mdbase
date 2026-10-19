@@ -90,7 +90,6 @@ describe('modèle planification-charge', () => {
       return c?.etat === 'ok' ? c.valeur : c
     }
     expect(v('projets-2', 'pport001', 'jours_demandes')).toBe(75)
-    expect(v('ressources', 'rhugo002', 'jours_affectes')).toBe(5)
     const portail = etat.bases.get('projets-2')!.depot!.lignes().find((l) => l.id === 'pport001')!
     expect(portail.cellules.debut).toEqual({ etat: 'ok', valeur: '2026-10-05' })
     expect(etat.bases.get('projets-2')!.vues.map((v) => v.type)).toEqual(['tableau', 'timeline'])

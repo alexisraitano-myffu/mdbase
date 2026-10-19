@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { BookOpen, Bot, Check, Copy, Inbox, LayoutDashboard, ListChecks, RefreshCw, Sparkles, type LucideIcon } from 'lucide-react'
+import { BookOpen, Bot, Check, Copy, Inbox, LayoutDashboard, LayoutTemplate, ListChecks, RefreshCw, Sparkles, type LucideIcon } from 'lucide-react'
 import type { EtatEspace } from '../core/depot-espace'
 import { estVueModule, usagesModules, type IdModule } from '../core/modules'
 import type { TypeVue } from '../core/vue'
+import type { Modele } from '../core/modeles'
+import { MODELES } from '../adapters/modeles-livres'
 import { estBureau } from '../adapters/tauri/bureau'
 import { connecterClaudeDesktop, executableMdbase } from '../adapters/tauri/mcp'
+import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { Fenetre } from './fenetre'
 import { Icone, ICONES_VUES } from './icones'
@@ -122,7 +125,7 @@ const CATALOGUE: { categorie: string; fiches: Fiche[] }[] = [
   },
 ]
 
-export function FenetreModules(p: { assistantActif: boolean; reglerAssistant: () => void; desactiverAssistant: () => void; ouvrirContexte: () => void; fermer: () => void }) {
+export function FenetreModules(p: { ouvrirBase: (id: string) => void; assistantActif: boolean; reglerAssistant: () => void; desactiverAssistant: () => void; ouvrirContexte: () => void; fermer: () => void }) {
   const { etat } = useEspace()
   const modules = useModules(etat)
   const usages = useUsages(etat)
@@ -145,6 +148,19 @@ export function FenetreModules(p: { assistantActif: boolean; reglerAssistant: ()
     <Fenetre titre="Magasin" fermer={p.fermer}>
       <div className="magasin">
         <p className="discret">Le socle (bases, tableau, pages, relations, formules, import et export) est toujours là. Ajoute ce qui te sert : retirer un module cache ses menus, sans toucher à tes fichiers. Choix gardés sur cette machine.</p>
+        {MODELES.length > 0 && (
+          <section className="categorie-magasin">
+            <h3>Modèles</h3>
+            <div className="fiches-magasin">
+              {MODELES.map((m) => (
+                <FicheModele key={m.id} modele={m} installe={(base) => {
+                    if (base) p.ouvrirBase(base)
+                    p.fermer()
+                  }} />
+              ))}
+            </div>
+          </section>
+        )}
         {CATALOGUE.map((c) => {
           const fiches = c.fiches.filter((f) => f.id !== 'mcp' || estBureau())
           return (
@@ -214,6 +230,44 @@ function FicheModule(p: { fiche: Fiche; actif: boolean; usage: string | undefine
   )
 }
 
+/** Un modèle : ses bases, et « Utiliser ce modèle », qui ajoute ses modules et crée ses bases dans un nouveau groupe. */
+function FicheModele(p: { modele: Modele; installe: (premiereBase: string | undefined) => void }) {
+  const { espace } = useEspace()
+  const lancer = useLancer()
+  const [enCours, setEnCours] = useState(false)
+  const { modele } = p
+  const noms = modele.bases.map((b) => /^nom:\s*(.+)$/m.exec(modele.fichiers[`${b}/_schema.yaml`] ?? '')?.[1]?.trim() ?? b)
+  const utiliser = async () => {
+    setEnCours(true)
+    const r = await lancer(espace.utiliserModele(modele))
+    setEnCours(false)
+    if (!r) return
+    for (const m of modele.modules) if (m !== 'assistant') changerModule(m, true)
+    p.installe(r.bases[0])
+  }
+  return (
+    <article className="fiche-module" aria-label={modele.nom}>
+      <div className="apercu-module" aria-hidden>
+        <ApercuModele />
+      </div>
+      <div className="texte-module">
+        <h4>
+          <Icone de={LayoutTemplate} />
+          {modele.nom}
+        </h4>
+        <p>{modele.description}</p>
+        <p className="discret">{noms.join(', ')}</p>
+      </div>
+      <div className="pied-module">
+        <span />
+        <button className="principal" disabled={enCours} title="Crée ses bases dans un nouveau groupe, sans toucher à l’existant" onClick={() => void utiliser()}>
+          Utiliser ce modèle
+        </button>
+      </div>
+    </article>
+  )
+}
+
 // ── Aperçus : un croquis de ce que le module montre ──────────────
 
 const Croquis = ({ children }: { children: ReactNode }) => (
@@ -223,6 +277,28 @@ const Croquis = ({ children }: { children: ReactNode }) => (
 )
 const Carte = (p: { x: number; y: number; l: number; h: number; plein?: boolean }) => <rect x={p.x} y={p.y} width={p.l} height={p.h} rx={2.5} className={p.plein ? 'plein' : 'carte'} />
 const Trait = (p: { x: number; y: number; l: number }) => <rect x={p.x} y={p.y} width={p.l} height={2.5} rx={1.25} className="trait" />
+
+function ApercuModele() {
+  return (
+    <Croquis>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i}>
+          <rect x={8} y={8 + i * 12} width={6} height={6} rx={1.5} className={i === 0 ? 'plein' : 'doux'} />
+          <Trait x={18} y={9.75 + i * 12} l={[22, 18, 20, 26, 16][i]!} />
+        </g>
+      ))}
+      <line x1={52} y1={6} x2={52} y2={66} className="grille" />
+      {[
+        [58, 30],
+        [70, 40],
+        [62, 24],
+        [84, 28],
+      ].map(([x, l], i) => (
+        <rect key={i} x={x} y={10 + i * 14} width={l} height={8} rx={3} className={i === 1 ? 'plein' : 'carte'} />
+      ))}
+    </Croquis>
+  )
+}
 
 function ApercuKanban() {
   return (

@@ -443,6 +443,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
         </div>
         {fenetreModules && (
           <FenetreModules
+            ouvrirBase={choisir}
             assistantActif={reglagesIA.actif}
             reglerAssistant={() => {
               setFenetreModules(false)
