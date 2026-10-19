@@ -39,7 +39,7 @@ test('un module utilisé par l’espace reste actif ; retiré, il quitte les men
 test('modèle : « Utiliser ce modèle » crée ses bases dans un nouveau groupe et ajoute ses vues', async ({ espace, page }) => {
   await page.getByRole('button', { name: 'Magasin' }).click()
   const modele = page.getByRole('dialog', { name: 'Magasin' }).getByRole('article', { name: 'Planification de charge' })
-  await expect(modele).toContainText('Ressources, Projets, Besoins, Affectations, Absences')
+  await expect(modele).toContainText('Ressources, Projets, Versions, Besoins, Affectations, Absences')
   await page.waitForTimeout(300)
   await page.screenshot({ path: 'test-results/magasin-modeles.png' })
   await modele.getByRole('button', { name: 'Utiliser ce modèle' }).click()

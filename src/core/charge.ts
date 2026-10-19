@@ -1,16 +1,30 @@
 import type { LigneChargee } from './base'
 import { estSaisie, type Colonne, type ColonneRelation, type Schema } from './schema'
-import { decaler, jourDe, jourSemaine, lundiDe } from './temps'
+import { ajouterMois, decaler, jourDe, jourSemaine, lundiDe } from './temps'
 import type { Valeur } from './valeurs'
 
-// Plan de charge (spec §21) : capacité, charge et couverture des besoins, par
-// semaine, en jours. Cœur sans interface : la vue, l'assistant et le MCP
+// Plan de charge (spec §21) : capacité, charge et couverture des besoins, en
+// jours, calculées jour ouvré par jour ouvré puis additionnées par période
+// (jour, semaine ou mois). Cœur sans interface : la vue, l'assistant et le MCP
 // (`calculer_charge`) lisent les mêmes chiffres.
 
-export type LienAffectations = { base: string; ressource: string; projet: string; debut: string; fin: string; jours: string }
+export type LienAffectations = {
+  base: string
+  ressource: string
+  projet: string
+  debut: string
+  fin: string
+  /** Jours par semaine. */
+  jours: string
+  /** Jours au total, répartis sur les jours ouvrés de la période ; l'emporte sur `jours` quand la ligne en a. */
+  total?: string
+  /** Relation vers la version du projet visée. */
+  version?: string
+}
 export type LienAbsences = { base: string; ressource: string; debut: string; fin: string }
 export type LienBesoins = { base: string; projet: string; role: string; jours: string; avant: string }
 export type Feries = 'france' | 'aucun'
+export type Maille = 'jour' | 'semaine' | 'mois'
 
 /** Réglages de la vue `charge` (vue de la base des ressources). */
 export type ReglagesCharge = {
@@ -22,6 +36,7 @@ export type ReglagesCharge = {
   absences?: LienAbsences
   besoins?: LienBesoins
   feries?: Feries
+  maille?: Maille
 }
 
 /** Seuils de couleur d'une case : libre en dessous de 80 %, pleine jusqu'à 100 %, surchargée au-delà. */
@@ -79,6 +94,53 @@ export function semaines(jour: string, n: number): string[] {
   return Array.from({ length: n }, (_, i) => decaler(premier, i * 7))
 }
 
+/** Une colonne du plan : du `debut` à la `fin` comprise. */
+export type Periode = { debut: string; fin: string }
+
+/** Colonnes par défaut de chaque maille. */
+export const PERIODES_PAR_DEFAUT: Record<Maille, number> = { jour: 20, semaine: 12, mois: 6 }
+
+const finDuMois = (jour: string) => decaler(ajouterMois(jour.slice(0, 8) + '01', 1), -1)
+
+/**
+ * `n` périodes à partir de celle qui contient `jour` : jours du lundi au
+ * vendredi (fériés compris, pour les montrer), semaines, ou mois.
+ */
+export function periodes(maille: Maille, jour: string, n: number): Periode[] {
+  if (maille === 'semaine') return semaines(jour, n).map((l) => ({ debut: l, fin: decaler(l, 4) }))
+  if (maille === 'mois') {
+    return Array.from({ length: n }, (_, i) => {
+      const debut = ajouterMois(jour.slice(0, 8) + '01', i)
+      return { debut, fin: finDuMois(debut) }
+    })
+  }
+  const sortie: Periode[] = []
+  for (let j = jourSemaine(jour) === 6 || jourSemaine(jour) === 0 ? lundiDe(decaler(jour, 2)) : jour; sortie.length < n; j = decaler(j, 1)) {
+    const js = jourSemaine(j)
+    if (js !== 0 && js !== 6) sortie.push({ debut: j, fin: j })
+  }
+  return sortie
+}
+
+/** Période suivante ou précédente : `pas` périodes plus loin (un jour = un jour ouvré). */
+export function decalerPeriode(maille: Maille, jour: string, pas: number): string {
+  if (maille === 'mois') return ajouterMois(jour.slice(0, 8) + '01', pas)
+  if (maille === 'semaine') return decaler(lundiDe(jour), pas * 7)
+  let j = jour
+  for (let i = 0; i < Math.abs(pas); ) {
+    j = decaler(j, Math.sign(pas))
+    if (jourSemaine(j) !== 0 && jourSemaine(j) !== 6) i++
+  }
+  return j
+}
+
+/** Jours ouvrés d'une période. */
+export const ouvresDe = (p: Periode, feries: Feries = 'france'): string[] => {
+  const jours: string[] = []
+  for (let j = p.debut; j <= p.fin; j = decaler(j, 1)) if (estOuvre(j, feries)) jours.push(j)
+  return jours
+}
+
 // ── Lecture des lignes ────────────────────────────────────────────
 
 const valeur = (l: LigneChargee, cle: string | undefined): Valeur | undefined => {
@@ -113,8 +175,9 @@ export const roleDe = (r: ReglagesCharge, ressource: LigneChargee): string | nul
 // ── Charge par ressource ──────────────────────────────────────────
 
 export type CaseCharge = {
-  lundi: string
-  /** Jours ouvrés de la semaine (fériés retirés). */
+  debut: string
+  fin: string
+  /** Jours ouvrés de la période (fériés retirés). */
   ouvres: number
   /** Jours ouvrés d'absence de la ressource. */
   absence: number
@@ -124,77 +187,108 @@ export type CaseCharge = {
   charge: number
   /** Charge par projet (id de ligne ; `''` pour une affectation sans projet). */
   parProjet: Record<string, number>
+  /** Charge par version (id de ligne ; `@<projet>` pour une affectation sans version), quand la version est réglée. */
+  parVersion: Record<string, number>
   /** Affectations qui composent la case. */
   affectations: string[]
 }
 
-export type EtatCase = 'vide' | 'libre' | 'pleine' | 'surchargee' | 'absente'
+export type EtatCase = 'vide' | 'libre' | 'pleine' | 'surchargee' | 'absente' | 'fermee'
 
 export function etatCase(c: CaseCharge): EtatCase {
-  if (c.ouvres > 0 && c.absence >= c.ouvres) return 'absente'
-  if (c.charge <= 0) return 'vide'
+  if (c.ouvres === 0) return 'fermee'
+  if (c.absence >= c.ouvres) return 'absente'
+  if (c.charge <= 1e-9) return 'vide'
   if (c.capacite <= 0 || c.charge > c.capacite + 1e-9) return 'surchargee'
   return c.charge / c.capacite >= SEUIL_PLEINE ? 'pleine' : 'libre'
 }
 
-/** Jours d'une plage [debut, fin] tombant dans `jours`. */
-const dans = (jours: readonly string[], p: { debut: string; fin: string }) => jours.filter((j) => j >= p.debut && j <= p.fin)
+/** Une affectation lue : sa plage, ses jours par jour ouvré, son projet et sa version. */
+type AffectationLue = { id: string; debut: string; fin: string; parJour: number; projet: string; version: string }
+
+function lireAffectations(r: ReglagesCharge, lignes: readonly LigneChargee[], feries: Feries): Map<string, AffectationLue[]> {
+  const a = r.affectations
+  const parRessource = new Map<string, AffectationLue[]>()
+  if (!a) return parRessource
+  for (const l of lignes) {
+    const p = plage(l, a.debut, a.fin)
+    if (!p) continue
+    const total = nombre(l, a.total)
+    const parSemaine = nombre(l, a.jours)
+    let parJour = 0
+    if (total !== null && total > 0) {
+      const n = ouvresDe(p, feries).length
+      parJour = n > 0 ? total / n : 0
+    } else if (parSemaine !== null && parSemaine > 0) parJour = parSemaine / 5
+    if (parJour <= 0) continue
+    const lue = { id: l.id, ...p, parJour, projet: ids(l, a.projet)[0] ?? '', version: a.version ? (ids(l, a.version)[0] ?? '') : '' }
+    for (const res of ids(l, a.ressource)) parRessource.set(res, [...(parRessource.get(res) ?? []), lue])
+  }
+  return parRessource
+}
 
 /**
- * Charge de chaque ressource, semaine par semaine. Une affectation pèse ses
- * jours par semaine × ses jours ouvrés dans la semaine / 5 : un férié réduit
- * la charge comme la capacité. Une absence ne réduit pas la charge, elle
- * réduit la capacité (le conflit se voit).
+ * Charge de chaque ressource, période par période. Chaque jour ouvré d'une
+ * affectation pèse ses jours par semaine / 5 (ou son total / ses jours
+ * ouvrés) : un férié réduit la charge comme la capacité. Une absence ne réduit
+ * pas la charge, elle réduit la capacité (le conflit se voit).
  */
 export function calculerCharge(
   r: ReglagesCharge,
   ressources: readonly LigneChargee[],
   affectations: readonly LigneChargee[],
   absences: readonly LigneChargee[],
-  lundis: readonly string[],
+  colonnes: readonly Periode[],
 ): Map<string, CaseCharge[]> {
   const feries = r.feries ?? 'france'
-  const ouvres = new Map(lundis.map((l) => [l, ouvresDeLaSemaine(l, feries)]))
-  const parRessource = new Map<string, LigneChargee[]>()
-  const ranger = (map: Map<string, LigneChargee[]>, cle: string, l: LigneChargee) => map.set(cle, [...(map.get(cle) ?? []), l])
-  const a = r.affectations
-  if (a) for (const l of affectations) for (const id of ids(l, a.ressource)) ranger(parRessource, id, l)
+  const ouvres = colonnes.map((p) => ouvresDe(p, feries))
+  const parRessource = lireAffectations(r, affectations, feries)
   const absentes = new Map<string, LigneChargee[]>()
   const b = r.absences
-  if (b) for (const l of absences) for (const id of ids(l, b.ressource)) ranger(absentes, id, l)
+  if (b) for (const l of absences) for (const id of ids(l, b.ressource)) absentes.set(id, [...(absentes.get(id) ?? []), l])
 
   const resultat = new Map<string, CaseCharge[]>()
   for (const res of ressources) {
     const cap = capaciteDe(r, res)
+    const plagesAbsence = (absentes.get(res.id) ?? []).flatMap((l) => (b ? (plage(l, b.debut, b.fin) ?? []) : []))
     resultat.set(
       res.id,
-      lundis.map((lundi) => {
-        const jours = ouvres.get(lundi)!
-        const absence = new Set(
-          (absentes.get(res.id) ?? []).flatMap((l) => {
-            const p = b && plage(l, b.debut, b.fin)
-            return p ? dans(jours, p) : []
-          }),
-        ).size
-        const c: CaseCharge = { lundi, ouvres: jours.length, absence, capacite: (cap * (jours.length - absence)) / 5, charge: 0, parProjet: {}, affectations: [] }
-        if (!a || jours.length === 0) return c
-        for (const l of parRessource.get(res.id) ?? []) {
-          const p = plage(l, a.debut, a.fin)
-          const parSemaine = nombre(l, a.jours) ?? 0
-          if (!p || parSemaine <= 0) continue
-          const couverts = dans(jours, p).length
+      colonnes.map((periode, i) => {
+        const jours = ouvres[i]!
+        const absence = jours.filter((j) => plagesAbsence.some((p) => j >= p.debut && j <= p.fin)).length
+        const c: CaseCharge = { ...periode, ouvres: jours.length, absence, capacite: (cap * (jours.length - absence)) / 5, charge: 0, parProjet: {}, parVersion: {}, affectations: [] }
+        for (const aff of parRessource.get(res.id) ?? []) {
+          const couverts = jours.filter((j) => j >= aff.debut && j <= aff.fin).length
           if (couverts === 0) continue
-          const part = (parSemaine * couverts) / 5
+          const part = aff.parJour * couverts
           c.charge += part
-          const projet = ids(l, a.projet)[0] ?? ''
-          c.parProjet[projet] = (c.parProjet[projet] ?? 0) + part
-          c.affectations.push(l.id)
+          c.parProjet[aff.projet] = (c.parProjet[aff.projet] ?? 0) + part
+          if (r.affectations?.version) {
+            const cle = aff.version || `@${aff.projet}`
+            c.parVersion[cle] = (c.parVersion[cle] ?? 0) + part
+          }
+          c.affectations.push(aff.id)
         }
         return c
       }),
     )
   }
   return resultat
+}
+
+/** Charge d'un ensemble de ressources par période : par projet (ou par version) et capacité totale, pour le graphique. */
+export function empiler(cases: ReadonlyMap<string, readonly CaseCharge[]>, ressources: readonly string[], n: number, par: 'projet' | 'version'): { parts: Record<string, number>; capacite: number }[] {
+  return Array.from({ length: n }, (_, i) => {
+    const parts: Record<string, number> = {}
+    let capacite = 0
+    for (const id of ressources) {
+      const c = cases.get(id)?.[i]
+      if (!c) continue
+      capacite += c.capacite
+      for (const [cle, v] of Object.entries(par === 'version' ? c.parVersion : c.parProjet)) parts[cle] = (parts[cle] ?? 0) + v
+    }
+    return { parts, capacite }
+  })
 }
 
 // ── Couverture des besoins ────────────────────────────────────────
@@ -211,28 +305,30 @@ export type Couverture = {
 /**
  * Pour chaque besoin, les jours affectés à son projet par des ressources de
  * son rôle jusqu'à sa date (toute affectation si le besoin n'a pas de date).
- * Un jour ouvré d'une affectation vaut ses jours par semaine / 5.
  */
 export function couvrirBesoins(r: ReglagesCharge, ressources: readonly LigneChargee[], affectations: readonly LigneChargee[], besoins: readonly LigneChargee[]): Couverture[] {
-  const a = r.affectations
   const bs = r.besoins
   if (!bs) return []
   const feries = r.feries ?? 'france'
   const roles = new Map(ressources.map((res) => [res.id, roleDe(r, res)]))
+  const parRessource = lireAffectations(r, affectations, feries)
   return besoins.map((besoin) => {
     const projet = ids(besoin, bs.projet)[0] ?? null
     const role = texte(besoin, bs.role)
     const avant = jourDe(valeur(besoin, bs.avant))
     let affectes = 0
-    if (a && projet) {
-      for (const l of affectations) {
-        if (!ids(l, a.projet).includes(projet)) continue
-        if (role !== null && !ids(l, a.ressource).some((id) => roles.get(id) === role)) continue
-        const p = plage(l, a.debut, a.fin)
-        const parSemaine = nombre(l, a.jours) ?? 0
-        if (!p || parSemaine <= 0) continue
-        const fin = avant && avant < p.fin ? avant : p.fin
-        for (let j = p.debut; j <= fin; j = decaler(j, 1)) if (estOuvre(j, feries)) affectes += parSemaine / 5
+    if (projet) {
+      const vues = new Set<string>()
+      for (const [res, liste] of parRessource) {
+        if (role !== null && roles.get(res) !== role) continue
+        for (const aff of liste) {
+          // Une affectation à plusieurs ressources compte une fois par ressource ; une même ligne vue deux fois, une seule.
+          const cle = `${res}:${aff.id}`
+          if (aff.projet !== projet || vues.has(cle)) continue
+          vues.add(cle)
+          const fin = avant && avant < aff.fin ? avant : aff.fin
+          if (fin >= aff.debut) affectes += aff.parJour * ouvresDe({ debut: aff.debut, fin }, feries).length
+        }
       }
     }
     return { besoin: besoin.id, projet, role, avant, demandes: nombre(besoin, bs.jours) ?? 0, affectes: Math.round(affectes * 100) / 100 }
@@ -268,10 +364,22 @@ export function reglagesChargeParDefaut(bases: Schemas, base: string): ReglagesC
     const ressource = relationsVers(s, base)[0]
     const projet = colonnesDe(s, 'relation').find((c): c is ColonneRelation => c.type === 'relation' && c.cible !== base && c.proprietaire)
     const dates = saisies(s, 'date')
-    const jours = saisies(s, 'number')[0]
-    return ressource && projet && dates[0] && jours ? [{ id, ressource, projet, dates, jours }] : []
+    const nombres = saisies(s, 'number')
+    const total = nombres.length > 1 ? nombres.find((c) => /total/i.test(`${c.cle} ${c.nom}`)) : undefined
+    const jours = nombres.find((c) => c !== total)
+    // Version : une relation vers une base elle-même reliée à la base des projets.
+    const version =
+      projet &&
+      colonnesDe(s, 'relation').find(
+        (c): c is ColonneRelation => c.type === 'relation' && c.proprietaire && c.cible !== base && c.cible !== projet.cible && relationsVers(bases.get(c.cible)?.depot?.schema ?? schema, projet.cible).length > 0,
+      )
+    return ressource && projet && dates[0] && jours ? [{ id, ressource, projet, dates, jours, total, version }] : []
   })[0]
-  if (aff) r.affectations = { base: aff.id, ressource: aff.ressource.cle, projet: aff.projet.cle, debut: aff.dates[0]!.cle, fin: (aff.dates[1] ?? aff.dates[0]!).cle, jours: aff.jours.cle }
+  if (aff) {
+    r.affectations = { base: aff.id, ressource: aff.ressource.cle, projet: aff.projet.cle, debut: aff.dates[0]!.cle, fin: (aff.dates[1] ?? aff.dates[0]!).cle, jours: aff.jours.cle }
+    if (aff.total) r.affectations.total = aff.total.cle
+    if (aff.version) r.affectations.version = aff.version.cle
+  }
 
   const abs = autres.find(({ id, s }) => id !== aff?.id && relationsVers(s, base)[0] && saisies(s, 'date')[0] && saisies(s, 'number').length === 0)
   if (abs) {

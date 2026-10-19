@@ -1871,14 +1871,19 @@ kbd.touche svg.icone { margin: 0; }
 .grille-charge-defilement { overflow-x: auto; }
 .grille-charge { border-collapse: separate; border-spacing: 3px; font-size: 0.85em; user-select: none; }
 .grille-charge th { font-weight: 500; text-align: center; color: var(--discret); white-space: nowrap; padding: 2px 4px; }
-.grille-charge th.semaine-courante { color: var(--texte); font-weight: 600; }
+.grille-charge th.periode-courante { color: var(--texte); font-weight: 600; }
+.grille-charge th { position: relative; }
+.jalon-charge { display: inline-block; width: 7px; height: 7px; background: var(--accent); transform: rotate(45deg); margin-left: 5px; vertical-align: 1px; }
+.grille-charge.maille-jour td { min-width: 2.4rem; }
+.grille-charge.maille-mois td { min-width: 5.5rem; }
 .grille-charge .nom-charge { text-align: left; color: var(--texte); min-width: 11rem; position: sticky; left: 0; background: var(--fond); z-index: 1; }
 .grille-charge td { min-width: 4.2rem; height: 1.9rem; text-align: center; border-radius: 5px; font-variant-numeric: tabular-nums; }
 .case-charge { cursor: pointer; background: var(--fond-doux); color: var(--discret); }
 .case-charge.charge-libre, .legende-charge .charge-libre { background: var(--charge-libre); color: var(--charge-libre-texte); }
 .case-charge.charge-pleine, .legende-charge .charge-pleine { background: var(--charge-pleine); color: var(--charge-pleine-texte); }
 .case-charge.charge-surchargee, .legende-charge .charge-surchargee { background: var(--charge-surchargee); color: var(--charge-surchargee-texte); font-weight: 600; }
-.case-charge.charge-absente, .legende-charge .charge-absente { background: var(--charge-absente); }
+.case-charge.charge-absente, .case-charge.charge-fermee, .legende-charge .charge-absente { background: var(--charge-absente); }
+.case-charge.charge-fermee { cursor: default; }
 .case-charge.selection { outline: 2px solid var(--accent); outline-offset: -2px; }
 .case-charge:hover { outline: 1px solid var(--bordure-forte); outline-offset: -1px; }
 .groupe-charge th.nom-charge { font-weight: 600; padding-top: 0.6rem; }
@@ -1914,3 +1919,18 @@ kbd.touche svg.icone { margin: 0; }
 .apercu-module .charge-pleine { fill: var(--charge-pleine); stroke: var(--charge-pleine-texte); stroke-width: 0.5; }
 .apercu-module .charge-surchargee { fill: var(--charge-surchargee); stroke: var(--charge-surchargee-texte); stroke-width: 0.5; }
 .apercu-module .charge-absente { fill: var(--fond-doux); stroke: var(--bordure-forte); stroke-width: 0.5; stroke-dasharray: 2 1.5; }
+
+.graphique-charge { display: flex; flex-direction: column; gap: 0.6rem; }
+.reglages-graphique { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.graphique-charge svg { display: block; }
+.ligne-graduation { stroke: var(--trait); stroke-width: 1; }
+.texte-graduation, .texte-periode { font-size: 11px; fill: var(--discret); }
+.texte-periode.courante { fill: var(--texte); font-weight: 600; }
+.segment-charge { stroke: var(--surface); stroke-width: 1; }
+.segment-charge:hover { filter: brightness(0.94); }
+.trait-capacite { fill: none; stroke: var(--texte); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.jalon-graphique { fill: var(--accent); }
+.legende-graphique { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85em; }
+.legende-graphique li { display: inline-flex; align-items: center; gap: 6px; }
+.pastille-graphique { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(var(--ombre), 0.12); }
+.trait-legende { width: 16px; border-top: 1.5px dashed var(--texte); }

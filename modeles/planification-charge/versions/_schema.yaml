@@ -1,0 +1,10 @@
+version: 1
+id: versions
+nom: Versions
+champ_titre: nom
+colonnes:
+  - { cle: nom, nom: Version, type: text }
+  - { cle: projet, nom: Projet, type: relation, cible: projets, proprietaire: true, inverse: versions }
+  - { cle: sortie, nom: Sortie, type: date }
+  - { cle: affectations, nom: Affectations, type: relation, cible: affectations, proprietaire: false, inverse: version }
+vues: [ tableau ]

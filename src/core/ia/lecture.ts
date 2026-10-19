@@ -72,8 +72,9 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
       properties: {
         base: { type: 'string', description: 'id de la base des ressources (par défaut : la première qui a une vue Plan de charge)' },
         vue: { type: 'string', description: 'id ou nom de la vue Plan de charge, si la base en a plusieurs' },
-        debut: { type: 'string', description: 'AAAA-MM-JJ, semaine de départ (par défaut : cette semaine)' },
-        semaines: { type: 'number', description: 'nombre de semaines, 8 par défaut, 26 au plus' },
+        debut: { type: 'string', description: 'AAAA-MM-JJ, période de départ (par défaut : aujourd’hui)' },
+        maille: { type: 'string', enum: ['jour', 'semaine', 'mois'], description: 'période de chaque colonne (semaine par défaut)' },
+        periodes: { type: 'number', description: 'nombre de périodes (10 jours, 8 semaines ou 6 mois par défaut ; 31 au plus)' },
       },
     },
   },

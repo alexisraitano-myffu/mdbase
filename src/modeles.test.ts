@@ -85,7 +85,7 @@ describe('modèle planification-charge', () => {
   it('ses exemples se calculent, dates ramenées autour d’aujourd’hui', async () => {
     const { espace } = await ouvrir()
     const r = await espace.utiliserModele(MODELES.find((m) => m.id === 'planification-charge')!)
-    expect(r.bases).toEqual(['ressources', 'projets-2', 'besoins', 'affectations', 'absences'])
+    expect(r.bases).toEqual(['ressources', 'projets-2', 'versions', 'besoins', 'affectations', 'absences'])
     const etat = espace.etat()
     const v = (base: string, id: string, cle: string) => {
       const c = etat.calculs.get(base)?.get(id)?.[cle]
@@ -103,7 +103,7 @@ describe('modèle planification-charge', () => {
     expect(affectations?.projet).toBe('projet')
     // L'outil commun à l'assistant et au MCP lit les mêmes chiffres.
     const texte = lire(etat, { id: 'c1', nom: 'calculer_charge', arguments: '{"semaines": 2}' }, { aujourdhui: '2026-10-21' })
-    expect(texte).toContain('à partir du lundi 2026-10-19')
+    expect(texte).toContain('2 semaines à partir du 2026-10-19')
     expect(texte).toContain('Camille (Développement) | 19/10 5/5 ; 26/10 5/5')
     expect(texte).toMatch(/Application mobile \| Développement avant 2027-01-04 \| 0\/80 : il manque 80 j/)
   })

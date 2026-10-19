@@ -1,4 +1,4 @@
-import type { Feries, LienAbsences, LienAffectations, LienBesoins } from './charge'
+import type { Feries, LienAbsences, LienAffectations, LienBesoins, Maille } from './charge'
 import { Document, isMap, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
@@ -136,8 +136,10 @@ export type Vue = {
   besoins?: LienBesoins
   /** Plan de charge : jours fériés retirés des jours ouvrés (France par défaut). */
   feries?: Feries
-  /** Plan de charge : nombre de semaines affichées. */
-  semaines?: number
+  /** Plan de charge : colonnes par jour ouvré, par semaine (défaut) ou par mois. */
+  maille?: Maille
+  /** Plan de charge : nombre de colonnes affichées. */
+  periodes?: number
   /** Vue par défaut d'une base sans `_vues/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
@@ -174,7 +176,8 @@ const REGLAGES = {
   absences: 'absences',
   besoins: 'besoins',
   feries: 'feries',
-  semaines: 'semaines',
+  maille: 'maille',
+  periodes: 'periodes',
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
 /** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
@@ -234,21 +237,22 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   if (brut.echelle === 'semaine' || brut.echelle === 'mois' || brut.echelle === 'trimestre') r.echelle = brut.echelle
   const capacite = texte(brut.capacite)
   if (capacite) r.capacite = capacite
-  const affectations = lien(brut.affectations, ['base', 'ressource', 'projet', 'debut', 'fin', 'jours'])
+  const affectations = lien(brut.affectations, ['base', 'ressource', 'projet', 'debut', 'fin', 'jours'], ['total', 'version'])
   if (affectations) r.affectations = affectations
   const absences = lien(brut.absences, ['base', 'ressource', 'debut', 'fin'])
   if (absences) r.absences = absences
   const besoins = lien(brut.besoins, ['base', 'projet', 'role', 'jours', 'avant'])
   if (besoins) r.besoins = besoins
   if (brut.feries === 'france' || brut.feries === 'aucun') r.feries = brut.feries
-  if (estNombre(brut.semaines) && brut.semaines >= 1) r.semaines = Math.min(Math.round(brut.semaines), 104)
+  if (brut.maille === 'jour' || brut.maille === 'semaine' || brut.maille === 'mois') r.maille = brut.maille
+  if (estNombre(brut.periodes) && brut.periodes >= 1) r.periodes = Math.min(Math.round(brut.periodes), 120)
   return r
 }
 
-/** Lien du plan de charge : un objet dont toutes les clés attendues sont des textes, sinon ignoré. */
-function lien<K extends string>(x: unknown, cles: readonly K[]): Record<K, string> | undefined {
+/** Lien du plan de charge : un objet dont toutes les clés attendues sont des textes (les facultatives gardées si elles le sont), sinon ignoré. */
+function lien<K extends string, F extends string = never>(x: unknown, cles: readonly K[], facultatives: readonly F[] = []): (Record<K, string> & Partial<Record<F, string>>) | undefined {
   if (!estObjet(x) || !cles.every((c) => typeof x[c] === 'string' && x[c] !== '')) return undefined
-  return Object.fromEntries(cles.map((c) => [c, x[c]])) as Record<K, string>
+  return Object.fromEntries([...cles, ...facultatives.filter((c) => typeof x[c] === 'string' && x[c] !== '')].map((c) => [c, x[c]])) as Record<K, string> & Partial<Record<F, string>>
 }
 
 export function lireVue(texte: string, id: string): { vue: Vue | null; avertissements: string[] } {

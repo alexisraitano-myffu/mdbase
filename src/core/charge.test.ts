@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { calculerCharge, couvrirBesoins, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, semaines, type ReglagesCharge } from './charge'
+import { calculerCharge, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
 
 const ligne = (id: string, champs: Record<string, unknown>): LigneChargee => ({
   id,
@@ -15,7 +15,7 @@ const ligne = (id: string, champs: Record<string, unknown>): LigneChargee => ({
 const R: ReglagesCharge = {
   capacite: 'capacite',
   groupe: 'role',
-  affectations: { base: 'affectations', ressource: 'ressource', projet: 'projet', debut: 'debut', fin: 'fin', jours: 'jours' },
+  affectations: { base: 'affectations', ressource: 'ressource', projet: 'projet', debut: 'debut', fin: 'fin', jours: 'jours', total: 'total', version: 'version' },
   absences: { base: 'absences', ressource: 'ressource', debut: 'debut', fin: 'fin' },
   besoins: { base: 'besoins', projet: 'projet', role: 'role', jours: 'jours', avant: 'avant' },
 }
@@ -38,10 +38,23 @@ describe('calendrier', () => {
   it('semaines : n lundis à partir de la semaine du jour', () => {
     expect(semaines('2026-10-21', 3)).toEqual(['2026-10-19', '2026-10-26', '2026-11-02'])
   })
+
+  it('périodes : jours du lundi au vendredi, semaines, mois ; décaler d’une période', () => {
+    expect(periodes('jour', '2026-10-23', 3).map((p) => p.debut)).toEqual(['2026-10-23', '2026-10-26', '2026-10-27'])
+    expect(periodes('jour', '2026-10-24', 1)[0]!.debut).toBe('2026-10-26') // un samedi : le lundi suivant
+    expect(periodes('semaine', '2026-10-21', 1)).toEqual([{ debut: '2026-10-19', fin: '2026-10-23' }])
+    expect(periodes('mois', '2026-12-15', 2)).toEqual([
+      { debut: '2026-12-01', fin: '2026-12-31' },
+      { debut: '2027-01-01', fin: '2027-01-31' },
+    ])
+    expect(decalerPeriode('jour', '2026-10-23', 1)).toBe('2026-10-26')
+    expect(decalerPeriode('jour', '2026-10-26', -1)).toBe('2026-10-23')
+    expect(decalerPeriode('mois', '2026-10-19', -1)).toBe('2026-09-01')
+  })
 })
 
 describe('charge par ressource', () => {
-  const lundis = ['2026-10-19', '2026-10-26', '2026-11-09']
+  const lundis = ['2026-10-19', '2026-10-26', '2026-11-09'].map((l) => periodes('semaine', l, 1)[0]!)
 
   it('une affectation pèse ses jours par semaine × la part de semaine couverte', () => {
     const aff = [
@@ -75,6 +88,41 @@ describe('charge par ressource', () => {
     const c = calculerCharge(R, RESSOURCES, [], [], lundis).get('carla')![0]!
     expect(c.capacite).toBe(5)
     expect(etatCase(c)).toBe('vide')
+  })
+})
+
+describe('jour, mois, total et graphique', () => {
+  it('à la journée : capacité d’un jour, un férié est fermé, une absence un jour', () => {
+    const jours = periodes('jour', '2026-11-10', 3) // mar. 10, mer. 11 (férié), jeu. 12
+    const aff = [ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-11-01', fin: '2026-11-30', jours: 5 })]
+    const abs = [ligne('x1', { ressource: 'alice', debut: '2026-11-12', fin: '2026-11-12' })]
+    const c = calculerCharge(R, RESSOURCES, aff, abs, jours).get('alice')!
+    expect(c.map((x) => [x.capacite, x.charge])).toEqual([[1, 1], [0, 0], [0, 1]])
+    expect(c.map(etatCase)).toEqual(['pleine', 'fermee', 'absente'])
+  })
+
+  it('un total se répartit sur les jours ouvrés de sa période, et l’emporte sur les jours par semaine', () => {
+    const aff = [ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-30', total: 4, jours: 5 })]
+    const c = calculerCharge(R, RESSOURCES, aff, [], periodes('semaine', '2026-10-19', 2)).get('alice')!
+    expect(c.map((x) => x.charge)).toEqual([2, 2])
+  })
+
+  it('au mois : les jours ouvrés du mois, fériés retirés', () => {
+    const aff = [ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-11-01', fin: '2026-11-30', jours: 5 })]
+    const [nov] = calculerCharge(R, RESSOURCES, aff, [], periodes('mois', '2026-11-01', 1)).get('alice')!
+    expect(nov).toMatchObject({ ouvres: 20, capacite: 20, charge: 20 }) // 21 jours de semaine, moins le 11 novembre (le 1er tombe un dimanche)
+  })
+
+  it('empiler : charge par projet ou par version, et capacité totale des ressources choisies', () => {
+    const aff = [
+      ligne('a1', { ressource: 'alice', projet: 'p1', version: 'v1', debut: '2026-10-19', fin: '2026-10-23', jours: 3 }),
+      ligne('a2', { ressource: 'bob', projet: 'p2', debut: '2026-10-19', fin: '2026-10-23', jours: 2 }),
+      ligne('a3', { ressource: 'carla', projet: 'p1', version: 'v2', debut: '2026-10-19', fin: '2026-10-23', jours: 1 }),
+    ]
+    const cases = calculerCharge(R, RESSOURCES, aff, [], periodes('semaine', '2026-10-19', 1))
+    expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'projet')).toEqual([{ parts: { p1: 4, p2: 2 }, capacite: 14 }])
+    expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'version')).toEqual([{ parts: { v1: 3, '@p2': 2, v2: 1 }, capacite: 14 }])
+    expect(empiler(cases, ['alice', 'bob'], 1, 'projet')).toEqual([{ parts: { p1: 3, p2: 2 }, capacite: 9 }])
   })
 })
 

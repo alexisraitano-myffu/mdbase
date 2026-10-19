@@ -1167,18 +1167,22 @@ But : planifier la charge d'une équipe partagée entre plusieurs projets (une d
 - **Ressources** : nom, rôle (`select`), capacité en jours par semaine (`number`, 5 par défaut ; moins pour un temps partiel).
 - **Projets** : nom, début, échéance (une sortie, une livraison), statut. Un projet découpé en étapes datées se fait par une base Échéances reliée, au choix.
 - **Besoins** : projet, rôle, jours (charge totale), à faire avant (date, l'échéance du projet par défaut).
-- **Affectations** : ressource, projet, début, fin, jours par semaine.
+- **Affectations** : ressource, projet, début, fin, et soit des jours par semaine, soit des jours au total (colonne facultative `total`, répartie sur les jours ouvrés de la période) ; une version du projet, facultative.
+- **Versions** (facultatives) : nom, projet, date de sortie. Une affectation peut viser une version de son projet.
 - **Absences** : ressource, début, fin, type.
 
 ### Calcul (cœur, sans interface)
-- Maille : la **semaine** (lundi à vendredi), en jours ; le mois en option, par somme des semaines. Le pourcentage s'affiche en plus.
+- Maille : le **jour** ouvré, la **semaine** (lundi à vendredi, par défaut) ou le **mois**, en jours. Tout se calcule jour par jour puis s'additionne : la capacité d'un jour ouvré vaut capacité / 5 (0 un jour d'absence ou férié).
 - **Capacité nette** d'une ressource une semaine : capacité × jours ouvrés de la semaine moins jours d'absence et jours fériés (France, calculés), divisé par 5.
 - **Charge** d'une ressource une semaine : somme, pour chaque affectation, de ses jours par semaine × ses jours ouvrés dans la semaine (entre début et fin) / 5. Un jour férié réduit donc la charge comme la capacité : un plein temps reste à plein. Une absence ne réduit pas la charge : elle réduit la capacité, et le conflit se voit.
-- **Couverture d'un besoin** : jours affectés au projet par des ressources de ce rôle jusqu'à sa date (chaque jour ouvré d'une affectation compte ses jours par semaine / 5), comparés aux jours demandés.
+- **Couverture d'un besoin** : jours affectés au projet par des ressources de ce rôle jusqu'à sa date (chaque jour ouvré d'une affectation compte ses jours par semaine / 5, ou son total / ses jours ouvrés), comparés aux jours demandés.
+- **Charge par projet** d'un ensemble de ressources (toutes, ou un rôle) sur chaque période, et par version : la donnée du graphique.
 
 ### Vue « Plan de charge » (`type: charge`, vue de la base des ressources)
 - **Par ressource** : une grille ressources × semaines, groupée par rôle. Chaque case montre la charge sur la capacité nette, colorée : libre (moins de 80 %), pleine (jusqu'à 100 %), surchargée (au-delà, en rouge) ; une semaine d'absence complète est hachurée. Une ligne se déplie par projet, pour voir d'où vient la charge. Une ligne par rôle, en tête de groupe, additionne ses ressources.
 - **Par projet** : pour chaque projet (ou échéance), le besoin de chaque rôle comparé à ce qui est affecté avant sa date : « couvert » ou « il manque 12 jours de rôle X », et les semaines où ses ressources sont surchargées ailleurs.
+- **Graphique** : une barre par période (selon la maille), empilée par projet, ou par version (nuances de la couleur de son projet) ; la capacité de l'équipe en trait par-dessus ; filtre par rôle ; au survol, le projet et ses jours. Couleur d'un projet : celle de l'option de `couleur_par` (colonne choix des projets), sinon une couleur de la palette par projet, stable.
+- **Maille** : Jour, Semaine ou Mois, à côté des modes ; en jour, une colonne par jour ouvré (fériés et absences hachurés) ; les versions datées se marquent sur l'en-tête de leur période.
 - **Modifier** : cliquer une case liste les affectations qui la composent (projet, jours par semaine, dates), modifiables sur place ; glisser sur plusieurs semaines d'une ligne crée une affectation (ressource et dates remplies, jours par semaine = capacité restante), dont on choisit le projet. Rien ne se modifie en consultation.
 - **Réglages** (Options) : bases et colonnes des affectations, de la capacité et des absences ; colonne de groupe ; maille ; jours fériés (France ou aucun) ; période affichée.
 
@@ -1186,10 +1190,12 @@ But : planifier la charge d'une équipe partagée entre plusieurs projets (une d
 type: charge
 capacite: capacite                 # colonne number de la base des ressources (jours par semaine)
 groupe: role
-affectations: { base: affectations, ressource: ressource, projet: projet, debut: debut, fin: fin, jours: jours_semaine }
+affectations: { base: affectations, ressource: ressource, projet: projet, debut: debut, fin: fin, jours: jours_semaine, total: total_jours, version: version }  # total et version facultatifs
 absences: { base: absences, ressource: ressource, debut: debut, fin: fin }       # optionnel
 besoins: { base: besoins, projet: projet, role: role, jours: jours, avant: avant } # optionnel : mode par projet
-maille: semaine                    # ou mois
+maille: semaine                    # jour, semaine ou mois
+periodes: 12                       # nombre de colonnes affichées (20 jours, 12 semaines, 6 mois par défaut)
+couleur_par: statut                # facultatif : colonne choix des projets qui colore le graphique
 feries: france                     # ou aucun
 ```
 

@@ -1,7 +1,7 @@
 nom: Planification de charge
 description: >
-  Ressources, projets et leurs échéances, besoins par rôle, affectations et
-  absences, déjà reliés : de quoi voir qui travaille sur quoi et quand, sans
+  Ressources, projets, leurs versions et leurs échéances, besoins par rôle,
+  affectations (par semaine ou au total) et absences, déjà reliés : de quoi voir qui travaille sur quoi et quand, sans
   tableur. Quelques lignes d'exemple, à effacer.
 modules: [ charge, timeline, calendrier ]
-bases: [ ressources, projets, besoins, affectations, absences ]
+bases: [ ressources, projets, versions, besoins, affectations, absences ]
