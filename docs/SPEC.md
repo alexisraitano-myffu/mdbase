@@ -682,6 +682,121 @@ rangees:
 - Chaque requête est exécutée avant d'être acceptée : une erreur SQL, ou une colonne de réglage absente du résultat, refuse l'appel avec son message. Un réglage inconnu est refusé en listant ceux qui existent.
 - La description de l'espace donne les tables SQL (colonnes et types), et, pour chaque dashboard, ses requêtes, ses paramètres et ses blocs d'analyse.
 
+### Fiches : blocs visuels, sélecteur de ligne et règles déclarées [PROPOSÉ, demandé par Alex le 16/10/2026]
+
+Une fiche se lit en 10 secondes : ce qui arrive, ce qui bloque, où en est chaque élément. Cible : la maquette de fiche projet du 16/10/2026 (sélecteur de projet, trois comptes à rebours, barres d'étapes datées, frise, barre de répartition, listes de risques et de points d'attention). Tout s'appuie sur l'analyse ci-dessus : chaque nouveau bloc lit une requête nommée (`donnees`) ou la sienne (`sql`), et toutes les clés sont facultatives, un fichier existant se relit à l'identique.
+
+**Rendu**
+- La couleur ne dit qu'un état : vert, orange, rouge, bleu pour planifié, gris pour vide. Les modèles proposés par l'assistant s'y tiennent.
+- Chaque bloc est une carte blanche à ombre légère sur fond gris clair, titre en petites capitales grasses ; un titre peut citer un résultat (`{{requete.colonne}}`), comme un texte.
+- Tout se lit sans survol : le survol ne fait que compléter (raison d'un état, date d'une étape).
+- Sous 400 px de large, les blocs d'une rangée passent l'un sous l'autre.
+
+**Couleurs**
+- Partout où une couleur est attendue : une des couleurs de l'espace (§3) ou un hexadécimal (`'#2f6fc2'`). Deux valeurs de plus : `vide` (gris clair, « à planifier ») et `aucune` (contour pointillé, « sans objet »).
+- `couleurs` (en tête du dashboard) : des tables valeur → couleur, nommées, réutilisées par les blocs. Une valeur absente de la table est `vide`.
+- Thème de l'espace, dans `_espace.yaml` : `theme: { couleurs: { vert: '#2e9e5b', … }, police: …, logo: <chemin dans l'espace> }`. Les couleurs nommées y prennent leur teinte exacte ; le logo s'affiche en tête des fiches et des captures.
+
+**États** (`etats`, en tête du dashboard)
+- Un état classe une ligne de résultat : une liste ordonnée de conditions, la première vraie gagne, sinon la dernière entrée sans `si`. Chaque entrée : `si` (une **expression SQL** sur les colonnes du résultat), `couleur`, `libelle`, `raison` (montrée au survol, « Calculé : … »).
+- Il est déclaré une fois et servi partout : pastilles du sélecteur, en-tête de fiche, pastilles d'une liste. Rien n'est codé en dur dans l'app.
+
+**Sélecteur de ligne**
+- Un paramètre `choix` avec `affichage: boutons` : une rangée de boutons en tête du dashboard, un par option, avec `pastille: <état>` calculé sur la ligne de la requête d'options. Au-delà de 12 options, une liste avec recherche.
+- Choisir recalcule tout le dashboard d'un coup (un seul rendu, pas de blocs qui clignotent).
+
+**Nouveaux blocs**
+
+| `type` | Montre | Réglages |
+| --- | --- | --- |
+| `entete` | titre, sous-titre et état d'une ligne, sans carte | `titre`, `sous_titre` (colonnes), `etat` (nom d'un état) |
+| `compte_a_rebours` | « J-n » de la date à venir la plus proche du résultat, son libellé et sa date ; liseré et chiffre colorés | `date`, `libelle`, `seuils` (défaut `[8, 31]` : rouge sous 8 jours, orange sous 31, vert au-delà), `vide` (défaut « Aucune date à venir saisie ») |
+| `etapes` | une ligne par élément, une case par étape dans l'ordre fixé, bandeau d'en-tête aux noms courts, date facultative sous chaque case | `element`, `etape`, `statut`, `date` (colonnes), `etapes` (liste ordonnée, `{ nom, court }`), `couleurs` (table), `groupe` et `detail_groupe` (titre de groupe et sa ligne grise) |
+| `liste` | pastille, libellé gras, détail gris | `libelle`, `detail`, `pastille` (colonne passée par une table `couleurs`, ou un état), `garder` (expression SQL), `tri` (expression SQL), `max`, `vide` (message) |
+| `repartition` | une barre fine empilée, légende en ligne avec les nombres ; une catégorie à zéro est masquée | `x` (catégorie), `y` (nombre), `ordre`, `couleurs` |
+| `frise` | des bandes par ligne sur une échelle de temps, ligne « aujourd'hui », mois en tête | `ligne`, `debut`, `fin`, `categorie`, `previsionnel` (colonne vraie : contour pointillé), `couleurs`, `jalons` et `periodes` (voir ci-dessous) |
+
+- `etapes` lit le résultat **une ligne par élément et par étape** (`element`, `etape`, `statut`, `date`) : une étape absente du résultat est `vide`. Une base qui range ses étapes en colonnes se déplie par `unpivot` ; les dates prises dans des lignes liées (phases d'un lot, jalons d'une version) se joignent dans la requête, pas dans le bloc. Une date à venir dans les `seuils` prend leur couleur.
+- `liste` : `garder` et `max` écartent des lignes, jamais en silence. Un lien « N autres » montre ce qui a été écarté.
+- `frise` : fenêtre automatique, du début du mois d'il y a deux semaines à la fin du mois de la dernière date. `jalons: { donnees, date, libelle, ligne, couleur }` dessine des losanges, sur leur ligne ou en tête quand `ligne` manque. `periodes: { donnees, debut, fin, libelle }` dessine des bandes hachurées sur toute la hauteur (moratoires, gels).
+
+**Fichier** (la fiche projet de la maquette, en abrégé)
+
+```yaml
+id: fiche-projet
+nom: Fiche projet
+couleurs:
+  etape: { Fait: vert, En cours: orange, Planifié: bleu, N/A: aucune }
+  phase: { Développement: '#c9d6ea', Recette interne: bleu, Recette client: '#8fb0dc', Recette métier: orange, Stabilisation: gris }
+etats:
+  meteo:
+    - { si: 'risque_max >= 6 or bloques > 0', couleur: rouge, libelle: Vigilance forte, raison: 'risque de criticité 6 ou plus, ou point bloqué' }
+    - { si: 'risque_max >= 3 or a_surveiller > 0', couleur: orange, libelle: A surveiller, raison: 'risque orange ou point à surveiller' }
+    - { couleur: vert, libelle: Nominal, raison: 'aucun risque ni point bloquant' }
+parametres:
+  - { nom: projet, type: choix, options: projets, affichage: boutons, pastille: meteo }
+requetes:
+  projets: |
+    select p.titre, max(r.criticite) as risque_max,
+      count(*) filter (where pt.etat in ('Bloqué', 'KO')) as bloques,
+      count(*) filter (where pt.etat in ('Vigilance', 'A surveiller', 'En attente', 'A faire')) as a_surveiller
+    from projets p left join risques r on list_contains(r.projet, p.id) left join points pt on list_contains(pt.projet, p.id)
+    group by p.titre order by p.titre
+  fiche: select * from projets_suivis where titre = {{projet}}
+  recettes_internes: select version || ' ' || lot as libelle, debut as date from phases where projet = {{projet}} and type = 'Recette interne'
+  etapes: select version, statut_version, lot, etape, statut, date from etapes_des_lots where projet = {{projet}}
+  planning: select lot, type, debut, fin, previsionnel from phases where projet = {{projet}}
+rangees:
+  - blocs:
+      - { type: entete, donnees: fiche, titre: titre, sous_titre: resume, etat: meteo }
+  - blocs:
+      - { type: compte_a_rebours, titre: Début recette interne, donnees: recettes_internes, date: date, libelle: libelle }
+      - { type: compte_a_rebours, titre: MEP, sql: "select titre as libelle, mep as date from versions where projet = {{projet}}", date: date, libelle: libelle }
+  - blocs:
+      - type: etapes
+        titre: Pipeline
+        donnees: etapes
+        element: lot
+        etape: etape
+        statut: statut
+        date: date
+        groupe: version
+        detail_groupe: statut_version
+        couleurs: etape
+        etapes: [{ nom: Validation US, court: Valid. US }, { nom: Chiffrage planning, court: Chiffrage }, { nom: Recette métier, court: Rec. métier }]
+  - blocs:
+      - type: frise
+        titre: Planning
+        donnees: planning
+        ligne: lot
+        debut: debut
+        fin: fin
+        categorie: type
+        previsionnel: previsionnel
+        couleurs: phase
+        jalons: { sql: "select titre, mep from versions where projet = {{projet}}", date: mep, libelle: titre }
+        periodes: { sql: "select titre, debut, fin from moratoires", debut: debut, fin: fin, libelle: titre }
+  - blocs:
+      - type: liste
+        titre: Points d'attention
+        sql: select titre, detail, etat, _modifie from points where projet = {{projet}}
+        libelle: titre
+        detail: detail
+        pastille: etat
+        couleurs: { Bloqué: rouge, KO: rouge, Vigilance: orange, A surveiller: orange, En attente: orange, A faire: orange }
+        garder: "etat not in ('Fait', 'Validé', 'Planifié')"
+        tri: "case when etat in ('Bloqué', 'KO') then 0 when etat is not null then 1 else 2 end, _modifie desc"
+        max: 4
+        vide: Aucun point ouvert
+```
+
+**Pour l'assistant et Claude (MCP)**
+- `creer_dashboard` et `modifier_dashboard` acceptent les nouveaux blocs, `couleurs`, `etats` et les réglages du sélecteur ; `modifier_dashboard` gagne `couleurs` et `etats` (remplacent la table ou l'état nommé, `null` le retire). Un état ou une table encore utilisé par un bloc ne se retire pas.
+- Les expressions d'un état et `garder` / `tri` d'une liste sont du SQL écrit par le modèle : même garde-fous que `executer_sql` (lecture seule, aucune extension chargée), et chacune est exécutée avant d'être acceptée, comme une requête.
+- La description de l'espace montre, pour chaque dashboard, ses tables de couleurs et ses états.
+
+**Plus tard** (hors de ce lot) : filtres dynamiques (curseur de période, filtre croisé au clic sur une barre ou une pastille) ; dates de référence (date contractuelle figée face à la date actuelle, trait fin sur la frise, écart sur le compte à rebours) ; modèles de dashboards pour l'assistant (« Fiche projet ») ; mode présentation plein écran et export PDF ; édition à la main façon outil de BI.
+
 ---
 
 ## 11. Recherche globale
