@@ -688,7 +688,7 @@ Une fiche se lit en 10 secondes : ce qui arrive, ce qui bloque, où en est chaqu
 
 **Rendu**
 - La couleur ne dit qu'un état : vert, orange, rouge, bleu pour planifié, gris pour vide. Les modèles proposés par l'assistant s'y tiennent.
-- Chaque bloc est une carte blanche à ombre légère sur fond gris clair, titre en petites capitales grasses ; un titre peut citer un résultat (`{{requete.colonne}}`), comme un texte.
+- Chaque bloc est une carte blanche à ombre légère sur fond gris clair, titre en petites capitales grasses, dans **tous les dashboards** (blocs vue compris) ; un titre peut citer un résultat (`{{requete.colonne}}`), comme un texte.
 - Tout se lit sans survol : le survol ne fait que compléter (raison d'un état, date d'une étape).
 - Sous 400 px de large, les blocs d'une rangée passent l'un sous l'autre.
 
@@ -703,6 +703,7 @@ Une fiche se lit en 10 secondes : ce qui arrive, ce qui bloque, où en est chaqu
 
 **Sélecteur de ligne**
 - Un paramètre `choix` avec `affichage: boutons` : une rangée de boutons en tête du dashboard, un par option, avec `pastille: <état>` calculé sur la ligne de la requête d'options. Au-delà de 12 options, une liste avec recherche.
+- Le choix est **retenu sur la machine** (stockage du navigateur ou de l'app de bureau), jamais écrit dans le fichier : changer de projet, c'est consulter, pas modifier, et le dossier synchronisé ne bouge pas. Sans choix retenu, `defaut`, sinon la première option. Le choix marche aussi en mode consultation.
 - Choisir recalcule tout le dashboard d'un coup (un seul rendu, pas de blocs qui clignotent).
 
 **Nouveaux blocs**
