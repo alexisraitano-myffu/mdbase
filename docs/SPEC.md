@@ -1139,8 +1139,61 @@ Les fonctions qui ne servent pas à tout le monde s'activent une par une, dans u
 - Les choix sont gardés **par machine** (dans le navigateur, comme la clé de l'assistant), pas dans le dossier : aucune nouvelle clé dans `_espace.yaml`.
 - Les modules suivants (intégrations tierces) s'ajoutent à la même fenêtre.
 
+### Magasin de modules [PROPOSÉ, demandé par Alex le 19/10/2026]
+But : un outil **très simple à l'installation**, où l'on ajoute ce qui sert quand on le voit. Le magasin est **interne** : tout le code est dans l'app, rien n'est téléchargé ni exécuté depuis l'extérieur (principe « aucun code n'est exécuté depuis les données », §1). Il remplace la fenêtre Modules, au même endroit.
+- **Socle**, toujours là : bases, vue tableau, pages (propriétés, corps, onglets relation, contenus liés), relations, rollups, formules, filtres et tris, recherche, annulation, import et export. De quoi créer une petite base simple sans rien voir d'autre.
+- **Catalogue** par catégories ; chaque module a un nom, une phrase, une image de ce qu'il montre, et « Ajouter » ou « Retirer » :
+  - Vues : Kanban, Collection, Calendrier, Timeline, Plan de charge (§21) ;
+  - Organisation : Tâches (§9), Dashboards (blocs de vues, analyse SQL, fiches, §10) ;
+  - Assistant : Assistant IA, Inbox, Contexte IA ;
+  - Intégrations : Jira, Claude (MCP).
+  Un module retiré disparaît des menus (« Nouvelle vue », « Ajouter un bloc », barre latérale) ; rien d'autre ne change.
+- **Ne jamais casser un espace** (règle de toute nouvelle version et de tout module) :
+  - ajouter ou retirer un module ne touche aucun fichier ;
+  - **un module dont l'espace se sert est toujours actif**, sans réglage : une vue de son type, un dashboard, la clé `taches`, un onglet Tâches, une base Jira… L'interrupteur est alors grisé et dit pourquoi (« utilisé par 3 vues »). Une version qui fait passer une fonction du socle à un module, ou qui en ajoute un, ne cache donc jamais ce qu'un espace contient ; on n'en perd que les menus pour créer du neuf, jusqu'à « Ajouter » ;
+  - un modèle (plus bas) n'écrit que des fichiers neufs : jamais dans une base, une vue ou un dashboard existants ;
+  - une version de l'app lit toujours les fichiers écrits par les précédentes.
+- **Gardé par machine**, comme aujourd'hui (§19, plus haut). Comme « utilisé par l'espace » se déduit des fichiers, un collègue qui ouvre le même dossier voit d'office tout ce que l'espace contient. Activer un module pour toute une équipe relève de la collaboration [PLUS TARD], qui ne doit pas être rendue impossible : l'activation par espace s'ajoutera dans `_espace.yaml` sans changer cette règle.
+- **Modèles**, dans la même fenêtre : un ensemble prêt à l'emploi de bases, vues et dashboards déjà reliés, avec quelques lignes d'exemple qu'on peut effacer. « Utiliser ce modèle » active les modules dont il a besoin, puis crée ses bases dans un nouveau groupe nommé comme lui. Un identifiant de base déjà pris est dédoublonné, et ses références (cibles de relations, vues, dashboards) suivent. Les modèles sont des dossiers de fichiers livrés avec l'app (`modeles/<id>/`, avec un `modele.yaml` : nom, description, modules requis), vérifiés par les tests comme la démo. Premier modèle : « Planification de charge » (§21).
+
 
 ---
+
+## 21. Plan de charge [PROPOSÉ, demandé par Alex le 19/10/2026]
+
+But : planifier la charge d'une équipe partagée entre plusieurs projets (une dizaine à une vingtaine de personnes), sans Excel : chaque projet a ses échéances, les ressources doivent tenir entre les projets, avec les absences et les rôles. Module « Plan de charge » (§19, magasin), désactivé par défaut. Modèle général, pas propre à un métier : ressources, projets, échéances.
+
+### Données (fournies par le modèle « Planification de charge », réglables sur n'importe quel schéma)
+- **Ressources** : nom, rôle (`select`), capacité en jours par semaine (`number`, 5 par défaut ; moins pour un temps partiel).
+- **Projets** : nom, début, échéance (une sortie, une livraison), statut. Un projet découpé en étapes datées se fait par une base Échéances reliée, au choix.
+- **Besoins** : projet, rôle, jours (charge totale), à faire avant (date, l'échéance du projet par défaut).
+- **Affectations** : ressource, projet, début, fin, jours par semaine.
+- **Absences** : ressource, début, fin, type.
+
+### Calcul (cœur, sans interface)
+- Maille : la **semaine** (lundi à vendredi), en jours ; le mois en option, par somme des semaines. Le pourcentage s'affiche en plus.
+- **Capacité nette** d'une ressource une semaine : capacité × jours ouvrés de la semaine moins jours d'absence et jours fériés (France, calculés), divisé par 5.
+- **Charge** d'une ressource une semaine : somme, pour chaque affectation, de ses jours par semaine × la part des jours ouvrés de la semaine couverts par [début, fin]. Une absence ne réduit pas la charge : elle réduit la capacité, et le conflit se voit.
+- **Couverture d'un besoin** : jours affectés au projet par des ressources de ce rôle jusqu'à sa date, comparés aux jours demandés.
+
+### Vue « Plan de charge » (`type: charge`, vue de la base des ressources)
+- **Par ressource** : une grille ressources × semaines, groupée par rôle. Chaque case montre la charge sur la capacité nette, colorée : libre (moins de 80 %), pleine (jusqu'à 100 %), surchargée (au-delà, en rouge) ; une semaine d'absence complète est hachurée. Une ligne se déplie par projet, pour voir d'où vient la charge. Une ligne par rôle, en tête de groupe, additionne ses ressources.
+- **Par projet** : pour chaque projet (ou échéance), le besoin de chaque rôle comparé à ce qui est affecté avant sa date : « couvert » ou « il manque 12 jours de rôle X », et les semaines où ses ressources sont surchargées ailleurs.
+- **Modifier** : cliquer une case liste les affectations qui la composent (projet, jours par semaine, dates), modifiables sur place ; glisser sur plusieurs semaines d'une ligne crée une affectation (ressource et dates remplies, jours par semaine = capacité restante), dont on choisit le projet. Rien ne se modifie en consultation.
+- **Réglages** (Options) : bases et colonnes des affectations, de la capacité et des absences ; colonne de groupe ; maille ; jours fériés (France ou aucun) ; période affichée.
+
+```yaml
+type: charge
+capacite: capacite                 # colonne number de la base des ressources (jours par semaine)
+groupe: role
+affectations: { base: affectations, ressource: ressource, projet: projet, debut: debut, fin: fin, jours: jours_semaine }
+absences: { base: absences, ressource: ressource, debut: debut, fin: fin }       # optionnel
+besoins: { base: besoins, projet: projet, role: role, jours: jours, avant: avant } # optionnel : mode par projet
+maille: semaine                    # ou mois
+feries: france                     # ou aucun
+```
+
+- Assistant IA et MCP : un outil `calculer_charge` (lecture) rend la charge, la capacité et la couverture sur une période, pour répondre à « qui est disponible en mars ? » ; les affectations se créent avec les outils des lignes (règle §17 : outil commun aux deux).
 
 ## 20. Rapports [PLUS TARD]
 
