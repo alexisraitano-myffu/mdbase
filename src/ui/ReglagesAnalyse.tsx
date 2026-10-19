@@ -162,7 +162,7 @@ export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboar
           ))}
         </fieldset>
       )}
-      {bloc.type !== 'texte' && bloc.type !== 'tableau' && (
+      {bloc.type !== 'texte' && bloc.type !== 'tableau' && !fiche && (
         <label>
           Format
           <Choix
