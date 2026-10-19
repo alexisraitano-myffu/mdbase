@@ -2,7 +2,7 @@ import { COULEURS } from './couleurs'
 import { chargerBase, type ChargementBase, type LigneChargee } from './base'
 import { calculer, type BaseACalculer, type Calculs } from './calcul'
 import { DepotBase, type OptionsDepot } from './depot-base'
-import { barreLaterale, lireEspace, modifierEspace, ordreDashboards, type ConfigEspace, type Groupe, type OperationEspace } from './espace-config'
+import { barreLaterale, lireEspace, modifierEspace, ordreDashboards, type ConfigEspace, type Groupe, type OperationEspace, type Theme } from './espace-config'
 import { listerBases } from './espace'
 import { FichierIntrouvable, joindre, type AdaptateurFichiers } from './fichiers'
 import { cleColonne, idBase } from './identifiants'
@@ -87,6 +87,8 @@ export type EtatEspace = {
   doublons: ReadonlyMap<string, ReadonlyMap<string, LigneChargee[]>>
   /** Copies de conflit de fichiers de configuration, jamais chargées (spec §4). */
   copiesConflit: CopieConflit[]
+  /** Thème de `_espace.yaml`, avec le texte du logo SVG s'il a pu être lu. */
+  theme: Theme & { logoSvg?: string }
 }
 
 /** `chemin` est une copie de conflit de synchro de `original` (même dossier). */
@@ -117,7 +119,8 @@ export class DepotEspace {
   private readonly bases = new Map<string, EtatBase>()
   private readonly dashboards = new Map<string, EtatDashboard>()
   private config: ConfigEspace = lireEspace(null)
-  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [] }
+  private logoSvg: string | undefined
+  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [], theme: { couleurs: {} } }
   private readonly abonnes = new Set<() => void>()
   /** Bases dont le `_schema.yaml` manquait à la dernière relecture (voir `rafraichirBase`). */
   private readonly schemasAbsents = new Set<string>()
@@ -143,6 +146,7 @@ export class DepotEspace {
   static async ouvrir(adaptateur: AdaptateurFichiers, options: OptionsEspace): Promise<DepotEspace> {
     const d = new DepotEspace(adaptateur, options)
     d.config = lireEspace(await d.lireOuNull(FICHIER_ESPACE))
+    d.logoSvg = await d.lireLogo()
     for (const id of await listerBases(adaptateur)) await d.chargerBase(id)
     await d.chargerDashboards()
     d.copies = await d.chercherCopies()
@@ -178,6 +182,11 @@ export class DepotEspace {
     const config = lireEspace(await this.lireOuNull(FICHIER_ESPACE))
     if (!memes(config, this.config)) {
       this.config = config
+      change = true
+    }
+    const logo = await this.lireLogo()
+    if (logo !== this.logoSvg) {
+      this.logoSvg = logo
       change = true
     }
     const ids = await listerBases(this.adaptateur)
@@ -1553,6 +1562,13 @@ export class DepotEspace {
     this.publier()
   }
 
+  /** Le logo du thème, s'il est un SVG lisible de l'espace. */
+  private async lireLogo(): Promise<string | undefined> {
+    const chemin = this.config.theme.logo
+    const texte = chemin ? await this.lireOuNull(chemin).catch(() => null) : null
+    return texte !== null && /<svg[\s>]/i.test(texte) ? texte : undefined
+  }
+
   private async modifierEspace(op: OperationEspace): Promise<void> {
     const texte = modifierEspace(await this.lireOuNull(FICHIER_ESPACE), op)
     await this.adaptateur.ecrire(FICHIER_ESPACE, texte)
@@ -1606,7 +1622,7 @@ export class DepotEspace {
     this.recherche.synchroniser(aCalculer.values())
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
-    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies }
+    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies, theme: { ...this.config.theme, ...(this.logoSvg && { logoSvg: this.logoSvg }) } }
     for (const fn of this.abonnes) fn()
   }
 }

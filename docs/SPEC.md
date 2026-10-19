@@ -696,7 +696,7 @@ Une fiche se lit en 10 secondes : ce qui arrive, ce qui bloque, où en est chaqu
 **Couleurs**
 - Partout où une couleur est attendue : une des couleurs de l'espace (§3) ou un hexadécimal (`'#2f6fc2'`). Deux valeurs de plus : `vide` (gris clair, « à planifier ») et `aucune` (contour pointillé, « sans objet »).
 - `couleurs` (en tête du dashboard) : des tables valeur → couleur, nommées, réutilisées par les blocs. Une valeur absente de la table est `vide`.
-- Thème de l'espace, dans `_espace.yaml` : `theme: { couleurs: { vert: '#2e9e5b', … }, police: …, logo: <chemin dans l'espace> }`. Les couleurs nommées y prennent leur teinte exacte ; le logo s'affiche en tête des fiches et des captures.
+- Thème de l'espace, dans `_espace.yaml` : `theme: { couleurs: { vert: '#2e9e5b', … }, police: …, logo: <chemin dans l'espace> }`. Les couleurs nommées y prennent leur teinte exacte (`#rrggbb`) dans les graphiques et les fiches, la police s'applique aux dashboards ; le logo, un fichier SVG de l'espace (affiché en image, il n'exécute rien), s'affiche dans l'en-tête des fiches et donc dans leurs captures. Une valeur mal formée est ignorée.
 
 **États** (`etats`, en tête du dashboard)
 - Un état classe une ligne de résultat : une liste ordonnée de conditions, la première vraie gagne, sinon la dernière entrée sans `si`. Chaque entrée : `si` (une **expression SQL** sur les colonnes du résultat), `couleur`, `libelle`, `raison` (montrée au survol, « Calculé : … »).

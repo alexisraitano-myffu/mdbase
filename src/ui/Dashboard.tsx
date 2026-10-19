@@ -23,6 +23,7 @@ import { ArrowDown, ArrowUp, ChevronRight, Database, Ellipsis, GripVertical, Ima
 import { nomAnalyse, type BlocAnalyse, type TypeVisuel } from '../core/bi/analyse'
 import { BlocAnalyseDashboard, enregistrerImage, ICONES_VISUEL, ParametresDashboard, useAnalyse, useSelecteurs } from './Analyse'
 import { FenetreAnalyse } from './ReglagesAnalyse'
+import { appliquerTheme } from './graphiques'
 
 const SANS_FILTRES: Dashboard = { id: '', nom: '', rangees: [], filtres: [], filtresRapides: [], requetes: {}, parametres: [], couleurs: {}, etats: {} }
 
@@ -38,6 +39,9 @@ type Props = {
  * d'une base. Une ligne s'ouvre dans le panneau de page, comme depuis sa base.
  */
 export function VueDashboard({ espace, etat, allerABase }: Props) {
+  const theme = useEspace().etat.theme
+  // Avant le rendu des blocs, qui lisent les teintes.
+  useMemo(() => appliquerTheme(theme), [theme])
   const lancer = useLancer()
   const { page, ouvrir, pleinEcran, basculerPleinEcran, fermer } = usePageOuverte(null)
   const [edition, setEdition] = useState(false)

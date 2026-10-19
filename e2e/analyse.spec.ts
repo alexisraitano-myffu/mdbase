@@ -37,6 +37,8 @@ test.describe('analyse', () => {
     await espace.ecrire('_dashboards/analyse.yaml', ANALYSE)
     await espace.retourSurOnglet()
     await page.locator('.entree-base', { hasText: 'Analyse' }).click()
+    // Premier calcul : le moteur SQL démarre, plus lent quand plusieurs tests le chargent en même temps.
+    await expect(page.locator('.bloc-analyse .chiffre').first()).toBeVisible({ timeout: 20_000 })
   })
 
   test('chiffre clé, barres, tableau, texte cité, erreur SQL à sa place', async ({ page }) => {
@@ -87,5 +89,82 @@ test.describe('analyse', () => {
     await page.keyboard.press('Escape')
     await expect(page.locator('.bloc-analyse').first().locator('.chiffre')).toHaveText('1')
     await expect.poll(() => espace.lire('_dashboards/analyse.yaml')).toContain("total: select count(*) as n, 0 as budget from projets where statut = 'Terminé'")
+  })
+})
+
+// Fiches (spec §10 « Fiches ») : une ligne choisie par des boutons, retenue
+// sur la machine et jamais dans le fichier ; états, compte à rebours, liste.
+const FICHE = `id: fiche
+nom: Fiche
+etats:
+  sante:
+    - { si: "statut = 'Terminé'", couleur: vert, libelle: Livré }
+    - { couleur: orange, libelle: En cours }
+parametres:
+  - { nom: projet, libelle: Projet, type: choix, options: projets, affichage: boutons, pastille: sante }
+requetes:
+  projets: select titre, statut from projets order by titre
+  fiche: select titre, statut, echeance from projets where titre = {{projet}}
+rangees:
+  - blocs:
+      - { type: entete, donnees: fiche, titre: titre, sous_titre: statut, etat: sante }
+  - blocs:
+      - { type: compte_a_rebours, titre: Échéance, donnees: fiche, date: echeance, libelle: titre }
+      - type: liste
+        titre: Projets ouverts
+        sql: select titre, statut from projets
+        libelle: titre
+        pastille: statut
+        couleurs: { En cours: bleu }
+        garder: statut <> 'Terminé'
+        tri: titre
+        max: 2
+`
+
+test.describe('fiches', () => {
+  test.beforeEach(async ({ espace, page }) => {
+    await page.clock.setFixedTime(new Date('2026-09-15T10:00:00'))
+    await espace.ecrire('_dashboards/fiche.yaml', FICHE)
+    await espace.retourSurOnglet()
+    await page.locator('.entree-base', { hasText: 'Fiche' }).click()
+    await expect(page.locator('.entete-fiche h2')).not.toBeEmpty({ timeout: 20_000 })
+  })
+
+  test('le sélecteur choisit la ligne, retenue sur la machine ; état, compte à rebours, liste et ses écartées', async ({ espace, page }) => {
+    const selecteur = page.getByRole('radiogroup', { name: 'Projet' })
+    await expect(selecteur.getByRole('radio')).toHaveCount(4)
+    // Sans choix retenu : la première option ; chaque bouton porte la pastille de son état.
+    await expect(selecteur.getByRole('radio', { name: 'Application mobile' })).toHaveAttribute('aria-checked', 'true')
+    await expect(selecteur.locator('.point-fiche')).toHaveCount(4)
+    await expect(page.locator('.entete-fiche h2')).toHaveText('Application mobile')
+    await expect(page.locator('.entete-fiche .etat-fiche')).toHaveText('En cours')
+    await expect(page.locator('.compte-a-rebours .jours')).toHaveText('J-77')
+
+    // Liste : trois gardées, deux montrées, le reste replié sans être caché en silence.
+    const liste = page.locator('.liste-fiche')
+    await expect(liste.locator('.ligne-liste')).toHaveCount(2)
+    await liste.getByRole('button', { name: '2 autres' }).click()
+    await expect(liste.locator('.ligne-liste')).toHaveCount(4)
+    await expect(liste.locator('.ligne-liste.ecartee')).toHaveCount(2)
+
+    await selecteur.getByRole('radio', { name: 'Audit sécurité' }).click()
+    await expect(page.locator('.entete-fiche h2')).toHaveText('Audit sécurité')
+    await expect(page.locator('.entete-fiche .etat-fiche')).toHaveText('Livré')
+    await expect(page.locator('.compte-a-rebours')).toContainText('Aucune date à venir saisie')
+    expect(await page.evaluate(() => localStorage.getItem('mdbase:selecteur:fiche'))).toContain('Audit sécurité')
+    expect(await espace.lire('_dashboards/fiche.yaml')).not.toContain('Audit')
+  })
+
+  test('les réglages d’une liste s’écrivent dans le fichier', async ({ espace, page }) => {
+    const liste = page.locator('.bloc-analyse', { hasText: 'Projets ouverts' })
+    await expect(liste.locator('.ligne-liste')).toHaveCount(2)
+    await liste.hover()
+    await liste.getByRole('button', { name: 'Réglages du bloc' }).click()
+    const reglages = page.locator('.reglages-analyse')
+    await reglages.getByLabel('Lignes au plus').fill('3')
+    await reglages.getByLabel('Lignes au plus').blur()
+    await expect.poll(() => espace.lire('_dashboards/fiche.yaml')).toContain('max: 3')
+    await page.keyboard.press('Escape')
+    await expect(liste.locator('.ligne-liste')).toHaveCount(3)
   })
 })

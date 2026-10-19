@@ -142,3 +142,14 @@ describe('rafraîchir un espace depuis le disque (changements externes)', () => 
     expect(depot.lignes()[0]!.chemin).toBe('taches/alpha--t0000001.md')
   })
 })
+
+describe('thème de l’espace', () => {
+  it('lit le logo SVG du thème, et le relit quand il change ; un fichier qui n’est pas un SVG est ignoré', async () => {
+    const { a, espace } = await ouvrir({ ...FICHIERS_RELATIONS, '_espace.yaml': "theme:\n  couleurs: { vert: '#2e9e5b' }\n  logo: medias/logo.svg\n", 'medias/logo.svg': '<svg viewBox="0 0 1 1"></svg>' })
+    expect(espace.etat().theme).toEqual({ couleurs: { vert: '#2e9e5b' }, logo: 'medias/logo.svg', logoSvg: '<svg viewBox="0 0 1 1"></svg>' })
+    await a.ecrire('medias/logo.svg', 'pas un svg')
+    expect(await espace.rafraichir()).toBe(true)
+    expect(espace.etat().theme.logoSvg).toBeUndefined()
+    expect(await espace.rafraichir()).toBe(false)
+  })
+})

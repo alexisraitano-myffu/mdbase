@@ -44,7 +44,7 @@ const colonneOuTexte = (ligne: Record<string, ValeurSql> | undefined, reglage: s
 
 // ── En-tête ──────────────────────────────────────────────────────
 
-export function EnteteFiche({ bloc, resultat, etats, citer }: { bloc: BlocAnalyse; resultat: ResultatSql; etats: Etats; citer: (t: string) => string }) {
+export function EnteteFiche({ bloc, resultat, etats, citer, logo }: { bloc: BlocAnalyse; resultat: ResultatSql; etats: Etats; citer: (t: string) => string; logo?: string }) {
   const ligne = resultat.lignes[0]
   const etat = etatDe(ligne, bloc.etat ? etats[bloc.etat] : undefined)
   return (
@@ -59,6 +59,8 @@ export function EnteteFiche({ bloc, resultat, etats, citer }: { bloc: BlocAnalys
           {etat.libelle}
         </div>
       )}
+      {/* En <img>, un SVG n'exécute rien. */}
+      {logo && <img className="logo-fiche" alt="" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(logo)}`} />}
     </div>
   )
 }

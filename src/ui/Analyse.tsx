@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CalendarRange, ChartArea, ChartBarStacked, ChartColumn, ChartGantt, ChartLine, ChartPie, ChartScatter, Ellipsis, List, PanelTop, Timer, Hash, LoaderCircle, SlidersHorizontal, Table2, TrendingDown, TrendingUp, TriangleAlert, Type, type LucideIcon } from 'lucide-react'
 import { domToBlob } from 'modern-screenshot'
-import { colonnesManquantes, nomAnalyse, type BlocAnalyse, type EntreeEtat, type Parametre, type TypeVisuel } from '../core/bi/analyse'
+import { colonnesManquantes, nomAnalyse, TYPES_FICHE, type BlocAnalyse, type EntreeEtat, type Parametre, type TypeVisuel } from '../core/bi/analyse'
 import { etatDe } from '../core/bi/fiche'
 import { citer, executerAnalyse, type EtatRequete, type ResultatsAnalyse } from '../core/bi/calcul'
 import { sessionSql } from '../adapters/sql/session-app'
@@ -44,9 +44,6 @@ export const ICONES_VISUEL: Record<TypeVisuel, LucideIcon> = {
   repartition: ChartBarStacked,
   frise: CalendarRange,
 }
-
-/** Blocs des fiches : une carte à la hauteur de son contenu, titre en petites capitales. */
-export const TYPES_FICHE: ReadonlySet<TypeVisuel> = new Set(['entete', 'compte_a_rebours', 'etapes', 'liste', 'repartition', 'frise'])
 
 export type EtatAnalyse = { calcul: 'inactif' | 'en_cours' | 'pret'; resultats: ResultatsAnalyse | null; erreur: string | null }
 
@@ -254,7 +251,7 @@ export function BlocAnalyseDashboard({ dashboard, place, bloc, part, glisse, ana
             }}
           />
         ) : (
-          <span className="nom-vue-bloc" onDoubleClick={() => !lecture && setRenommage(true)} title={lecture ? undefined : 'Double-clic pour renommer'}>
+          <span className="nom-vue-bloc" onDoubleClick={() => !lecture && bloc.type !== 'entete' && setRenommage(true)} title={lecture || bloc.type === 'entete' ? undefined : 'Double-clic pour renommer'}>
             {titre}
           </span>
         )}
@@ -343,12 +340,13 @@ type PropsContenu = {
 }
 
 function ContenuAnalyse({ bloc, resultat, schemas, dashboard, aujourdhui, secondaires, erreurSecondaire, citer }: PropsContenu) {
+  const logo = useEspace().etat.theme.logoSvg
   const manquantes = colonnesManquantes(bloc, resultat, dashboard.etats)
   if (manquantes.length > 0) return <ErreurRequete message={`Colonne${manquantes.length > 1 ? 's' : ''} absente${manquantes.length > 1 ? 's' : ''} du résultat : ${manquantes.join(', ')}. Colonnes : ${resultat.colonnes.map((c) => c.nom).join(', ') || 'aucune'}.`} />
   const coupe = resultat.coupe && <p className="discret note-coupe">Résultat coupé à {resultat.lignes.length.toLocaleString('fr-FR')} lignes.</p>
   if (erreurSecondaire && !erreurSecondaire.ok) return <ErreurRequete message={erreurSecondaire.erreur} />
   if (bloc.type === 'valeur') return <ValeurCle bloc={bloc} resultat={resultat} />
-  if (bloc.type === 'entete') return <EnteteFiche bloc={bloc} resultat={resultat} etats={dashboard.etats} citer={citer} />
+  if (bloc.type === 'entete') return <EnteteFiche bloc={bloc} resultat={resultat} etats={dashboard.etats} citer={citer} logo={logo} />
   if (bloc.type === 'compte_a_rebours') return <CompteARebours bloc={bloc} resultat={resultat} aujourdhui={aujourdhui} />
   if (bloc.type === 'etapes') return <EtapesFiche bloc={bloc} resultat={resultat} tables={dashboard.couleurs} aujourdhui={aujourdhui} />
   if (bloc.type === 'liste') return <ListeFiche bloc={bloc} resultat={resultat} etats={dashboard.etats} tables={dashboard.couleurs} />

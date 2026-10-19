@@ -19,7 +19,19 @@ export const VIVES: Record<string, string> = {
   rouge: '#d94848',
   gris: '#9b9a97',
 }
+const DEFAUTS = { ...VIVES }
 const ORDRE = Object.values(VIVES)
+
+/**
+ * Thème de l'espace (`_espace.yaml`) : les couleurs nommées prennent leur
+ * teinte exacte dans les graphiques et les fiches, la police s'applique aux
+ * dashboards. Sans thème, les teintes par défaut reviennent.
+ */
+export function appliquerTheme(theme: { couleurs: Partial<Record<string, string>>; police?: string }) {
+  for (const [i, [nom, defaut]] of Object.entries(DEFAUTS).entries()) ORDRE[i] = VIVES[nom] = theme.couleurs[nom] ?? defaut
+  if (theme.police) document.documentElement.style.setProperty('--police-dashboard', theme.police)
+  else document.documentElement.style.removeProperty('--police-dashboard')
+}
 
 export type Theme = { texte: string; discret: string; trait: string; fond: string; police: string }
 

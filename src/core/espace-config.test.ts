@@ -24,15 +24,30 @@ describe('lireEspace', () => {
         { nom: 'Perso', bases: ['lectures'] },
       ],
       horsGroupe: ['inbox'],
+      theme: { couleurs: {} },
     })
   })
 
   it('tolère un fichier absent, vide ou abîmé', () => {
-    const vide = { dashboards: [], groupes: [], horsGroupe: [] }
+    const vide = { dashboards: [], groupes: [], horsGroupe: [], theme: { couleurs: {} } }
     expect(lireEspace(null)).toEqual(vide)
     expect(lireEspace('')).toEqual(vide)
     expect(lireEspace('barre_laterale: [')).toEqual(vide)
     expect(lireEspace('barre_laterale:\n  groupes: [{ bases: [x] }, 3]\n')).toEqual(vide)
+  })
+})
+
+describe('thème', () => {
+  it('garde les teintes, la police et le logo bien formés, ignore le reste', () => {
+    const texte = "theme:\n  couleurs: { vert: '#2E9E5B', rouge: red, fuchsia: '#ff00ff' }\n  police: Inter, sans-serif\n  logo: medias/logo.svg\n"
+    expect(lireEspace(texte).theme).toEqual({ couleurs: { vert: '#2E9E5B' }, police: 'Inter, sans-serif', logo: 'medias/logo.svg' })
+    expect(lireEspace("theme: { police: 'x; background: url(y)', logo: ../dehors.svg }\n").theme).toEqual({ couleurs: {} })
+    expect(lireEspace('theme: { logo: logo.png }\n').theme).toEqual({ couleurs: {} })
+  })
+
+  it('une modification de la barre latérale garde le thème', () => {
+    const texte = "theme:\n  couleurs: { vert: '#2e9e5b' }\n"
+    expect(modifierEspace(texte, { type: 'ajouter_groupe', nom: 'Travail' })).toContain("theme:\n  couleurs: { vert: '#2e9e5b' }")
   })
 })
 
@@ -48,7 +63,7 @@ describe('barreLaterale', () => {
   })
 
   it('ne montre une base citée deux fois qu’à sa première place', () => {
-    const config = { dashboards: [], groupes: [{ nom: 'A', bases: ['x'] }], horsGroupe: ['x'] }
+    const config = { dashboards: [], groupes: [{ nom: 'A', bases: ['x'] }], horsGroupe: ['x'], theme: { couleurs: {} } }
     expect(barreLaterale(config, ['x'])).toEqual({ groupes: [{ nom: 'A', bases: ['x'] }], horsGroupe: [] })
   })
 })
@@ -90,7 +105,7 @@ describe('modifierEspace', () => {
 
   it('crée le fichier s’il n’existe pas', () => {
     const c = appliquer(null, { type: 'ajouter_groupe', nom: 'Travail' }, { type: 'placer_base', base: 'projets', groupe: 'Travail' })
-    expect(c).toEqual({ dashboards: [], groupes: [{ nom: 'Travail', bases: ['projets'] }], horsGroupe: [] })
+    expect(c).toEqual({ dashboards: [], groupes: [{ nom: 'Travail', bases: ['projets'] }], horsGroupe: [], theme: { couleurs: {} } })
   })
 })
 

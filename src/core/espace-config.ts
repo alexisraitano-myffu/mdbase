@@ -1,4 +1,5 @@
 import { Document, isMap, isSeq, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
+import { COULEURS } from './couleurs'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
 
@@ -6,7 +7,12 @@ import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
 // n'existent que là : déplacer une base ne touche aucun autre fichier (invariant 4).
 
 export type Groupe = { nom: string; bases: string[] }
-export type ConfigEspace = { dashboards: string[]; groupes: Groupe[]; horsGroupe: string[] }
+/**
+ * Thème de l'espace (spec §10 « Fiches ») : teinte exacte des couleurs
+ * nommées dans les dashboards, police des dashboards, logo SVG en tête des fiches.
+ */
+export type Theme = { couleurs: Partial<Record<(typeof COULEURS)[number], string>>; police?: string; logo?: string }
+export type ConfigEspace = { dashboards: string[]; groupes: Groupe[]; horsGroupe: string[]; theme: Theme }
 
 export type OperationEspace =
   /** Place une base dans un groupe (null = hors groupe), en la retirant d'où elle était. */
@@ -43,14 +49,25 @@ export function lireEspace(texte: string | null): ConfigEspace {
   const groupes = (Array.isArray(barre.groupes) ? barre.groupes : []).flatMap((g): Groupe[] =>
     estObjet(g) && typeof g.nom === 'string' ? [{ nom: g.nom, bases: chaines(g.bases) }] : [],
   )
-  return { dashboards: chaines(barre.dashboards), groupes, horsGroupe: chaines(barre.hors_groupe) }
+  return { dashboards: chaines(barre.dashboards), groupes, horsGroupe: chaines(barre.hors_groupe), theme: lireTheme(estObjet(brut) ? brut.theme : undefined) }
+}
+
+/** Ce qui est mal formé est ignoré : une teinte `#rrggbb` par couleur nommée, un logo `.svg` dans l'espace. */
+export function lireTheme(brut: unknown): Theme {
+  if (!estObjet(brut)) return { couleurs: {} }
+  const couleurs = estObjet(brut.couleurs)
+    ? Object.fromEntries(Object.entries(brut.couleurs).filter(([nom, v]) => (COULEURS as readonly string[]).includes(nom) && typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)))
+    : {}
+  const police = typeof brut.police === 'string' && /^[\p{L}\p{N} ,'"-]+$/u.test(brut.police) ? brut.police : undefined
+  const logo = typeof brut.logo === 'string' && /\.svg$/i.test(brut.logo) && !brut.logo.split('/').includes('..') && !brut.logo.startsWith('/') ? brut.logo : undefined
+  return { couleurs, ...(police && { police }), ...(logo && { logo }) }
 }
 
 /**
  * Barre latérale effective : les bases absentes du disque sont écartées, et
  * celles du disque que `_espace.yaml` ne cite pas s'ajoutent hors groupe.
  */
-export function barreLaterale(config: ConfigEspace, basesSurDisque: readonly string[]): Omit<ConfigEspace, 'dashboards'> {
+export function barreLaterale(config: ConfigEspace, basesSurDisque: readonly string[]): Pick<ConfigEspace, 'groupes' | 'horsGroupe'> {
   const presentes = new Set(basesSurDisque)
   const vues = new Set<string>()
   const garder = (bases: string[]) =>

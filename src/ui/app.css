@@ -862,7 +862,7 @@ textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, mono
 /* Fiches (spec §10 « Fiches ») : cartes blanches à ombre légère sur fond gris clair, dans tous les dashboards ;
    la couleur ne dit qu'un état. */
 .contenu:has(> .zone-vue > .zone-dashboard) { background: var(--fond-doux); }
-.zone-dashboard { container-type: inline-size; }
+.zone-dashboard { container-type: inline-size; font-family: var(--police-dashboard, inherit); }
 .bloc-dashboard { border: none; border-radius: 12px; padding: 12px 14px 14px; background: var(--surface); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 16px rgba(16, 24, 40, 0.05); }
 .bloc-dashboard .entete-bloc .nom-vue-bloc, .bloc-dashboard .entete-bloc .lien-base { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texte-doux); }
 .bloc-fiche .contenu-bloc { height: auto; overflow: visible; }
@@ -888,6 +888,7 @@ textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, mono
 .selecteur-ligne .point-fiche { width: 8px; height: 8px; margin-right: 7px; }
 .entete-fiche { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
 .entete-fiche h2 { margin: 0; font-size: 26px; font-weight: 600; }
+.logo-fiche { height: 36px; max-width: 160px; object-fit: contain; margin-left: auto; }
 .etat-fiche { font-weight: 600; white-space: nowrap; }
 .compte-a-rebours .jours { font-size: 40px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .compte-a-rebours .jours.vide { color: var(--tres-discret-texte); }

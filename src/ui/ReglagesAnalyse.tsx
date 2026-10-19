@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { FORMATS, NOM_VALIDE, TYPES_PARAMETRE, TYPES_VISUEL, nomAnalyse, type BlocAnalyse, type Format, type Parametre, type Regle, type TypeParametre, type TypeVisuel } from '../core/bi/analyse'
+import { FORMATS, NOM_VALIDE, TYPES_FICHE, TYPES_PARAMETRE, TYPES_VISUEL, nomAnalyse, type BlocAnalyse, type Format, type Parametre, type Regle, type TypeParametre, type TypeVisuel } from '../core/bi/analyse'
 import type { ResultatsAnalyse } from '../core/bi/calcul'
 import type { ResultatSql } from '../core/bi/sql'
 import { COULEURS } from '../core/couleurs'
@@ -41,7 +41,8 @@ export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboar
   const colonnes = resultat?.colonnes.map((c) => c.nom) ?? []
   const requetes = Object.keys(dashboard.requetes)
   const source = bloc.sql !== undefined ? 'sql' : (bloc.donnees ?? '')
-  const graphique = bloc.type !== 'valeur' && bloc.type !== 'tableau' && bloc.type !== 'texte'
+  const fiche = TYPES_FICHE.has(bloc.type)
+  const graphique = !fiche && bloc.type !== 'valeur' && bloc.type !== 'tableau' && bloc.type !== 'texte'
   const formatUnique = typeof bloc.format === 'string' ? bloc.format : undefined
 
   return (
@@ -195,9 +196,153 @@ export function ReglagesBloc({ dashboard, bloc, resultat, modifier }: { dashboar
           })}
         </fieldset>
       )}
-      {bloc.type !== 'texte' && <EditeurRegles regles={bloc.regles ?? []} colonnes={colonnes} tableau={bloc.type === 'tableau'} changer={(regles) => modifier({ regles: regles.length > 0 ? regles : null })} />}
+      {fiche && <ReglagesFiche dashboard={dashboard} bloc={bloc} colonnes={colonnes} modifier={modifier} />}
+      {bloc.type !== 'texte' && !fiche && <EditeurRegles regles={bloc.regles ?? []} colonnes={colonnes} tableau={bloc.type === 'tableau'} changer={(regles) => modifier({ regles: regles.length > 0 ? regles : null })} />}
     </div>
   )
+}
+
+const liste = (v: string) => v.split(',').map((x) => x.trim()).filter(Boolean)
+
+/** Champ texte libre, enregistré en quittant le champ ; vide le retire. */
+function ChampTexte({ libelle, valeur, changer, indice, code }: { libelle: string; valeur: string | undefined; changer: (v: string | null) => void; indice?: string; code?: boolean }) {
+  return (
+    <label className={code ? 'large' : undefined}>
+      {libelle}
+      <input key={valeur} aria-label={libelle} className={code ? 'code' : undefined} spellCheck={!code} defaultValue={valeur ?? ''} placeholder={indice} onBlur={(e) => e.target.value.trim() !== (valeur ?? '') && changer(e.target.value.trim() || null)} />
+    </label>
+  )
+}
+
+/**
+ * Réglages des blocs de fiche (spec §10 « Fiches ») : colonnes du résultat,
+ * état et table de couleurs choisis parmi ceux du dashboard. Les états, les
+ * tables, les jalons et les périodes d'une frise se déclarent dans le fichier
+ * ou par l'assistant.
+ */
+function ReglagesFiche({ dashboard, bloc, colonnes, modifier }: { dashboard: Dashboard; bloc: BlocAnalyse; colonnes: string[]; modifier: (m: ModificationAnalyse) => void }) {
+  const etats = Object.keys(dashboard.etats)
+  const colonne = (libelle: string, cle: 'sous_titre' | 'date' | 'libelle' | 'element' | 'etape' | 'statut' | 'groupe' | 'detail_groupe' | 'detail' | 'x' | 'ligne' | 'debut' | 'fin' | 'categorie' | 'previsionnel', vide = '(automatique)') => (
+    <label key={cle}>
+      {libelle}
+      <ChoixColonne libelle={libelle} valeur={bloc[cle]} colonnes={colonnes} changer={(v) => modifier({ [cle]: v })} vide={vide} />
+    </label>
+  )
+  const tables = Object.keys(dashboard.couleurs)
+  const tablePropre = typeof bloc.couleurs === 'object'
+  const nomTable = typeof bloc.couleurs === 'string' ? bloc.couleurs : ''
+  const couleurs = (
+    <label key="couleurs">
+      Couleurs
+      <Choix
+        libelle="Couleurs"
+        valeur={tablePropre ? '*' : nomTable}
+        vide="(aucune)"
+        entrees={[{ valeur: '', libelle: '(aucune)' }, ...(tablePropre ? [{ valeur: '*', libelle: 'Table propre au bloc' }] : []), ...tables.map((t) => ({ valeur: t, libelle: `Table « ${t} »` }))]}
+        changer={(v) => v !== '*' && modifier({ couleurs: v || null })}
+      />
+    </label>
+  )
+  const vide = <ChampTexte key="vide" libelle="Message si vide" valeur={bloc.vide} changer={(v) => modifier({ vide: v })} />
+
+  switch (bloc.type) {
+    case 'entete':
+      return (
+        <>
+          <ChampTexte libelle="Titre (colonne ou texte)" valeur={bloc.titre} changer={(titre) => modifier({ titre })} indice={colonnes[0] ?? 'titre'} />
+          {colonne('Sous-titre', 'sous_titre', '(aucun)')}
+          <label>
+            État
+            <Choix libelle="État" valeur={bloc.etat ?? ''} vide="(aucun)" entrees={[{ valeur: '', libelle: '(aucun)' }, ...etats.map((e) => ({ valeur: e, libelle: e }))]} changer={(v) => modifier({ etat: v || null })} />
+          </label>
+        </>
+      )
+    case 'compte_a_rebours':
+      return (
+        <>
+          {colonne('Date', 'date')}
+          {colonne('Libellé', 'libelle', '(aucun)')}
+          <label>
+            Rouge sous (jours)
+            <input type="number" min={0} aria-label="Rouge sous" defaultValue={bloc.seuils?.[0] ?? 8} onBlur={(e) => modifier({ seuils: [Number(e.target.value), Math.max(Number(e.target.value), bloc.seuils?.[1] ?? 31)] })} />
+          </label>
+          <label>
+            Orange sous (jours)
+            <input type="number" min={0} aria-label="Orange sous" defaultValue={bloc.seuils?.[1] ?? 31} onBlur={(e) => modifier({ seuils: [Math.min(Number(e.target.value), bloc.seuils?.[0] ?? 8), Number(e.target.value)] })} />
+          </label>
+          {vide}
+        </>
+      )
+    case 'etapes':
+      return (
+        <>
+          {colonne('Élément', 'element')}
+          {colonne('Étape', 'etape')}
+          {colonne('Statut', 'statut')}
+          {colonne('Date', 'date', '(aucune)')}
+          {colonne('Groupe', 'groupe', '(aucun)')}
+          {colonne('Détail du groupe', 'detail_groupe', '(aucun)')}
+          {couleurs}
+          <ChampTexte
+            libelle="Étapes, dans l'ordre"
+            valeur={bloc.etapes?.map((e) => e.nom).join(', ')}
+            indice="ordre d'apparition"
+            changer={(v) => modifier({ etapes: v ? liste(v).map((nom) => bloc.etapes?.find((e) => e.nom === nom) ?? { nom }) : null })}
+          />
+        </>
+      )
+    case 'liste':
+      return (
+        <>
+          {colonne('Libellé', 'libelle')}
+          {colonne('Détail', 'detail', '(aucun)')}
+          <label>
+            Pastille
+            <Choix
+              libelle="Pastille"
+              valeur={bloc.pastille ?? ''}
+              vide="(aucune)"
+              entrees={[{ valeur: '', libelle: '(aucune)' }, ...etats.map((e) => ({ valeur: e, libelle: `État « ${e} »`, groupe: 'États' })), ...colonnes.map((c) => ({ valeur: c, libelle: c, groupe: 'Colonnes (par la table de couleurs)' }))]}
+              changer={(v) => modifier({ pastille: v || null })}
+            />
+          </label>
+          {couleurs}
+          <ChampTexte libelle="Garder (SQL)" valeur={bloc.garder} changer={(garder) => modifier({ garder })} indice="statut <> 'Fait'" code />
+          <ChampTexte libelle="Trier par (SQL)" valeur={bloc.tri} changer={(tri) => modifier({ tri })} indice="echeance" code />
+          <label>
+            Lignes au plus
+            <input type="number" min={1} aria-label="Lignes au plus" defaultValue={bloc.max ?? ''} onBlur={(e) => modifier({ max: Number(e.target.value) >= 1 ? Math.floor(Number(e.target.value)) : null })} />
+          </label>
+          {vide}
+        </>
+      )
+    case 'repartition':
+      return (
+        <>
+          {colonne('Catégorie', 'x')}
+          <label>
+            Nombre
+            <ChoixColonne libelle="Nombre" valeur={bloc.y?.[0]} colonnes={colonnes} changer={(y) => modifier({ y: y ? [y] : null })} />
+          </label>
+          {couleurs}
+          <ChampTexte libelle="Ordre des catégories" valeur={bloc.ordre?.join(', ')} indice="A, B, C" changer={(v) => modifier({ ordre: v ? liste(v) : null })} />
+        </>
+      )
+    case 'frise':
+      return (
+        <>
+          {colonne('Ligne', 'ligne')}
+          {colonne('Catégorie', 'categorie', '(aucune)')}
+          {colonne('Début', 'debut')}
+          {colonne('Fin', 'fin')}
+          {colonne('Prévisionnel (vrai ou faux)', 'previsionnel', '(aucun)')}
+          {couleurs}
+          {vide}
+        </>
+      )
+    default:
+      return null
+  }
 }
 
 function EditeurRegles({ regles, colonnes, tableau, changer }: { regles: Regle[]; colonnes: string[]; tableau: boolean; changer: (r: Regle[]) => void }) {
@@ -275,13 +420,13 @@ export function FenetreAnalyse({ dashboard, resultats, modifier, fermer }: { das
           {nomRefuse && <span className="erreur">Nom pris ou invalide (minuscules, chiffres, _)</span>}
         </form>
         <h3>Paramètres</h3>
-        <EditeurParametres parametres={dashboard.parametres} requetes={noms} changer={(parametres) => modifier({ type: 'parametres', parametres })} />
+        <EditeurParametres parametres={dashboard.parametres} requetes={noms} etats={Object.keys(dashboard.etats)} changer={(parametres) => modifier({ type: 'parametres', parametres })} />
       </div>
     </Fenetre>
   )
 }
 
-function EditeurParametres({ parametres, requetes, changer }: { parametres: Parametre[]; requetes: string[]; changer: (p: Parametre[]) => void }) {
+function EditeurParametres({ parametres, requetes, etats, changer }: { parametres: Parametre[]; requetes: string[]; etats: string[]; changer: (p: Parametre[]) => void }) {
   const remplacer = (i: number, p: Parametre) => changer(parametres.map((x, k) => (k === i ? p : x)))
   const libre = (n = 1): string => (parametres.some((p) => p.nom === `param_${n}`) ? libre(n + 1) : `param_${n}`)
   return (
@@ -303,6 +448,15 @@ function EditeurParametres({ parametres, requetes, changer }: { parametres: Para
                 remplacer(i, { ...p, ...(options.length > 0 ? { options } : { options: undefined }) })
               }}
             />
+          )}
+          {p.type === 'choix' && (
+            <label className="case" title="Des boutons au-dessus du dashboard, pour choisir la ligne d'une fiche ; le choix reste sur cette machine">
+              <input type="checkbox" checked={p.affichage === 'boutons'} onChange={(e) => remplacer(i, { ...p, affichage: e.target.checked ? 'boutons' : undefined, ...(!e.target.checked && { pastille: undefined }) })} />
+              boutons
+            </label>
+          )}
+          {p.affichage === 'boutons' && etats.length > 0 && (
+            <Choix libelle="Pastilles" valeur={p.pastille ?? ''} vide="Sans pastille" entrees={[{ valeur: '', libelle: 'Sans pastille' }, ...etats.map((e) => ({ valeur: e, libelle: `État « ${e} »` }))]} changer={(v) => remplacer(i, { ...p, pastille: v || undefined })} />
           )}
           {p.type === 'mois' && (
             <Choix

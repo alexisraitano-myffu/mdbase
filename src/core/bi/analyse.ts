@@ -25,6 +25,9 @@ export type Comparaison = (typeof COMPARAISONS)[number]
 export type Regle = { colonne?: string; si: string; couleur: string; ligne?: boolean }
 
 /** Couleurs spéciales d'une fiche : « à planifier » (gris clair) et « sans objet » (contour pointillé). */
+/** Blocs des fiches (spec §10 « Fiches ») : une carte à la hauteur de son contenu, titre en petites capitales. */
+export const TYPES_FICHE: ReadonlySet<TypeVisuel> = new Set(['entete', 'compte_a_rebours', 'etapes', 'liste', 'repartition', 'frise'])
+
 export const COULEURS_SPECIALES = ['vide', 'aucune'] as const
 const HEXA = /^#[0-9a-f]{6}$/i
 
