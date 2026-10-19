@@ -418,6 +418,22 @@ describe('assistant : dashboards', () => {
     expect(() => validerStructure(b, 'creer_dashboard', { nom: 'Trop', rangees: [{ blocs: [{ base: 'taches' }, { base: 'taches' }, { base: 'taches' }, { base: 'taches' }] }] }, ctx)).toThrow('rangée 1 : 3 blocs au plus')
   })
 
+  it('fiche : réglages lus strictement, états et couleurs nommés validés', async () => {
+    const { espace } = await ouvrir()
+    const b = new Brouillon(espace.etat())
+    const ctx = { aujourdhui: AUJOURDHUI }
+    const creer = (bloc: unknown, extra: object = {}) => () => validerStructure(b, 'creer_dashboard', { nom: 'Fiche', rangees: [{ blocs: [bloc] }], ...extra }, ctx)
+    expect(creer({ type: 'compte_a_rebours', sql: 'select 1', date: 'd', seuils: [31, 8] })).toThrow('seuils : deux nombres de jours croissants')
+    expect(creer({ type: 'liste', sql: 'select 1', libelle: 'l', max: 0 })).toThrow('max : un nombre entier positif')
+    expect(creer({ type: 'etapes', sql: 'select 1', etapes: [{ court: 'X' }] })).toThrow('étape 1 : un nom, ou { nom, court }')
+    expect(creer({ type: 'frise', sql: 'select 1', jalons: { date: 'd' } })).toThrow('jalons : `donnees` (requête nommée) ou `sql` attendu')
+    expect(creer({ type: 'liste', sql: 'select 1', couleurs: { a: 'fuchsia' } })).toThrow('couleurs : couleur de « a »')
+    expect(creer({ type: 'texte', texte: 'x' }, { etats: { Sante: [{ couleur: 'vert' }] } })).toThrow('état « Sante » : nom en minuscules')
+    expect(creer({ type: 'texte', texte: 'x' }, { etats: { sante: [{ couleur: 'vert', quand: 'x' }] } })).toThrow('réglage inconnu quand')
+    const r = validerStructure(b, 'creer_dashboard', { nom: 'Fiche', couleurs: { s: { a: '#123456' } }, etats: { sante: [{ couleur: 'aucune' }] }, rangees: [{ blocs: [{ type: 'texte', texte: 'x' }] }] }, ctx)
+    expect(r && 'structure' in r && r.structure[0]).toMatchObject({ couleurs: { s: { a: '#123456' } }, etats: { sante: [{ couleur: 'aucune' }] } })
+  })
+
   it('retirer_bloc est une suppression : signalée dans l’aperçu, la rangée vidée disparaît', async () => {
     const { a, espace, ecrire } = await ouvrir()
     const p = await plan(

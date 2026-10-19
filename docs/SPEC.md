@@ -793,7 +793,7 @@ rangees:
 ```
 
 **Pour l'assistant et Claude (MCP)**
-- `creer_dashboard` et `modifier_dashboard` acceptent les nouveaux blocs, `couleurs`, `etats` et les réglages du sélecteur ; `modifier_dashboard` gagne `couleurs` et `etats` (remplacent la table ou l'état nommé, `null` le retire). Un état ou une table encore utilisé par un bloc ne se retire pas.
+- `creer_dashboard` et `modifier_dashboard` acceptent les nouveaux blocs, `couleurs`, `etats` et les réglages du sélecteur ; `modifier_dashboard` gagne les opérations `couleurs` (`nom`, `table`) et `etat` (`nom`, `entrees`), qui ajoutent ou remplacent la table ou l'état nommé ; `null` le retire. Un état ou une table encore utilisé par un bloc ne se retire pas.
 - Les expressions d'un état et `garder` / `tri` d'une liste sont du SQL écrit par le modèle : même garde-fous que `executer_sql` (lecture seule, aucune extension chargée), et chacune est exécutée avant d'être acceptée, comme une requête.
 - La description de l'espace montre, pour chaque dashboard, ses tables de couleurs et ses états.
 

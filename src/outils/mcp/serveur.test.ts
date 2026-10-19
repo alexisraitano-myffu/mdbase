@@ -163,4 +163,41 @@ describe('analyse par le MCP', () => {
     expect(decrit.texte).toContain('- requête total : select count(*) as n from projets where {{statut}} is null or statut = {{statut}}')
     expect(decrit.texte).toContain("1. bloc d'analyse valeur « Projets », donnees: total, valeur: n, regles: > 3 → rouge")
   })
+
+  it('fiche : couleurs, états et sélecteur ; un état inconnu refuse, un état utilisé ne se retire pas', async () => {
+    const fiche = {
+      nom: 'Fiche',
+      parametres: [{ nom: 'projet', type: 'choix', options: 'projets', affichage: 'boutons', pastille: 'sante' }],
+      requetes: { projets: 'select titre, statut from projets order by titre', projet: 'select titre, statut, echeance from projets where titre = {{projet}}' },
+      couleurs: { statuts: { 'À faire': 'vide', 'En cours': 'bleu', Terminé: '#2e7d32' } },
+      etats: { sante: [{ si: "statut = 'Terminé'", couleur: 'vert', libelle: 'Livré' }, { couleur: 'orange', libelle: 'En cours' }] },
+      rangees: [
+        { blocs: [{ type: 'entete', donnees: 'projet', titre: 'titre', etat: 'sante' }] },
+        { blocs: [{ type: 'liste', sql: 'select titre, statut from projets', libelle: 'titre', pastille: 'statut', couleurs: 'statuts', garder: "statut <> 'Terminé'", max: 2 }] },
+      ],
+    }
+    const inconnu = await appelerSql('creer_dashboard', { ...fiche, rangees: [{ blocs: [{ type: 'entete', donnees: 'projet', titre: 'titre', etat: 'meteo' }] }] })
+    expect(inconnu.texte).toContain('état « meteo » introuvable dans le dashboard')
+    const couleur = await appelerSql('creer_dashboard', { ...fiche, couleurs: { statuts: { 'À faire': 'fuchsia' } } })
+    expect(couleur.texte).toContain('couleur de « À faire »')
+
+    const ok = await appelerSql('creer_dashboard', fiche)
+    expect(ok.erreur).toBeUndefined()
+    const texte = await readFile(join(racine, '_dashboards/fiche.yaml'), 'utf8')
+    expect(texte).toContain('couleurs:\n  statuts: { À faire: vide, En cours: bleu, Terminé: "#2e7d32" }\n')
+    expect(texte).toContain('affichage: boutons')
+    expect(texte).toContain('etats:\n  sante:\n')
+
+    const retrait = await appelerSql('modifier_dashboard', { dashboard: 'Fiche', operations: [{ type: 'etat', nom: 'sante', entrees: null }] })
+    expect(retrait.texte).toContain('l’état « sante » sert encore à')
+    const table = await appelerSql('modifier_dashboard', { dashboard: 'Fiche', operations: [{ type: 'couleurs', nom: 'statuts', table: null }] })
+    expect(table.texte).toContain('la table de couleurs « statuts » sert encore à')
+    const ajout = await appelerSql('modifier_dashboard', { dashboard: 'Fiche', operations: [{ type: 'etat', nom: 'retard', entrees: [{ si: 'echeance < {{aujourdhui}}', couleur: 'rouge', libelle: 'En retard' }] }] })
+    expect(ajout.erreur).toBeUndefined()
+
+    const decrit = await appelerSql('decrire_espace')
+    expect(decrit.texte).toContain('- couleurs statuts : À faire vide, En cours bleu, Terminé #2e7d32')
+    expect(decrit.texte).toContain("- état sante : si statut = 'Terminé' → vert « Livré » ; sinon → orange « En cours »")
+    expect(decrit.texte).toContain('projet (choix, options de la requête projets, boutons (état sante))')
+  })
 })

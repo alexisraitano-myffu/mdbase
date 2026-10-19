@@ -1,4 +1,4 @@
-import { colonnesManquantes, FORMATS, lireCondition, lireParametres, NOM_VALIDE, nomAnalyse, TYPES_VISUEL, estFormat, type BlocAnalyse, type Format, type Parametre, type Regle, type TypeVisuel } from '../bi/analyse'
+import { colonnesManquantes, estCouleur, FORMATS, lireCondition, lireParametres, NOM_VALIDE, nomAnalyse, TYPES_VISUEL, estFormat, type BlocAnalyse, type EntreeEtat, type Etape, type Format, type Parametre, type Regle, type SourceSecondaire, type TypeVisuel } from '../bi/analyse'
 import { executerAnalyse, executerRequete, SANS_RETENUES, type SessionSql } from '../bi/calcul'
 import type { ResultatSql, ValeurSql } from '../bi/sql'
 import { sourceDe, tablesSql } from '../bi/tables'
@@ -15,7 +15,40 @@ import { erreur } from './references'
 // Le SQL lui-même est vérifié à part, en l'exécutant (voir `verifierAnalyse`).
 
 /** Réglages d'un bloc d'analyse, tels que les outils les acceptent. */
-const REGLAGES = ['type', 'titre', 'donnees', 'sql', 'x', 'y', 'serie', 'taille', 'valeur', 'comparer', 'empile', 'horizontal', 'colonnes', 'format', 'regles', 'texte', 'largeur'] as const
+const REGLAGES = [
+  'type', 'titre', 'donnees', 'sql', 'x', 'y', 'serie', 'taille', 'valeur', 'comparer', 'empile', 'horizontal', 'colonnes', 'format', 'regles', 'texte', 'largeur',
+  // Fiches (spec §10 « Fiches »)
+  'sous_titre', 'etat', 'date', 'libelle', 'seuils', 'vide', 'element', 'etape', 'statut', 'groupe', 'detail_groupe', 'etapes', 'couleurs', 'detail', 'pastille', 'garder', 'tri', 'max', 'ordre', 'ligne', 'debut', 'fin', 'categorie', 'previsionnel', 'jalons', 'periodes',
+] as const // prettier-ignore
+
+const COULEURS_ACCEPTEES = `une couleur de l'espace (${COULEURS.join(', ')}), un hexadécimal #rrggbb, vide ou aucune`
+
+/** Une table valeur → couleur. */
+export function lireTableCouleursIA(cle: string, v: unknown): Record<string, string> {
+  if (!estObjet(v) || Object.keys(v).length === 0) return erreur(`${cle} : table { valeur: couleur } attendue`)
+  for (const [valeur, c] of Object.entries(v)) if (!estCouleur(c)) erreur(`${cle} : couleur de « ${valeur} » : ${COULEURS_ACCEPTEES}`)
+  return v as Record<string, string>
+}
+
+function lireEtapes(v: unknown): Etape[] {
+  if (!Array.isArray(v) || v.length === 0) return erreur('etapes : liste ordonnée de noms, ou de { nom, court } attendue')
+  return v.map((e, i) => {
+    if (typeof e === 'string' && e !== '') return { nom: e }
+    if (estObjet(e) && typeof e.nom === 'string' && e.nom !== '' && (e.court === undefined || typeof e.court === 'string')) return { nom: e.nom, ...(e.court && { court: e.court as string }) }
+    return erreur(`étape ${i + 1} : un nom, ou { nom, court }`)
+  })
+}
+
+const CLES_SOURCE = ['donnees', 'sql', 'date', 'debut', 'fin', 'libelle', 'ligne', 'couleur'] as const
+
+function lireSourceIA(cle: string, v: unknown): SourceSecondaire {
+  if (!estObjet(v)) return erreur(`${cle} : objet { donnees ou sql, ${cle === 'jalons' ? 'date, libelle, ligne, couleur' : 'debut, fin, libelle'} } attendu`)
+  const inconnues = Object.keys(v).filter((k) => !(CLES_SOURCE as readonly string[]).includes(k))
+  if (inconnues.length > 0) erreur(`${cle} : réglage inconnu ${inconnues.join(', ')} (réglages : ${CLES_SOURCE.join(', ')})`)
+  for (const [k, x] of Object.entries(v)) texte(`${cle}.${k}`, x)
+  if (!v.donnees && !v.sql) erreur(`${cle} : \`donnees\` (requête nommée) ou \`sql\` attendu`)
+  return v as SourceSecondaire
+}
 
 const texte = (cle: string, v: unknown): string => (typeof v === 'string' && v.trim() !== '' ? v : erreur(`${cle} : texte attendu`))
 const liste = (cle: string, v: unknown): string[] => {
@@ -33,7 +66,7 @@ function lireRegles(v: unknown): Regle[] {
   if (!Array.isArray(v)) return erreur('regles : liste de { si, couleur, colonne?, ligne? } attendue')
   return v.map((r, i) => {
     if (!estObjet(r) || typeof r.si !== 'string' || !lireCondition(r.si)) return erreur(`règle ${i + 1} : « si » attendu, un opérateur (>, >=, <, <=, =, !=) puis une valeur ou une colonne, ex. '> 50'`)
-    if (typeof r.couleur !== 'string' || !(COULEURS as readonly string[]).includes(r.couleur)) return erreur(`règle ${i + 1} : couleur parmi ${COULEURS.join(', ')}`)
+    if (!estCouleur(r.couleur)) return erreur(`règle ${i + 1} : couleur : ${COULEURS_ACCEPTEES}`)
     return { ...(typeof r.colonne === 'string' && { colonne: r.colonne }), si: r.si, couleur: r.couleur, ...(r.ligne === true && { ligne: true }) }
   })
 }
@@ -55,6 +88,19 @@ function reglage(cle: (typeof REGLAGES)[number], v: unknown): unknown {
       return lireRegles(v)
     case 'largeur':
       return v
+    case 'seuils':
+      return Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0) && v[0] <= v[1] ? v : erreur('seuils : deux nombres de jours croissants, [rouge sous, orange sous], ex. [8, 31]')
+    case 'max':
+      return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : erreur('max : un nombre entier positif')
+    case 'ordre':
+      return Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string' && x !== '') ? v : erreur('ordre : liste de valeurs attendue')
+    case 'etapes':
+      return lireEtapes(v)
+    case 'couleurs':
+      return typeof v === 'string' && v !== '' ? v : lireTableCouleursIA('couleurs', v)
+    case 'jalons':
+    case 'periodes':
+      return lireSourceIA(cle, v)
     default:
       return texte(cle, v)
   }
@@ -128,6 +174,37 @@ export function lireParametresIA(brut: unknown): Parametre[] {
   return parametres
 }
 
+/** Tables de couleurs nommées d'un dashboard. */
+export function lireCouleursIA(brut: unknown): Record<string, Record<string, string>> {
+  if (brut === undefined) return {}
+  if (!estObjet(brut)) return erreur('couleurs : objet { nom: { valeur: couleur } } attendu')
+  return Object.fromEntries(Object.entries(brut).map(([nom, table]) => [nom, lireTableCouleursIA(`couleurs « ${nom} »`, table)]))
+}
+
+/** Un état : liste ordonnée d'entrées { si (SQL), couleur, libelle, raison } ; sans `si`, l'entrée par défaut. */
+export function lireEntreesEtatIA(nom: string, v: unknown): EntreeEtat[] {
+  if (!Array.isArray(v) || v.length === 0) return erreur(`état « ${nom} » : liste de { si, couleur, libelle, raison } attendue`)
+  return v.map((e, i) => {
+    if (!estObjet(e)) return erreur(`état « ${nom} », entrée ${i + 1} : objet attendu`)
+    const inconnues = Object.keys(e).filter((k) => !['si', 'couleur', 'libelle', 'raison'].includes(k))
+    if (inconnues.length > 0) erreur(`état « ${nom} », entrée ${i + 1} : réglage inconnu ${inconnues.join(', ')} (si, couleur, libelle, raison)`)
+    if (!estCouleur(e.couleur)) erreur(`état « ${nom} », entrée ${i + 1} : couleur : ${COULEURS_ACCEPTEES}`)
+    for (const k of ['si', 'libelle', 'raison'] as const) if (e[k] !== undefined) texte(`état « ${nom} », entrée ${i + 1}, ${k}`, e[k])
+    return { ...(e.si !== undefined && { si: e.si as string }), couleur: e.couleur as string, ...(e.libelle !== undefined && { libelle: e.libelle as string }), ...(e.raison !== undefined && { raison: e.raison as string }) }
+  })
+}
+
+export function lireEtatsIA(brut: unknown): Record<string, EntreeEtat[]> {
+  if (brut === undefined) return {}
+  if (!estObjet(brut)) return erreur('etats : objet { nom: [{ si, couleur, libelle, raison }] } attendu')
+  return Object.fromEntries(
+    Object.entries(brut).map(([nom, entrees]) => {
+      if (!NOM_VALIDE.test(nom)) erreur(`état « ${nom} » : nom en minuscules, chiffres et _ (commence par une lettre)`)
+      return [nom, lireEntreesEtatIA(nom, entrees)]
+    }),
+  )
+}
+
 export const estTypeVisuel = (x: unknown): x is TypeVisuel => (TYPES_VISUEL as readonly string[]).includes(String(x))
 
 // ── Exécution : exploration et vérification du SQL ───────────────
@@ -163,9 +240,9 @@ export async function executerSqlOutil(etat: EtatEspace, args: Record<string, un
 
 /** Le dashboard tel qu'il sera après une action de structure, s'il porte de l'analyse à vérifier. */
 function dashboardApres(etat: EtatEspace, a: ActionStructure): Dashboard | null {
-  if (a.type === 'creer_dashboard') return { id: a.id, nom: a.nom, rangees: a.rangees, filtres: [], filtresRapides: [], requetes: a.requetes, parametres: a.parametres, couleurs: {}, etats: {} }
+  if (a.type === 'creer_dashboard') return { id: a.id, nom: a.nom, rangees: a.rangees, filtres: [], filtresRapides: [], requetes: a.requetes, parametres: a.parametres, couleurs: a.couleurs, etats: a.etats }
   if (a.type !== 'modifier_dashboard') return null
-  const touche = a.operations.some(({ op }) => ['requete', 'parametres', 'valeur_parametre', 'modifier_analyse'].includes(op.type) || ((op.type === 'ajouter_bloc' || op.type === 'remplacer_bloc') && estAnalyse(op.bloc)))
+  const touche = a.operations.some(({ op }) => ['requete', 'parametres', 'valeur_parametre', 'modifier_analyse', 'couleurs', 'etat'].includes(op.type) || ((op.type === 'ajouter_bloc' || op.type === 'remplacer_bloc') && estAnalyse(op.bloc)))
   const avant = etat.dashboards.find((x) => x.id === a.id)?.dashboard
   if (!touche || !avant) return null
   return a.operations.reduce((d, { op }) => appliquerEnMemoire(d, op), avant)
@@ -186,15 +263,22 @@ export async function verifierAnalyse(etat: EtatEspace, actions: readonly Action
     if (!d) continue
     const blocs = d.rangees.flatMap((r, i) => r.blocs.flatMap((bloc, j) => (estAnalyse(bloc) ? [{ place: `${i}.${j}`, bloc }] : [])))
     if (Object.keys(d.requetes).length === 0 && blocs.length === 0) continue
-    const r = await session.executer(etat, SANS_RETENUES, () => tablesSql(sourceDe(etat), SANS_RETENUES), (m) => executerAnalyse(m, { requetes: d.requetes, parametres: d.parametres, blocs }, ctx.aujourdhui))
+    const r = await session.executer(etat, SANS_RETENUES, () => tablesSql(sourceDe(etat), SANS_RETENUES), (m) => executerAnalyse(m, { requetes: d.requetes, parametres: d.parametres, blocs, etats: d.etats }, ctx.aujourdhui))
     for (const [nom, e] of r.requetes) if (!e.ok) erreurs.push(`requête « ${nom} » : ${e.erreur}`)
+    for (const [nom, e] of r.options) if (!e.ok) erreurs.push(`paramètre « ${nom} » (pastilles) : ${e.erreur}`)
     for (const { place, bloc } of blocs) {
       const e = r.blocs.get(place)
       const [rangee, rang] = place.split('.').map((x) => Number(x) + 1)
       const ou = `rangée ${rangee}, bloc ${rang} (${nomAnalyse(bloc)})`
-      if (e && !e.ok && bloc.sql) erreurs.push(`${ou} : ${e.erreur}`)
-      else if (e?.ok) {
-        const manquantes = colonnesManquantes(bloc, e.resultat)
+      // L'erreur d'une requête nommée est déjà signalée ; celle d'un bloc qui l'enrichit (état, sélection) ne l'est pas.
+      const nommee = bloc.donnees !== undefined ? r.requetes.get(bloc.donnees) : undefined
+      if (e && !e.ok && (bloc.sql || !nommee || nommee.ok)) erreurs.push(`${ou} : ${e.erreur}`)
+      for (const cle of ['jalons', 'periodes'] as const) {
+        const s = r.blocs.get(`${place}/${cle}`)
+        if (s && !s.ok) erreurs.push(`${ou}, ${cle} : ${s.erreur}`)
+      }
+      if (e?.ok) {
+        const manquantes = colonnesManquantes(bloc, e.resultat, d.etats)
         if (manquantes.length > 0) erreurs.push(`${ou} : colonne${manquantes.length > 1 ? 's' : ''} ${manquantes.join(', ')} absente${manquantes.length > 1 ? 's' : ''} du résultat (colonnes : ${e.resultat.colonnes.map((c) => c.nom).join(', ')})`)
       }
     }

@@ -6,8 +6,8 @@ import { compiler, ErreurFormule, stockerExpression } from '../formules/formule'
 import { calculsPour } from '../calcul'
 import { appliquerEnMemoire, BLOCS_PAR_RANGEE, estAnalyse, estPropre, HAUTEUR_BLOC, LARGEUR_BLOC, type Bloc, type Dashboard, type FiltreGlobal, type OperationDashboard, type PastilleGlobale, type PlaceBloc } from '../dashboard'
 import { boucle } from '../graphe'
-import { nomAnalyse, type Parametre } from '../bi/analyse'
-import { lireBlocAnalyseIA, lireModifsAnalyse, lireParametresIA, lireRequetesIA } from './analyse'
+import { nomAnalyse, type EntreeEtat, type Parametre } from '../bi/analyse'
+import { lireBlocAnalyseIA, lireCouleursIA, lireEtatsIA, lireModifsAnalyse, lireParametresIA, lireRequetesIA, lireTableCouleursIA } from './analyse'
 import { cleColonne, idBase } from '../identifiants'
 import { COULEURS } from '../couleurs'
 import { CALCULS, estObjet, lireSchema, natureDe, TYPES_HORODATAGE, type Calcul, type Colonne, type Option, type Schema } from '../schema'
@@ -115,7 +115,7 @@ export type ActionStructure =
   | { type: 'creer_vue'; base: string; nomBase: string; id: string; nom: string; genre: TypeVue; reglages: ModificationVue }
   | { type: 'modifier_vue'; base: string; nomBase: string; vue: string; nomVue: string; reglages: ModificationVue }
   | { type: 'supprimer_vue'; base: string; nomBase: string; vue: string; nomVue: string }
-  | { type: 'creer_dashboard'; id: string; nom: string; rangees: { blocs: Bloc[]; hauteur?: number }[]; requetes: Record<string, string>; parametres: Parametre[] }
+  | { type: 'creer_dashboard'; id: string; nom: string; rangees: { blocs: Bloc[]; hauteur?: number }[]; requetes: Record<string, string>; parametres: Parametre[]; couleurs: Record<string, Record<string, string>>; etats: Record<string, EntreeEtat[]> }
   /** Opérations sur la mise en page d'avant chacune ; `base` : celle du bloc dont la vue propre change (ses clés suivent). `resume` : une phrase par opération, pour l'aperçu. */
   | { type: 'modifier_dashboard'; id: string; nom: string; operations: { op: OperationDashboard; base?: string }[]; resume: string[] }
   | { type: 'retirer_bloc'; id: string; nom: string; place: PlaceBloc; bloc: string }
@@ -616,12 +616,36 @@ function lireOperation(b: Brouillon, d: Dashboard, brut: unknown): { ops: { op: 
       if (!d.parametres.some((p) => p.nom === nom)) return erreur(`paramètre « ${nom} » inconnu (paramètres : ${d.parametres.map((p) => p.nom).join(', ') || 'aucun'})`)
       return { ops: [{ op: { type: 'valeur_parametre', nom, valeur: brut.valeur ?? null } }], texte: brut.valeur === null || brut.valeur === undefined ? `paramètre ${nom} : valeur par défaut` : `paramètre ${nom} = ${JSON.stringify(brut.valeur)}` }
     }
+    case 'couleurs': {
+      const nom = texteRequis(brut, 'nom')
+      if (brut.table === null) {
+        if (d.couleurs[nom] === undefined) return erreur(`table de couleurs « ${nom} » inconnue (tables : ${Object.keys(d.couleurs).join(', ') || 'aucune'})`)
+        const utilisee = d.rangees.flatMap((r) => r.blocs).find((x) => estAnalyse(x) && x.couleurs === nom)
+        if (utilisee) return erreur(`la table de couleurs « ${nom} » sert encore à ${nomBloc(b, utilisee)} : change d’abord ses couleurs`)
+        return { ops: [{ op: { type: 'couleurs', nom, table: null } }], texte: `retirer la table de couleurs « ${nom} »` }
+      }
+      const table = lireTableCouleursIA(`couleurs « ${nom} »`, brut.table)
+      return { ops: [{ op: { type: 'couleurs', nom, table } }], texte: `${d.couleurs[nom] === undefined ? 'ajouter' : 'remplacer'} la table de couleurs « ${nom} »` }
+    }
+    case 'etat': {
+      const nom = texteRequis(brut, 'nom')
+      if (brut.entrees === null) {
+        if (d.etats[nom] === undefined) return erreur(`état « ${nom} » inconnu (états : ${Object.keys(d.etats).join(', ') || 'aucun'})`)
+        const bloc = d.rangees.flatMap((r) => r.blocs).find((x) => estAnalyse(x) && (x.etat === nom || x.pastille === nom))
+        if (bloc) return erreur(`l’état « ${nom} » sert encore à ${nomBloc(b, bloc)} : change d’abord son réglage`)
+        const parametre = d.parametres.find((x) => x.pastille === nom)
+        if (parametre) return erreur(`l’état « ${nom} » sert encore aux pastilles du paramètre « ${parametre.nom} »`)
+        return { ops: [{ op: { type: 'etat', nom, entrees: null } }], texte: `retirer l’état « ${nom} »` }
+      }
+      const entrees = lireEtatsIA({ [nom]: brut.entrees })[nom]!
+      return { ops: [{ op: { type: 'etat', nom, entrees } }], texte: `${d.etats[nom] === undefined ? 'ajouter' : 'remplacer'} l’état « ${nom} » (${entrees.map((e) => e.libelle ?? e.couleur).join(', ')})` }
+    }
     default:
       return erreur(`type d'opération inconnu : ${JSON.stringify(brut.type)} (types : ${TYPES_OPERATION.join(', ')})`)
   }
 }
 
-export const TYPES_OPERATION = ['renommer', 'ajouter_bloc', 'deplacer_bloc', 'remplacer_bloc', 'deplacer_rangee', 'hauteur', 'largeurs', 'modifier_vue', 'filtres', 'modifier_bloc', 'requete', 'parametres', 'valeur_parametre'] as const
+export const TYPES_OPERATION = ['renommer', 'ajouter_bloc', 'deplacer_bloc', 'remplacer_bloc', 'deplacer_rangee', 'hauteur', 'largeurs', 'modifier_vue', 'filtres', 'modifier_bloc', 'requete', 'parametres', 'valeur_parametre', 'couleurs', 'etat'] as const
 
 /** Valide un appel d'outil de structure ; `null` si l'outil n'en est pas un. */
 export function validerStructure(b: Brouillon, nom: string, args: Record<string, unknown>, ctx: Contexte): { structure: ActionStructure[] } | { suite: ActionSuite } | null {
@@ -725,6 +749,8 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
       const ids: string[] = []
       const requetes = lireRequetesIA(args.requetes)
       const parametres = args.parametres === undefined ? [] : lireParametresIA(args.parametres)
+      const couleurs = lireCouleursIA(args.couleurs)
+      const etats = lireEtatsIA(args.etats)
       const rangees = brutes.map((r, i) => {
         if (!estObjet(r) || !Array.isArray(r.blocs) || r.blocs.length === 0) return erreur(`rangée ${i + 1} : objet { blocs: [...] } attendu, avec au moins un bloc`)
         if (r.blocs.length > BLOCS_PAR_RANGEE) erreur(`rangée ${i + 1} : ${BLOCS_PAR_RANGEE} blocs au plus`)
@@ -732,8 +758,8 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
         return { blocs: r.blocs.map((x) => lireBloc(b, x, ids, requetes)), ...(hauteur !== undefined && { hauteur }) }
       })
       const id = idBase(nomDashboard, b.dashboards.map((d) => d.id))
-      b.dashboards.push({ id, nom: nomDashboard, dashboard: { id, nom: nomDashboard, rangees, filtres: [], filtresRapides: [], requetes, parametres, couleurs: {}, etats: {} } })
-      return { structure: [{ type: 'creer_dashboard', id, nom: nomDashboard, rangees, requetes, parametres }] }
+      b.dashboards.push({ id, nom: nomDashboard, dashboard: { id, nom: nomDashboard, rangees, filtres: [], filtresRapides: [], requetes, parametres, couleurs, etats } })
+      return { structure: [{ type: 'creer_dashboard', id, nom: nomDashboard, rangees, requetes, parametres, couleurs, etats }] }
     }
     case 'modifier_dashboard': {
       const d = trouverDashboard(b, args.dashboard)
@@ -908,7 +934,8 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
     case 'creer_dashboard': {
       const blocs = a.rangees.reduce((n, r) => n + r.blocs.length, 0)
       const requetes = Object.keys(a.requetes).length
-      const analyse = [requetes > 0 && pluriel(requetes, 'requête'), a.parametres.length > 0 && pluriel(a.parametres.length, 'paramètre')].filter(Boolean).join(', ')
+      const etats = Object.keys(a.etats).length
+      const analyse = [requetes > 0 && pluriel(requetes, 'requête'), a.parametres.length > 0 && pluriel(a.parametres.length, 'paramètre'), etats > 0 && pluriel(etats, 'état')].filter(Boolean).join(', ')
       return { texte: `Créer le dashboard « ${a.nom} »${blocs > 0 ? ` avec ${pluriel(blocs, 'bloc')} sur ${pluriel(a.rangees.length, 'rangée')}` : ''}${analyse ? ` (${analyse})` : ''}`, danger: false }
     }
     case 'modifier_dashboard':
@@ -1089,6 +1116,8 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
         const id = await espace.creerDashboard(a.nom)
         corr.noterDashboard(a.id, id)
         for (const [nom, sql] of Object.entries(a.requetes)) await espace.modifierDashboard(id, { type: 'requete', nom, sql })
+        for (const [nom, table] of Object.entries(a.couleurs)) await espace.modifierDashboard(id, { type: 'couleurs', nom, table })
+        for (const [nom, entrees] of Object.entries(a.etats)) await espace.modifierDashboard(id, { type: 'etat', nom, entrees })
         if (a.parametres.length > 0) await espace.modifierDashboard(id, { type: 'parametres', parametres: a.parametres })
         for (const [i, r] of a.rangees.entries()) {
           for (const [j, bloc] of r.blocs.entries()) await espace.modifierDashboard(id, { type: 'ajouter_bloc', rangee: j === 0 ? null : i, bloc: corr.bloc(bloc) })

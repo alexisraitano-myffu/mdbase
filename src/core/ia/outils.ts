@@ -140,6 +140,52 @@ const REGLAGES_VUE = {
 /** Réglages d'une vue propre dans une opération : `largeurs` y désigne celle des blocs. */
 const { largeurs: _largeurs, ...REGLAGES_VUE_BLOC } = REGLAGES_VUE
 
+const TEINTE = `${COULEURS.join(', ')}, #rrggbb, vide (gris) ou aucune (contour)`
+
+const SOURCE_FRISE = (quoi: string) => ({
+  type: 'object',
+  properties: { donnees: { type: 'string' }, sql: { type: 'string' }, date: { type: 'string' }, debut: { type: 'string' }, fin: { type: 'string' }, libelle: { type: 'string' }, ligne: { type: 'string' }, couleur: { type: 'string' } },
+  description: `frise : ${quoi}`,
+})
+
+/** Réglages des blocs de fiche (spec §10 « Fiches ») : colonnes du résultat, sauf mention. */
+const REGLAGES_FICHE = {
+  sous_titre: { type: 'string', description: 'entete : colonne du sous-titre' },
+  etat: { type: 'string', description: 'entete : nom d’un état du dashboard (pastille et raison)' },
+  date: { type: 'string', description: 'compte_a_rebours : colonne date (la plus proche à venir) ; etapes : date de chaque case' },
+  libelle: { type: 'string', description: 'compte_a_rebours, frise : colonne du libellé' },
+  seuils: { type: 'array', items: { type: 'number' }, description: 'compte_a_rebours : [rouge sous N jours, orange sous M], défaut [8, 31]' },
+  vide: { type: 'string', description: 'compte_a_rebours, liste, frise : texte quand il n’y a rien' },
+  element: { type: 'string', description: 'etapes : colonne de l’élément (une ligne par élément et par étape)' },
+  etape: { type: 'string', description: 'etapes : colonne du nom de l’étape' },
+  statut: { type: 'string', description: 'etapes : colonne du statut, coloré par `couleurs`' },
+  groupe: { type: 'string', description: 'etapes : colonne qui regroupe les éléments' },
+  detail_groupe: { type: 'string', description: 'etapes : colonne affichée à côté du groupe' },
+  etapes: { type: 'array', items: { type: ['string', 'object'] }, description: 'etapes : ordre des étapes, noms ou { nom, court }' },
+  couleurs: { type: ['string', 'object'], description: `etapes, liste, repartition, frise : nom d’une table de couleurs du dashboard, ou { valeur: couleur } (${TEINTE})` },
+  detail: { type: 'string', description: 'liste : colonne du texte secondaire' },
+  pastille: { type: 'string', description: 'liste : nom d’un état du dashboard, ou colonne colorée par `couleurs`' },
+  garder: { type: 'string', description: 'liste : condition SQL des lignes montrées d’abord ; les autres sont repliées en « N autres »' },
+  tri: { type: 'string', description: 'liste : ordre SQL (order by) des lignes' },
+  max: { type: 'integer', description: 'liste : lignes montrées au plus, le reste replié' },
+  ordre: { type: 'array', items: { type: 'string' }, description: 'repartition : ordre des valeurs dans la barre' },
+  ligne: { type: 'string', description: 'frise : colonne de la ligne (une ligne par valeur)' },
+  debut: { type: 'string', description: 'frise : colonne date de début des barres' },
+  fin: { type: 'string', description: 'frise : colonne date de fin' },
+  categorie: { type: 'string', description: 'repartition : colonne des catégories ; frise : colonne colorée par `couleurs`' },
+  previsionnel: { type: 'string', description: 'frise : colonne booléenne, barre en pointillés quand vraie' },
+  jalons: SOURCE_FRISE('losanges { donnees | sql, date, libelle, ligne, couleur }'),
+  periodes: SOURCE_FRISE('bandes hachurées { donnees | sql, debut, fin, libelle }'),
+}
+
+const COULEURS_DASHBOARD = { type: 'object', additionalProperties: { type: 'object', additionalProperties: { type: 'string' } }, description: `tables de couleurs nommées { nom: { valeur: couleur } }, citées par le réglage couleurs des blocs (${TEINTE})` }
+
+const ENTREES_ETAT = {
+  type: 'array',
+  items: { type: 'object', properties: { si: { type: 'string', description: 'condition SQL sur les colonnes du résultat ; sans si : entrée par défaut' }, couleur: { type: 'string', description: TEINTE }, libelle: { type: 'string' }, raison: { type: 'string', description: 'texte affiché, peut citer {{colonne}}' } }, required: ['couleur'] },
+  description: 'la première entrée vraie gagne',
+}
+
 /** Réglages d'un bloc d'analyse (spec §10 « Analyse ») ; `colonnes` est partagé avec les réglages de vue. */
 const REGLAGES_ANALYSE = {
   titre: { type: 'string' },
@@ -156,10 +202,11 @@ const REGLAGES_ANALYSE = {
   format: { type: ['string', 'object'], description: `analyse : ${FORMATS.join(', ')} ; ou { colonne: format } pour un tableau` },
   regles: {
     type: 'array',
-    items: { type: 'object', properties: { si: { type: 'string', description: "'> 50', '= Bloqué', '< objectif' (autre colonne)" }, couleur: { type: 'string', enum: [...COULEURS] }, colonne: { type: 'string', description: 'colonne testée (par défaut la mesure)' }, ligne: { type: 'boolean', description: 'tableau : colore la ligne entière' } }, required: ['si', 'couleur'] },
+    items: { type: 'object', properties: { si: { type: 'string', description: "'> 50', '= Bloqué', '< objectif' (autre colonne)" }, couleur: { type: 'string', description: TEINTE }, colonne: { type: 'string', description: 'colonne testée (par défaut la mesure)' }, ligne: { type: 'boolean', description: 'tableau : colore la ligne entière' } }, required: ['si', 'couleur'] },
     description: 'analyse : mise en forme conditionnelle, la première règle remplie gagne',
   },
   texte: { type: 'string', description: 'bloc texte : Markdown ; {{requete.colonne}} cite la première ligne d’un résultat' },
+  ...REGLAGES_FICHE,
 }
 
 const PARAMETRES = {
@@ -172,6 +219,8 @@ const PARAMETRES = {
       type: { type: 'string', enum: [...TYPES_PARAMETRE] },
       options: { type: ['array', 'string'], items: { type: 'string' }, description: 'choix : liste, ou nom d’une requête dont la 1re colonne donne les options' },
       defaut: { description: "mois : 'courant', 'precedent' ou AAAA-MM ; période : [début, fin]" },
+      affichage: { type: 'string', enum: ['boutons'], description: 'choix : boutons au-dessus du dashboard (sélecteur de ligne d’une fiche), retenus sur la machine' },
+      pastille: { type: 'string', description: 'boutons : nom d’un état du dashboard, évalué sur la requête des options, qui colore chaque bouton' },
     },
     required: ['nom', 'type'],
   },
@@ -329,13 +378,15 @@ export const OUTILS: DefinitionOutil[] = [
   {
     nom: 'creer_dashboard',
     description:
-      'Crée un dashboard : des rangées de 1 à 3 blocs côte à côte. Chaque bloc affiche une vue de la base (existante ou créée plus haut), une vue propre au dashboard réglée comme creer_vue, ou un bloc d’analyse : chiffre clé, graphique, tableau ou texte calculé par une requête SQL (DuckDB) sur les bases. Explore d’abord avec executer_sql ; chaque requête est exécutée avant d’être acceptée.',
+      'Crée un dashboard : des rangées de 1 à 3 blocs côte à côte. Chaque bloc affiche une vue de la base (existante ou créée plus haut), une vue propre au dashboard réglée comme creer_vue, ou un bloc d’analyse : chiffre clé, graphique, tableau ou texte calculé par une requête SQL (DuckDB) sur les bases. Une fiche (une ligne choisie par des boutons : paramètre affichage boutons) se compose des blocs entete, compte_a_rebours, etapes, liste, repartition et frise, colorés par des états et des tables de couleurs du dashboard. Explore d’abord avec executer_sql ; chaque requête est exécutée avant d’être acceptée.',
     parametres: {
       type: 'object',
       properties: {
         nom: { type: 'string' },
         requetes: { type: 'object', additionalProperties: { type: 'string' }, description: 'requêtes SQL nommées { nom: "select …" }, partagées par les blocs (donnees: nom)' },
         parametres: PARAMETRES,
+        couleurs: COULEURS_DASHBOARD,
+        etats: { type: 'object', additionalProperties: ENTREES_ETAT, description: 'états nommés { nom: [{ si, couleur, libelle, raison }] }, cités par etat et pastille' },
         rangees: {
           type: 'array',
           items: { type: 'object', properties: { blocs: { type: 'array', items: BLOC, minItems: 1, maxItems: 3 }, hauteur: HAUTEUR }, required: ['blocs'] },
@@ -362,7 +413,7 @@ export const OUTILS: DefinitionOutil[] = [
                 type: 'string',
                 enum: [...TYPES_OPERATION],
                 description:
-                  'renommer (nom) ; ajouter_bloc (nouveau, rangee, position) ; deplacer_bloc (rangee, bloc, puis vers_rangee et position, ou nouvelle_rangee) ; remplacer_bloc (rangee, bloc, par) ; deplacer_rangee (rangee, vers) ; hauteur (rangee, hauteur) ; largeurs (rangee, largeurs) ; modifier_vue (rangee, bloc, réglages comme modifier_vue : vue propre seulement) ; filtres (filtres et/ou filtres_rapides du dashboard) ; modifier_bloc (rangee, bloc, réglages d’analyse ; nouveau_type change le visuel ; null retire un réglage) ; requete (nom, sql ; sql null la retire) ; parametres (parametres : remplace la liste) ; valeur_parametre (nom, valeur ; null : défaut)',
+                  'renommer (nom) ; ajouter_bloc (nouveau, rangee, position) ; deplacer_bloc (rangee, bloc, puis vers_rangee et position, ou nouvelle_rangee) ; remplacer_bloc (rangee, bloc, par) ; deplacer_rangee (rangee, vers) ; hauteur (rangee, hauteur) ; largeurs (rangee, largeurs) ; modifier_vue (rangee, bloc, réglages comme modifier_vue : vue propre seulement) ; filtres (filtres et/ou filtres_rapides du dashboard) ; modifier_bloc (rangee, bloc, réglages d’analyse ; nouveau_type change le visuel ; null retire un réglage) ; requete (nom, sql ; sql null la retire) ; parametres (parametres : remplace la liste) ; valeur_parametre (nom, valeur ; null : défaut) ; couleurs (nom, table ; table null la retire) ; etat (nom, entrees ; entrees null le retire)',
               },
               nom: { type: 'string' },
               rangee: { type: 'integer', description: 'numéro de rangée ; ajouter_bloc sans rangee : nouvelle rangée en bas' },
@@ -380,6 +431,8 @@ export const OUTILS: DefinitionOutil[] = [
               colonnes: { type: 'array', items: { type: 'string' }, description: 'modifier_vue : ordre des colonnes ; modifier_bloc : colonnes d’un tableau d’analyse' },
               nouveau_type: { type: 'string', enum: [...TYPES_VISUEL], description: 'modifier_bloc : change le visuel' },
               parametres: PARAMETRES,
+              table: { type: ['object', 'null'], additionalProperties: { type: 'string' }, description: `couleurs : { valeur: couleur } (${TEINTE})` },
+              entrees: { ...ENTREES_ETAT, type: ['array', 'null'] },
               largeurs_colonnes: { ...REGLAGES_VUE.largeurs, description: 'modifier_vue : largeur des colonnes du tableau, { colonne: px } ; null les retire' },
               filtres_rapides: {
                 type: 'array',
@@ -610,8 +663,10 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
       if (d.dashboard.filtres.length > 0) parties.push(`- filtres : ${d.dashboard.filtres.map((f) => `${f.base}.${filtreLisible(f)}`).join(', ')}`)
       if (d.dashboard.filtresRapides.length > 0) parties.push(`- filtres rapides : ${d.dashboard.filtresRapides.map((p) => `${p.base}${p.colonne ? `.${p.colonne}` : ' (choix de lignes)'}`).join(', ')}`)
       for (const [nom, sql] of Object.entries(d.dashboard.requetes)) parties.push(`- requête ${nom} : ${sql.replace(/\s+/g, ' ').trim()}`)
+      for (const [nom, table] of Object.entries(d.dashboard.couleurs)) parties.push(`- couleurs ${nom} : ${Object.entries(table).map(([v, c]) => `${v} ${c}`).join(', ')}`)
+      for (const [nom, entrees] of Object.entries(d.dashboard.etats)) parties.push(`- état ${nom} : ${entrees.map((e) => `${e.si ? `si ${e.si}` : 'sinon'} → ${e.couleur}${e.libelle ? ` « ${e.libelle} »` : ''}`).join(' ; ')}`)
       if (d.dashboard.parametres.length > 0) {
-        parties.push(`- paramètres : ${d.dashboard.parametres.map((p) => `${p.nom} (${p.type}${p.options ? `, options ${Array.isArray(p.options) ? p.options.join('/') : `de la requête ${p.options}`}` : ''}${p.defaut !== undefined ? `, défaut ${JSON.stringify(p.defaut)}` : ''}${p.valeur !== undefined ? `, valeur ${JSON.stringify(p.valeur)}` : ''})`).join(', ')}`)
+        parties.push(`- paramètres : ${d.dashboard.parametres.map((p) => `${p.nom} (${p.type}${p.options ? `, options ${Array.isArray(p.options) ? p.options.join('/') : `de la requête ${p.options}`}` : ''}${p.affichage ? `, ${p.affichage}${p.pastille ? ` (état ${p.pastille})` : ''}` : ''}${p.defaut !== undefined ? `, défaut ${JSON.stringify(p.defaut)}` : ''}${p.valeur !== undefined ? `, valeur ${JSON.stringify(p.valeur)}` : ''})`).join(', ')}`)
       }
     }
     parties.push(
