@@ -1,4 +1,5 @@
 import type { LigneChargee } from '../base'
+import { resoudreBaseTaches } from '../base-taches'
 import type { EtatEspace } from '../depot-espace'
 import { estSaisie, nomSource, type Colonne, type Schema } from '../schema'
 import { decaler, jourSemaine, lundiDe } from '../temps'
@@ -648,6 +649,12 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
     for (const c of schema.colonnes) parties.push(`- ${c.cle} « ${c.nom} » : ${typeLisible(c)}${c.cle === schema.champTitre ? ' (titre de la ligne)' : ''}`)
     const vues = etat.bases.get(id)?.vues ?? []
     parties.push(`vues : ${vues.map((v) => `${v.id} « ${v.nom} » (${v.type}${detailTemps(v)}${detailVue(v)})`).join(', ')}`)
+  }
+  const taches = resoudreBaseTaches(etat, etat.taches)
+  if (taches?.ok) {
+    const t = taches.taches
+    const fait = t.fait.type === 'select' ? `${t.fait.cle} (fait si ${t.terminees.join(' ou ')})` : `${t.fait.cle} (case cochée)`
+    parties.push('', `Base des tâches : ${t.base}, chaque ligne est une tâche ; fait : ${fait}${t.echeance ? ` ; échéance : ${t.echeance.cle}` : ''}. Les cases à cocher des corps (- [ ]) sont aussi des tâches.`)
   }
   if (etat.dashboards.length > 0) {
     parties.push('', '## Dashboards (rangées de haut en bas, blocs de gauche à droite, comptés à partir de 1)')

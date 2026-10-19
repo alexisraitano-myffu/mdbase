@@ -31,7 +31,7 @@ import { Choix } from './Choix'
 import { ContenusLies, ReglageContenus } from './ContenusLies'
 import { Corps } from './Corps'
 import { Interrupteur, Reglage, Section } from './reglages'
-import { compterTaches, OngletTaches } from './Taches'
+import { OngletTaches, restantesDeLaPage } from './Taches'
 
 type Props = {
   base: string
@@ -159,7 +159,7 @@ export function Page(p: Props) {
 function LibelleTaches(p: { base: string; ligne: LigneChargee; onglet: Extract<OngletPage, { type: 'taches' }> }) {
   const { etat } = useEspace()
   const aujourdhui = useAujourdhui()
-  const { restantes } = compterTaches(etat, p.base, p.ligne, p.onglet.liees, [`${p.base}/${p.ligne.id}`], aujourdhui)
+  const restantes = restantesDeLaPage(etat, p.base, p.ligne, p.onglet, aujourdhui)
   return (
     <>
       <Icone de={ListChecks} />

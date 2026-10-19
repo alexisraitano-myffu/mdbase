@@ -12,7 +12,13 @@ export type Groupe = { nom: string; bases: string[] }
  * nommées dans les dashboards, police des dashboards, logo SVG en tête des fiches.
  */
 export type Theme = { couleurs: Partial<Record<(typeof COULEURS)[number], string>>; police?: string; logo?: string }
-export type ConfigEspace = { dashboards: string[]; groupes: Groupe[]; horsGroupe: string[]; theme: Theme }
+/**
+ * Base des tâches (spec §9 « Base des tâches ») : ses lignes sont des tâches,
+ * `fait` (case ou choix) dit lesquelles sont faites ; pour un choix,
+ * `terminees` donne les options qui comptent comme faites.
+ */
+export type ConfigTaches = { base: string; fait: string; terminees?: string[]; echeance?: string }
+export type ConfigEspace = { dashboards: string[]; groupes: Groupe[]; horsGroupe: string[]; theme: Theme; taches?: ConfigTaches }
 
 export type OperationEspace =
   /** Place une base dans un groupe (null = hors groupe), en la retirant d'où elle était. */
@@ -25,8 +31,10 @@ export type OperationEspace =
   | { type: 'retirer_dashboard'; id: string }
   /** Réécrit l'ordre complet des dashboards (glisser-déposer, duplication). */
   | { type: 'ordre_dashboards'; ids: string[] }
-  /** Retire une base supprimée de tous les groupes. */
+  /** Retire une base supprimée de tous les groupes (et de la base des tâches). */
   | { type: 'retirer_base'; base: string }
+  /** Désigne la base des tâches, ou la retire (null). */
+  | { type: 'regler_taches'; taches: ConfigTaches | null }
 
 export class ErreurEspace extends Error {
   constructor(message: string) {
@@ -49,7 +57,20 @@ export function lireEspace(texte: string | null): ConfigEspace {
   const groupes = (Array.isArray(barre.groupes) ? barre.groupes : []).flatMap((g): Groupe[] =>
     estObjet(g) && typeof g.nom === 'string' ? [{ nom: g.nom, bases: chaines(g.bases) }] : [],
   )
-  return { dashboards: chaines(barre.dashboards), groupes, horsGroupe: chaines(barre.hors_groupe), theme: lireTheme(estObjet(brut) ? brut.theme : undefined) }
+  const taches = lireConfigTaches(estObjet(brut) ? brut.taches : undefined)
+  return { dashboards: chaines(barre.dashboards), groupes, horsGroupe: chaines(barre.hors_groupe), theme: lireTheme(estObjet(brut) ? brut.theme : undefined), ...(taches && { taches }) }
+}
+
+/** Sans `base` ni `fait`, pas de base des tâches ; le reste mal formé est ignoré. */
+export function lireConfigTaches(brut: unknown): ConfigTaches | undefined {
+  if (!estObjet(brut) || typeof brut.base !== 'string' || typeof brut.fait !== 'string' || brut.base === '' || brut.fait === '') return undefined
+  const terminees = chaines(brut.terminees)
+  return {
+    base: brut.base,
+    fait: brut.fait,
+    ...(terminees.length > 0 && { terminees }),
+    ...(typeof brut.echeance === 'string' && brut.echeance !== '' && { echeance: brut.echeance }),
+  }
 }
 
 /** Ce qui est mal formé est ignoré : une teinte `#rrggbb` par couleur nommée, un logo `.svg` dans l'espace. */
@@ -132,7 +153,16 @@ export function modifierEspace(texte: string | null, op: OperationEspace): strin
       for (const b of bases) horsGroupe.items.push(doc.createNode(b))
       break
     }
+    case 'regler_taches':
+      if (op.taches) {
+        const t = doc.createNode(op.taches) as YAMLMap
+        const terminees = t.get('terminees')
+        if (isSeq(terminees)) terminees.flow = true
+        doc.contents.set('taches', t)
+      } else doc.contents.delete('taches')
+      break
     case 'retirer_base':
+      if (lireConfigTaches(doc.contents.toJSON().taches)?.base === op.base) doc.contents.delete('taches')
       for (const liste of [horsGroupe, ...groupes.items.flatMap((g) => (isMap(g) && isSeq(g.get('bases')) ? [g.get('bases') as YAMLSeq] : []))]) {
         liste.items = liste.items.filter((n) => valeur(n) !== op.base)
       }

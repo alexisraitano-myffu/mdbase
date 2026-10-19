@@ -51,6 +51,25 @@ describe('thème', () => {
   })
 })
 
+describe('base des tâches', () => {
+  it('lit la clé taches, ignore une clé incomplète', () => {
+    const texte = 'taches:\n  base: taches\n  fait: statut\n  terminees: [Terminé, Abandonné]\n  echeance: echeance\n'
+    expect(lireEspace(texte).taches).toEqual({ base: 'taches', fait: 'statut', terminees: ['Terminé', 'Abandonné'], echeance: 'echeance' })
+    expect(lireEspace('taches: { base: taches }\n').taches).toBeUndefined()
+    expect(lireEspace('taches: { base: taches, fait: fait, terminees: oui, echeance: 3 }\n').taches).toEqual({ base: 'taches', fait: 'fait' })
+  })
+
+  it('désigne, retire, et oublie la base des tâches quand elle est supprimée', () => {
+    const regle = modifierEspace(TEXTE, { type: 'regler_taches', taches: { base: 'taches', fait: 'statut', terminees: ['Terminé'] } })
+    expect(regle).toContain('terminees: [ Terminé ]')
+    expect(lireEspace(regle).taches).toEqual({ base: 'taches', fait: 'statut', terminees: ['Terminé'] })
+    expect(lireEspace(regle).groupes).toEqual(lireEspace(TEXTE).groupes)
+    expect(lireEspace(modifierEspace(regle, { type: 'regler_taches', taches: null })).taches).toBeUndefined()
+    expect(lireEspace(modifierEspace(regle, { type: 'retirer_base', base: 'clients' })).taches?.base).toBe('taches')
+    expect(lireEspace(modifierEspace(regle, { type: 'retirer_base', base: 'taches' })).taches).toBeUndefined()
+  })
+})
+
 describe('barreLaterale', () => {
   it('écarte les bases absentes du disque et ajoute hors groupe celles non citées', () => {
     expect(barreLaterale(lireEspace(TEXTE), ['projets', 'lectures', 'nouvelle', 'inbox'])).toEqual({

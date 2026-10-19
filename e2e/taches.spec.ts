@@ -67,3 +67,58 @@ test('toutes les tâches : par base et par ligne, filtre À faire, recherche, co
   await liste.locator('.titre-contenu', { hasText: 'Intégration' }).click()
   await expect(page.locator('.titre-page')).toBeVisible()
 })
+
+// Base des tâches (spec §9) : une base dont chaque ligne est une tâche.
+
+test('base des tâches : désignée dans Options, ses lignes en tête, cocher écrit « fait », ajouter crée une ligne', async ({ espace, page }) => {
+  await page.getByRole('button', { name: 'Toutes les tâches' }).click()
+  const liste = page.locator('.toutes-taches')
+  await liste.getByRole('button', { name: 'Options' }).click()
+  await choisir(page.getByRole('button', { name: 'Base des tâches' }), 'Tâches')
+  await expect.poll(() => espace.lire('_espace.yaml')).toContain('taches:\n  base: taches\n  fait: fait\n  echeance: echeance\n')
+  await page.mouse.click(5, 5) // ferme les options
+
+  await expect(liste.locator('h2')).toHaveText(['Tâches', 'Projets'])
+  const base = liste.locator('.base-des-taches')
+  // À faire, par échéance ; les faites (Maquettes, Entretiens, Rapport) sont masquées.
+  await expect(base.locator('.titre-tache')).toHaveText(['Catalogue produits', 'Paiement', 'Recette', 'Cadrage', 'Intégration', 'Mise en ligne'])
+  await expect(base.locator('.tache-ligne', { hasText: 'Catalogue produits' }).locator('.echeance-tache')).toHaveClass(/en-retard/)
+  // Les cases du corps d'une ligne sont ses sous-tâches.
+  await expect(base.locator('.tache-ligne', { hasText: 'Intégration' }).getByRole('checkbox', { name: 'Formulaire de contact' })).toBeVisible()
+
+  await base.getByRole('checkbox', { name: 'Fait : Intégration' }).check()
+  await expect.poll(() => espace.lire(INTEGRATION)).toContain('fait: true')
+  await expect(base.getByRole('checkbox', { name: 'Fait : Intégration' })).toBeChecked() // reste sous le clic
+
+  await base.getByRole('textbox', { name: 'Ajouter une tâche' }).fill('Préparer la démo')
+  await base.getByRole('textbox', { name: 'Ajouter une tâche' }).press('Enter')
+  await expect(base.getByRole('checkbox', { name: 'Fait : Préparer la démo' })).not.toBeChecked()
+  await expect.poll(async () => (await espace.lister('taches')).some((n) => n.startsWith('preparer-la-demo--'))).toBe(true)
+
+  await liste.getByRole('textbox', { name: 'Chercher une tâche' }).fill('formul')
+  await expect(base.locator('.titre-tache')).toHaveText(['Intégration'])
+})
+
+test('base des tâches : l’onglet Tâches d’un projet montre ses tâches liées, puis les cases du texte', async ({ espace, page }) => {
+  await espace.remplacer('_espace.yaml', 'hors_groupe: []\n', 'hors_groupe: []\ntaches:\n  base: taches\n  fait: fait\n  echeance: echeance\n')
+  const relation = '    colonnes: [ titre, priorite, echeance, heures, fait ]\n'
+  await espace.remplacer('projets/_pages/defaut.yaml', relation, `${relation}  - type: taches\n    liees:\n      relation: taches\n`)
+  await espace.retourSurOnglet()
+  await espace.ouvrirPage('Projets', 'Site vitrine')
+  const onglet = page.locator('.onglets-page .onglet', { hasText: 'Tâches' }).last()
+  // Intégration et Mise en ligne, plus Relancer Acme et Formulaire de contact (sous-tâche d'Intégration).
+  await expect(onglet).toContainText('4')
+  await onglet.click()
+  const taches = page.locator('.onglet-taches')
+  await expect(taches.locator('.titre-tache')).toHaveText(['Maquettes', 'Intégration', 'Mise en ligne'])
+  await expect(taches.locator('.titre-contenus')).toHaveText(['Tâches', 'Dans le texte']) // les tâches liées ne reviennent pas en double
+  await expect(taches.getByRole('checkbox', { name: 'Relancer Acme' })).not.toBeChecked()
+
+  await taches.getByRole('textbox', { name: 'Ajouter une tâche' }).first().fill('Nom de domaine')
+  await taches.getByRole('textbox', { name: 'Ajouter une tâche' }).first().press('Enter')
+  await expect(taches.getByRole('checkbox', { name: 'Fait : Nom de domaine' })).toBeVisible()
+  await expect(onglet).toContainText('5')
+  const nom = (await espace.lister('taches')).find((n) => n.startsWith('nom-de-domaine--'))
+  expect(nom).toBeDefined()
+  await expect.poll(() => espace.lire(`taches/${nom}`)).toContain('psite001')
+})

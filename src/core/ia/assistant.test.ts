@@ -58,6 +58,13 @@ describe('contexte envoyé au modèle', () => {
     expect(texte).toContain('c0000001 | Acme | projets: [p0000001, p0000002] ; heures: 10')
   })
 
+  it('dit quelle base sert aux tâches et sa colonne fait', async () => {
+    const { espace } = await ouvrir()
+    expect(decrireEspace(espace.etat(), { aujourdhui: AUJOURDHUI, baseOuverte: null, candidats: [] })).not.toContain('Base des tâches')
+    await espace.reglerTaches({ base: 'taches', fait: 'statut', terminees: ['Terminé'], echeance: 'echeance' })
+    expect(decrireEspace(espace.etat(), { aujourdhui: AUJOURDHUI, baseOuverte: null, candidats: [] })).toContain('Base des tâches : taches, chaque ligne est une tâche ; fait : statut (fait si Terminé) ; échéance : echeance.')
+  })
+
   it('au-delà de 150 lignes : seulement la base ouverte et les lignes proches de la demande', async () => {
     const fichiers = { ...FICHIERS_RELATIONS }
     for (let i = 0; i < 160; i++) fichiers[`taches/t${i}--x${String(i).padStart(7, '0')}.md`] = `---\nid: x${String(i).padStart(7, '0')}\ntitre: Tâche ${i}\n---\n`

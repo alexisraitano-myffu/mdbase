@@ -110,6 +110,11 @@ barre_laterale:
     - nom: Perso
       bases: [lectures]
   hors_groupe: [inbox]
+taches:                       # optionnel : base des tâches (§ Base des tâches)
+  base: taches
+  fait: statut                # checkbox ou select
+  terminees: [Terminé]        # select seulement
+  echeance: echeance          # optionnel
 ```
 
 ### `_schema.yaml`
@@ -499,6 +504,21 @@ mise_en_page: suivi
 - **Onglet Tâches** d'une page, activé par la mise en page (onglet `type: taches`) : les tâches de la page sous le titre de leur section, une saisie « Ajouter une tâche » (écrite sous la dernière tâche du corps, ou à la fin), puis, au choix, les tâches des **lignes liées** (`liees`), au même format que les contenus liés (relation, champs, filtres, tris, `puis` sur 5 niveaux). Une ligne liée sans tâche, ni plus bas, n'apparaît pas. L'onglet affiche le nombre de tâches restantes, lignes liées comprises.
 - **Toutes les tâches** : une entrée de la barre latérale, sous la recherche et l'assistant, ouvre la liste des tâches de toutes les pages de l'espace, par base puis par ligne (le titre ouvre la page). Filtre « À faire » (par défaut) ou « Toutes », et une recherche sur le texte des tâches et le titre des pages. Une tâche cochée là reste affichée jusqu'au départ de la page, pour ne pas disparaître sous le clic.
 - Base synchronisée (§16) ou consultation : les cases se lisent, rien ne se coche.
+
+### Base des tâches [DÉCIDÉ, demandé par Alex le 19/10/2026]
+- Des tâches **hors des textes** : une base de l'espace peut être désignée comme base des tâches. Chacune de ses lignes est une tâche (son titre est le texte de la tâche), avec tout ce qu'une ligne a déjà : champs (échéance, priorité, relation vers un projet), vues, corps, historique. Les cases à cocher des textes restent des tâches comme avant : les deux sources s'additionnent.
+- Clé `taches` de `_espace.yaml`, absente par défaut (rien ne change sans elle) :
+  - `base` : l'identifiant de la base ;
+  - `fait` : la colonne qui dit qu'une tâche est faite, `checkbox` ou `select` ;
+  - `terminees` : pour un `select`, les options qui comptent comme faites (sinon la dernière option). Cocher écrit la première d'entre elles ; décocher écrit la première option qui n'en est pas ;
+  - `echeance` (optionnel) : une colonne `date`, affichée à côté de la tâche (en rouge si passée) et qui la trie.
+  Une clé qui ne désigne rien de valide (base absente, colonne d'un autre type) est ignorée, et les Options de la page le disent.
+- **Toutes les tâches** : la base des tâches vient en premier, ses lignes comme des tâches (case, titre qui ouvre la page, échéance), triées par échéance puis sans échéance ; les cases du corps d'une ligne s'affichent dessous, en sous-tâches. Une ligne faite suit le filtre « À faire » comme une case, avec ses sous-tâches. « Ajouter une tâche » en tête de la liste crée une ligne de la base (le texte saisi devient son titre). Les autres bases suivent comme aujourd'hui.
+- **Onglet Tâches** d'une page d'une autre base : si la base des tâches a une relation vers cette base, l'onglet montre d'abord les lignes liées à la page (même format, même tri), avec une saisie qui crée une ligne déjà liée ; puis les cases du texte, sous « Dans le texte », avec leur saisie habituelle. Les tâches restantes comptent les deux.
+- **Réglage** : un bouton « Options » de la page Toutes les tâches ouvre le choix de la base (ou aucune), puis de la colonne « fait », des options terminées et de l'échéance. Sans base désignée, « Toutes les tâches » propose « Créer une base Tâches » : une base `taches` (identifiant dédoublonné si besoin) avec `titre`, `fait` (`checkbox`), `echeance` (`date`) et `priorite` (`select` Haute, Moyenne, Basse), déjà désignée.
+- Assistant IA et MCP : une ligne de la base des tâches se crée et se modifie avec les outils des lignes ; `decrire_espace` dit quelle base sert aux tâches et sa colonne « fait ».
+- Base synchronisée (§16) ou consultation : les tâches se lisent, rien ne se coche ni ne se crée. Une base Jira peut ainsi servir de base des tâches en lecture.
+- [PLUS TARD] Changer une case d'un texte en ligne de la base des tâches.
 
 ### Exemple `_pages/suivi.yaml`
 

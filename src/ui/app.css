@@ -472,6 +472,17 @@ button:hover { background: var(--survol); }
 .taches-base { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .taches-base h2 { font-size: 0.85em; font-weight: 600; color: var(--texte-doux); margin: 0; padding-bottom: 0.25rem; border-bottom: 1px solid var(--bordure); }
 .vide-taches { display: flex; align-items: center; gap: 8px; }
+.lignes-taches { gap: 2px; }
+.tache-ligne .entete-tache { display: flex; align-items: flex-start; gap: 8px; padding: 3px 6px; border-radius: 6px; line-height: 1.5; }
+.tache-ligne .entete-tache:hover { background: var(--survol-leger); }
+.tache-ligne .entete-tache input { width: 13px; height: 13px; margin: 0; flex: none; translate: 0 0.3em; cursor: pointer; }
+.tache-ligne .entete-tache input:disabled { cursor: default; }
+.titre-tache { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.titre-tache:hover { text-decoration: underline; text-decoration-color: var(--tres-discret-texte); }
+.tache-ligne.faite > .entete-tache .titre-tache { color: var(--discret); text-decoration: line-through; text-decoration-color: var(--tres-discret-texte); }
+.echeance-tache { margin-left: auto; font-size: 0.85em; color: var(--discret); white-space: nowrap; }
+.echeance-tache.en-retard { color: var(--rouge-texte); }
+.tache-ligne .detail-taches { margin-top: 1px; margin-bottom: 4px; }
 
 /* Onglet relation */
 .onglet-relation .tableau { max-height: 60vh; }

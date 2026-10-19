@@ -2,7 +2,7 @@ import { COULEURS } from './couleurs'
 import { chargerBase, type ChargementBase, type LigneChargee } from './base'
 import { calculer, type BaseACalculer, type Calculs } from './calcul'
 import { DepotBase, type OptionsDepot } from './depot-base'
-import { barreLaterale, lireEspace, modifierEspace, ordreDashboards, type ConfigEspace, type Groupe, type OperationEspace, type Theme } from './espace-config'
+import { barreLaterale, lireEspace, modifierEspace, ordreDashboards, type ConfigEspace, type ConfigTaches, type Groupe, type OperationEspace, type Theme } from './espace-config'
 import { listerBases } from './espace'
 import { FichierIntrouvable, joindre, type AdaptateurFichiers } from './fichiers'
 import { cleColonne, idBase } from './identifiants'
@@ -89,6 +89,8 @@ export type EtatEspace = {
   copiesConflit: CopieConflit[]
   /** Thème de `_espace.yaml`, avec le texte du logo SVG s'il a pu être lu. */
   theme: Theme & { logoSvg?: string }
+  /** Base des tâches désignée dans `_espace.yaml`, telle qu'écrite (à résoudre par `resoudreBaseTaches`). */
+  taches?: ConfigTaches
 }
 
 /** `chemin` est une copie de conflit de synchro de `original` (même dossier). */
@@ -327,6 +329,25 @@ export class DepotEspace {
       this.publier()
       return id
     })
+  }
+
+  /** Désigne la base des tâches (spec §9 « Base des tâches »), ou la retire (null). */
+  reglerTaches(taches: ConfigTaches | null): Promise<void> {
+    return this.enFile(() => this.modifierEspace({ type: 'regler_taches', taches }))
+  }
+
+  /**
+   * « Créer une base Tâches » : titre, fait (case), échéance, priorité, et la
+   * base aussitôt désignée comme base des tâches.
+   */
+  async creerBaseTaches(groupe: string | null = null): Promise<string> {
+    const base = await this.creerBase('Tâches', groupe)
+    const fait = await this.ajouterColonne(base, 'Fait', 'checkbox')
+    const echeance = await this.ajouterColonne(base, 'Échéance', 'date')
+    const priorite = await this.ajouterColonne(base, 'Priorité', 'select')
+    for (const label of ['Haute', 'Moyenne', 'Basse']) await this.ajouterOption(base, priorite, label)
+    await this.reglerTaches({ base, fait, echeance })
+    return base
   }
 
   /**
@@ -1622,7 +1643,7 @@ export class DepotEspace {
     this.recherche.synchroniser(aCalculer.values())
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
-    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies, theme: { ...this.config.theme, ...(this.logoSvg && { logoSvg: this.logoSvg }) } }
+    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies, theme: { ...this.config.theme, ...(this.logoSvg && { logoSvg: this.logoSvg }) }, ...(this.config.taches && { taches: this.config.taches }) }
     for (const fn of this.abonnes) fn()
   }
 }
