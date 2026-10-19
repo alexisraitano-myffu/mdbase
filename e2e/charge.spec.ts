@@ -1,4 +1,4 @@
-import { expect, test } from './espace'
+import { choisir, expect, test } from './espace'
 
 // Plan de charge (spec §21) : la grille ressources × semaines du modèle
 // « Planification de charge », une affectation créée en glissant, la couverture des besoins.
@@ -40,8 +40,8 @@ test('grille par rôle, glisser crée une affectation, une case montre ce qui la
   await expect(grille.locator('.projet-charge', { hasText: 'Portail client' }).first()).toBeVisible()
 })
 
-test('par projet : chaque besoin couvert ou ce qui manque', async ({ page }) => {
-  await page.getByRole('tab', { name: 'Par projet' }).click()
+test('besoins : chaque besoin couvert ou ce qui manque', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Besoins' }).click()
   const mobile = page.locator('.projet-couverture', { hasText: 'Application mobile' })
   await expect(mobile.locator('li', { hasText: 'Développement' })).toContainText('il manque 80 j')
   await page.screenshot({ path: 'test-results/plan-de-charge-projets.png' })
@@ -84,4 +84,35 @@ test('graphique : barres empilées par projet, puis par version, filtrées par r
   await page.getByRole('button', { name: 'Rôle' }).click()
   await page.getByRole('option', { name: 'Design', exact: true }).click()
   await expect(legende).not.toContainText('Portail v1')
+})
+
+test('à la journée : ramener une ressource à 0,5 j un seul jour coupe son affectation autour', async ({ espace, page }) => {
+  await page.getByRole('radio', { name: 'Jour' }).click()
+  const camille = page.locator('.grille-charge .ressource-charge', { hasText: 'Camille' })
+  await expect(camille.locator('.case-charge').nth(0)).toHaveText('1')
+  const avant = (await espace.lister('affectations')).length
+  await camille.locator('.case-charge').nth(0).click()
+  await expect(page.getByRole('radio', { name: 'Ce jour' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('spinbutton', { name: 'Jours ce jour' }).fill('0.5')
+  await page.keyboard.press('Enter')
+  await expect(camille.locator('.case-charge').nth(0)).toHaveText('0,5')
+  await expect(camille.locator('.case-charge').nth(1)).toHaveText('1')
+  await expect.poll(async () => (await espace.lister('affectations')).length).toBeGreaterThan(avant)
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'test-results/plan-de-charge-ajuster.png' })
+  // Une seule étape : Ctrl+Z rend l'affectation d'origine.
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(camille.locator('.case-charge').nth(0)).toHaveText('1')
+  await expect.poll(async () => (await espace.lister('affectations')).length).toBe(avant)
+})
+
+test('grouper par projet puis par version : chaque ressource sous ce sur quoi elle travaille', async ({ espace, page }) => {
+  await choisir(page.getByRole('button', { name: 'Grouper par' }), 'Par projet')
+  await expect.poll(() => espace.lire('ressources/_vues/charge.yaml')).toContain('regrouper: projet')
+  const grille = page.locator('.grille-charge')
+  await expect(grille.locator('.groupe-charge', { hasText: 'Portail client' })).toBeVisible()
+  await page.screenshot({ path: 'test-results/plan-de-charge-par-projet.png' })
+  await choisir(page.getByRole('button', { name: 'Grouper par' }), 'Par version')
+  await expect(grille.locator('.groupe-charge', { hasText: 'Portail client · Portail v1' })).toBeVisible()
 })

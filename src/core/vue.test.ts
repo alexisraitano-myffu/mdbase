@@ -261,3 +261,12 @@ describe('bandes de la timeline', () => {
     expect(lu.avertissements).toEqual(['Vue v : bande ignorée (base manquante)'])
   })
 })
+
+describe('plan de charge', () => {
+  it('maille, périodes et regroupement se relisent ; une valeur inconnue est ignorée', () => {
+    const vue = lireVue('type: charge\nmaille: jour\nperiodes: 40\nregrouper: version\n', 'v').vue!
+    expect(vue).toMatchObject({ maille: 'jour', periodes: 40, regrouper: 'version' })
+    expect(modifierVue('type: charge\n', vue, { regrouper: 'projet' })).toContain('regrouper: projet\n')
+    expect(lireVue('type: charge\nregrouper: client\n', 'v').vue!.regrouper).toBeUndefined()
+  })
+})

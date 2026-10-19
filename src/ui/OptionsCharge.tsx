@@ -1,4 +1,4 @@
-import { PERIODES_PAR_DEFAUT, type Maille } from '../core/charge'
+import { nomNiveau, PERIODES_PAR_DEFAUT, type Maille } from '../core/charge'
 import type { Colonne, Schema } from '../core/schema'
 import type { ModificationVue, Vue } from '../core/vue'
 import { Choix, type EntreeChoix } from './Choix'
@@ -23,12 +23,12 @@ const relationVers = (cible: string | undefined) => (c: Colonne) => c.type === '
 const CHAMPS: Record<Lien, Champ[]> = {
   affectations: [
     { cle: 'ressource', libelle: 'Ressource', garde: (c, x) => relationVers(x.ressources)(c) },
-    { cle: 'projet', libelle: 'Projet', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources },
+    { cle: 'projet', libelle: 'Projet (ou programme…)', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources },
     { cle: 'debut', libelle: 'Début', garde: date },
     { cle: 'fin', libelle: 'Fin', garde: date },
     { cle: 'jours', libelle: 'Jours par semaine', garde: (c) => c.type === 'number' },
     { cle: 'total', libelle: 'Jours au total', garde: (c) => c.type === 'number', facultatif: 'aucune (par semaine seulement)' },
-    { cle: 'version', libelle: 'Version', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources && c.cible !== x.projets, facultatif: 'aucune' },
+    { cle: 'version', libelle: 'Version (ou étape…)', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources && c.cible !== x.projets, facultatif: 'aucune' },
   ],
   absences: [
     { cle: 'ressource', libelle: 'Ressource', garde: (c, x) => relationVers(x.ressources)(c) },
@@ -61,6 +61,11 @@ export function OptionsCharge({ schema, vue, modifier }: { schema: Schema; vue: 
     return c?.type === 'relation' ? c.cible : undefined
   })()
   const ctx = { ressources: schema.id, ...(projets && { projets }) }
+  const versions = (() => {
+    const a = vue.affectations
+    const c = a?.version ? etat.bases.get(a.base)?.depot?.schema.colonnes.find((x) => x.cle === a.version) : undefined
+    return c?.type === 'relation' ? c.cible : undefined
+  })()
   const maille: Maille = vue.maille ?? 'semaine'
   const choixProjets = projets ? (etat.bases.get(projets)?.depot?.schema.colonnes.filter((c) => c.type === 'select') ?? []) : []
 
@@ -101,13 +106,25 @@ export function OptionsCharge({ schema, vue, modifier }: { schema: Schema; vue: 
             changer={(v) => modifier({ capacite: v || undefined })}
           />
         </Reglage>
-        <Reglage libelle="Grouper par (rôle)">
+        <Reglage libelle="Rôle">
           <Choix
             valeur={vue.groupe ?? ''}
-            entrees={[{ valeur: '', libelle: 'aucun groupement' }, ...entreesColonnes(choix)]}
-            libelle="Grouper par"
+            entrees={[{ valeur: '', libelle: 'aucun' }, ...entreesColonnes(choix)]}
+            libelle="Rôle"
             inconnue={`${vue.groupe} (disparue)`}
             changer={(v) => modifier({ groupe: v || undefined })}
+          />
+        </Reglage>
+        <Reglage libelle="Grouper les lignes par">
+          <Choix
+            valeur={vue.regrouper ?? ''}
+            entrees={[
+              { valeur: '', libelle: 'rôle' },
+              { valeur: 'projet', libelle: nomNiveau(projets && etat.bases.get(projets)?.depot?.schema.nom, 'projet') },
+              ...(vue.affectations?.version ? [{ valeur: 'version', libelle: nomNiveau(versions && etat.bases.get(versions)?.depot?.schema.nom, 'version') }] : []),
+            ]}
+            libelle="Grouper les lignes par"
+            changer={(v) => modifier({ regrouper: v === 'projet' || v === 'version' ? v : undefined })}
           />
         </Reglage>
         <Reglage libelle="Maille">

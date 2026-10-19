@@ -191,6 +191,8 @@ export type CaseCharge = {
   parVersion: Record<string, number>
   /** Affectations qui composent la case. */
   affectations: string[]
+  /** Charge de chaque affectation dans la case, en jours. */
+  parAffectation: Record<string, number>
 }
 
 export type EtatCase = 'vide' | 'libre' | 'pleine' | 'surchargee' | 'absente' | 'fermee'
@@ -256,7 +258,7 @@ export function calculerCharge(
       colonnes.map((periode, i) => {
         const jours = ouvres[i]!
         const absence = jours.filter((j) => plagesAbsence.some((p) => j >= p.debut && j <= p.fin)).length
-        const c: CaseCharge = { ...periode, ouvres: jours.length, absence, capacite: (cap * (jours.length - absence)) / 5, charge: 0, parProjet: {}, parVersion: {}, affectations: [] }
+        const c: CaseCharge = { ...periode, ouvres: jours.length, absence, capacite: (cap * (jours.length - absence)) / 5, charge: 0, parProjet: {}, parVersion: {}, affectations: [], parAffectation: {} }
         for (const aff of parRessource.get(res.id) ?? []) {
           const couverts = jours.filter((j) => j >= aff.debut && j <= aff.fin).length
           if (couverts === 0) continue
@@ -268,6 +270,7 @@ export function calculerCharge(
             c.parVersion[cle] = (c.parVersion[cle] ?? 0) + part
           }
           c.affectations.push(aff.id)
+          c.parAffectation[aff.id] = part
         }
         return c
       }),
@@ -333,6 +336,51 @@ export function couvrirBesoins(r: ReglagesCharge, ressources: readonly LigneChar
     }
     return { besoin: besoin.id, projet, role, avant, demandes: nombre(besoin, bs.jours) ?? 0, affectes: Math.round(affectes * 100) / 100 }
   })
+}
+
+/** Un morceau d'affectation : sa plage et sa charge, en jours par semaine ou au total. */
+export type Morceau = { debut: string; fin: string; jours?: number; total?: number }
+
+const auCentieme = (n: number) => Math.round(n * 100) / 100
+
+/**
+ * Ramène une affectation à `valeur` jours sur une période (« Camille à 0,5 j
+ * ce lundi ») : elle est coupée en morceaux avant, pendant et après, dans cet
+ * ordre ; avant et après gardent leur charge par jour, le morceau du milieu
+ * prend `valeur` (au total si la base a une colonne de total, sinon en jours
+ * par semaine). À 0, le milieu disparaît. Un morceau sans jour ouvré est
+ * omis. Liste vide : l'affectation n'a plus lieu d'être. `null` si la période
+ * ne touche pas l'affectation ou n'a aucun jour ouvré.
+ */
+export function ajusterSurPeriode(r: ReglagesCharge, aff: LigneChargee, p: Periode, valeur: number): Morceau[] | null {
+  const a = r.affectations
+  if (!a) return null
+  const feries = r.feries ?? 'france'
+  const pl = plage(aff, a.debut, a.fin)
+  if (!pl || pl.fin < p.debut || pl.debut > p.fin) return null
+  const milieu = { debut: pl.debut > p.debut ? pl.debut : p.debut, fin: pl.fin < p.fin ? pl.fin : p.fin }
+  const nMilieu = ouvresDe(milieu, feries).length
+  if (nMilieu === 0) return null
+  const total = nombre(aff, a.total)
+  const auTotal = total !== null && total > 0
+  const parJour = auTotal ? total / Math.max(1, ouvresDe(pl, feries).length) : (nombre(aff, a.jours) ?? 0) / 5
+  const bord = (debut: string, fin: string): Morceau[] => {
+    const n = ouvresDe({ debut, fin }, feries).length
+    if (n === 0) return []
+    return [auTotal ? { debut, fin, total: auCentieme(parJour * n) } : { debut, fin, jours: nombre(aff, a.jours) ?? 0 }]
+  }
+  const morceaux: Morceau[] = []
+  if (pl.debut < milieu.debut) morceaux.push(...bord(pl.debut, decaler(milieu.debut, -1)))
+  if (valeur > 0) morceaux.push(a.total ? { ...milieu, total: auCentieme(valeur) } : { ...milieu, jours: auCentieme((valeur * 5) / nMilieu) })
+  if (milieu.fin < pl.fin) morceaux.push(...bord(decaler(milieu.fin, 1), pl.fin))
+  return morceaux
+}
+
+/** Nom d'un niveau tiré du nom de sa base, au singulier : « Programmes » → « programme ». */
+export function nomNiveau(nom: string | undefined, defaut: string): string {
+  const n = (nom ?? '').trim().toLowerCase()
+  if (!n) return defaut
+  return n.endsWith('s') && !n.endsWith('ss') ? n.slice(0, -1) : n
 }
 
 /** Jours arrondis au demi-jour, pour l'affichage (« 3,5 »). */

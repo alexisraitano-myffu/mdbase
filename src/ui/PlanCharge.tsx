@@ -2,6 +2,8 @@ import { Fragment, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { LigneChargee } from '../core/base'
 import {
+  ajusterSurPeriode,
+  nomNiveau,
   arrondiJours,
   calculerCharge,
   capaciteDe,
@@ -80,6 +82,7 @@ function bandeau(maille: Maille, colonnes: Periode[]): { libelle: string; n: num
   return bandes
 }
 
+
 /** Mélange de deux couleurs `#rrggbb` : `t` = 0 donne `a`, 1 donne `b`. */
 function melange(a: string, b: string, t: number): string {
   const canal = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16)
@@ -87,7 +90,8 @@ function melange(a: string, b: string, t: number): string {
 }
 
 /** Glisser sur les cases d'une ligne : la ressource et les périodes choisies. */
-type Selection = { ressource: string; de: number; a: number }
+type Selection = { ressource: string; de: number; a: number; bloc?: string; projet?: string; version?: string }
+type Regrouper = 'role' | 'projet' | 'version'
 
 export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPage }: Props) {
   const { etat } = useEspace()
@@ -95,10 +99,12 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   const lancer = useLancer()
   const aujourdhui = useAujourdhui()
   const [mailleLocale, setMailleLocale] = useState<Maille | null>(null)
+  const [regrouperLocal, setRegrouperLocal] = useState<Regrouper | null>(null)
   const [curseur, setCurseur] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>('ressources')
   const [ouvertes, setOuvertes] = useState<ReadonlySet<string>>(new Set())
-  const [detail, setDetail] = useState<{ ancre: HTMLElement; ressource: string; c: CaseCharge } | null>(null)
+  const [detail, setDetail] = useState<{ ancre: HTMLElement; ressource: string; i: number; bloc?: { projet?: string; version?: string; cle: string } } | null>(null)
+  const [portee, setPortee] = useState<'periode' | 'tout'>('periode')
   const [selection, setSelection] = useState<Selection | null>(null)
   const [choixProjet, setChoixProjet] = useState<{ ancre: HTMLElement; s: Selection } | null>(null)
   const glisse = useRef(false)
@@ -125,7 +131,9 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   }
   const baseProjets = cible(schemaAff, r.affectations?.projet)
   const baseVersions = cible(schemaAff, r.affectations?.version)
-  const titre = (b: string | undefined, id: string) => (b && etat.titres.get(b)?.get(id)) || id || 'Sans projet'
+  const nomProjet = nomNiveau(baseProjets ? etat.bases.get(baseProjets)?.depot?.schema.nom : undefined, 'projet')
+  const nomVersion = nomNiveau(baseVersions ? etat.bases.get(baseVersions)?.depot?.schema.nom : undefined, 'version')
+  const titre = (b: string | undefined, id: string) => (b && etat.titres.get(b)?.get(id)) || id || `Sans ${nomProjet}`
   const projets = lignesDe(baseProjets)
   const versions = lignesDe(baseVersions)
   const schemaVersions = baseVersions ? etat.bases.get(baseVersions)?.depot?.schema : undefined
@@ -137,6 +145,13 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
     return d ? [{ id: v.id, date: d }] : []
   })
 
+  const projetDeVersion = (v: string) => {
+    if (v.startsWith('@')) return v.slice(1)
+    const l = versions.find((x) => x.id === v)
+    const c = l && colProjetVersion && l.cellules[colProjetVersion.cle]
+    const valeur = c?.etat === 'ok' ? c.valeur : undefined
+    return Array.isArray(valeur) ? String(valeur[0] ?? '') : typeof valeur === 'string' ? valeur : ''
+  }
   if (!r.affectations || !schemaAff) {
     return <p className="discret">Choisis la base des affectations dans « Options » : qui travaille sur quel projet, de quand à quand, combien de jours par semaine ou au total.</p>
   }
@@ -154,6 +169,40 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
     return rang(a) - rang(b) || a.localeCompare(b)
   })
 
+  // Lignes de la grille : par rôle (ressources et leur charge totale), ou par projet / version (ressources et leur part).
+  const regrouper: Regrouper = regrouperLocal ?? (r.affectations.version || vue.regrouper !== 'version' ? (vue.regrouper ?? 'role') : 'role')
+  type Bloc = { cle: string; libelle: string | null; ressources: LigneChargee[]; part: ((c: CaseCharge) => number) | null; projet?: string; version?: string }
+  const blocs: Bloc[] = (() => {
+    if (regrouper === 'role') return cles.map((g) => ({ cle: g, libelle: colGroupe ? (g === SANS_GROUPE ? 'Sans valeur' : g) : null, ressources: groupes.get(g)!, part: null }))
+    const champ = regrouper === 'projet' ? 'parProjet' : 'parVersion'
+    const presentes = new Set(ressources.flatMap((l) => charge.get(l.id)!.flatMap((c) => Object.keys(c[champ]))))
+    const ordre = regrouper === 'projet' ? [...projets.map((x) => x.id), ''] : [...versions.map((x) => x.id), ...projets.map((x) => `@${x.id}`), '@']
+    const rang = (k: string) => (ordre.indexOf(k) === -1 ? 1e9 : ordre.indexOf(k))
+    return [...presentes]
+      .sort((a, b) => rang(a) - rang(b))
+      .map((k) => {
+        const projet = regrouper === 'projet' ? k : projetDeVersion(k)
+        const libelle =
+          regrouper === 'projet' ? titre(baseProjets, k) : k.startsWith('@') ? `${titre(baseProjets, k.slice(1))} (sans ${nomVersion})` : `${titre(baseProjets, projet)} · ${titre(baseVersions, k)}`
+        return {
+          cle: k,
+          libelle,
+          ressources: ressources.filter((l) => charge.get(l.id)!.some((c) => (c[champ][k] ?? 0) > 0)),
+          part: (c: CaseCharge) => c[champ][k] ?? 0,
+          projet: projet || undefined,
+          version: regrouper === 'version' && !k.startsWith('@') ? k : undefined,
+        }
+      })
+  })()
+  const changerRegrouper = (g: Regrouper) => {
+    setOuvertes(new Set())
+    if (lecture) setRegrouperLocal(g)
+    else {
+      setRegrouperLocal(null)
+      modifierVue({ regrouper: g === 'role' ? undefined : g })
+    }
+  }
+
   const changerMaille = (m: Maille) => {
     setCurseur(null)
     setSelection(null)
@@ -165,10 +214,15 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   }
   const basculer = (id: string) => setOuvertes((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])))
 
+  /** Fin d'un glisser ou clic sur une case libre : dans un bloc de projet, l'affectation se crée aussitôt ; sinon on choisit le projet. */
+  const finirChoix = (ancre: HTMLElement, s: Selection) => {
+    if (s.projet !== undefined) void creerAffectation(s, s.projet)
+    else setChoixProjet({ ancre, s })
+  }
   const finirGlisse = (ancre: HTMLElement) => {
     if (!glisse.current || !selection) return
     glisse.current = false
-    setChoixProjet({ ancre, s: selection })
+    finirChoix(ancre, selection)
   }
 
   /** Nouvelle affectation sur les périodes choisies : au total à la journée (si la base le permet), sinon en jours par semaine, sur ce qui reste libre. */
@@ -190,6 +244,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
         [schemaAff.champTitre]: `${titre(base, s.ressource)} sur ${titre(baseProjets, projet)}`,
         [a.ressource]: [s.ressource],
         [a.projet]: [projet],
+        ...(s.version && a.version ? { [a.version]: [s.version] } : {}),
         [a.debut]: colonnes[de]!.debut,
         [a.fin]: colonnes[jusqua]!.fin,
         ...valeurs,
@@ -197,7 +252,20 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
     )
   }
 
-  const dansSelection = (ressource: string, i: number) => selection?.ressource === ressource && i >= Math.min(selection.de, selection.a) && i <= Math.max(selection.de, selection.a)
+  const dansSelection = (ressource: string, i: number, bloc: string) =>
+    selection?.ressource === ressource && selection.bloc === bloc && i >= Math.min(selection.de, selection.a) && i <= Math.max(selection.de, selection.a)
+  /** Une affectation appartient au bloc (projet ou version) de la ligne. */
+  const dansBloc = (id: string, bloc: { cle: string; projet?: string; version?: string }) => {
+    const l = affectations.find((x) => x.id === id)
+    if (!l) return false
+    const lu = (cle: string | undefined) => {
+      const c = cle ? l.cellules[cle] : undefined
+      const v = c?.etat === 'ok' ? c.valeur : undefined
+      return Array.isArray(v) ? String(v[0] ?? '') : typeof v === 'string' ? v : ''
+    }
+    if (regrouper === 'projet') return lu(r.affectations!.projet) === bloc.cle
+    return bloc.cle.startsWith('@') ? lu(r.affectations!.version) === '' && lu(r.affectations!.projet) === bloc.cle.slice(1) : lu(r.affectations!.version) === bloc.cle
+  }
   const jalonsDe = (p: Periode) => jalons.filter((j) => j.date >= p.debut && j.date <= p.fin)
 
   // Couleurs : l'option de `couleur_par` (colonne des projets), sinon la palette dans l'ordre des projets ; les versions en nuances.
@@ -209,13 +277,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
     const parOption = schemaProjets && vue.couleurPar ? couleurDeLigne(l, schemaProjets, { couleurPar: vue.couleurPar }) : undefined
     return couleurOption(parOption ?? PALETTE[projets.indexOf(l) % PALETTE.length])
   }
-  const projetDeVersion = (v: string) => {
-    if (v.startsWith('@')) return v.slice(1)
-    const l = versions.find((x) => x.id === v)
-    const c = l && colProjetVersion && l.cellules[colProjetVersion.cle]
-    const valeur = c?.etat === 'ok' ? c.valeur : undefined
-    return Array.isArray(valeur) ? String(valeur[0] ?? '') : typeof valeur === 'string' ? valeur : ''
-  }
+
 
   return (
     <div className="plan-charge">
@@ -224,7 +286,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
           {(
             [
               ['ressources', 'Par ressource'],
-              ['projets', 'Par projet'],
+              ['projets', 'Besoins'],
               ['graphique', 'Graphique'],
             ] as const
           ).map(([m, nom]) => (
@@ -242,6 +304,18 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
                 </button>
               ))}
             </div>
+            {mode === 'ressources' && (
+              <Choix
+                valeur={regrouper}
+                entrees={[
+                  { valeur: 'role', libelle: colGroupe ? `Par ${colGroupe.nom.toLowerCase()}` : 'Sans groupe' },
+                  { valeur: 'projet', libelle: `Par ${nomProjet}` },
+                  ...(r.affectations.version ? [{ valeur: 'version', libelle: `Par ${nomVersion}` }] : []),
+                ]}
+                libelle="Grouper par"
+                changer={(v) => changerRegrouper(v as Regrouper)}
+              />
+            )}
             <div className="navigation-charge">
               <button className="discret" aria-label="Périodes précédentes" onClick={() => setCurseur(decalerPeriode(maille, depart, -PAS[maille]))}>
                 <Icone de={ChevronLeft} />
@@ -292,88 +366,93 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
               </tr>
             </thead>
             <tbody>
-              {cles.map((g) => {
-                const lignes = groupes.get(g)!
-                return (
-                  <Fragment key={g}>
-                    {colGroupe && (
-                      <tr className="groupe-charge">
-                        <th className="nom-charge">
-                          {g === SANS_GROUPE ? 'Sans valeur' : g}
-                          <span className="discret"> {lignes.length}</span>
-                        </th>
-                        {colonnes.map((p, i) => {
-                          const cases = lignes.map((res) => charge.get(res.id)![i]!)
-                          const total = cases.reduce((s, c) => s + c.charge, 0)
-                          const cap = cases.reduce((s, c) => s + c.capacite, 0)
-                          return (
-                            <td key={p.debut} className="total-charge">
-                              {total > 0 ? `${fmt(total)} / ${fmt(cap)}` : ''}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    )}
-                    {lignes.map((res) => {
-                      const cases = charge.get(res.id)!
-                      const ouverte = ouvertes.has(res.id)
-                      const projetsDeLaLigne = [...new Set(cases.flatMap((c) => Object.keys(c.parProjet)))]
-                      return (
-                        <Fragment key={res.id}>
-                          <tr className="ressource-charge">
-                            <th className="nom-charge">
-                              <button className="discret deplier-charge" aria-label={ouverte ? 'Replier' : 'Déplier par projet'} aria-expanded={ouverte} disabled={projetsDeLaLigne.length === 0} onClick={() => basculer(res.id)}>
-                                <Icone de={ChevronRight} className={ouverte ? 'tourne' : ''} />
+              {blocs.map((bloc) => (
+                <Fragment key={bloc.cle}>
+                  {bloc.libelle !== null && (
+                    <tr className="groupe-charge">
+                      <th className="nom-charge">
+                        {bloc.libelle}
+                        <span className="discret"> {bloc.ressources.length}</span>
+                      </th>
+                      {colonnes.map((p, i) => {
+                        const cases = bloc.ressources.map((res) => charge.get(res.id)![i]!)
+                        const total = cases.reduce((s, c) => s + (bloc.part ? bloc.part(c) : c.charge), 0)
+                        const cap = cases.reduce((s, c) => s + c.capacite, 0)
+                        return (
+                          <td key={p.debut} className="total-charge">
+                            {total > 0 ? (bloc.part ? fmt(total) : `${fmt(total)} / ${fmt(cap)}`) : ''}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )}
+                  {bloc.ressources.map((res) => {
+                    const cases = charge.get(res.id)!
+                    const cleLigne = `${bloc.cle}\u0000${res.id}`
+                    const ouverte = ouvertes.has(cleLigne)
+                    const projetsDeLaLigne = bloc.part ? [] : [...new Set(cases.flatMap((c) => Object.keys(c.parProjet)))]
+                    return (
+                      <Fragment key={res.id}>
+                        <tr className="ressource-charge">
+                          <th className="nom-charge">
+                            {!bloc.part && (
+                              <button className="discret deplier-charge" aria-label={ouverte ? 'Replier' : `Déplier par ${nomProjet}`} aria-expanded={ouverte} disabled={projetsDeLaLigne.length === 0} onClick={() => basculer(cleLigne)}>
+                                <Icone de={ChevronRight} className={ouverte ? 'deplie' : ''} />
                               </button>
-                              <button className="lien-charge" onClick={() => ouvrirPage(base, res.id)}>
-                                {titre(base, res.id)}
-                              </button>
-                            </th>
-                            {cases.map((c, i) => {
-                              const e = etatCase(c)
-                              return (
-                                <td
-                                  key={c.debut}
-                                  className={`case-charge charge-${e} ${dansSelection(res.id, i) ? 'selection' : ''}`}
-                                  title={e === 'fermee' ? 'Jour férié' : `${fmt(c.charge)} j sur ${fmt(c.capacite)} j${c.absence ? `, ${c.absence} j d’absence` : ''}`}
-                                  onPointerDown={(ev) => {
-                                    if (lecture || ev.button !== 0) return
-                                    glisse.current = true
-                                    setSelection({ ressource: res.id, de: i, a: i })
-                                  }}
-                                  onPointerEnter={() => glisse.current && selection?.ressource === res.id && setSelection({ ...selection, a: i })}
-                                  onPointerUp={(ev) => {
-                                    const s = selection
-                                    if (glisse.current && s && s.de === s.a) {
-                                      glisse.current = false
-                                      setSelection(null)
-                                      if (c.affectations.length > 0) setDetail({ ancre: ev.currentTarget, ressource: res.id, c })
-                                      else if (!lecture && e !== 'fermee') setChoixProjet({ ancre: ev.currentTarget, s })
-                                      return
-                                    }
-                                    finirGlisse(ev.currentTarget)
-                                  }}
-                                >
-                                  {e === 'absente' || e === 'vide' || e === 'fermee' ? '' : maille === 'jour' ? fmt(c.charge) : `${fmt(c.charge)} / ${fmt(c.capacite)}`}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                          {ouverte &&
-                            projetsDeLaLigne.map((p) => (
-                              <tr key={p} className="projet-charge">
-                                <th className="nom-charge">{titre(baseProjets, p)}</th>
-                                {cases.map((c) => (
-                                  <td key={c.debut}>{c.parProjet[p] ? fmt(c.parProjet[p]) : ''}</td>
-                                ))}
-                              </tr>
-                            ))}
-                        </Fragment>
-                      )
-                    })}
-                  </Fragment>
-                )
-              })}
+                            )}
+                            <button className="lien-charge" onClick={() => ouvrirPage(base, res.id)}>
+                              {titre(base, res.id)}
+                            </button>
+                          </th>
+                          {cases.map((c, i) => {
+                            const e = etatCase(c)
+                            const part = bloc.part ? bloc.part(c) : c.charge
+                            const visible = !(e === 'absente' || e === 'vide' || e === 'fermee') && part > 0
+                            return (
+                              <td
+                                key={c.debut}
+                                className={`case-charge charge-${e} ${bloc.part && part === 0 ? 'hors-bloc' : ''} ${dansSelection(res.id, i, bloc.cle) ? 'selection' : ''}`}
+                                title={e === 'fermee' ? 'Jour férié' : `${bloc.part ? `${fmt(part)} j ici, ` : ''}${fmt(c.charge)} j sur ${fmt(c.capacite)} j${c.absence ? `, ${c.absence} j d’absence` : ''}`}
+                                onPointerDown={(ev) => {
+                                  if (lecture || ev.button !== 0) return
+                                  glisse.current = true
+                                  setSelection({ ressource: res.id, de: i, a: i, bloc: bloc.cle, projet: bloc.projet, version: bloc.version })
+                                }}
+                                onPointerEnter={() => glisse.current && selection?.ressource === res.id && selection.bloc === bloc.cle && setSelection({ ...selection, a: i })}
+                                onPointerUp={(ev) => {
+                                  const s = selection
+                                  if (glisse.current && s && s.de === s.a) {
+                                    glisse.current = false
+                                    setSelection(null)
+                                    const dansLeBloc = c.affectations.filter((id) => !bloc.part || dansBloc(id, bloc))
+                                    if (dansLeBloc.length > 0) {
+                                      setPortee('periode')
+                                      setDetail({ ancre: ev.currentTarget, ressource: res.id, i, bloc: bloc.part ? bloc : undefined })
+                                    } else if (!lecture && e !== 'fermee') finirChoix(ev.currentTarget, s)
+                                    return
+                                  }
+                                  finirGlisse(ev.currentTarget)
+                                }}
+                              >
+                                {!visible ? '' : maille === 'jour' || bloc.part ? fmt(part) : `${fmt(c.charge)} / ${fmt(c.capacite)}`}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                        {ouverte &&
+                          projetsDeLaLigne.map((p) => (
+                            <tr key={p} className="projet-charge">
+                              <th className="nom-charge">{titre(baseProjets, p)}</th>
+                              {cases.map((c) => (
+                                <td key={c.debut}>{c.parProjet[p] ? fmt(c.parProjet[p]) : ''}</td>
+                              ))}
+                            </tr>
+                          ))}
+                      </Fragment>
+                    )
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </table>
           {!lecture && <p className="discret aide-charge">Glisse sur les {maille === 'jour' ? 'jours' : maille === 'mois' ? 'mois' : 'semaines'} d’une ressource pour l’affecter à un projet ; clique une case pour voir ce qui la compose.</p>}
@@ -402,63 +481,111 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
             const rang = soeurs.findIndex((v) => v.id === cle)
             return melange(c.fond, c.texte, 0.12 + (0.5 * Math.max(0, rang)) / Math.max(1, soeurs.length - 1 || 1))
           }}
-          nom={(cle, par) => (par === 'projet' ? titre(baseProjets, cle) : cle.startsWith('@') ? `${titre(baseProjets, cle.slice(1))} (sans version)` : titre(baseVersions, cle))}
+          nom={(cle, par) => (par === 'projet' ? titre(baseProjets, cle) : cle.startsWith('@') ? `${titre(baseProjets, cle.slice(1))} (sans ${nomVersion})` : titre(baseVersions, cle))}
+          niveauProjet={nomProjet}
+          niveauVersion={nomVersion}
           jalons={jalonsDe}
           nomVersion={(id) => titre(baseVersions, id)}
           aujourdhui={aujourdhui}
         />
       )}
 
-      {detail && (
-        <Flottant ancre={detail.ancre} fermer={() => setDetail(null)}>
-          <div className="detail-charge">
-            <div className="discret">
-              {titre(base, detail.ressource)}, {maille === 'semaine' ? `semaine du ${libelleJour(detail.c.debut)}` : maille === 'mois' ? libellePeriode('mois', detail.c) : libelleJour(detail.c.debut)} : {fmt(detail.c.charge)} j sur{' '}
-              {fmt(detail.c.capacite)} j
-            </div>
-            {detail.c.affectations.map((id) => {
-              const l = affectations.find((x) => x.id === id)
-              const a = r.affectations!
-              const auTotal = a.total !== undefined && l?.cellules[a.total]?.etat === 'ok'
-              const cle = auTotal ? a.total! : a.jours
-              const cellule = l?.cellules[cle]
-              const unite = auTotal ? 'j au total' : 'j / sem.'
-              return (
-                <div key={id} className="affectation-charge">
-                  <button
-                    className="lien-charge"
-                    onClick={() => {
-                      setDetail(null)
-                      ouvrirPage(a.base, id)
-                    }}
-                  >
-                    {titre(a.base, id)}
-                  </button>
-                  {!lecture && l ? (
-                    <label className="jours-charge">
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        aria-label={auTotal ? 'Jours au total' : 'Jours par semaine'}
-                        defaultValue={cellule?.etat === 'ok' ? String(cellule.valeur) : ''}
-                        onBlur={(e) => {
-                          const v = e.target.value === '' ? undefined : Number(e.target.value)
-                          if (v === undefined || Number.isFinite(v)) void lancer(espace.modifierLignes(a.base, [l.chemin], cle, v))
-                        }}
-                        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                      />
-                      {unite}
-                    </label>
-                  ) : (
-                    <span className="discret">{cellule?.etat === 'ok' ? `${String(cellule.valeur)} ${unite}` : ''}</span>
-                  )}
+      {detail &&
+        (() => {
+          const c = charge.get(detail.ressource)?.[detail.i]
+          if (!c) return null
+          const a = r.affectations!
+          const ici = maille === 'semaine' ? 'cette semaine' : maille === 'mois' ? 'ce mois' : 'ce jour'
+          const ids = c.affectations.filter((id) => !detail.bloc || dansBloc(id, detail.bloc))
+          const lignesCase = ids.flatMap((id) => affectations.find((x) => x.id === id) ?? [])
+          // Une affectation qui déborde de la case : la valeur vaut pour la case seule (elle est coupée autour) ou pour toute l'affectation.
+          const deborde = lignesCase.some((l) => {
+            const d = l.cellules[a.debut]
+            const f = l.cellules[a.fin] ?? d
+            const debut = d?.etat === 'ok' ? jourDe(d.valeur) : null
+            const fin = f?.etat === 'ok' ? jourDe(f.valeur) : debut
+            return (debut !== null && debut < c.debut) || (fin !== null && fin > c.fin)
+          })
+          const surLaCase = portee === 'periode' && deborde
+          const ajuster = (l: LigneChargee, v: number) => {
+            const morceaux = ajusterSurPeriode(r, l, c, v)
+            if (!morceaux) return
+            const valeurs = morceaux.map((m) => ({
+              [a.debut]: m.debut,
+              [a.fin]: m.fin,
+              ...(m.total !== undefined ? { [a.total!]: m.total, [a.jours]: undefined } : { [a.jours]: m.jours, ...(a.total ? { [a.total]: undefined } : {}) }),
+            }))
+            void lancer(espace.decouperLigne(a.base, l.chemin, valeurs))
+          }
+          return (
+            <Flottant ancre={detail.ancre} fermer={() => setDetail(null)}>
+              <div className="detail-charge">
+                <div className="discret">
+                  {titre(base, detail.ressource)}, {maille === 'semaine' ? `semaine du ${libelleJour(c.debut)}` : maille === 'mois' ? libellePeriode('mois', c) : libelleJour(c.debut)} : {fmt(c.charge)} j sur {fmt(c.capacite)} j
                 </div>
-              )
-            })}
-          </div>
-        </Flottant>
-      )}
+                {!lecture && deborde && (
+                  <div className="bascule-charge portee-charge" role="radiogroup" aria-label="Appliquer à">
+                    {(
+                      [
+                        ['periode', ici.charAt(0).toUpperCase() + ici.slice(1)],
+                        ['tout', 'Toute l’affectation'],
+                      ] as const
+                    ).map(([p, nom]) => (
+                      <button key={p} role="radio" aria-checked={portee === p} className={portee === p ? 'actif' : ''} onClick={() => setPortee(p)}>
+                        {nom}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {ids.map((id) => {
+                  const l = affectations.find((x) => x.id === id)
+                  const auTotal = a.total !== undefined && l?.cellules[a.total]?.etat === 'ok'
+                  const cle = auTotal ? a.total! : a.jours
+                  const cellule = l?.cellules[cle]
+                  const valeur = surLaCase ? String(Math.round((c.parAffectation[id] ?? 0) * 100) / 100) : cellule?.etat === 'ok' ? String(cellule.valeur) : ''
+                  const unite = surLaCase ? `j ${ici}` : auTotal ? 'j au total' : 'j / sem.'
+                  return (
+                    <div key={id} className="affectation-charge">
+                      <button
+                        className="lien-charge"
+                        onClick={() => {
+                          setDetail(null)
+                          ouvrirPage(a.base, id)
+                        }}
+                      >
+                        {titre(a.base, id)}
+                      </button>
+                      {!lecture && l ? (
+                        <label className="jours-charge">
+                          <input
+                            key={`${portee}-${valeur}`}
+                            type="number"
+                            min={0}
+                            step={maille === 'jour' ? 0.1 : 0.5}
+                            aria-label={surLaCase ? `Jours ${ici}` : auTotal ? 'Jours au total' : 'Jours par semaine'}
+                            defaultValue={valeur}
+                            onBlur={(e) => {
+                              if (e.target.value === valeur) return
+                              const v = e.target.value === '' ? undefined : Number(e.target.value.replace(',', '.'))
+                              if (v !== undefined && !Number.isFinite(v)) return
+                              if (surLaCase) ajuster(l, v ?? 0)
+                              else void lancer(espace.modifierLignes(a.base, [l.chemin], cle, v))
+                            }}
+                            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                          />
+                          {unite}
+                        </label>
+                      ) : (
+                        <span className="discret">{valeur ? `${valeur} ${unite}` : ''}</span>
+                      )}
+                    </div>
+                  )
+                })}
+                {ids.length === 0 && <div className="discret">Plus aucune affectation sur {ici}.</div>}
+              </div>
+            </Flottant>
+          )
+        })()}
 
       {choixProjet && (
         <Flottant
@@ -501,6 +628,8 @@ function GraphiqueCharge(p: {
   nom: (cle: string, par: 'projet' | 'version') => string
   jalons: (p: Periode) => { id: string; date: string }[]
   nomVersion: (id: string) => string
+  niveauProjet: string
+  niveauVersion: string
   aujourdhui: string
 }) {
   const [role, setRole] = useState(TOUS)
@@ -539,10 +668,10 @@ function GraphiqueCharge(p: {
         {p.versions && (
           <div className="bascule-charge" role="radiogroup" aria-label="Empiler par">
             <button role="radio" aria-checked={par === 'projet'} className={par === 'projet' ? 'actif' : ''} onClick={() => setPar('projet')}>
-              Par projet
+              Par {p.niveauProjet}
             </button>
             <button role="radio" aria-checked={par === 'version'} className={par === 'version' ? 'actif' : ''} onClick={() => setPar('version')}>
-              Par version
+              Par {p.niveauVersion}
             </button>
           </div>
         )}

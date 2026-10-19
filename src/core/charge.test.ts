@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { calculerCharge, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
+import { ajusterSurPeriode, calculerCharge, nomNiveau, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
 
 const ligne = (id: string, champs: Record<string, unknown>): LigneChargee => ({
   id,
@@ -62,7 +62,7 @@ describe('charge par ressource', () => {
       ligne('a2', { ressource: 'alice', projet: 'p2', debut: '2026-10-21', fin: '2026-10-23', jours: 5 }), // 3 jours sur 5
     ]
     const c = calculerCharge(R, RESSOURCES, aff, [], lundis).get('alice')!
-    expect(c[0]).toMatchObject({ ouvres: 5, capacite: 5, charge: 6, parProjet: { p1: 3, p2: 3 }, affectations: ['a1', 'a2'] })
+    expect(c[0]).toMatchObject({ ouvres: 5, capacite: 5, charge: 6, parProjet: { p1: 3, p2: 3 }, affectations: ['a1', 'a2'], parAffectation: { a1: 3, a2: 3 } })
     expect(etatCase(c[0]!)).toBe('surchargee')
     expect(c[1]).toMatchObject({ charge: 3 })
     expect(etatCase(c[1]!)).toBe('libre')
@@ -123,6 +123,44 @@ describe('jour, mois, total et graphique', () => {
     expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'projet')).toEqual([{ parts: { p1: 4, p2: 2 }, capacite: 14 }])
     expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'version')).toEqual([{ parts: { v1: 3, '@p2': 2, v2: 1 }, capacite: 14 }])
     expect(empiler(cases, ['alice', 'bob'], 1, 'projet')).toEqual([{ parts: { p1: 3, p2: 2 }, capacite: 9 }])
+  })
+})
+
+describe('ajuster une case', () => {
+  const lundi = { debut: '2026-10-19', fin: '2026-10-19' }
+
+  it('un jour au milieu : avant, le jour ramené au total, après', () => {
+    const aff = ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-12', fin: '2026-10-30', jours: 5 })
+    expect(ajusterSurPeriode(R, aff, lundi, 0.5)).toEqual([
+      { debut: '2026-10-12', fin: '2026-10-18', jours: 5 },
+      { debut: '2026-10-19', fin: '2026-10-19', total: 0.5 },
+      { debut: '2026-10-20', fin: '2026-10-30', jours: 5 },
+    ])
+  })
+
+  it('au total : les bords gardent leur charge par jour ; sans colonne de total, le milieu passe en jours par semaine', () => {
+    const aff = ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', total: 5 })
+    expect(ajusterSurPeriode(R, aff, lundi, 0)).toEqual([{ debut: '2026-10-20', fin: '2026-10-23', total: 4 }])
+    const sansTotal = { ...R, affectations: { ...R.affectations!, total: undefined } }
+    const aff2 = ligne('a2', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 5 })
+    expect(ajusterSurPeriode(sansTotal, aff2, periodes('semaine', '2026-10-19', 1)[0]!, 2)).toEqual([{ debut: '2026-10-19', fin: '2026-10-23', jours: 2 }])
+  })
+
+  it('à 0 sur toute sa plage, plus rien ; hors de sa plage ou un jour férié, rien à faire', () => {
+    const aff = ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-19', jours: 5 })
+    expect(ajusterSurPeriode(R, aff, lundi, 0)).toEqual([])
+    expect(ajusterSurPeriode(R, aff, { debut: '2026-10-20', fin: '2026-10-20' }, 1)).toBeNull()
+    const nov = ligne('a2', { ressource: 'alice', projet: 'p1', debut: '2026-11-01', fin: '2026-11-30', jours: 5 })
+    expect(ajusterSurPeriode(R, nov, { debut: '2026-11-11', fin: '2026-11-11' }, 1)).toBeNull()
+  })
+})
+
+describe('nom d’un niveau', () => {
+  it('le nom de la base au singulier, en minuscules', () => {
+    expect(nomNiveau('Programmes', 'projet')).toBe('programme')
+    expect(nomNiveau('Étapes', 'version')).toBe('étape')
+    expect(nomNiveau('Process', 'x')).toBe('process')
+    expect(nomNiveau(undefined, 'projet')).toBe('projet')
   })
 })
 

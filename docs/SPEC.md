@@ -1179,12 +1179,12 @@ But : planifier la charge d'une équipe partagée entre plusieurs projets (une d
 - **Charge par projet** d'un ensemble de ressources (toutes, ou un rôle) sur chaque période, et par version : la donnée du graphique.
 
 ### Vue « Plan de charge » (`type: charge`, vue de la base des ressources)
-- **Par ressource** : une grille ressources × semaines, groupée par rôle. Chaque case montre la charge sur la capacité nette, colorée : libre (moins de 80 %), pleine (jusqu'à 100 %), surchargée (au-delà, en rouge) ; une semaine d'absence complète est hachurée. Une ligne se déplie par projet, pour voir d'où vient la charge. Une ligne par rôle, en tête de groupe, additionne ses ressources.
-- **Par projet** : pour chaque projet (ou échéance), le besoin de chaque rôle comparé à ce qui est affecté avant sa date : « couvert » ou « il manque 12 jours de rôle X », et les semaines où ses ressources sont surchargées ailleurs.
+- **Par ressource** : une grille ressources × semaines, groupée par rôle. Chaque case montre la charge sur la capacité nette, colorée : libre (moins de 80 %), pleine (jusqu'à 100 %), surchargée (au-delà, en rouge) ; une semaine d'absence complète est hachurée. Une ligne se déplie par projet, pour voir d'où vient la charge. Une ligne par rôle, en tête de groupe, additionne ses ressources. « Grouper par » (barre de la vue) range plutôt les lignes par projet ou par version : sous chacun, les ressources qui y travaillent et leur part, la couleur restant celle de leur charge totale (une surcharge ailleurs se voit) ; glisser dans un groupe de projet crée l'affectation sur ce projet (et cette version) sans le demander. Au-dessus des colonnes, un bandeau donne le mois et l'année (l'année seule à la maille mois).
+- **Besoins** : pour chaque projet (ou échéance), le besoin de chaque rôle comparé à ce qui est affecté avant sa date : « couvert » ou « il manque 12 jours de rôle X », et les semaines où ses ressources sont surchargées ailleurs.
 - **Graphique** : une barre par période (selon la maille), empilée par projet, ou par version (nuances de la couleur de son projet) ; la capacité de l'équipe en trait par-dessus ; filtre par rôle ; au survol, le projet et ses jours. Couleur d'un projet : celle de l'option de `couleur_par` (colonne choix des projets), sinon une couleur de la palette par projet, stable.
 - **Maille** : Jour, Semaine ou Mois, à côté des modes ; en jour, une colonne par jour ouvré (fériés et absences hachurés) ; les versions datées se marquent sur l'en-tête de leur période.
-- **Modifier** : cliquer une case liste les affectations qui la composent (projet, jours par semaine, dates), modifiables sur place ; glisser sur plusieurs semaines d'une ligne crée une affectation (ressource et dates remplies, jours par semaine = capacité restante), dont on choisit le projet. Rien ne se modifie en consultation.
-- **Réglages** (Options) : bases et colonnes des affectations, de la capacité et des absences ; colonne de groupe ; maille ; jours fériés (France ou aucun) ; période affichée.
+- **Modifier** : cliquer une case liste les affectations qui la composent (projet, jours par semaine, dates), modifiables sur place. Quand une affectation déborde de la case, la valeur saisie vaut par défaut pour « ce jour » (cette semaine, ce mois) seulement : l'affectation est coupée en morceaux avant, pendant et après (le morceau du milieu au total si la base a une colonne de total), en une seule étape d'annulation ; « Toute l'affectation » modifie ses jours par semaine ou son total. Glisser sur plusieurs semaines d'une ligne crée une affectation (ressource et dates remplies, jours par semaine = capacité restante), dont on choisit le projet. Rien ne se modifie en consultation.
+- **Réglages** (Options) : bases et colonnes des affectations, de la capacité et des absences ; colonne du rôle ; regroupement des lignes ; maille ; jours fériés (France ou aucun) ; période affichée.
 
 ```yaml
 type: charge
@@ -1196,9 +1196,11 @@ besoins: { base: besoins, projet: projet, role: role, jours: jours, avant: avant
 maille: semaine                    # jour, semaine ou mois
 periodes: 12                       # nombre de colonnes affichées (20 jours, 12 semaines, 6 mois par défaut)
 couleur_par: statut                # facultatif : colonne choix des projets qui colore le graphique
+regrouper: projet                  # facultatif : lignes par projet ou par version (par rôle sans la clé)
 feries: france                     # ou aucun
 ```
 
+- Les deux niveaux ne sont pas figés : « projet » est n'importe quelle relation des affectations (programme, client…) et « version » une relation vers une base liée à la première (étape, lot…). L'interface les nomme d'après leur base (« Par programme », « Par étape »).
 - Assistant IA et MCP : un outil `calculer_charge` (lecture) rend la charge, la capacité et la couverture sur une période, pour répondre à « qui est disponible en mars ? » ; les affectations se créent avec les outils des lignes (règle §17 : outil commun aux deux).
 
 ## 20. Rapports [PLUS TARD]

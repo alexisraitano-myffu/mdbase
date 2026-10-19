@@ -1181,6 +1181,29 @@ export class DepotEspace {
   }
 
   /**
+   * Remplace une ligne par des morceaux (une affectation coupée autour d'un
+   * jour, spec §21) : le premier réécrit la ligne, les suivants sont des copies
+   * de ses valeurs saisies avec leurs propres valeurs ; aucun morceau la
+   * supprime. Une seule étape d'annulation.
+   */
+  decouperLigne(base: string, chemin: string, morceaux: readonly Modifications[]): Promise<void> {
+    return this.enUneEtape(async () => {
+      const depot = this.depot(base)
+      const l = depot.lignes().find((x) => x.chemin === chemin)
+      if (!l) return
+      const [premier, ...suite] = morceaux
+      if (!premier) return this.supprimerLigneSansEtape(base, chemin, true)
+      const valeurs: Modifications = {}
+      for (const c of depot.schema.colonnes) {
+        const v = l.cellules[c.cle]
+        if (estSaisie(c) && v?.etat === 'ok') valeurs[c.cle] = v.valeur
+      }
+      for (const m of suite) await depot.creer({ ...valeurs, ...m })
+      for (const [cle, v] of Object.entries(premier)) depot.modifier(chemin, cle, v)
+    })
+  }
+
+  /**
    * Duplique des lignes : valeurs saisies (liens côté propriétaire compris) et
    * corps, dans un nouveau fichier avec un nouvel id. Les liens portés par
    * l'autre base ne sont pas recopiés : ce serait écrire dans ses fichiers.

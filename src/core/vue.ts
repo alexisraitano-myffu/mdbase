@@ -140,6 +140,8 @@ export type Vue = {
   maille?: Maille
   /** Plan de charge : nombre de colonnes affichées. */
   periodes?: number
+  /** Plan de charge : lignes de la grille regroupées par projet ou par version des affectations (sinon par `groupe`). */
+  regrouper?: 'projet' | 'version'
   /** Vue par défaut d'une base sans `_vues/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
@@ -178,6 +180,7 @@ const REGLAGES = {
   feries: 'feries',
   maille: 'maille',
   periodes: 'periodes',
+  regrouper: 'regrouper',
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
 /** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
@@ -246,6 +249,7 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   if (brut.feries === 'france' || brut.feries === 'aucun') r.feries = brut.feries
   if (brut.maille === 'jour' || brut.maille === 'semaine' || brut.maille === 'mois') r.maille = brut.maille
   if (estNombre(brut.periodes) && brut.periodes >= 1) r.periodes = Math.min(Math.round(brut.periodes), 120)
+  if (brut.regrouper === 'projet' || brut.regrouper === 'version') r.regrouper = brut.regrouper
   return r
 }
 

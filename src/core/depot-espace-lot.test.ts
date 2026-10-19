@@ -80,6 +80,31 @@ describe('actions sur plusieurs lignes', () => {
   })
 })
 
+describe('découper une ligne (plan de charge)', () => {
+  it('le premier morceau réécrit la ligne, les suivants copient ses valeurs ; une seule étape d’annulation', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const lignes = () => espace.etat().bases.get('taches')!.depot!.lignes()
+    const avant = new Set(lignes().map((l) => l.chemin))
+    await espace.decouperLigne('taches', A, [{ heures: 1 }, { heures: 2, echeance: '2026-10-05' }])
+    await ecrire()
+    expect(await a.lire(A)).toContain('heures: 1\n')
+    const copie = lignes().find((l) => !avant.has(l.chemin))!
+    const texte = await a.lire(copie.chemin)
+    for (const attendu of ['projet: p0000001\n', 'statut: À faire\n', 'heures: 2\n', 'echeance: 2026-10-05\n']) expect(texte).toContain(attendu)
+    await espace.annuler()
+    await ecrire()
+    expect(await a.lire(A)).toContain('heures: 3\n')
+    expect(lignes().some((l) => l.chemin === copie.chemin)).toBe(false)
+  })
+
+  it('aucun morceau : la ligne est supprimée', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    await espace.decouperLigne('taches', A, [])
+    await ecrire()
+    expect(a.ecritures).toContain(`✗ ${A}`)
+  })
+})
+
 describe('coller un tableau dans une base', () => {
   it('première ligne qui nomme des colonnes : ce sont des en-têtes', async () => {
     const { espace } = await ouvrir()
