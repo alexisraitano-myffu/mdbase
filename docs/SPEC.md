@@ -682,7 +682,7 @@ rangees:
 - Chaque requête est exécutée avant d'être acceptée : une erreur SQL, ou une colonne de réglage absente du résultat, refuse l'appel avec son message. Un réglage inconnu est refusé en listant ceux qui existent.
 - La description de l'espace donne les tables SQL (colonnes et types), et, pour chaque dashboard, ses requêtes, ses paramètres et ses blocs d'analyse.
 
-### Fiches : blocs visuels, sélecteur de ligne et règles déclarées [PROPOSÉ, demandé par Alex le 16/10/2026]
+### Fiches : blocs visuels, sélecteur de ligne et règles déclarées [DÉCIDÉ, demandé par Alex le 16/10/2026, validé le 19/10/2026]
 
 Une fiche se lit en 10 secondes : ce qui arrive, ce qui bloque, où en est chaque élément. Cible : la maquette de fiche projet du 16/10/2026 (sélecteur de projet, trois comptes à rebours, barres d'étapes datées, frise, barre de répartition, listes de risques et de points d'attention). Tout s'appuie sur l'analyse ci-dessus : chaque nouveau bloc lit une requête nommée (`donnees`) ou la sienne (`sql`), et toutes les clés sont facultatives, un fichier existant se relit à l'identique.
 
