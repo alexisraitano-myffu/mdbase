@@ -103,11 +103,14 @@ test('base des tâches : l’onglet Tâches d’un projet montre ses tâches li�
   await espace.remplacer('_espace.yaml', 'hors_groupe: []\n', 'hors_groupe: []\ntaches:\n  base: taches\n  fait: fait\n  echeance: echeance\n')
   const relation = '    colonnes: [ titre, priorite, echeance, heures, fait ]\n'
   await espace.remplacer('projets/_pages/defaut.yaml', relation, `${relation}  - type: taches\n    liees:\n      relation: taches\n`)
-  await espace.retourSurOnglet()
   await espace.ouvrirPage('Projets', 'Site vitrine')
   const onglet = page.locator('.onglets-page .onglet', { hasText: 'Tâches' }).last()
   // Intégration et Mise en ligne, plus Relancer Acme et Formulaire de contact (sous-tâche d'Intégration).
-  await expect(onglet).toContainText('4')
+  // Le beforeEach vient de faire relire le dossier : on relance jusqu'à ce que la base des tâches soit prise en compte.
+  await expect(async () => {
+    await espace.retourSurOnglet()
+    await expect(onglet).toContainText('4', { timeout: 1000 })
+  }).toPass()
   await onglet.click()
   const taches = page.locator('.onglet-taches')
   await expect(taches.locator('.titre-tache')).toHaveText(['Maquettes', 'Intégration', 'Mise en ligne'])
