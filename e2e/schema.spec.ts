@@ -28,6 +28,25 @@ test.describe('bases, groupes et colonnes', () => {
     await expect.poll(() => espace.lire('_espace.yaml')).toContain('Archives')
   })
 
+  test('replier un groupe et les dashboards : l’entrée ouverte reste, le repli est retenu sur la machine', async ({ espace, page }) => {
+    const barre = page.locator('.barre-laterale')
+    await barre.locator('.entree-base', { hasText: 'Projets' }).click()
+    await barre.getByRole('button', { name: 'Travail' }).click()
+    await expect(barre.locator('.entree-base', { hasText: 'Tâches' })).toHaveCount(0)
+    await expect(barre.locator('.entree-base', { hasText: 'Projets' })).toBeVisible()
+    await expect(barre.getByRole('button', { name: 'Travail' })).toHaveAttribute('aria-expanded', 'false')
+    await expect(barre.getByRole('button', { name: 'Travail' })).toContainText('2')
+    await barre.getByRole('button', { name: 'Dashboards', exact: true }).click()
+    await expect(barre.locator('.entree-base', { hasText: 'Pilotage' })).toHaveCount(0)
+    // Retenu sur la machine, par espace, pour la prochaine visite.
+    const replis = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('mdbase:replis:')).map((k) => localStorage.getItem(k)))
+    expect(replis).toEqual(['["groupe:Travail","dashboards"]'])
+    await barre.getByRole('button', { name: 'Travail' }).click()
+    await expect(barre.locator('.entree-base', { hasText: 'Tâches' })).toBeVisible()
+    // Préférence de la machine : rien n'est écrit dans le dossier.
+    expect(await espace.lire('_espace.yaml')).not.toContain('repli')
+  })
+
   test('ajouter une colonne, la renommer : la clé ne change pas, les lignes ne sont pas réécrites', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.cellule-entete.ajout').click()

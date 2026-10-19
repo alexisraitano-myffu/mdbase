@@ -28,6 +28,7 @@ Une application de bases de données relationnelles avec l'ergonomie de Notion, 
 ### Inclus
 - Barre latérale : dashboards en haut, puis groupes de bases.
 - Groupes **plats** (pas de sous-groupes) contenant des bases. Une base peut aussi être hors groupe.
+- Repli des sections [DÉCIDÉ, demandé par Alex le 19/10/2026] : un clic sur le nom de « Dashboards », d'un groupe ou de « Hors groupe » le replie ; replié, il montre le nombre d'entrées cachées et garde l'entrée ouverte. Le repli est une préférence de la machine, par espace (stockage du navigateur), jamais écrite dans le dossier.
 - Création d'une base par un bouton.
 - Types de colonnes : `text`, `number`, `date`, `checkbox`, `select`, `multiselect`, `url`, `relation`, `rollup`, `formula`.
 - Relations bidirectionnelles entre bases différentes.

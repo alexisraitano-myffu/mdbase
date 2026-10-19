@@ -220,6 +220,12 @@ button:hover { background: var(--survol); }
   padding: 0.6rem 0.5rem 0.2rem;
 }
 .menu-groupe { padding: 0 0.3rem; visibility: hidden; }
+.bascule-section { display: flex; align-items: center; gap: 4px; border: none; background: none; padding: 0; font: inherit; color: inherit; min-width: 0; cursor: pointer; }
+.bascule-section > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bascule-section .chevron-section { flex-shrink: 0; margin-left: -2px; opacity: 0; transform: rotate(90deg); }
+.titre-groupe:hover .chevron-section, .bascule-section:focus-visible .chevron-section, .bascule-section[aria-expanded='false'] .chevron-section { opacity: 1; }
+.bascule-section[aria-expanded='false'] .chevron-section { transform: none; }
+.compte-section { font-weight: 500; color: var(--discret); opacity: 0.8; }
 .titre-groupe:hover .menu-groupe { visibility: visible; }
 .entree-base { padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer; user-select: none; }
 .entree-base:hover { background: var(--selection); }
@@ -1589,6 +1595,9 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
 .cal-evt.pose { animation: pose-evt 150ms var(--ease-out); }
 @keyframes pose-evt { from { transform: scale(1.03); box-shadow: 0 6px 18px rgba(var(--ombre), 0.18); } }
 
+/* Barre latérale : le chevron d'une section tourne quand elle se replie */
+svg.chevron-section { transition: transform 150ms var(--ease-out), opacity 150ms var(--ease-out); }
+
 /* Mouvement réduit : des fondus, sans déplacement ni échelle */
 @media (prefers-reduced-motion: reduce) {
   .flottant, .fenetre, .cadre-page.apparition:not(.plein-ecran) { animation-name: fondu; }
@@ -1597,6 +1606,7 @@ svg.chevron-details { transition: transform 150ms var(--ease-out); }
   .tl-barre.pose, .tl-point.pose { transition: none; }
   :is(button.principal, button.danger, .pilule):not(:disabled):active { transform: none; }
   svg.pli, svg.chevron-details, input.interrupteur, input.interrupteur::after { transition: none; }
+  svg.chevron-section { transition: opacity 150ms var(--ease-out); }
 }
 
 /* Plein écran d'une vue : ni barre latérale, ni titre, le contenu prend toute la fenêtre */

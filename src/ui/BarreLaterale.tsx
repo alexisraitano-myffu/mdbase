@@ -4,7 +4,7 @@ import { useLancer } from './actions'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
-import { Blocks, BookOpen, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
+import { Blocks, BookOpen, ChevronRight, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, RotateCw, Search, Sparkles, Table2, Upload } from 'lucide-react'
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 import { FenetreBaseJira } from './Jira'
@@ -39,6 +39,49 @@ type Props = {
   documents: { compte: number; ouverte: boolean; basculer: () => void }
 }
 
+/** Sections repliées de la barre latérale, par espace : préférence de cette machine (localStorage), jamais dans le dossier. */
+function useReplis(nomEspace: string) {
+  const cle = `mdbase:replis:${nomEspace}`
+  const [replis, setReplis] = useState<ReadonlySet<string>>(() => {
+    try {
+      const brut = JSON.parse(localStorage.getItem(cle) ?? '[]') as unknown
+      return new Set(Array.isArray(brut) ? brut.filter((x): x is string => typeof x === 'string') : [])
+    } catch {
+      return new Set()
+    }
+  })
+  const basculer = (section: string) =>
+    setReplis((avant) => {
+      const suivant = new Set(avant)
+      if (!suivant.delete(section)) suivant.add(section)
+      try {
+        localStorage.setItem(cle, JSON.stringify([...suivant]))
+      } catch {
+        // Stockage indisponible : le repli vaut pour cette visite.
+      }
+      return suivant
+    })
+  return { replis, basculer }
+}
+
+/** Nom d'une section qui la replie ou la déplie au clic ; repliée, le nombre d'entrées cachées. */
+function BasculeSection(p: { nom: string; replie: boolean; basculer: () => void; caches: number; renommer?: () => void; discret?: boolean }) {
+  return (
+    <button
+      className={`bascule-section ${p.discret ? 'discret' : ''}`}
+      aria-expanded={!p.replie}
+      title={p.replie ? 'Déplier' : 'Replier'}
+      // Un double-clic renomme : seul le premier clic replie.
+      onClick={(e) => e.detail <= 1 && p.basculer()}
+      onDoubleClick={p.renommer}
+    >
+      <Icone de={ChevronRight} taille={12} className="chevron-section" />
+      <span>{p.nom}</span>
+      {p.replie && p.caches > 0 && <span className="compte-section">{p.caches}</span>}
+    </button>
+  )
+}
+
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
 export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules, documents }: Props) {
   const lancer = useLancer()
@@ -49,6 +92,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
   const [jira, setJira] = useState(false)
   // Consultation : on navigue, on cherche, rien ne se crée ni ne se range.
   const lecture = useConsultation()
+  const { replis, basculer } = useReplis(nomEspace)
 
   const nomBase = (id: string) => {
     const c = etat.bases.get(id)?.chargement
@@ -91,8 +135,9 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
     },
   })
 
-  const entrees = (bases: string[], groupe: string | null) =>
-    bases.map((id, index) => (
+  // Une section repliée garde l'entrée ouverte, pour qu'on voie toujours où l'on est.
+  const entrees = (bases: string[], groupe: string | null, replie = false) =>
+    bases.map((id, index) => (replie && id !== choisie ? null : (
       <EntreeBase
         key={id}
         nom={nomBase(id)}
@@ -112,7 +157,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         glisser={(e) => e.dataTransfer.setData('text/base', id)}
         {...deposable(`base:${id}`, groupe, index)}
       />
-    ))
+    )))
 
   return (
     <nav className="barre-laterale">
@@ -151,14 +196,14 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
 
       <section className={`groupe dashboards ${cible === 'dashboards' ? 'cible' : ''}`} {...deposableDashboard('dashboards')}>
         <div className="titre-groupe">
-          <span>Dashboards</span>
+          <BasculeSection nom="Dashboards" replie={replis.has('dashboards')} basculer={() => basculer('dashboards')} caches={etat.dashboards.filter((d) => !(selection?.type === 'dashboard' && selection.id === d.id)).length} />
           {!lecture && (
             <button className="discret menu-groupe" onClick={() => setCreation('dashboard')} aria-label="Nouveau dashboard" title="Nouveau dashboard">
               <Icone de={Plus} />
             </button>
           )}
         </div>
-        {etat.dashboards.map((d, index) => (
+        {etat.dashboards.map((d, index) => (replis.has('dashboards') && !(selection?.type === 'dashboard' && selection.id === d.id) ? null : (
           <EntreeDashboard
             key={d.id}
             nom={d.dashboard?.nom ?? d.id}
@@ -174,7 +219,7 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
             glisser={(e) => e.dataTransfer.setData('text/dashboard', d.id)}
             {...deposableDashboard(`dashboard:${d.id}`, index)}
           />
-        ))}
+        )))}
         {creation === 'dashboard' && (
           <ChampEnLigne
             placeholder="Nom du dashboard"
@@ -192,17 +237,24 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
         <section key={g.nom} className={`groupe ${cible === `groupe:${g.nom}` ? 'cible' : ''}`} {...deposable(`groupe:${g.nom}`, g.nom)}>
           <EnteteGroupe
             nom={g.nom}
+            replie={replis.has(`groupe:${g.nom}`)}
+            basculer={() => basculer(`groupe:${g.nom}`)}
+            caches={g.bases.filter((id) => id !== choisie).length}
             renommer={(nouveau) => void lancer(espace.renommerGroupe(g.nom, nouveau))}
             supprimer={() => void lancer(espace.supprimerGroupe(g.nom))}
           />
-          {entrees(g.bases, g.nom)}
-          {g.bases.length === 0 && !lecture && <div className="vide">Glisse une base ici</div>}
+          {entrees(g.bases, g.nom, replis.has(`groupe:${g.nom}`))}
+          {g.bases.length === 0 && !lecture && !replis.has(`groupe:${g.nom}`) && <div className="vide">Glisse une base ici</div>}
         </section>
       ))}
 
       <section className={`groupe ${cible === 'hors' ? 'cible' : ''}`} {...deposable('hors', null)}>
-        {etat.groupes.length > 0 && !(lecture && etat.horsGroupe.length === 0) && <div className="titre-groupe discret">Hors groupe</div>}
-        {entrees(etat.horsGroupe, null)}
+        {etat.groupes.length > 0 && !(lecture && etat.horsGroupe.length === 0) && (
+          <div className="titre-groupe">
+            <BasculeSection nom="Hors groupe" discret replie={replis.has('hors')} basculer={() => basculer('hors')} caches={etat.horsGroupe.filter((id) => id !== choisie).length} />
+          </div>
+        )}
+        {entrees(etat.horsGroupe, null, etat.groupes.length > 0 && replis.has('hors'))}
       </section>
 
       {creation && creation !== 'dashboard' ? (
@@ -472,7 +524,7 @@ function EntreeDashboard(p: {
   )
 }
 
-function EnteteGroupe(p: { nom: string; renommer: (nom: string) => void; supprimer: () => void }) {
+function EnteteGroupe(p: { nom: string; replie: boolean; basculer: () => void; caches: number; renommer: (nom: string) => void; supprimer: () => void }) {
   const [edition, setEdition] = useState(false)
   const [menu, setMenu] = useState(false)
   const ancre = useRef<HTMLButtonElement>(null)
@@ -480,7 +532,7 @@ function EnteteGroupe(p: { nom: string; renommer: (nom: string) => void; supprim
   if (lecture) {
     return (
       <div className="titre-groupe">
-        <span>{p.nom}</span>
+        <BasculeSection nom={p.nom} replie={p.replie} basculer={p.basculer} caches={p.caches} />
       </div>
     )
   }
@@ -498,7 +550,7 @@ function EnteteGroupe(p: { nom: string; renommer: (nom: string) => void; supprim
   }
   return (
     <div className="titre-groupe">
-      <span onDoubleClick={() => setEdition(true)}>{p.nom}</span>
+      <BasculeSection nom={p.nom} replie={p.replie} basculer={p.basculer} caches={p.caches} renommer={() => setEdition(true)} />
       <button ref={ancre} className="discret menu-groupe" onClick={() => setMenu(true)} aria-label="Options du groupe">
         <Icone de={Ellipsis} />
       </button>
