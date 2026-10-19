@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { echeanceDe, estFaite, lignesTaches, resoudreBaseTaches, tachesLiees, trierTaches, valeurFait, type BaseTaches } from './base-taches'
+import { arbreComplet, echeanceDe, estFaite, filtrerArbre, idsArbre, lignesTaches, racinesParmi, resoudreBaseTaches, tachesLiees, trierTaches, valeurFait, type BaseTaches, type NoeudTache } from './base-taches'
 import { DepotEspace } from './depot-espace'
 import { FICHIERS_RELATIONS } from './fixtures/espace-relations'
 import { AdaptateurCompteur, aleatoire, minuteur } from './fixtures/outils'
@@ -17,6 +17,7 @@ async function resolue(config: Parameters<typeof resoudreBaseTaches>[1]): Promis
   return { espace, t: r.taches }
 }
 
+const schema = (e: DepotEspace, base: string) => e.etat().bases.get(base)!.depot!.schema
 const titres = (lignes: { cellules: Record<string, unknown> }[]) => lignes.map((l) => (l.cellules.titre as { valeur: string }).valeur)
 
 describe('base des tâches : résolution', () => {
@@ -115,5 +116,100 @@ describe('base des tâches : dépôt', () => {
     await espace.reglerTaches({ base: 'taches', fait: 'fait' })
     await espace.supprimerBase('taches')
     expect(espace.etat().taches).toBeUndefined()
+  })
+})
+
+/** Arbre en texte : « titre(enfants) ». */
+const dessin = (noeuds: NoeudTache[]): string => noeuds.map((n) => `${(n.ligne.cellules.titre as { valeur: string }).valeur}${n.enfants.length ? `(${dessin(n.enfants)})` : ''}`).join(' ')
+
+/** Espace dont la base des tâches a des sous-tâches : A > B > C, et D ↔ E en boucle. */
+async function avecSousTaches() {
+  const schema = FICHIERS_RELATIONS['taches/_schema.yaml']! + '  - { cle: parente, nom: Tâche parente, type: relation, cible: taches, proprietaire: true, inverse: sous_taches }\n  - { cle: sous_taches, nom: Sous-tâches, type: relation, cible: taches, proprietaire: false, inverse: parente }\n'
+  const fichiers = {
+    ...FICHIERS_RELATIONS,
+    'taches/_schema.yaml': schema,
+    'taches/b--t0000002.md': '---\nid: t0000002\ntitre: B\nprojet: p0000001\nstatut: Terminé\nparente: t0000001\n---\n',
+    'taches/c--t0000003.md': '---\nid: t0000003\ntitre: C\nparente: t0000002\n---\n',
+    'taches/d--t0000004.md': '---\nid: t0000004\ntitre: D\nparente: t0000005\n---\n',
+    'taches/e--t0000005.md': '---\nid: t0000005\ntitre: E\nparente: t0000004\n---\n',
+  }
+  const { a, espace } = await ouvrir(fichiers)
+  const r = resoudreBaseTaches(espace.etat(), { base: 'taches', fait: 'statut', terminees: ['Terminé'], sous_taches: 'sous_taches' })
+  if (!r?.ok) throw new Error(r ? r.erreur : 'aucune')
+  return { a, espace, t: r.taches }
+}
+
+describe('base des tâches : sous-tâches', () => {
+  it('la clé sous_taches doit être une relation de la base vers elle-même', async () => {
+    const { espace } = await ouvrir()
+    const r = resoudreBaseTaches(espace.etat(), { base: 'taches', fait: 'fait', sous_taches: 'projet' })
+    expect(r && !r.ok && r.erreur).toContain('vers elle-même')
+  })
+
+  it('arbre complet : sous-tâches à toute profondeur, une boucle sans entrée ne disparaît pas et ne tourne pas', async () => {
+    const { espace, t } = await avecSousTaches()
+    const arbre = arbreComplet(t, lignesTaches(espace.etat(), t))
+    expect(dessin(arbre)).toBe('A(B(C)) D(E)')
+    expect(idsArbre(arbre)).toHaveLength(5)
+  })
+
+  it('racines parmi des tâches liées : une sous-tâche liée elle aussi ne remonte pas en tête', async () => {
+    const { espace, t } = await avecSousTaches()
+    const lignes = lignesTaches(espace.etat(), t)
+    expect(titres(racinesParmi(t, lignes.filter((l) => ['t0000001', 't0000002'].includes(l.id))))).toEqual(['A'])
+  })
+
+  it('filtre : une tâche faite reste pour sa sous-tâche à faire ; la recherche garde les parents', async () => {
+    const { espace, t } = await avecSousTaches()
+    const arbre = arbreComplet(t, lignesTaches(espace.etat(), t))
+    const aFaire = (l: Parameters<typeof estFaite>[1]) => !estFaite(t, l)
+    expect(dessin(filtrerArbre(arbre, aFaire, () => true))).toBe('A(B(C)) D(E)') // B est faite, C non
+    const titre = (l: Parameters<typeof estFaite>[1]) => (l.cellules.titre as { valeur: string }).valeur
+    expect(dessin(filtrerArbre(arbre, () => true, (l) => titre(l) === 'C'))).toBe('A(B(C))')
+    expect(dessin(filtrerArbre(arbre, () => true, (l) => titre(l) === 'A'))).toBe('A(B(C))') // un parent trouvé garde ses sous-tâches
+  })
+
+  it('onglet d’une tâche : ses sous-tâches, et la relation vers la parente pour en créer', async () => {
+    const { espace, t } = await avecSousTaches()
+    const liees = tachesLiees(espace.etat(), t, 'taches', 't0000001')
+    expect(liees?.relation.cle).toBe('parente')
+    expect(titres(liees!.lignes)).toEqual(['B'])
+  })
+})
+
+describe('base des tâches : créer et lier, relation à la volée', () => {
+  it('créer une tâche liée à une base déjà reliée : pas de relation créée', async () => {
+    const { espace } = await ouvrir()
+    await espace.reglerTaches({ base: 'taches', fait: 'fait' })
+    const { ligne, relationsCreees } = await espace.creerTache('Nouvelle', [{ base: 'projets', id: 'p0000002' }])
+    expect(relationsCreees).toEqual([])
+    expect(ligne.cellules.projet).toEqual({ etat: 'ok', valeur: ['p0000002'] })
+  })
+
+  it('lier à une base sans relation la crée (masquée), puis lie', async () => {
+    const { a, espace } = await ouvrir()
+    await espace.reglerTaches({ base: 'taches', fait: 'fait' })
+    const { relationCreee } = await espace.lierTache('t0000001', 'clients', 'c0000002')
+    expect(relationCreee).toBe('Clients')
+    const relation = schema(espace, 'taches').colonnes.find((c) => c.type === 'relation' && c.cible === 'clients')!
+    await espace.vider()
+    expect(await a.lire('taches/a--t0000001.md')).toContain(`${relation.cle}: c0000002`)
+    expect(espace.etat().bases.get('clients')!.vues.every((v) => v.masquees?.includes((relation as { inverse: string }).inverse))).toBe(true)
+    // La deuxième fois, la relation existe : rien n'est créé.
+    expect((await espace.lierTache('t0000002', 'clients', 'c0000001')).relationCreee).toBeNull()
+  })
+
+  it('activer les sous-tâches crée l’auto-relation une fois et l’écrit dans sous_taches', async () => {
+    const { espace } = await ouvrir()
+    await espace.reglerTaches({ base: 'taches', fait: 'fait' })
+    const cle = await espace.activerSousTaches()
+    expect(espace.etat().taches?.sous_taches).toBe(cle)
+    expect(await espace.activerSousTaches()).toBe(cle)
+    const r = resoudreBaseTaches(espace.etat(), espace.etat().taches)
+    if (!r?.ok) throw new Error('non résolue')
+    const parente = r.taches.sousTaches!.inverse
+    const { ligne } = await espace.creerTache('Sous', [], { [parente]: ['t0000001'] })
+    expect(titres(tachesLiees(espace.etat(), r.taches, 'taches', 't0000001')!.lignes)).toEqual(['Sous'])
+    expect(ligne.id).toBeTruthy()
   })
 })

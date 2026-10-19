@@ -16,6 +16,8 @@ export type BaseTaches = {
   /** Options d'un choix qui comptent comme faites (vide pour une case). */
   terminees: string[]
   echeance?: Colonne
+  /** Auto-relation, côté qui liste les sous-tâches d'une tâche. */
+  sousTaches?: ColonneRelation
 }
 
 export type ResolutionTaches = { ok: true; taches: BaseTaches } | { ok: false; erreur: string }
@@ -36,7 +38,12 @@ export function resoudreBaseTaches(etat: Pick<EtatEspace, 'bases'>, config: Conf
   }
   const echeance = config.echeance ? colonneDe(depot.schema, config.echeance) : undefined
   if (config.echeance && echeance?.type !== 'date') return { ok: false, erreur: `La colonne « ${config.echeance} » doit être une date` }
-  return { ok: true, taches: { base: config.base, depot, fait: fait as BaseTaches['fait'], terminees, ...(echeance && { echeance }) } }
+  const sousTaches = config.sous_taches ? colonneDe(depot.schema, config.sous_taches) : undefined
+  if (config.sous_taches && (sousTaches?.type !== 'relation' || sousTaches.cible !== config.base)) return { ok: false, erreur: `La colonne « ${config.sous_taches} » doit être une relation de la base vers elle-même` }
+  return {
+    ok: true,
+    taches: { base: config.base, depot, fait: fait as BaseTaches['fait'], terminees, ...(echeance && { echeance }), ...(sousTaches?.type === 'relation' && { sousTaches }) },
+  }
 }
 
 const valeurDe = (l: LigneChargee, cle: string): Valeur | undefined => {
@@ -88,8 +95,20 @@ export function relationVers(t: BaseTaches, base: string): ColonneRelation | und
   return t.depot.schema.colonnes.find((c): c is ColonneRelation => c.type === 'relation' && c.cible === base)
 }
 
-/** Tâches de la base des tâches liées à une ligne d'une autre base, triées ; `null` sans relation vers cette base. */
+/**
+ * Tâches liées à une ligne, triées, avec la relation qu'une tâche créée là
+ * reçoit : d'une autre base, celles liées par la relation vers elle ; de la
+ * base des tâches, ses sous-tâches (relation vers la tâche parente). `null`
+ * sans relation.
+ */
 export function tachesLiees(etat: Pick<EtatEspace, 'calculs'>, t: BaseTaches, base: string, idLigne: string): { relation: ColonneRelation; lignes: LigneChargee[] } | null {
+  if (base === t.base) {
+    const parente = t.sousTaches && colonneDe(t.depot.schema, t.sousTaches.inverse)
+    if (parente?.type !== 'relation') return null
+    const toutes = lignesTaches(etat, t)
+    const ligne = toutes.find((l) => l.id === idLigne)
+    return { relation: parente, lignes: ligne ? sousTachesDe(t, new Map(toutes.map((l) => [l.id, l])), ligne).filter((l) => l.id !== idLigne) : [] }
+  }
   const relation = relationVers(t, base)
   if (!relation) return null
   const lignes = lignesTaches(etat, t).filter((l) => {
@@ -97,4 +116,83 @@ export function tachesLiees(etat: Pick<EtatEspace, 'calculs'>, t: BaseTaches, ba
     return Array.isArray(v) ? v.map(String).includes(idLigne) : v === idLigne
   })
   return { relation, lignes: trierTaches(t, lignes) }
+}
+
+// ── Sous-tâches ──────────────────────────────────────────────────
+
+export type NoeudTache = { ligne: LigneChargee; enfants: NoeudTache[] }
+
+const idsDe = (l: LigneChargee, cle: string): string[] => {
+  const v = valeurDe(l, cle)
+  return Array.isArray(v) ? v.map(String) : typeof v === 'string' && v !== '' ? [v] : []
+}
+
+/** Sous-tâches directes d'une tâche, triées ; rien sans auto-relation. */
+export function sousTachesDe(t: BaseTaches, parId: ReadonlyMap<string, LigneChargee>, l: LigneChargee): LigneChargee[] {
+  if (!t.sousTaches) return []
+  return trierTaches(t, idsDe(l, t.sousTaches.cle).flatMap((id) => parId.get(id) ?? []))
+}
+
+/** Les tâches de `lignes` qui ne sont sous-tâche d'aucune autre de `lignes`. */
+export function racinesParmi(t: BaseTaches, lignes: readonly LigneChargee[]): LigneChargee[] {
+  if (!t.sousTaches) return [...lignes]
+  const presentes = new Set(lignes.map((l) => l.id))
+  const enfants = new Set(lignes.flatMap((l) => idsDe(l, t.sousTaches!.cle).filter((id) => id !== l.id && presentes.has(id))))
+  return lignes.filter((l) => !enfants.has(l.id))
+}
+
+/**
+ * Arbre des tâches sous `racines` : chaque tâche avec ses sous-tâches, à toute
+ * profondeur ; une tâche déjà sur le chemin n'est pas redescendue (boucle).
+ * `toutes` sert à retrouver les sous-tâches (lignes enrichies de la base).
+ */
+export function arbreTaches(t: BaseTaches, toutes: readonly LigneChargee[], racines: readonly LigneChargee[]): NoeudTache[] {
+  const parId = new Map(toutes.map((l) => [l.id, l]))
+  const noeud = (l: LigneChargee, chemin: ReadonlySet<string>): NoeudTache => {
+    const suite = new Set([...chemin, l.id])
+    return { ligne: l, enfants: sousTachesDe(t, parId, l).filter((e) => !suite.has(e.id)).map((e) => noeud(e, suite)) }
+  }
+  return racines.map((l) => noeud(l, new Set()))
+}
+
+/**
+ * Arbre de toute la base : les tâches sans parent, puis, pour une boucle sans
+ * entrée (A sous B, B sous A), sa première tâche, pour qu'aucune ne disparaisse.
+ */
+export function arbreComplet(t: BaseTaches, lignes: readonly LigneChargee[]): NoeudTache[] {
+  const triees = trierTaches(t, lignes)
+  const arbre = arbreTaches(t, lignes, racinesParmi(t, triees))
+  const vues = new Set(idsArbre(arbre))
+  for (const l of triees) {
+    if (vues.has(l.id)) continue
+    const [n] = arbreTaches(t, lignes, [l])
+    arbre.push(n!)
+    for (const id of idsArbre([n!])) vues.add(id)
+  }
+  return arbre
+}
+
+/** Ids des tâches d'un arbre, chacune une fois (une tâche à deux parents y figure deux fois). */
+export function idsArbre(noeuds: readonly NoeudTache[]): string[] {
+  const ids = new Set<string>()
+  const parcourir = (n: NoeudTache) => {
+    ids.add(n.ligne.id)
+    n.enfants.forEach(parcourir)
+  }
+  noeuds.forEach(parcourir)
+  return [...ids]
+}
+
+/**
+ * Garde d'un arbre ce qui passe le filtre : une tâche gardée par `garde` et
+ * trouvée (par `trouve`, ou parce qu'un parent l'est), ou dont une sous-tâche
+ * reste ; une tâche faite reste ainsi tant qu'une sous-tâche est à faire, et
+ * la recherche garde les parents d'une sous-tâche trouvée.
+ */
+export function filtrerArbre(noeuds: readonly NoeudTache[], garde: (l: LigneChargee) => boolean, trouve: (l: LigneChargee) => boolean, parentTrouve = false): NoeudTache[] {
+  return noeuds.flatMap((n) => {
+    const ici = parentTrouve || trouve(n.ligne)
+    const enfants = filtrerArbre(n.enfants, garde, trouve, ici)
+    return (garde(n.ligne) && ici) || enfants.length > 0 ? [{ ligne: n.ligne, enfants }] : []
+  })
 }

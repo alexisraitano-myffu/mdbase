@@ -15,9 +15,10 @@ export type Theme = { couleurs: Partial<Record<(typeof COULEURS)[number], string
 /**
  * Base des tâches (spec §9 « Base des tâches ») : ses lignes sont des tâches,
  * `fait` (case ou choix) dit lesquelles sont faites ; pour un choix,
- * `terminees` donne les options qui comptent comme faites.
+ * `terminees` donne les options qui comptent comme faites ; `sous_taches`,
+ * l'auto-relation (côté qui liste les sous-tâches).
  */
-export type ConfigTaches = { base: string; fait: string; terminees?: string[]; echeance?: string }
+export type ConfigTaches = { base: string; fait: string; terminees?: string[]; echeance?: string; sous_taches?: string }
 export type ConfigEspace = { dashboards: string[]; groupes: Groupe[]; horsGroupe: string[]; theme: Theme; taches?: ConfigTaches }
 
 export type OperationEspace =
@@ -70,6 +71,7 @@ export function lireConfigTaches(brut: unknown): ConfigTaches | undefined {
     fait: brut.fait,
     ...(terminees.length > 0 && { terminees }),
     ...(typeof brut.echeance === 'string' && brut.echeance !== '' && { echeance: brut.echeance }),
+    ...(typeof brut.sous_taches === 'string' && brut.sous_taches !== '' && { sous_taches: brut.sous_taches }),
   }
 }
 

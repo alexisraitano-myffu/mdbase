@@ -654,7 +654,7 @@ export function decrireEspace(etat: EtatEspace, o: OptionsContexte): string {
   if (taches?.ok) {
     const t = taches.taches
     const fait = t.fait.type === 'select' ? `${t.fait.cle} (fait si ${t.terminees.join(' ou ')})` : `${t.fait.cle} (case cochée)`
-    parties.push('', `Base des tâches : ${t.base}, chaque ligne est une tâche ; fait : ${fait}${t.echeance ? ` ; échéance : ${t.echeance.cle}` : ''}. Les cases à cocher des corps (- [ ]) sont aussi des tâches.`)
+    parties.push('', `Base des tâches : ${t.base}, chaque ligne est une tâche ; fait : ${fait}${t.echeance ? ` ; échéance : ${t.echeance.cle}` : ''}${t.sousTaches ? ` ; sous-tâches : ${t.sousTaches.cle} (une sous-tâche se crée avec ${t.sousTaches.inverse} = [id de la tâche parente])` : ''}. Les cases à cocher des corps (- [ ]) sont aussi des tâches.`)
   }
   if (etat.dashboards.length > 0) {
     parties.push('', '## Dashboards (rangées de haut en bas, blocs de gauche à droite, comptés à partir de 1)')

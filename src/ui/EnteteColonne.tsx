@@ -369,7 +369,8 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
     fermer()
   }
 
-  const autresBases = [...etat.bases.values()].filter((b) => b.id !== base && b.depot)
+  // La base elle-même vient en dernier : une auto-relation (sous-tâches, spec §5).
+  const autresBases = [...[...etat.bases.values()].filter((b) => b.id !== base && b.depot), ...[...etat.bases.values()].filter((b) => b.id === base && b.depot)]
   const relations = (schema?.colonnes ?? []).filter((c): c is ColonneRelation => c.type === 'relation')
 
   return (
@@ -447,7 +448,7 @@ export function AjoutColonne({ espace, base }: { espace: DepotEspace; base: stri
                     fermer()
                   }}
                 >
-                  {schemaDe(b.id)!.nom}
+                  {b.id === base ? `${schemaDe(b.id)!.nom} (cette base)` : schemaDe(b.id)!.nom}
                 </button>
               ))}
             </>

@@ -132,6 +132,7 @@ function modifier(etat: EtatEspace, args: Record<string, unknown>, ctx: Contexte
     const changements: Changement[] = []
     const modifs: Modifications = {}
     for (const [c, v] of valeurs) {
+      if (c.type === 'relation' && c.cible === base.id && Array.isArray(v) && v.includes(l.id)) erreur(`une ligne ne se lie pas à elle-même (${c.cle})`)
       const avant = valeurActuelle(l.cellules[c.cle])
       if (memeValeur(avant, v)) continue
       modifs[c.cle] = v

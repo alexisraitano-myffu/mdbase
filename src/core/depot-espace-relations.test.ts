@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DepotEspace } from './depot-espace'
 import { correspond } from './filtres'
-import { ErreurSchema } from './schema-ecriture'
 import { FICHIERS_RELATIONS } from './fixtures/espace-relations'
 import { AdaptateurCompteur, aleatoire, minuteur } from './fixtures/outils'
 
@@ -85,11 +84,6 @@ describe('relations : configuration', () => {
     })
   })
 
-  it('refuse une auto-relation', async () => {
-    const { espace } = await ouvrir()
-    await expect(espace.ajouterRelation('taches', 'Parent', 'taches')).rejects.toThrow(ErreurSchema)
-  })
-
   it('supprime une relation depuis le côté non propriétaire : deux colonnes, ids retirés côté propriétaire', async () => {
     const { a, espace } = await ouvrir()
     const n = await espace.supprimerColonne('projets', 'taches')
@@ -154,5 +148,77 @@ describe('rollups : modification', () => {
     const moyenne = await espace.ajouterRollup('clients', 'Avancement moyen', 'projets', nb, 'moyenne')
     // Navi : 1 tâche faite sur 2 = 50 % ; sinam : 0 %. Moyenne Acme : 25 %.
     expect(calcul(espace, 'clients', 'c0000001', moyenne)).toEqual({ etat: 'ok', valeur: 25 })
+  })
+})
+
+describe('auto-relation (relation d’une base vers elle-même)', () => {
+  it('crée les deux colonnes dans le même schéma ; le côté miroir se calcule', async () => {
+    const { espace } = await ouvrir()
+    const cle = await espace.ajouterRelation('taches', 'Tâche parente', 'taches', 'Sous-tâches')
+    const parente = schema(espace, 'taches').colonnes.find((c) => c.cle === cle)
+    expect(parente).toMatchObject({ type: 'relation', cible: 'taches', proprietaire: true, inverse: 'sous_taches' })
+    expect(schema(espace, 'taches').colonnes.find((c) => c.cle === 'sous_taches')).toMatchObject({ type: 'relation', cible: 'taches', proprietaire: false, inverse: cle })
+    espace.modifierRelation('taches', 't0000002', cle, ['t0000001'])
+    espace.modifierRelation('taches', 't0000001', 'sous_taches', ['t0000002', 't0000003'])
+    expect(calcul(espace, 'taches', 't0000001', 'sous_taches')).toEqual({ etat: 'ok', valeur: ['t0000002', 't0000003'] })
+  })
+
+  it('sans nom de miroir, « <nom> (inverse) » ; une clé déjà prise est dédoublonnée', async () => {
+    const { espace } = await ouvrir()
+    const cle = await espace.ajouterRelation('taches', 'Liée', 'taches')
+    const miroir = schema(espace, 'taches').colonnes.find((c) => c.type === 'relation' && c.inverse === cle)
+    expect(miroir?.nom).toBe('Liée (inverse)')
+    expect(miroir?.cle).not.toBe(cle)
+  })
+
+  it('une ligne ne se lie jamais à elle-même', async () => {
+    const { espace } = await ouvrir()
+    const cle = await espace.ajouterRelation('taches', 'Tâche parente', 'taches', 'Sous-tâches')
+    espace.modifierRelation('taches', 't0000001', cle, ['t0000001', 't0000002'])
+    espace.modifierRelation('taches', 't0000003', 'sous_taches', ['t0000003'])
+    await espace.vider()
+    const a = espace.etat().bases.get('taches')!.depot!.lignes().find((l) => l.id === 't0000001')!
+    expect(a.cellules[cle]).toEqual({ etat: 'ok', valeur: ['t0000002'] })
+    expect(calcul(espace, 'taches', 't0000003', 'sous_taches')).toBeUndefined()
+  })
+
+  it('supprimer l’auto-relation retire ses deux colonnes et les ids des fichiers', async () => {
+    const { a, espace } = await ouvrir()
+    const cle = await espace.ajouterRelation('taches', 'Tâche parente', 'taches', 'Sous-tâches')
+    espace.modifierRelation('taches', 't0000002', cle, ['t0000001'])
+    await espace.vider()
+    await espace.supprimerColonne('taches', 'sous_taches')
+    expect(schema(espace, 'taches').colonnes.some((c) => c.cle === cle || c.cle === 'sous_taches')).toBe(false)
+    expect(await a.lire('taches/b--t0000002.md')).not.toContain('tache_parente')
+  })
+
+  it('dupliquer la base : l’auto-relation vise la copie, liens gardés', async () => {
+    const { espace } = await ouvrir()
+    const cle = await espace.ajouterRelation('taches', 'Tâche parente', 'taches', 'Sous-tâches')
+    espace.modifierRelation('taches', 't0000002', cle, ['t0000001'])
+    await espace.vider()
+    const copie = await espace.dupliquerBase('taches')
+    expect(schema(espace, copie).colonnes.find((c) => c.cle === cle)).toMatchObject({ cible: copie, proprietaire: true, inverse: 'sous_taches' })
+    expect(schema(espace, copie).colonnes.find((c) => c.cle === 'sous_taches')).toMatchObject({ cible: copie, proprietaire: false })
+    expect(calcul(espace, copie, 't0000001', 'sous_taches')).toEqual({ etat: 'ok', valeur: ['t0000002'] })
+    // La base d'origine ne gagne pas de colonne miroir vers la copie.
+    expect(schema(espace, 'taches').colonnes.some((c) => c.type === 'relation' && c.cible === copie)).toBe(false)
+  })
+})
+
+describe('relation créée à la volée (masquée dans l’affichage existant)', () => {
+  it('masque les deux colonnes dans les vues des deux bases, « masqué si vide » dans leurs mises en page', async () => {
+    const fichiers = {
+      ...FICHIERS_RELATIONS,
+      'clients/_vues/tableau.yaml': 'id: tableau\nnom: Tableau\ntype: tableau\ncolonnes_masquees: [heures]\n',
+      'taches/_pages/defaut.yaml': 'id: defaut\nnom: Par défaut\ndefaut: true\nchamps:\n  - { cle: statut, affichage: visible }\n',
+    }
+    const { a, espace } = await ouvrir(fichiers)
+    const { cle, miroir } = await espace.ajouterRelationDiscrete('taches', 'Clients', 'clients')
+    expect(espace.etat().bases.get('clients')!.vues[0]!.masquees).toEqual(['heures', miroir])
+    expect(espace.etat().bases.get('taches')!.vues.every((v) => v.masquees?.includes(cle))).toBe(true)
+    expect(await a.lire('clients/_vues/tableau.yaml')).toContain(`colonnes_masquees: [ heures, ${miroir} ]`)
+    expect(await a.lire('taches/_pages/defaut.yaml')).toContain(`{ cle: ${cle}, affichage: masque_si_vide }`)
+    expect(espace.etat().bases.get('taches')!.pages[0]!.champs.at(-1)).toEqual({ cle, affichage: 'masque_si_vide' })
   })
 })

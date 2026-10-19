@@ -317,7 +317,8 @@ function CelluleRelation(p: {
 
   const texte = normaliser(recherche.trim())
   const candidats = [...(etat.titres.get(colonne.cible) ?? new Map<string, string>())]
-    .filter(([, titre]) => normaliser(titre).includes(texte))
+    // Auto-relation : une ligne ne se lie pas à elle-même.
+    .filter(([id, titre]) => !(colonne.cible === p.base && id === ligne.id) && normaliser(titre).includes(texte))
     .sort(([a], [b]) => Number(ids.includes(b)) - Number(ids.includes(a)))
     .slice(0, 50)
   const casses = ids.filter((id) => titreDe(etat, colonne.cible, id) === null)

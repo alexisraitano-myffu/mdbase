@@ -171,12 +171,14 @@ function lireColonne(b: Brouillon, base: string, brut: unknown): { action: Actio
 
   if (type === 'relation') {
     const cible = b.base(brut.cible)
-    if (cible.id === base) erreur('une relation relie deux bases différentes')
-    const cleMiroir = cleColonne(schema.nom, cible.schema.colonnes.map((c) => c.cle))
+    // Auto-relation (spec §5) : les deux colonnes dans le même schéma, la miroir nommée « <nom> (inverse) », comme dans DepotEspace.
+    const auto = cible.id === base
+    const nomMiroir = auto ? `${nom} (inverse)` : schema.nom
+    const cleMiroir = cleColonne(nomMiroir, [...cible.schema.colonnes.map((c) => c.cle), ...(auto ? [cle] : [])])
     return {
       action: action({ type, nom, cible: cible.id, cleMiroir }),
       colonne: { cle, nom, type, cible: cible.id, proprietaire: true, inverse: cleMiroir },
-      miroir: [cible.id, { cle: cleMiroir, nom: schema.nom, type, cible: base, proprietaire: false, inverse: cle }],
+      miroir: [cible.id, { cle: cleMiroir, nom: nomMiroir, type, cible: base, proprietaire: false, inverse: cle }],
     }
   }
   if (type === 'rollup') {

@@ -94,6 +94,22 @@ describe('assistant : structure', () => {
     expect(await a.lire('taches/b--t0000002.md')).toContain(`version: ${id}\n`)
   })
 
+  it('auto-relation : sous-tâches créées et remplies dans le même plan ; une ligne ne se lie pas à elle-même', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(
+      espace,
+      appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Tâche parente', type: 'relation', cible: 'taches' }] }),
+      appel('modifier_lignes', { base: 'taches', lignes: ['t0000002'], valeurs: { 'Tâche parente': ['t0000001'] } }),
+    )
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await a.lire('taches/_schema.yaml')).toContain('nom: Tâche parente (inverse)')
+    expect(await a.lire('taches/b--t0000002.md')).toContain('tache_parente: t0000001\n')
+    await expect(
+      proposer(obstine(appel('modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { tache_parente: ['t0000001'] } })), espace, 'x', { aujourdhui: AUJOURDHUI, baseOuverte: null }),
+    ).rejects.toThrow(/ne se lie pas à elle-même/)
+  })
+
   it('une proposition de structure seule laisse un tour au modèle pour envoyer les lignes', async () => {
     const { espace } = await ouvrir()
     const reponses: ReponseIA[] = [

@@ -351,6 +351,68 @@ export class DepotEspace {
   }
 
   /**
+   * Sous-tâches de la base des tâches : l'auto-relation désignée, ou créée à
+   * la volée (« Tâche parente » / « Sous-tâches », masquées dans l'affichage
+   * existant) et écrite dans `sous_taches`. Rend la clé côté sous-tâches.
+   */
+  async activerSousTaches(): Promise<string> {
+    const config = this.config.taches
+    if (!config) throw new ErreurSchema('Aucune base des tâches')
+    if (config.sous_taches) return config.sous_taches
+    const { miroir } = await this.ajouterRelationDiscrete(config.base, 'Tâche parente', config.base, 'Sous-tâches')
+    await this.reglerTaches({ ...(this.config.taches ?? config), sous_taches: miroir })
+    return miroir
+  }
+
+  /**
+   * Relation de la base des tâches vers `base` (la première), créée à la
+   * volée si elle n'existe pas (spec §9 « Base des tâches ») ; `creee` dit le
+   * nom de la base liée quand elle vient d'être créée.
+   */
+  private async relationDesTaches(base: string): Promise<{ cle: string; creee: string | null }> {
+    const config = this.config.taches
+    if (!config) throw new ErreurSchema('Aucune base des tâches')
+    if (base === config.base) throw new ErreurSchema('Une tâche se lie à une sous-tâche par « Ajouter une sous-tâche »')
+    const existante = this.schema(config.base).colonnes.find((c) => c.type === 'relation' && c.cible === base)
+    if (existante) return { cle: existante.cle, creee: null }
+    const nom = this.schema(base).nom
+    const { cle } = await this.ajouterRelationDiscrete(config.base, nom, base)
+    return { cle, creee: nom }
+  }
+
+  /**
+   * Crée une tâche dans la base des tâches, liée aux lignes `liens` (de
+   * n'importe quelle base : la relation manquante est créée d'abord), avec
+   * d'autres valeurs (lien à sa tâche parente…). Rend la ligne et les bases
+   * dont la relation vient d'être créée.
+   */
+  async creerTache(texte: string, liens: readonly { base: string; id: string }[] = [], valeurs: Modifications = {}): Promise<{ ligne: LigneChargee; relationsCreees: string[] }> {
+    const config = this.config.taches
+    if (!config) throw new ErreurSchema('Aucune base des tâches')
+    const toutes: Modifications = { ...valeurs }
+    const relationsCreees: string[] = []
+    for (const l of liens) {
+      const { cle, creee } = await this.relationDesTaches(l.base)
+      if (creee) relationsCreees.push(creee)
+      const deja = toutes[cle]
+      toutes[cle] = [...new Set([...(Array.isArray(deja) ? deja : []), l.id])]
+    }
+    const ligne = await this.creerLigne(config.base, { ...toutes, [this.schema(config.base).champTitre]: texte })
+    return { ligne, relationsCreees }
+  }
+
+  /** Lie une tâche existante à une ligne de n'importe quelle base (la relation manquante est créée d'abord). */
+  async lierTache(idTache: string, base: string, id: string): Promise<{ relationCreee: string | null }> {
+    const config = this.config.taches
+    if (!config) throw new ErreurSchema('Aucune base des tâches')
+    const { cle, creee } = await this.relationDesTaches(base)
+    const c = colonne(this.schema(config.base), cle) as ColonneRelation
+    const actuels = c.proprietaire ? idsDe(this.ligne(config.base, idTache), cle) : this.idsCalcules(config.base, idTache, cle)
+    if (!actuels.includes(id)) this.modifierRelation(config.base, idTache, cle, [...actuels, id])
+    return { relationCreee: creee }
+  }
+
+  /**
    * Crée une base Jira (spec §16) : colonnes fixées, `source` dans le schéma ;
    * ses lignes ne sont écrites que par le script de synchro.
    */
@@ -387,7 +449,10 @@ export class DepotEspace {
   dupliquerBase(id: string): Promise<string> {
     return this.enFile(async () => {
       const schema = this.schema(id)
-      const relations = schema.colonnes.filter((c): c is ColonneRelation => c.type === 'relation')
+      // Une auto-relation (spec §5) se copie vers la copie elle-même, ses liens tels quels ; les autres relations gagnent une miroir.
+      const toutes = schema.colonnes.filter((c): c is ColonneRelation => c.type === 'relation')
+      const autos = toutes.filter((c) => c.cible === id)
+      const relations = toutes.filter((c) => c.cible !== id)
       for (const c of relations) this.schema(c.cible)
       const nom = `${schema.nom} (copie)`
       const copie = idBase(nom, (await this.adaptateur.lister('')).map((e) => e.nom))
@@ -403,6 +468,7 @@ export class DepotEspace {
       }
       await this.copierDossier(id, copie)
       let texte = copierSchema(await this.adaptateur.lire(joindre(id, FICHIER_SCHEMA)), copie, nom)
+      for (const c of autos) texte = modifierSchema(texte, { type: 'modifier_colonne', cle: c.cle, proprietes: { cible: copie } })
       const miroirs: [string, Colonne][] = []
       const prises = new Map<string, string[]>()
       for (const c of relations) {
@@ -736,26 +802,57 @@ export class DepotEspace {
 
   /**
    * Crée une relation bidirectionnelle (spec §5) : la colonne propriétaire ici,
-   * la colonne miroir (nommée d'après cette base) dans la base cible.
+   * la colonne miroir (nommée d'après cette base, ou `nomMiroir`) dans la base
+   * cible. Vers sa propre base (auto-relation), les deux colonnes sont dans le
+   * même schéma ; la miroir s'appelle alors « <nom> (inverse) » par défaut.
    */
-  ajouterRelation(base: string, nom: string, cible: string): Promise<string> {
+  ajouterRelation(base: string, nom: string, cible: string, nomMiroir?: string): Promise<string> {
+    return this.enFile(() => this.ajouterRelationSansFile(base, nom, cible, nomMiroir))
+  }
+
+  private async ajouterRelationSansFile(base: string, nom: string, cible: string, nomMiroir?: string): Promise<string> {
+    // Vers une base synchronisée, oui : sa colonne miroir est calculée, rien ne s'écrit dans ses lignes.
+    this.refuserSiSynchronisee(base)
+    const schema = this.schema(base)
+    const schemaCible = this.schema(cible)
+    const nomPropre = nom.trim() || schemaCible.nom
+    const cle = cleColonne(nomPropre, schema.colonnes.map((c) => c.cle))
+    const auto = cible === base
+    const miroir = nomMiroir?.trim() || (auto ? `${nomPropre} (inverse)` : schema.nom)
+    const cleMiroir = cleColonne(miroir, [...schemaCible.colonnes.map((c) => c.cle), ...(auto ? [cle] : [])])
+    await this.modifierSchema(base, {
+      type: 'ajouter_colonne',
+      colonne: { cle, nom: nomPropre, type: 'relation', cible, proprietaire: true, inverse: cleMiroir },
+    })
+    await this.modifierSchema(cible, {
+      type: 'ajouter_colonne',
+      colonne: { cle: cleMiroir, nom: miroir, type: 'relation', cible: base, proprietaire: false, inverse: cle },
+    })
+    return cle
+  }
+
+  /**
+   * Relation créée à la volée (spec §9 « Base des tâches ») : comme
+   * `ajouterRelation`, puis ses deux colonnes masquées dans toutes les vues
+   * existantes des deux bases, et « masqué si vide » dans leurs mises en page,
+   * pour que l'affichage choisi ne change pas. Rend les clés des deux colonnes.
+   */
+  ajouterRelationDiscrete(base: string, nom: string, cible: string, nomMiroir?: string): Promise<{ cle: string; miroir: string }> {
     return this.enFile(async () => {
-      // Vers une base synchronisée, oui : sa colonne miroir est calculée, rien ne s'écrit dans ses lignes.
-      this.refuserSiSynchronisee(base)
-      if (cible === base) throw new ErreurSchema('Une relation relie deux bases différentes (auto-relation : plus tard)')
-      const schema = this.schema(base)
-      const schemaCible = this.schema(cible)
-      const cle = cleColonne(nom, schema.colonnes.map((c) => c.cle))
-      const cleMiroir = cleColonne(schema.nom, schemaCible.colonnes.map((c) => c.cle))
-      await this.modifierSchema(base, {
-        type: 'ajouter_colonne',
-        colonne: { cle, nom: nom.trim() || schemaCible.nom, type: 'relation', cible, proprietaire: true, inverse: cleMiroir },
-      })
-      await this.modifierSchema(cible, {
-        type: 'ajouter_colonne',
-        colonne: { cle: cleMiroir, nom: schema.nom, type: 'relation', cible: base, proprietaire: false, inverse: cle },
-      })
-      return cle
+      const cle = await this.ajouterRelationSansFile(base, nom, cible, nomMiroir)
+      const miroir = (colonne(this.schema(base), cle) as ColonneRelation).inverse
+      const ajouts: [string, string][] = [[base, cle], [cible, miroir]]
+      for (const b of new Set([base, cible])) {
+        const cles = ajouts.filter(([x]) => x === b).map(([, k]) => k)
+        const etat = this.bases.get(b)
+        for (const v of etat?.vues ?? []) await this.ecrireVue(b, v.id, { masquees: [...new Set([...(v.masquees ?? []), ...cles])] })
+        for (const m of etat?.pages ?? []) {
+          const modifs = { champs: [...m.champs.filter((c) => !cles.includes(c.cle)), ...cles.map((k) => ({ cle: k, affichage: 'masque_si_vide' as const }))] }
+          this.remplacerPages(b, (pages) => pages.map((x) => (x.id === m.id ? avecModifs(x, modifs) : x)))
+          await this.ecrireMiseEnPage(b, m.id, modifs)
+        }
+      }
+      return { cle, miroir }
     })
   }
 
@@ -960,6 +1057,8 @@ export class DepotEspace {
     const c = colonne(this.schema(base), cle)
     if (c?.type !== 'relation') throw new ErreurSchema(`Pas une relation : ${cle}`)
     const ligne = this.ligne(base, idLigne)
+    // Auto-relation : une ligne ne se lie jamais à elle-même.
+    if (c.cible === base) ids = ids.filter((id) => id !== idLigne)
     if (c.proprietaire) {
       this.depot(base).modifier(ligne.chemin, cle, [...ids])
       return
@@ -1342,14 +1441,23 @@ export class DepotEspace {
   modifierVue(base: string, idVue: string, modifs: ModificationVue): Promise<void> {
     this.vue(base, idVue)
     this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? { ...v, ...modifs } : v)))
-    return this.apresMemoire(async () => {
-      const vue = this.vue(base, idVue)
-      const chemin = cheminVue(base, idVue)
-      const texte = modifierVue(vue.implicite ? null : await this.lireOuNull(chemin), vue, modifs)
-      await this.adaptateur.ecrire(chemin, texte)
-      const relue = lireVue(texte, idVue).vue
-      if (relue) this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? { ...relue, ...enAttente(v, relue) } : v)))
-    })
+    return this.apresMemoire(() => this.ecrireVueEnMemoire(base, idVue, modifs))
+  }
+
+  /** Applique en mémoire puis écrit, depuis une opération déjà dans la file. */
+  private async ecrireVue(base: string, idVue: string, modifs: ModificationVue): Promise<void> {
+    this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? { ...v, ...modifs } : v)))
+    await this.ecrireVueEnMemoire(base, idVue, modifs)
+  }
+
+  /** Écrit une modification de vue déjà appliquée en mémoire. */
+  private async ecrireVueEnMemoire(base: string, idVue: string, modifs: ModificationVue): Promise<void> {
+    const vue = this.vue(base, idVue)
+    const chemin = cheminVue(base, idVue)
+    const texte = modifierVue(vue.implicite ? null : await this.lireOuNull(chemin), vue, modifs)
+    await this.adaptateur.ecrire(chemin, texte)
+    const relue = lireVue(texte, idVue).vue
+    if (relue) this.remplacerVues(base, (vues) => vues.map((v) => (v.id === idVue ? { ...relue, ...enAttente(v, relue) } : v)))
   }
 
   creerVue(base: string, nom: string, type: TypeVue = 'tableau', reglages: ModificationVue = {}): Promise<string> {

@@ -483,6 +483,22 @@ button:hover { background: var(--survol); }
 .echeance-tache { margin-left: auto; font-size: 0.85em; color: var(--discret); white-space: nowrap; }
 .echeance-tache.en-retard { color: var(--rouge-texte); }
 .tache-ligne .detail-taches { margin-top: 1px; margin-bottom: 4px; }
+.liens-tache { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.liens-tache .cellule { min-height: 0; padding: 0; gap: 4px; font-size: 0.85em; cursor: pointer; }
+.lier-tache, .ajouter-sous-tache { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; padding: 1px 4px; border-radius: 6px; font: inherit; font-size: 0.8em; color: var(--tres-discret-texte); cursor: pointer; opacity: 0; }
+.tache-ligne .entete-tache:hover .lier-tache, .tache-ligne .entete-tache:hover .ajouter-sous-tache, .lier-tache:focus-visible, .ajouter-sous-tache:focus-visible { opacity: 1; }
+.lier-tache:hover, .ajouter-sous-tache:hover { color: var(--texte-doux); background: var(--survol-leger); }
+.liste-taches .nouvelle-tache { padding: 2px 6px; cursor: text; }
+.liste-taches .nouvelle-tache input { width: auto; height: auto; flex: 1; translate: none; cursor: text; }
+.saisie-tache { display: flex; flex-direction: column; gap: 4px; }
+.liens-saisis { display: flex; flex-wrap: wrap; gap: 4px; padding-left: 28px; font-size: 0.85em; }
+.liens-saisis .pastille-relation { display: inline-flex; align-items: center; gap: 2px; }
+.retirer-lien { border: 0; background: none; padding: 0; display: inline-flex; cursor: pointer; color: inherit; }
+.propositions-lignes { display: flex; flex-direction: column; min-width: 16rem; max-height: 20rem; overflow-y: auto; }
+.propositions-lignes .option.active { background: var(--survol); }
+.titre-propositions { font-size: 0.75em; font-weight: 600; color: var(--texte-doux); padding: 6px 8px 2px; }
+.message-taches { font-size: 0.85em; margin: 0; padding-left: 28px; }
+@media (hover: none) { .lier-tache, .ajouter-sous-tache { opacity: 1; } }
 
 /* Onglet relation */
 .onglet-relation .tableau { max-height: 60vh; }

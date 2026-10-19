@@ -44,7 +44,7 @@ Une application de bases de données relationnelles avec l'ergonomie de Notion, 
 - Sauvegarde instantanée de toute modification (données et configuration).
 
 ### [PLUS TARD]
-Choix de cardinalité 1-n / n-n par l'utilisateur, auto-relations (relation d'une base vers elle-même), champs obligatoires, modèles de lignes, images et pièces jointes, import et export, dashboards en grille libre, formules manipulant des listes, mises en page déclenchées par règle, type de colonne `personne`, collaboration temps réel, version bureau Tauri, plugin Obsidian.
+Choix de cardinalité 1-n / n-n par l'utilisateur, champs obligatoires, modèles de lignes, images et pièces jointes, import et export, dashboards en grille libre, formules manipulant des listes, mises en page déclenchées par règle, type de colonne `personne`, collaboration temps réel, version bureau Tauri, plugin Obsidian.
 
 ---
 
@@ -115,6 +115,7 @@ taches:                       # optionnel : base des tâches (§ Base des tâche
   fait: statut                # checkbox ou select
   terminees: [Terminé]        # select seulement
   echeance: echeance          # optionnel
+  sous_taches: sous_taches    # optionnel : auto-relation, côté qui liste les sous-tâches
 ```
 
 ### `_schema.yaml`
@@ -254,7 +255,7 @@ C'est la fonctionnalité prioritaire. Elle doit être solide et parfaitement int
   - [PLUS TARD] avec la cardinalité configurable : si une des deux colonnes est mono-valeur (1-n), le propriétaire sera le côté « n » (ex. la tâche porte son projet).
 - En V1, **toutes les relations sont multi-valeurs** côté propriétaire (liste d'ids). La cardinalité configurable est [PLUS TARD] mais le modèle doit l'absorber sans migration.
 - **Édition depuis le côté non propriétaire** : l'utilisateur ajoute ou retire un lien normalement ; l'app traduit l'action en écriture dans le fichier du propriétaire. Un lien ajouté ou retiré = **un seul fichier modifié**.
-- Pas d'auto-relation en V1 : la cible d'une relation doit être une autre base.
+- **Auto-relation** [DÉCIDÉ, demandé par Alex le 19/10/2026, remplace « pas d'auto-relation en V1 »] : une relation peut viser sa propre base (tâche parente / sous-tâches). Ses deux colonnes sont dans le même schéma, le stockage reste d'un seul côté. Une ligne ne se lie jamais à elle-même (elle n'est pas proposée, et l'assistant le refuse). Une boucle écrite à la main (A sous B, B sous A) n'est pas une erreur de fichier : les affichages qui descendent les liens (contenus liés, timeline en arbre, tâches) ne repassent jamais par une ligne déjà sur le chemin. Dupliquer la base duplique l'auto-relation vers la copie elle-même.
 - Supprimer une ligne : les liens qui pointaient vers elle deviennent des liens cassés (§4). Proposer un nettoyage, ne pas réécrire silencieusement.
 
 ### Suppressions de colonnes et de bases [DÉCIDÉ]
@@ -496,7 +497,7 @@ mise_en_page: suivi
 - **Niveaux** : chaque niveau peut déplier à son tour les lignes d'une relation de sa base (client, puis projets, puis tâches), jusqu'à 5 niveaux. Une ligne déjà affichée au-dessus n'est jamais répétée (pas de boucle).
 - **Filtres et tris** par niveau, au format des vues (§7) : les tâches non faites, par échéance. Sans tri, l'ordre de la relation. Le compte dit ce que le filtre masque (« 2 sur 3 »).
 - Activé par la mise en page (réglage « Contenus liés »), donc par base et au choix : clé `contenus`, absente par défaut.
-- Auto-relation (sous-tâches dans la base des tâches) : [PLUS TARD], avec l'auto-relation elle-même (§5). Le dépliage récursif s'en servira tel quel.
+- Auto-relation (§5) : le dépliage récursif s'en sert tel quel (une ligne déjà affichée au-dessus n'est pas répétée).
 
 ### Tâches [DÉCIDÉ, demandé par Alex le 02/10/2026]
 - Une tâche est une case à cocher Markdown du corps d'une page : `- [ ] texte` ou `- [x] texte`, à n'importe quel retrait (sous-tâches). Une case dans un bloc de code n'en est pas une. Rien d'autre n'est lu (ni échéance ni priorité, [PLUS TARD]).
@@ -511,11 +512,16 @@ mise_en_page: suivi
   - `base` : l'identifiant de la base ;
   - `fait` : la colonne qui dit qu'une tâche est faite, `checkbox` ou `select` ;
   - `terminees` : pour un `select`, les options qui comptent comme faites (sinon la dernière option). Cocher écrit la première d'entre elles ; décocher écrit la première option qui n'en est pas ;
-  - `echeance` (optionnel) : une colonne `date`, affichée à côté de la tâche (en rouge si passée) et qui la trie.
+  - `echeance` (optionnel) : une colonne `date`, affichée à côté de la tâche (en rouge si passée) et qui la trie ;
+  - `sous_taches` (optionnel) : la relation de la base vers elle-même qui liste les sous-tâches (voir plus bas).
   Une clé qui ne désigne rien de valide (base absente, colonne d'un autre type) est ignorée, et les Options de la page le disent.
 - **Toutes les tâches** : la base des tâches vient en premier, ses lignes comme des tâches (case, titre qui ouvre la page, échéance), triées par échéance puis sans échéance ; les cases du corps d'une ligne s'affichent dessous, en sous-tâches. Une ligne faite suit le filtre « À faire » comme une case, avec ses sous-tâches. « Ajouter une tâche » en tête de la liste crée une ligne de la base (le texte saisi devient son titre). Les autres bases suivent comme aujourd'hui.
 - **Onglet Tâches** d'une page d'une autre base : si la base des tâches a une relation vers cette base, l'onglet montre d'abord les lignes liées à la page (même format, même tri), avec une saisie qui crée une ligne déjà liée ; puis les cases du texte, sous « Dans le texte », avec leur saisie habituelle. Les tâches restantes comptent les deux.
 - **Réglage** : un bouton « Options » de la page Toutes les tâches ouvre le choix de la base (ou aucune), puis de la colonne « fait », des options terminées et de l'échéance. Sans base désignée, « Toutes les tâches » propose « Créer une base Tâches » : une base `taches` (identifiant dédoublonné si besoin) avec `titre`, `fait` (`checkbox`), `echeance` (`date`) et `priorite` (`select` Haute, Moyenne, Basse), déjà désignée.
+- **Liens d'une tâche** : à côté de chaque tâche, une pastille par relation de la base des tâches (hors sous-tâches), avec les titres des lignes liées ; un clic ouvre le sélecteur de lignes habituel. « Lier » ouvre un sélecteur de lignes de **toutes** les bases (sauf la base des tâches), par recherche.
+- **« @ » dans la saisie** : « @ » suivi de quelques lettres propose les lignes de toutes les bases ; en choisir une l'ajoute en pastille sous la saisie et retire le « @… » du texte. Entrée crée la tâche avec ses liens. Le « @ » du texte d'une page reste une simple référence, il ne crée jamais de relation.
+- **Relation créée à la volée** : lier une tâche à une ligne d'une base sans relation avec la base des tâches crée cette relation (colonne propriétaire dans la base des tâches, nommée d'après la base liée ; colonne miroir dans la base liée, nommée d'après la base des tâches), puis le lien. Pour ne rien changer à l'affichage choisi, les deux nouvelles colonnes sont ajoutées aux colonnes masquées de toutes les vues existantes des deux bases, et en « masqué si vide » dans leurs mises en page. Un message le dit : « Relation Clients ajoutée (masquée dans les vues existantes) ». Comme toute modification de schéma, elle ne s'annule pas par Ctrl+Z ; elle se supprime comme une colonne.
+- **Sous-tâches** : clé `sous_taches` de `taches`, une relation de la base des tâches vers elle-même, côté qui liste les sous-tâches. Une sous-tâche s'affiche sous sa tâche parente, à n'importe quelle profondeur, triée de la même façon ; une tâche faite reste affichée par « À faire » tant qu'une de ses sous-tâches ne l'est pas, et la recherche garde les parents d'une sous-tâche trouvée. Chaque tâche a un bouton « Ajouter une sous-tâche » (saisie sous elle). Sans clé, le premier ajout crée l'auto-relation à la volée (« Tâche parente », propriétaire, et « Sous-tâches », miroir), avec les mêmes règles de masquage, et l'écrit dans `sous_taches`. Une tâche à plusieurs parents apparaît sous chacun (relations multi-valeurs, §5). L'onglet Tâches d'une page de la base des tâches montre ses sous-tâches, avec la saisie qui en crée une.
 - Assistant IA et MCP : une ligne de la base des tâches se crée et se modifie avec les outils des lignes ; `decrire_espace` dit quelle base sert aux tâches et sa colonne « fait ».
 - Base synchronisée (§16) ou consultation : les tâches se lisent, rien ne se coche ni ne se crée. Une base Jira peut ainsi servir de base des tâches en lecture.
 - [PLUS TARD] Changer une case d'un texte en ligne de la base des tâches.
