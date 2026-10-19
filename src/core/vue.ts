@@ -1,3 +1,4 @@
+import type { Feries, LienAbsences, LienAffectations, LienBesoins } from './charge'
 import { Document, isMap, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
@@ -40,7 +41,7 @@ export type Tri = { colonne: string; sens: 'asc' | 'desc' }
  * celui par défaut du type de la colonne.
  */
 export type FiltreRapide = { colonne: string; operateur?: Operateur; valeur?: unknown }
-export type TypeVue = 'tableau' | 'kanban' | 'collection' | 'calendrier' | 'timeline'
+export type TypeVue = 'tableau' | 'kanban' | 'collection' | 'calendrier' | 'timeline' | 'charge'
 export type EchelleVue = 'semaine' | 'mois' | 'trimestre'
 
 /**
@@ -127,6 +128,16 @@ export type Vue = {
   deplier?: Niveau[]
   /** Timeline : sources de bandes verticales. */
   bandes?: Bande[]
+  /** Plan de charge (spec §21) : colonne de capacité des ressources (jours par semaine). */
+  capacite?: string
+  /** Plan de charge : base et colonnes des affectations, des absences, des besoins. */
+  affectations?: LienAffectations
+  absences?: LienAbsences
+  besoins?: LienBesoins
+  /** Plan de charge : jours fériés retirés des jours ouvrés (France par défaut). */
+  feries?: Feries
+  /** Plan de charge : nombre de semaines affichées. */
+  semaines?: number
   /** Vue par défaut d'une base sans `_vues/` : aucun fichier tant qu'on ne la modifie pas. */
   implicite?: boolean
 }
@@ -158,6 +169,12 @@ const REGLAGES = {
   couleur: 'couleur',
   couleurPar: 'couleur_par',
   echelle: 'echelle',
+  capacite: 'capacite',
+  affectations: 'affectations',
+  absences: 'absences',
+  besoins: 'besoins',
+  feries: 'feries',
+  semaines: 'semaines',
 } as const satisfies Partial<Record<keyof ModificationVue, string>>
 
 /** Champs de la vue modifiables ; sert aussi à comparer mémoire et fichier. */
@@ -170,7 +187,7 @@ export function vueParDefaut(): Vue {
   return { id: 'tableau', nom: 'Tableau', type: 'tableau', filtres: [], tris: [], filtresRapides: [], implicite: true }
 }
 
-const TYPES: readonly string[] = ['tableau', 'kanban', 'collection', 'calendrier', 'timeline']
+const TYPES: readonly string[] = ['tableau', 'kanban', 'collection', 'calendrier', 'timeline', 'charge']
 
 const chaines = (x: unknown): string[] | undefined => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : undefined)
 const table = <T>(x: unknown, garder: (v: unknown) => v is T): Record<string, T> | undefined =>
@@ -215,7 +232,23 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   const couleurPar = texte(brut.couleur_par)
   if (couleurPar) r.couleurPar = couleurPar
   if (brut.echelle === 'semaine' || brut.echelle === 'mois' || brut.echelle === 'trimestre') r.echelle = brut.echelle
+  const capacite = texte(brut.capacite)
+  if (capacite) r.capacite = capacite
+  const affectations = lien(brut.affectations, ['base', 'ressource', 'projet', 'debut', 'fin', 'jours'])
+  if (affectations) r.affectations = affectations
+  const absences = lien(brut.absences, ['base', 'ressource', 'debut', 'fin'])
+  if (absences) r.absences = absences
+  const besoins = lien(brut.besoins, ['base', 'projet', 'role', 'jours', 'avant'])
+  if (besoins) r.besoins = besoins
+  if (brut.feries === 'france' || brut.feries === 'aucun') r.feries = brut.feries
+  if (estNombre(brut.semaines) && brut.semaines >= 1) r.semaines = Math.min(Math.round(brut.semaines), 104)
   return r
+}
+
+/** Lien du plan de charge : un objet dont toutes les clés attendues sont des textes, sinon ignoré. */
+function lien<K extends string>(x: unknown, cles: readonly K[]): Record<K, string> | undefined {
+  if (!estObjet(x) || !cles.every((c) => typeof x[c] === 'string' && x[c] !== '')) return undefined
+  return Object.fromEntries(cles.map((c) => [c, x[c]])) as Record<K, string>
 }
 
 export function lireVue(texte: string, id: string): { vue: Vue | null; avertissements: string[] } {

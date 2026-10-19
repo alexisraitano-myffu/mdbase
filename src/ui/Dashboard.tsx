@@ -436,7 +436,7 @@ function AjoutBloc({ idsPropres, requetes, ajouter, compact }: { idsPropres: str
   const creerPropre = (type: TypeVue, nom: string) => {
     if (!base || !schema) return
     const libelle = `${nom} ${schema.nom}`
-    const vue: Vue = { ...vueParDefaut(), ...reglagesParDefaut(type, schema), id: idBase(libelle, idsPropres), nom: libelle, type }
+    const vue: Vue = { ...vueParDefaut(), ...reglagesParDefaut(type, schema, { etat, base }), id: idBase(libelle, idsPropres), nom: libelle, type }
     delete vue.implicite
     ajouter({ base, vue })
     fermer()

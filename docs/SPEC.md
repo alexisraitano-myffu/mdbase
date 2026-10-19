@@ -1173,8 +1173,8 @@ But : planifier la charge d'une équipe partagée entre plusieurs projets (une d
 ### Calcul (cœur, sans interface)
 - Maille : la **semaine** (lundi à vendredi), en jours ; le mois en option, par somme des semaines. Le pourcentage s'affiche en plus.
 - **Capacité nette** d'une ressource une semaine : capacité × jours ouvrés de la semaine moins jours d'absence et jours fériés (France, calculés), divisé par 5.
-- **Charge** d'une ressource une semaine : somme, pour chaque affectation, de ses jours par semaine × la part des jours ouvrés de la semaine couverts par [début, fin]. Une absence ne réduit pas la charge : elle réduit la capacité, et le conflit se voit.
-- **Couverture d'un besoin** : jours affectés au projet par des ressources de ce rôle jusqu'à sa date, comparés aux jours demandés.
+- **Charge** d'une ressource une semaine : somme, pour chaque affectation, de ses jours par semaine × ses jours ouvrés dans la semaine (entre début et fin) / 5. Un jour férié réduit donc la charge comme la capacité : un plein temps reste à plein. Une absence ne réduit pas la charge : elle réduit la capacité, et le conflit se voit.
+- **Couverture d'un besoin** : jours affectés au projet par des ressources de ce rôle jusqu'à sa date (chaque jour ouvré d'une affectation compte ses jours par semaine / 5), comparés aux jours demandés.
 
 ### Vue « Plan de charge » (`type: charge`, vue de la base des ressources)
 - **Par ressource** : une grille ressources × semaines, groupée par rôle. Chaque case montre la charge sur la capacité nette, colorée : libre (moins de 80 %), pleine (jusqu'à 100 %), surchargée (au-delà, en rouge) ; une semaine d'absence complète est hachurée. Une ligne se déplie par projet, pour voir d'où vient la charge. Une ligne par rôle, en tête de groupe, additionne ses ressources.

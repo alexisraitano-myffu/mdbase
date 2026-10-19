@@ -25,7 +25,7 @@ export type Modele = {
 
 export class ErreurModele extends Error {}
 
-const MODULES: readonly IdModule[] = ['kanban', 'collection', 'calendrier', 'timeline', 'taches', 'dashboards', 'assistant', 'inbox', 'contexte', 'jira', 'mcp']
+const MODULES: readonly IdModule[] = ['kanban', 'collection', 'calendrier', 'timeline', 'charge', 'taches', 'dashboards', 'assistant', 'inbox', 'contexte', 'jira', 'mcp']
 
 /** Lit un modèle depuis ses fichiers (chemins relatifs à son dossier). */
 export function lireModele(id: string, fichiers: Record<string, string>): Modele {

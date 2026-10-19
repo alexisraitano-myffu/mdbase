@@ -162,6 +162,7 @@ describe('proposer', () => {
       'chercher_lignes',
       'chercher_texte',
       'executer_sql',
+      'calculer_charge',
       'lire_page',
       'modifier_lignes',
       'creer_lignes',

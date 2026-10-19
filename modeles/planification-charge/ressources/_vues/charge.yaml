@@ -1,0 +1,10 @@
+id: charge
+nom: Plan de charge
+type: charge
+capacite: capacite
+groupe: role
+affectations: { base: affectations, ressource: ressource, projet: projet, debut: debut, fin: fin, jours: jours }
+absences: { base: absences, ressource: ressource, debut: debut, fin: fin }
+besoins: { base: besoins, projet: projet, role: role, jours: jours, avant: avant }
+feries: france
+semaines: 12

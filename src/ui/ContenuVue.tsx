@@ -9,6 +9,7 @@ import { Calendrier } from './Calendrier'
 import { Collection } from './Collection'
 import { useEspace } from './contexte-espace'
 import { Kanban } from './Kanban'
+import { PlanCharge } from './PlanCharge'
 import { Tableau } from './Tableau'
 import { Timeline } from './Timeline'
 import { useAujourdhui } from './useAujourdhui'
@@ -69,7 +70,7 @@ type Props = {
   ouvrir: (base: string, id: string) => void
 }
 
-/** Le contenu d'une vue selon son type : tableau, kanban, collection, calendrier ou timeline (spec §7). */
+/** Le contenu d'une vue selon son type : tableau, kanban, collection, calendrier, timeline ou plan de charge (spec §7, §21). */
 export function ContenuVue({ espace, base, depot, vue, modifierVue, appliquee, ouvrir }: Props) {
   const communs = { espace, base, depot, lignesVue: appliquee.lignesVue, valeursCreation: appliquee.valeursCreation, retenir: appliquee.retenir, ouvrir: (l: LigneChargee) => ouvrir(base, l.id) }
   switch (vue.type) {
@@ -83,5 +84,7 @@ export function ContenuVue({ espace, base, depot, vue, modifierVue, appliquee, o
       return <Calendrier key={vue.id} {...communs} vue={vue} modifierVue={modifierVue} />
     case 'timeline':
       return <Timeline key={vue.id} {...communs} vue={vue} modifierVue={modifierVue} ouvrirPage={ouvrir} />
+    case 'charge':
+      return <PlanCharge key={vue.id} espace={espace} base={base} vue={vue} modifierVue={modifierVue} lignesVue={appliquee.lignesVue} ouvrirPage={ouvrir} />
   }
 }

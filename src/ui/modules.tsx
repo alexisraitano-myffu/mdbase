@@ -24,7 +24,7 @@ type IdChoix = Exclude<IdModule, 'assistant'>
 export type ChoixModules = Partial<Record<IdChoix, boolean>>
 export type ModulesActifs = Record<IdChoix, boolean>
 
-const IDS: readonly IdChoix[] = ['kanban', 'collection', 'calendrier', 'timeline', 'taches', 'dashboards', 'inbox', 'contexte', 'jira', 'mcp']
+const IDS: readonly IdChoix[] = ['kanban', 'collection', 'calendrier', 'timeline', 'charge', 'taches', 'dashboards', 'inbox', 'contexte', 'jira', 'mcp']
 const CLE = 'mdbase.modules'
 const abonnes = new Set<() => void>()
 let courant: ChoixModules | null = null
@@ -99,6 +99,7 @@ const CATALOGUE: { categorie: string; fiches: Fiche[] }[] = [
       { id: 'collection', nom: 'Collection', icone: ICONES_VUES.collection, phrase: 'Une grille de cartes, avec une image quand la ligne en a une.', apercu: <ApercuCollection /> },
       { id: 'calendrier', nom: 'Calendrier', icone: ICONES_VUES.calendrier, phrase: 'Les lignes datées sur un mois ou une semaine.', apercu: <ApercuCalendrier /> },
       { id: 'timeline', nom: 'Timeline', icone: ICONES_VUES.timeline, phrase: 'Des barres du début à la fin, pour voir ce qui se chevauche.', apercu: <ApercuTimeline /> },
+      { id: 'charge', nom: 'Plan de charge', icone: ICONES_VUES.charge, phrase: 'Qui est chargé, semaine par semaine : capacité, absences, affectations, et les besoins des projets couverts ou non.', apercu: <ApercuCharge /> },
     ],
   },
   {
@@ -362,6 +363,22 @@ function ApercuTimeline() {
       ))}
       {barres.map(([x, l], i) => (
         <rect key={i} x={x} y={8 + i * 12} width={l} height={8} rx={3} className={i === 2 ? 'plein' : 'carte'} />
+      ))}
+    </Croquis>
+  )
+}
+
+function ApercuCharge() {
+  const etats = ['libre', 'pleine', 'pleine', 'surchargee', 'libre', 'pleine', 'libre', 'libre', 'absente', 'pleine', 'pleine', 'surchargee']
+  return (
+    <Croquis>
+      {[0, 1, 2].map((r) => (
+        <g key={r}>
+          <Trait x={8} y={14 + r * 18} l={20} />
+          {[0, 1, 2, 3].map((c) => (
+            <rect key={c} x={36 + c * 19} y={8 + r * 18} width={17} height={14} rx={2} className={`charge-${etats[r * 4 + c]}`} />
+          ))}
+        </g>
       ))}
     </Croquis>
   )

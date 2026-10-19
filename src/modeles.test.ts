@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest'
 import { DepotEspace } from './core/depot-espace'
 import { FICHIERS_RELATIONS } from './core/fixtures/espace-relations'
 import { AdaptateurCompteur, aleatoire, minuteur } from './core/fixtures/outils'
+import { reglagesChargeParDefaut } from './core/charge'
+import { lire } from './core/ia/lecture'
 import { lireModele, remplacerDates, suivreReferences } from './core/modeles'
 
 const RACINE = 'modeles'
@@ -93,5 +95,16 @@ describe('modèle planification-charge', () => {
     const portail = etat.bases.get('projets-2')!.depot!.lignes().find((l) => l.id === 'pport001')!
     expect(portail.cellules.debut).toEqual({ etat: 'ok', valeur: '2026-10-05' })
     expect(etat.bases.get('projets-2')!.vues.map((v) => v.type)).toEqual(['tableau', 'timeline'])
+    // La vue Plan de charge du modèle : ses réglages sont ceux qu'une nouvelle vue retrouverait seule.
+    const charge = etat.bases.get('ressources')!.vues[0]!
+    expect(charge.type).toBe('charge')
+    const { capacite, groupe, affectations, absences, besoins } = charge
+    expect(reglagesChargeParDefaut(etat.bases, 'ressources')).toEqual({ capacite, groupe, affectations, absences, besoins })
+    expect(affectations?.projet).toBe('projet')
+    // L'outil commun à l'assistant et au MCP lit les mêmes chiffres.
+    const texte = lire(etat, { id: 'c1', nom: 'calculer_charge', arguments: '{"semaines": 2}' }, { aujourdhui: '2026-10-21' })
+    expect(texte).toContain('à partir du lundi 2026-10-19')
+    expect(texte).toContain('Camille (Développement) | 19/10 5/5 ; 26/10 5/5')
+    expect(texte).toMatch(/Application mobile \| Développement avant 2027-01-04 \| 0\/80 : il manque 80 j/)
   })
 })

@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
-import type { DepotEspace } from '../core/depot-espace'
+import type { DepotEspace, EtatEspace } from '../core/depot-espace'
+import { reglagesChargeParDefaut } from '../core/charge'
 import type { LigneVue } from '../core/filtres'
 import { natureDe, type Colonne, type ColonneChoix, type ColonneRelation, type Schema } from '../core/schema'
 import { colonnesDeLaVue, groupables } from '../core/groupes'
@@ -18,6 +19,7 @@ import { ouvrirMagasin, useTypesActifs } from './modules'
 import { Choix, type EntreeChoix } from './Choix'
 import { Interrupteur, Reglage, Section, Visibilite } from './reglages'
 import { useConsultation } from './mode'
+import { OptionsCharge } from './OptionsCharge'
 import { COULEURS, type ReglageCouleur } from '../core/couleurs'
 
 type Props = {
@@ -77,7 +79,8 @@ export function BarreVue({ espace, base, schema, vues, vue, choisirVue, lignesVu
  * colonne qui s'y prête, un calendrier ou une timeline placé sur la première
  * colonne de date.
  */
-export function reglagesParDefaut(type: TypeVue, schema: Schema): ModificationVue {
+export function reglagesParDefaut(type: TypeVue, schema: Schema, espace?: { etat: Pick<EtatEspace, 'bases'>; base: string }): ModificationVue {
+  if (type === 'charge') return espace ? reglagesChargeParDefaut(espace.etat.bases, espace.base) : {}
   const groupe =
     type === 'kanban'
       ? (['select', 'checkbox', 'relation', 'multiselect'] as const).flatMap((t) => schema.colonnes.filter((c) => c.type === t))[0]?.cle
@@ -103,6 +106,8 @@ export function OutilsVue({ schema, vue, modifier }: { schema: Schema; vue: Vue;
           <OptionsCartes schema={schema} vue={vue} modifier={modifier} />
         ) : vue.type === 'calendrier' || vue.type === 'timeline' ? (
           <OptionsTemps schema={schema} vue={vue} modifier={modifier} />
+        ) : vue.type === 'charge' ? (
+          <OptionsCharge schema={schema} vue={vue} modifier={modifier} />
         ) : (
           <OptionsVue schema={schema} vue={vue} modifier={modifier} />
         )}
@@ -117,6 +122,7 @@ export const TYPES_CREABLES: { type: TypeVue; nom: string }[] = [
   { type: 'collection', nom: 'Collection' },
   { type: 'calendrier', nom: 'Calendrier' },
   { type: 'timeline', nom: 'Timeline' },
+  { type: 'charge', nom: 'Plan de charge' },
 ]
 
 
@@ -128,7 +134,7 @@ function AjoutVue(p: { espace: DepotEspace; base: string; schema: Schema; vues: 
   const actif = useTypesActifs()
   const creer = async (type: TypeVue, nom: string) => {
     setOuvert(false)
-    const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, reglagesParDefaut(type, p.schema)))
+    const id = await lancer(p.espace.creerVue(p.base, `${nom} ${p.vues.length + 1}`, type, reglagesParDefaut(type, p.schema, { etat: p.espace.etat(), base: p.base })))
     if (id) p.choisirVue(id)
   }
   return (

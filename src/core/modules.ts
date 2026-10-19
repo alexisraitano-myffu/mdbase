@@ -8,10 +8,10 @@ import type { TypeVue } from './vue'
 // l'espace utilise déjà, déduit des fichiers : un tel module est toujours
 // actif, pour qu'aucune version ni aucun réglage ne cache ce qu'un espace contient.
 
-export type IdModule = 'kanban' | 'collection' | 'calendrier' | 'timeline' | 'taches' | 'dashboards' | 'assistant' | 'inbox' | 'contexte' | 'jira' | 'mcp'
+export type IdModule = 'kanban' | 'collection' | 'calendrier' | 'timeline' | 'charge' | 'taches' | 'dashboards' | 'assistant' | 'inbox' | 'contexte' | 'jira' | 'mcp'
 
 /** Types de vue qui sont des modules ; le tableau est dans le socle. */
-export const VUES_MODULES = ['kanban', 'collection', 'calendrier', 'timeline'] as const satisfies readonly TypeVue[]
+export const VUES_MODULES = ['kanban', 'collection', 'calendrier', 'timeline', 'charge'] as const satisfies readonly TypeVue[]
 
 export const estVueModule = (type: TypeVue): type is (typeof VUES_MODULES)[number] => (VUES_MODULES as readonly string[]).includes(type)
 

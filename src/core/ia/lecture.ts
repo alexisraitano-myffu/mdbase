@@ -5,6 +5,7 @@ import type { Cellule } from '../valeurs'
 import type { Tri } from '../vue'
 import type { AppelOutil, DefinitionOutil } from './modele'
 import { executerSqlOutil, type ContexteSql } from './analyse'
+import { calculerChargeOutil } from './charge'
 import { FILTRE } from './outils'
 import { erreur, ErreurProposition, lireFiltres, normaliser, trouverBase, trouverColonne, trouverLigne } from './references'
 
@@ -60,6 +61,20 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
         dashboard: { type: 'string', description: 'id ou nom d’un dashboard : ses filtres et ses paramètres valent pour la requête' },
       },
       required: ['sql'],
+    },
+  },
+  {
+    nom: 'calculer_charge',
+    description:
+      "Calcule le plan de charge d'une vue Plan de charge : pour chaque ressource et chaque semaine, la charge (jours affectés) sur la capacité nette (absences et jours fériés retirés), les surcharges, et la couverture des besoins des projets. Pour « qui est disponible en mars ? », « qui est surchargé ? », « le projet X est-il couvert ? ». Les affectations se créent ensuite avec creer_lignes dans leur base.",
+    parametres: {
+      type: 'object',
+      properties: {
+        base: { type: 'string', description: 'id de la base des ressources (par défaut : la première qui a une vue Plan de charge)' },
+        vue: { type: 'string', description: 'id ou nom de la vue Plan de charge, si la base en a plusieurs' },
+        debut: { type: 'string', description: 'AAAA-MM-JJ, semaine de départ (par défaut : cette semaine)' },
+        semaines: { type: 'number', description: 'nombre de semaines, 8 par défaut, 26 au plus' },
+      },
     },
   },
   {
@@ -151,6 +166,7 @@ export function lire(etat: EtatEspace, appel: AppelOutil, ctx: Contexte): string
     }
     if (!estObjet(args)) return erreur("objet d'arguments attendu")
     if (appel.nom === 'chercher_texte') return chercherTexte(etat, args)
+    if (appel.nom === 'calculer_charge') return calculerChargeOutil(etat, args, ctx.aujourdhui)
     const base = trouverBase(etat, args.base)
     if (appel.nom === 'lire_page') {
       const id = trouverLigne(etat, base.id, args.ligne)

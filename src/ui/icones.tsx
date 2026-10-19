@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CalendarPlus,
   ChartGantt,
+  Gauge,
   CircleDot,
   Hash,
   History,
@@ -44,6 +45,7 @@ export const ICONES_VUES: Record<TypeVue, LucideIcon> = {
   collection: LayoutGrid,
   calendrier: CalendarDays,
   timeline: ChartGantt,
+  charge: Gauge,
 }
 
 /** Une icône à la taille du texte, alignée comme l'ancien glyphe `.icone`. */
