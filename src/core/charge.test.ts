@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { ajusterSurPeriode, calculerCharge, nomNiveau, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
+import { ajusterDetail, ajusterSurPeriode, calculerCharge, ecrireDetail, ligneApercu, lireDetail, nomNiveau, remplir, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
 
 const ligne = (id: string, champs: Record<string, unknown>): LigneChargee => ({
   id,
@@ -15,7 +15,7 @@ const ligne = (id: string, champs: Record<string, unknown>): LigneChargee => ({
 const R: ReglagesCharge = {
   capacite: 'capacite',
   groupe: 'role',
-  affectations: { base: 'affectations', ressource: 'ressource', projet: 'projet', debut: 'debut', fin: 'fin', jours: 'jours', total: 'total', version: 'version' },
+  affectations: { base: 'affectations', ressource: 'ressource', projet: 'projet', debut: 'debut', fin: 'fin', jours: 'jours', total: 'total', version: 'version', detail: 'detail', scenario: 'scenario' },
   absences: { base: 'absences', ressource: 'ressource', debut: 'debut', fin: 'fin' },
   besoins: { base: 'besoins', projet: 'projet', role: 'role', jours: 'jours', avant: 'avant' },
 }
@@ -120,9 +120,9 @@ describe('jour, mois, total et graphique', () => {
       ligne('a3', { ressource: 'carla', projet: 'p1', version: 'v2', debut: '2026-10-19', fin: '2026-10-23', jours: 1 }),
     ]
     const cases = calculerCharge(R, RESSOURCES, aff, [], periodes('semaine', '2026-10-19', 1))
-    expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'projet')).toEqual([{ parts: { p1: 4, p2: 2 }, capacite: 14 }])
-    expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'version')).toEqual([{ parts: { v1: 3, '@p2': 2, v2: 1 }, capacite: 14 }])
-    expect(empiler(cases, ['alice', 'bob'], 1, 'projet')).toEqual([{ parts: { p1: 3, p2: 2 }, capacite: 9 }])
+    expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'projet')).toEqual([{ parts: { p1: 4, p2: 2 }, provisoires: {}, capacite: 14 }])
+    expect(empiler(cases, ['alice', 'bob', 'carla'], 1, 'version')).toEqual([{ parts: { v1: 3, '@p2': 2, v2: 1 }, provisoires: {}, capacite: 14 }])
+    expect(empiler(cases, ['alice', 'bob'], 1, 'projet')).toEqual([{ parts: { p1: 3, p2: 2 }, provisoires: {}, capacite: 9 }])
   })
 })
 
@@ -152,6 +152,90 @@ describe('ajuster une case', () => {
     expect(ajusterSurPeriode(R, aff, { debut: '2026-10-20', fin: '2026-10-20' }, 1)).toBeNull()
     const nov = ligne('a2', { ressource: 'alice', projet: 'p1', debut: '2026-11-01', fin: '2026-11-30', jours: 5 })
     expect(ajusterSurPeriode(R, nov, { debut: '2026-11-11', fin: '2026-11-11' }, 1)).toBeNull()
+  })
+})
+
+describe('détail jour par jour', () => {
+  const semaine = periodes('jour', '2026-10-19', 5)
+
+  it('se lit et s’écrit une ligne par jour ; une ligne illisible est gardée', () => {
+    expect([...lireDetail('2026-10-20: 0,5\nn’importe quoi\n2026-10-19 = 0')]).toEqual([['2026-10-20', 0.5], ['2026-10-19', 0]])
+    expect(ecrireDetail(new Map([['2026-10-21', 0.25], ['2026-10-19', 1]]), 'à garder\n2026-10-01: 3')).toBe('à garder\n2026-10-19: 1\n2026-10-21: 0.25')
+    expect(ecrireDetail(new Map())).toBeUndefined()
+  })
+
+  it('un jour du détail pèse sa valeur à la place de la règle ; hors plage ou non ouvré, ignoré ; la case est repérée', () => {
+    const aff = [ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-22', jours: 5, detail: '2026-10-20: 0.5\n2026-10-24: 1\n2026-10-23: 1' })]
+    const c = calculerCharge(R, RESSOURCES, aff, [], semaine).get('alice')!
+    expect(c.map((x) => x.charge)).toEqual([1, 0.5, 1, 1, 0])
+    expect(c.map((x) => x.ajustee)).toEqual([false, true, false, false, false])
+    const sem = calculerCharge(R, RESSOURCES, aff, [], periodes('semaine', '2026-10-19', 1)).get('alice')![0]!
+    expect(sem).toMatchObject({ charge: 3.5, ajustee: true })
+  })
+
+  it('ajuster une période écrit le détail réparti ; revenir à la charge habituelle le retire', () => {
+    const aff = ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-12', fin: '2026-10-30', jours: 5, detail: '2026-10-27: 0' })
+    expect(ajusterDetail(R, aff, semaine[0]!, 0.5)).toBe('2026-10-19: 0.5\n2026-10-27: 0')
+    expect(ajusterDetail(R, aff, periodes('semaine', '2026-10-19', 1)[0]!, 2)).toBe('2026-10-19: 0.4\n2026-10-20: 0.4\n2026-10-21: 0.4\n2026-10-22: 0.4\n2026-10-23: 0.4\n2026-10-27: 0')
+    expect(ajusterDetail(R, aff, { debut: '2026-10-27', fin: '2026-10-27' }, 1)).toBeUndefined()
+    expect(ajusterDetail(R, aff, { debut: '2026-10-27', fin: '2026-10-27' }, null)).toBeUndefined()
+    expect(ajusterDetail(R, aff, { debut: '2026-11-02', fin: '2026-11-02' }, 1)).toBeNull()
+  })
+})
+
+describe('scénarios', () => {
+  const sem = periodes('semaine', '2026-10-19', 1)
+  const aff = [
+    ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 2 }),
+    ligne('a2', { ressource: 'alice', projet: 'p2', debut: '2026-10-19', fin: '2026-10-23', jours: 3, scenario: 'Option A' }),
+    ligne('a3', { ressource: 'alice', projet: 'p3', debut: '2026-10-19', fin: '2026-10-23', jours: 1, scenario: 'Option B' }),
+  ]
+
+  it('le plan réel seul, ou avec le scénario affiché, compté comme provisoire', () => {
+    expect(calculerCharge(R, RESSOURCES, aff, [], sem).get('alice')![0]).toMatchObject({ charge: 2, provisoire: 0 })
+    const a = calculerCharge(R, RESSOURCES, aff, [], sem, { scenario: 'Option A' }).get('alice')![0]!
+    expect(a).toMatchObject({ charge: 5, provisoire: 3, provisoireParProjet: { p2: 3 } })
+    expect(empiler(new Map([['alice', [a]]]), ['alice'], 1, 'projet')[0]).toEqual({ parts: { p1: 2, p2: 3 }, provisoires: { p2: 3 }, capacite: 5 })
+  })
+
+  it('un aperçu compte comme provisoire, quel que soit le scénario', () => {
+    const apercu = [ligneApercu('x', { ressource: ['bob'], projet: ['p9'], debut: '2026-10-19', fin: '2026-10-23', jours: 1 })]
+    expect(calculerCharge(R, RESSOURCES, aff, [], sem, { apercu }).get('bob')![0]).toMatchObject({ charge: 1, provisoire: 1 })
+  })
+})
+
+describe('remplir', () => {
+  // Alice (Dev, 5 j) a 3 j/sem. sur p1 ; Bob (Dev, 4 j) est libre ; Carla est en Test.
+  const aff = [ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-30', jours: 3 })]
+  const demande = { projet: 'p2', role: 'Dev', jours: 6, debut: '2026-10-19', fin: '2026-10-30', mode: 'tot' as const, scenario: 'Option A' }
+
+  it('au plus tôt : la ressource la plus disponible d’abord, chaque jour, une affectation par ressource avec son détail', () => {
+    const res = remplir(R, RESSOURCES, aff, [], demande)
+    expect(res).toMatchObject({ places: 6, manque: 0 })
+    // Bob (0,8 j libre par jour) puis Alice (0,4 j) : 1,2 j par jour pendant 5 jours.
+    expect(res.affectations.map((x) => [x.ressource, x.jours, x.valeurs['debut'], x.valeurs['fin'], x.valeurs['jours'], x.valeurs['detail']])).toEqual([
+      ['bob', 4, '2026-10-19', '2026-10-23', 4, undefined],
+      ['alice', 2, '2026-10-19', '2026-10-23', 2, undefined],
+    ])
+    expect(res.affectations[0]!.valeurs).toMatchObject({ projet: ['p2'], ressource: ['bob'], scenario: 'Option A' })
+  })
+
+  it('lissé : réparti sur toute la période ; ce qui ne tient pas est signalé', () => {
+    const res = remplir(R, RESSOURCES, aff, [], { ...demande, mode: 'lisse' })
+    expect(res.places).toBe(6)
+    expect(res.affectations.map((x) => [x.ressource, x.valeurs['debut'], x.valeurs['fin'], x.valeurs['jours']])).toEqual([['bob', '2026-10-19', '2026-10-30', 3]])
+    expect(remplir(R, RESSOURCES, aff, [], { ...demande, jours: 30 })).toMatchObject({ places: 12, manque: 18 })
+  })
+
+  it('sans colonne de détail : une affectation par suite de jours égaux, au total', () => {
+    const sansDetail = { ...R, affectations: { ...R.affectations!, detail: undefined } }
+    const res = remplir(sansDetail, RESSOURCES, aff, [], { ...demande, jours: 1.2, role: null })
+    expect(res.affectations.map((x) => [x.ressource, x.valeurs['debut'], x.valeurs['fin'], x.valeurs['total']])).toEqual([['carla', '2026-10-19', '2026-10-19', 1], ['bob', '2026-10-19', '2026-10-19', 0.2]])
+  })
+
+  it('la situation du scénario affiché compte : sa capacité prise ne se redonne pas', () => {
+    const avecEssai = [...aff, ligne('a2', { ressource: 'bob', projet: 'p3', debut: '2026-10-19', fin: '2026-10-30', jours: 4, scenario: 'Option A' })]
+    expect(remplir(R, RESSOURCES, avecEssai, [], demande, { scenario: 'Option A' }).affectations.map((x) => x.ressource)).toEqual(['alice'])
   })
 })
 

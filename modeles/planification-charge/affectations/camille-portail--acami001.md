@@ -7,4 +7,6 @@ version: vport001
 debut: {{jour:-14}}
 fin: {{jour:39}}
 jours: 5
+detail: |-
+  {{jour:24}}: 0.5
 ---

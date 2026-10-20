@@ -29,6 +29,8 @@ const CHAMPS: Record<Lien, Champ[]> = {
     { cle: 'jours', libelle: 'Jours par semaine', garde: (c) => c.type === 'number' },
     { cle: 'total', libelle: 'Jours au total', garde: (c) => c.type === 'number', facultatif: 'aucune (par semaine seulement)' },
     { cle: 'version', libelle: 'Version (ou étape…)', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources && c.cible !== x.projets, facultatif: 'aucune' },
+    { cle: 'detail', libelle: 'Détail jour par jour', garde: (c) => c.type === 'text', facultatif: 'aucun (une case modifiée coupe l’affectation)' },
+    { cle: 'scenario', libelle: 'Scénario', garde: (c) => c.type === 'select', facultatif: 'aucun (pas d’essais)' },
   ],
   absences: [
     { cle: 'ressource', libelle: 'Ressource', garde: (c, x) => relationVers(x.ressources)(c) },

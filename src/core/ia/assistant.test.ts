@@ -163,6 +163,7 @@ describe('proposer', () => {
       'chercher_texte',
       'executer_sql',
       'calculer_charge',
+      'proposer_remplissage',
       'lire_page',
       'modifier_lignes',
       'creer_lignes',

@@ -86,7 +86,7 @@ test('graphique : barres empilées par projet, puis par version, filtrées par r
   await expect(legende).not.toContainText('Portail v1')
 })
 
-test('à la journée : ramener une ressource à 0,5 j un seul jour coupe son affectation autour', async ({ espace, page }) => {
+test('à la journée : ramener une ressource à 0,5 j un seul jour l’écrit dans le détail de son affectation, sans nouveau fichier', async ({ espace, page }) => {
   await page.getByRole('radio', { name: 'Jour' }).click()
   const camille = page.locator('.grille-charge .ressource-charge', { hasText: 'Camille' })
   await expect(camille.locator('.case-charge').nth(0)).toHaveText('1')
@@ -96,15 +96,50 @@ test('à la journée : ramener une ressource à 0,5 j un seul jour coupe son aff
   await page.getByRole('spinbutton', { name: 'Jours ce jour' }).fill('0.5')
   await page.keyboard.press('Enter')
   await expect(camille.locator('.case-charge').nth(0)).toHaveText('0,5')
+  await expect(camille.locator('.case-charge').nth(0)).toHaveClass(/ajustee/)
   await expect(camille.locator('.case-charge').nth(1)).toHaveText('1')
-  await expect.poll(async () => (await espace.lister('affectations')).length).toBeGreaterThan(avant)
+  const fichier = (await espace.lister('affectations')).find((f) => f.startsWith('camille-portail'))!
+  await expect.poll(() => espace.lire(`affectations/${fichier}`)).toMatch(/detail: \|-\n {2}\d{4}-\d{2}-\d{2}: 0\.5\n/)
+  expect((await espace.lister('affectations')).length).toBe(avant)
   await page.waitForTimeout(300)
   await page.screenshot({ path: 'test-results/plan-de-charge-ajuster.png' })
-  // Une seule étape : Ctrl+Z rend l'affectation d'origine.
-  await page.keyboard.press('Escape')
-  await page.keyboard.press('ControlOrMeta+z')
+  // « Revenir à l'affectation » retire la ligne du détail.
+  await page.getByRole('button', { name: 'Revenir à l’affectation' }).click()
   await expect(camille.locator('.case-charge').nth(0)).toHaveText('1')
-  await expect.poll(async () => (await espace.lister('affectations')).length).toBe(avant)
+  await expect.poll(async () => (await espace.lire(`affectations/${fichier}`)).match(/\d{4}-\d{2}-\d{2}: 0\.5/g)?.length ?? 0).toBe(1) // reste celle du modèle
+})
+
+test('scénario : l’essai du modèle se voit en pointillé, puis s’abandonne', async ({ espace, page }) => {
+  await page.getByRole('radio', { name: 'Mois' }).click()
+  const sami = page.locator('.grille-charge .ressource-charge', { hasText: 'Sami' })
+  await expect(sami.locator('.case-charge.provisoire')).toHaveCount(0)
+  await choisir(page.getByRole('button', { name: 'Scénario' }), 'Plan réel + Option A')
+  await expect(sami.locator('.case-charge.provisoire').first()).toBeVisible()
+  await page.screenshot({ path: 'test-results/plan-de-charge-scenario.png' })
+  const avant = (await espace.lister('affectations')).length
+  await page.getByRole('button', { name: 'Abandonner' }).click()
+  await page.locator('.confirmation').getByRole('button', { name: 'Abandonner' }).click()
+  await expect.poll(async () => (await espace.lister('affectations')).length).toBe(avant - 2)
+  await expect.poll(() => espace.lire('affectations/_schema.yaml')).not.toContain('Option A')
+  await expect(page.getByRole('button', { name: 'Scénario' })).toHaveCount(0)
+})
+
+test('remplir : l’aperçu se voit dans la grille, puis les affectations sont créées dans un nouveau scénario', async ({ espace, page }) => {
+  await page.getByRole('button', { name: 'Remplir' }).click()
+  const panneau = page.getByRole('region', { name: 'Remplir' })
+  await choisir(panneau.getByRole('button', { name: 'Remplir : projet' }), 'Intranet RH')
+  await expect(panneau.getByRole('radio', { name: 'Au plus tôt' })).toHaveAttribute('aria-checked', 'true')
+  await panneau.getByRole('spinbutton', { name: 'Jours à placer' }).fill('6')
+  await choisir(panneau.getByRole('button', { name: 'Remplir : scénario' }), 'Nouveau scénario')
+  await expect(panneau.getByRole('textbox', { name: 'Nom du scénario' })).toHaveValue('Option B')
+  await expect(panneau.locator('.resultat-remplir')).toContainText('6 j placés')
+  await expect(page.locator('.grille-charge .case-charge.provisoire').first()).toBeVisible()
+  await page.screenshot({ path: 'test-results/plan-de-charge-remplir.png' })
+  const avant = (await espace.lister('affectations')).length
+  await panneau.getByRole('button', { name: 'Créer dans Option B' }).click()
+  await expect.poll(async () => (await espace.lister('affectations')).length).toBeGreaterThan(avant)
+  await expect.poll(() => espace.lire('affectations/_schema.yaml')).toContain('Option B')
+  await expect(page.getByRole('button', { name: 'Scénario' })).toContainText('Plan réel + Option B')
 })
 
 test('grouper par projet puis par version : chaque ressource sous ce sur quoi elle travaille', async ({ espace, page }) => {

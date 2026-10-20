@@ -99,6 +99,7 @@ describe('modèle planification-charge', () => {
     const charge = etat.bases.get('ressources')!.vues[0]!
     expect(charge.type).toBe('charge')
     const { capacite, groupe, affectations, absences, besoins } = charge
+    expect(affectations).toMatchObject({ detail: 'detail', scenario: 'scenario' })
     expect(reglagesChargeParDefaut(etat.bases, 'ressources')).toEqual({ capacite, groupe, affectations, absences, besoins })
     expect(affectations?.projet).toBe('projet')
     // L'outil commun à l'assistant et au MCP lit les mêmes chiffres.
@@ -106,5 +107,18 @@ describe('modèle planification-charge', () => {
     expect(texte).toContain('2 semaines à partir du 2026-10-19')
     expect(texte).toContain('Camille (Développement) | 19/10 5/5 ; 26/10 5/5')
     expect(texte).toMatch(/Application mobile \| Développement avant 2027-01-04 \| 0\/80 : il manque 80 j/)
+    // Le détail de Camille (0,5 j le jeudi 12 novembre, semaine du 11 novembre férié) ; le scénario d'essai, compté seulement quand on le demande.
+    expect(lire(etat, { id: 'c2', nom: 'calculer_charge', arguments: '{"debut": "2026-11-09", "semaines": 1}' }, { aujourdhui: '2026-10-21' })).toContain('Camille (Développement) | 09/11 3,5/4')
+    const avecEssai = lire(etat, { id: 'c3', nom: 'calculer_charge', arguments: '{"debut": "2026-11-30", "semaines": 1, "scenario": "Option A"}' }, { aujourdhui: '2026-10-21' })
+    expect(avecEssai).toContain('plan réel + scénario « Option A »')
+    expect(avecEssai).toMatch(/Sami \(Test\) \| 30\/11 3\/5/)
+    const remplissage = lire(
+      etat,
+      { id: 'c4', nom: 'proposer_remplissage', arguments: '{"projet": "Intranet RH", "role": "Développement", "jours": 10, "debut": "2026-12-07", "fin": "2026-12-31", "scenario": "Option B"}' },
+      { aujourdhui: '2026-10-21' },
+    )
+    expect(remplissage).toContain('10 j placés')
+    expect(remplissage).toContain('"scenario":"Option B"')
+    expect(remplissage).toContain('ajoute d\'abord l\'option avec ajouter_options')
   })
 })

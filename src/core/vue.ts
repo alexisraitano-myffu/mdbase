@@ -240,7 +240,7 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   if (brut.echelle === 'semaine' || brut.echelle === 'mois' || brut.echelle === 'trimestre') r.echelle = brut.echelle
   const capacite = texte(brut.capacite)
   if (capacite) r.capacite = capacite
-  const affectations = lien(brut.affectations, ['base', 'ressource', 'projet', 'debut', 'fin', 'jours'], ['total', 'version'])
+  const affectations = lien(brut.affectations, ['base', 'ressource', 'projet', 'debut', 'fin', 'jours'], ['total', 'version', 'detail', 'scenario'])
   if (affectations) r.affectations = affectations
   const absences = lien(brut.absences, ['base', 'ressource', 'debut', 'fin'])
   if (absences) r.absences = absences

@@ -1889,6 +1889,23 @@ kbd.touche svg.icone { margin: 0; }
 .case-charge.charge-fermee { cursor: default; }
 .case-charge.hors-bloc:not(.charge-absente):not(.charge-fermee) { background: var(--fond-doux); color: var(--discret); font-weight: 400; }
 .portee-charge { align-self: flex-start; }
+.case-charge.provisoire { outline: 1.5px dashed var(--accent); outline-offset: -2px; }
+.case-charge.ajustee { position: relative; }
+.case-charge.ajustee::after { content: ''; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+.legende-charge .charge-provisoire { outline: 1.5px dashed var(--accent); outline-offset: -2px; }
+.segment-charge.provisoire { opacity: 0.45; }
+.revenir-charge { font-size: 0.85em; padding: 0; }
+.scenario-charge { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.remplir-charge { border: 1px solid var(--bordure); border-radius: 8px; padding: 0.6rem 0.8rem; margin: 0 0 0.8rem; display: flex; flex-direction: column; gap: 0.6rem; background: var(--fond); }
+.entete-remplir { display: flex; align-items: center; gap: 0.6rem; }
+.entete-remplir button { margin-left: auto; }
+.champs-remplir { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1rem; }
+.champs-remplir label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85em; }
+.champs-remplir label > span { color: var(--discret); }
+.jours-remplir { width: 5rem; }
+.nom-scenario { width: 8rem; }
+.resultat-remplir { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; }
+.resultat-remplir .boutons { margin-left: auto; display: flex; gap: 0.4rem; }
 .case-charge.selection { outline: 2px solid var(--accent); outline-offset: -2px; }
 .case-charge:hover { outline: 1px solid var(--bordure-forte); outline-offset: -1px; }
 .groupe-charge th.nom-charge { font-weight: 600; padding-top: 0.6rem; }

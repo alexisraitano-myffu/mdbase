@@ -59,7 +59,7 @@ src/
     conflits.ts            ids en double, copies de conflit de synchro (suffixe de machine OneDrive)
     liens-internes.ts      références à une ligne dans le corps (`[[chemin--id|Titre]]`) : lecture, écriture, résolution par l'id
     taches.ts              cases à cocher du corps (`- [ ]`) : lecture, cocher en vérifiant la ligne, ajout ; affichées par l'onglet Tâches et « Toutes les tâches »
-    charge.ts              plan de charge (spec §21) : fériés de France, capacité nette, charge par semaine, couverture des besoins, réglages par défaut
+    charge.ts              plan de charge (spec §21) : fériés de France, capacité nette, charge par jour / semaine / mois, détail jour par jour, scénarios, remplissage, couverture des besoins, réglages par défaut
     modeles.ts             modèles (spec §19) : lecture de `modeles/<id>/`, dates `{{jour:N}}`, références `base`/`cible` qui suivent un identifiant dédoublonné
     modules.ts             magasin de modules (spec §19) : modules utilisés par l'espace, déduits des fichiers (vues, dashboards, tâches, Jira), toujours actifs
     base-taches.ts         base des tâches (clé `taches` de `_espace.yaml`) : résolution contre le schéma, faite / valeur à écrire, échéance, tri, tâches liées à une page

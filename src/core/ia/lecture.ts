@@ -5,7 +5,7 @@ import type { Cellule } from '../valeurs'
 import type { Tri } from '../vue'
 import type { AppelOutil, DefinitionOutil } from './modele'
 import { executerSqlOutil, type ContexteSql } from './analyse'
-import { calculerChargeOutil } from './charge'
+import { calculerChargeOutil, proposerRemplissageOutil } from './charge'
 import { FILTRE } from './outils'
 import { erreur, ErreurProposition, lireFiltres, normaliser, trouverBase, trouverColonne, trouverLigne } from './references'
 
@@ -75,7 +75,29 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
         debut: { type: 'string', description: 'AAAA-MM-JJ, période de départ (par défaut : aujourd’hui)' },
         maille: { type: 'string', enum: ['jour', 'semaine', 'mois'], description: 'période de chaque colonne (semaine par défaut)' },
         periodes: { type: 'number', description: 'nombre de périodes (10 jours, 8 semaines ou 6 mois par défaut ; 31 au plus)' },
+        scenario: { type: 'string', description: 'scénario (essai) compté en plus du plan réel, par son nom ; sans : le plan réel seul' },
       },
+    },
+  },
+  {
+    nom: 'proposer_remplissage',
+    description:
+      "Calcule où placer N jours d'un projet sur une période, dans la capacité libre d'une vue Plan de charge (comme le bouton « Remplir ») : au plus tôt (par défaut) ou lissé. Rend ce qui est placé, ce qui manque, et les affectations exactes à créer ensuite avec creer_lignes (dans un scénario si on en donne un). N'écrit rien.",
+    parametres: {
+      type: 'object',
+      properties: {
+        base: { type: 'string', description: 'id de la base des ressources (par défaut : la première qui a une vue Plan de charge)' },
+        vue: { type: 'string', description: 'id ou nom de la vue Plan de charge' },
+        projet: { type: 'string', description: 'id ou titre du projet' },
+        version: { type: 'string', description: 'id ou titre de la version, facultatif' },
+        role: { type: 'string', description: 'rôle des ressources à utiliser (toutes sans rôle)' },
+        jours: { type: 'number', description: 'jours à placer' },
+        debut: { type: 'string', description: 'AAAA-MM-JJ (par défaut : aujourd’hui)' },
+        fin: { type: 'string', description: 'AAAA-MM-JJ' },
+        mode: { type: 'string', enum: ['tot', 'lisse'], description: 'au plus tôt (défaut) ou lissé sur la période' },
+        scenario: { type: 'string', description: 'scénario où créer les affectations ; sa capacité prise compte aussi' },
+      },
+      required: ['projet', 'jours', 'fin'],
     },
   },
   {
@@ -168,6 +190,7 @@ export function lire(etat: EtatEspace, appel: AppelOutil, ctx: Contexte): string
     if (!estObjet(args)) return erreur("objet d'arguments attendu")
     if (appel.nom === 'chercher_texte') return chercherTexte(etat, args)
     if (appel.nom === 'calculer_charge') return calculerChargeOutil(etat, args, ctx.aujourdhui)
+    if (appel.nom === 'proposer_remplissage') return proposerRemplissageOutil(etat, args, ctx.aujourdhui)
     const base = trouverBase(etat, args.base)
     if (appel.nom === 'lire_page') {
       const id = trouverLigne(etat, base.id, args.ligne)

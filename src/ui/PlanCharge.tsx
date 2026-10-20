@@ -1,8 +1,10 @@
 import { Fragment, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, PaintBucket, Trash2 } from 'lucide-react'
 import type { LigneChargee } from '../core/base'
 import {
+  ajusterDetail,
   ajusterSurPeriode,
+  lireDetail,
   nomNiveau,
   arrondiJours,
   calculerCharge,
@@ -16,6 +18,7 @@ import {
   roleDe,
   type CaseCharge,
   type Maille,
+  type OptionsCalcul,
   type Periode,
   type ReglagesCharge,
 } from '../core/charge'
@@ -30,6 +33,7 @@ import { Choix } from './Choix'
 import { useEspace } from './contexte-espace'
 import { couleurOption } from './couleurs'
 import { Flottant } from './flottant'
+import { RemplirCharge } from './RemplirCharge'
 import { Icone } from './icones'
 import { useConsultation } from './mode'
 import { useAujourdhui } from './useAujourdhui'
@@ -89,6 +93,12 @@ function melange(a: string, b: string, t: number): string {
   return `#${[0, 1, 2].map((i) => Math.round(canal(a, i) + (canal(b, i) - canal(a, i)) * t).toString(16).padStart(2, '0')).join('')}`
 }
 
+/** Texte d'une cellule, vide si elle n'en a pas. */
+const texteDe = (l: LigneChargee, cle: string) => {
+  const c = l.cellules[cle]
+  return c?.etat === 'ok' && typeof c.valeur === 'string' ? c.valeur : ''
+}
+
 /** Glisser sur les cases d'une ligne : la ressource et les périodes choisies. */
 type Selection = { ressource: string; de: number; a: number; bloc?: string; projet?: string; version?: string }
 type Regrouper = 'role' | 'projet' | 'version'
@@ -108,6 +118,11 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   const [selection, setSelection] = useState<Selection | null>(null)
   const [choixProjet, setChoixProjet] = useState<{ ancre: HTMLElement; s: Selection } | null>(null)
   const glisse = useRef(false)
+  const [scenario, setScenario] = useState<string | null>(null)
+  const [apercu, setApercu] = useState<LigneChargee[]>([])
+  const [remplirOuvert, setRemplirOuvert] = useState(false)
+  const [finScenario, setFinScenario] = useState<'confirmer' | 'abandonner' | null>(null)
+  const boutonFinScenario = useRef<HTMLButtonElement>(null)
 
   const r: ReglagesCharge = vue
   const maille: Maille = mailleLocale ?? vue.maille ?? 'semaine'
@@ -121,7 +136,8 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   const absences = lignesDe(r.absences?.base)
   const besoins = lignesDe(r.besoins?.base)
   const ressources = useMemo(() => lignesVue.map((lv) => lv.ligne), [lignesVue])
-  const charge = useMemo(() => calculerCharge(r, ressources, affectations, absences, colonnes), [r, ressources, affectations, absences, colonnes])
+  const options: OptionsCalcul = useMemo(() => ({ scenario, apercu }), [scenario, apercu])
+  const charge = useMemo(() => calculerCharge(r, ressources, affectations, absences, colonnes, options), [r, ressources, affectations, absences, colonnes, options])
 
   const schema = etat.bases.get(base)?.depot?.schema
   const schemaAff = r.affectations ? etat.bases.get(r.affectations.base)?.depot?.schema : undefined
@@ -131,6 +147,9 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   }
   const baseProjets = cible(schemaAff, r.affectations?.projet)
   const baseVersions = cible(schemaAff, r.affectations?.version)
+  const colScenario = schemaAff && r.affectations?.scenario ? colonneDe(schemaAff, r.affectations.scenario) : undefined
+  const scenarios = colScenario?.type === 'select' ? colScenario.options.map((o) => o.label) : []
+  const scenarioAffiche = scenario !== null && scenarios.includes(scenario) ? scenario : null
   const nomProjet = nomNiveau(baseProjets ? etat.bases.get(baseProjets)?.depot?.schema.nom : undefined, 'projet')
   const nomVersion = nomNiveau(baseVersions ? etat.bases.get(baseVersions)?.depot?.schema.nom : undefined, 'version')
   const titre = (b: string | undefined, id: string) => (b && etat.titres.get(b)?.get(id)) || id || `Sans ${nomProjet}`
@@ -194,6 +213,27 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
         }
       })
   })()
+  // Remplir calcule sur la situation affichée (plan réel et scénario), sans son propre aperçu.
+  const scenarioOptions: OptionsCalcul = { scenario: scenarioAffiche }
+  const lignesScenario = scenarioAffiche && r.affectations.scenario ? affectations.filter((l) => {
+    const c = l.cellules[r.affectations!.scenario!]
+    return c?.etat === 'ok' && c.valeur === scenarioAffiche
+  }) : []
+  const terminerScenario = async (fin: 'confirmer' | 'abandonner') => {
+    const a = r.affectations!
+    const nom = scenarioAffiche
+    setFinScenario(null)
+    if (!nom || !a.scenario) return
+    const chemins = lignesScenario.map((l) => l.chemin)
+    await lancer(
+      (async () => {
+        if (fin === 'confirmer') await espace.modifierLignes(a.base, chemins, a.scenario!, undefined)
+        else await espace.supprimerLignes(a.base, chemins, true)
+        await espace.retirerOption(a.base, a.scenario!, nom)
+      })(),
+    )
+    setScenario(null)
+  }
   const changerRegrouper = (g: Regrouper) => {
     setOuvertes(new Set())
     if (lecture) setRegrouperLocal(g)
@@ -329,15 +369,93 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
             </div>
           </>
         )}
+        {mode !== 'projets' && scenarios.length > 0 && (
+          <div className="scenario-charge">
+          <Choix
+            valeur={scenarioAffiche ?? ''}
+            entrees={[{ valeur: '', libelle: 'Plan réel' }, ...scenarios.map((x) => ({ valeur: x, libelle: `Plan réel + ${x}` }))]}
+            libelle="Scénario"
+            changer={(v) => setScenario(v || null)}
+          />
+          {!lecture && scenarioAffiche && (
+            <>
+              <button ref={boutonFinScenario} className="discret" onClick={() => setFinScenario('confirmer')}>
+                <Icone de={Check} /> Confirmer
+              </button>
+              <button className="discret danger-texte" onClick={() => setFinScenario('abandonner')}>
+                <Icone de={Trash2} /> Abandonner
+              </button>
+            </>
+          )}
+          </div>
+        )}
+        {!lecture && mode !== 'projets' && (
+          <button className="discret" aria-expanded={remplirOuvert} onClick={() => setRemplirOuvert((o) => !o)}>
+            <Icone de={PaintBucket} /> Remplir
+          </button>
+        )}
         {mode === 'ressources' && (
           <div className="legende-charge discret">
             <span className="charge-libre" /> libre
             <span className="charge-pleine" /> pleine
             <span className="charge-surchargee" /> surchargée
             <span className="charge-absente" /> absente
+            {(scenarioAffiche || apercu.length > 0) && (
+              <>
+                <span className="charge-provisoire" /> provisoire
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {remplirOuvert && !lecture && (
+        <RemplirCharge
+          espace={espace}
+          r={r}
+          ressources={ressources}
+          affectations={affectations}
+          absences={absences}
+          options={scenarioOptions}
+          projets={projets.map((x) => ({ id: x.id, titre: titre(baseProjets, x.id) }))}
+          versionsDe={(projet) => versions.filter((v) => projetDeVersion(v.id) === projet).map((v) => ({ id: v.id, titre: titre(baseVersions, v.id) }))}
+          roles={cles.filter((g) => g !== SANS_GROUPE && colGroupe !== undefined)}
+          scenarios={scenarios}
+          nomProjet={nomProjet}
+          nomVersion={nomVersion}
+          titreRessource={(id) => titre(base, id)}
+          champTitre={schemaAff.champTitre}
+          aujourdhui={aujourdhui}
+          apercu={setApercu}
+          fermer={() => {
+            setRemplirOuvert(false)
+            setApercu([])
+          }}
+          cree={(sc) => {
+            setRemplirOuvert(false)
+            setApercu([])
+            setScenario(sc)
+          }}
+        />
+      )}
+
+      {finScenario && scenarioAffiche && (
+        <Flottant ancre={boutonFinScenario.current} fermer={() => setFinScenario(null)}>
+          <div className="confirmation">
+            <p>
+              {finScenario === 'confirmer'
+                ? `Confirmer « ${scenarioAffiche} » ? Ses ${lignesScenario.length} affectations rejoignent le plan réel.`
+                : `Abandonner « ${scenarioAffiche} » ? Ses ${lignesScenario.length} affectations sont supprimées.`}
+            </p>
+            <div className="boutons">
+              <button onClick={() => setFinScenario(null)}>Annuler</button>
+              <button className={finScenario === 'abandonner' ? 'danger' : 'principal'} autoFocus onClick={() => void terminerScenario(finScenario)}>
+                {finScenario === 'confirmer' ? 'Confirmer' : 'Abandonner'}
+              </button>
+            </div>
+          </div>
+        </Flottant>
+      )}
 
       {mode === 'ressources' && (
         <div className="grille-charge-defilement">
@@ -411,7 +529,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
                             return (
                               <td
                                 key={c.debut}
-                                className={`case-charge charge-${e} ${bloc.part && part === 0 ? 'hors-bloc' : ''} ${dansSelection(res.id, i, bloc.cle) ? 'selection' : ''}`}
+                                className={`case-charge charge-${e} ${bloc.part && part === 0 ? 'hors-bloc' : ''} ${c.provisoire > 0 ? 'provisoire' : ''} ${c.ajustee ? 'ajustee' : ''} ${dansSelection(res.id, i, bloc.cle) ? 'selection' : ''}`}
                                 title={e === 'fermee' ? 'Jour férié' : `${bloc.part ? `${fmt(part)} j ici, ` : ''}${fmt(c.charge)} j sur ${fmt(c.capacite)} j${c.absence ? `, ${c.absence} j d’absence` : ''}`}
                                 onPointerDown={(ev) => {
                                   if (lecture || ev.button !== 0) return
@@ -459,7 +577,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
         </div>
       )}
 
-      {mode === 'projets' && <ParProjet r={r} ressources={ressources} affectations={affectations} besoins={besoins} titre={titre} baseProjets={baseProjets} />}
+      {mode === 'projets' && <ParProjet r={r} ressources={ressources} affectations={affectations} besoins={besoins} titre={titre} baseProjets={baseProjets} options={options} />}
 
       {mode === 'graphique' && (
         <GraphiqueCharge
@@ -496,7 +614,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
           if (!c) return null
           const a = r.affectations!
           const ici = maille === 'semaine' ? 'cette semaine' : maille === 'mois' ? 'ce mois' : 'ce jour'
-          const ids = c.affectations.filter((id) => !detail.bloc || dansBloc(id, detail.bloc))
+          const ids = c.affectations.filter((id) => affectations.some((x) => x.id === id) && (!detail.bloc || dansBloc(id, detail.bloc)))
           const lignesCase = ids.flatMap((id) => affectations.find((x) => x.id === id) ?? [])
           // Une affectation qui déborde de la case : la valeur vaut pour la case seule (elle est coupée autour) ou pour toute l'affectation.
           const deborde = lignesCase.some((l) => {
@@ -507,7 +625,14 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
             return (debut !== null && debut < c.debut) || (fin !== null && fin > c.fin)
           })
           const surLaCase = portee === 'periode' && deborde
-          const ajuster = (l: LigneChargee, v: number) => {
+          const ajuster = (l: LigneChargee, v: number | null) => {
+            // Avec une colonne de détail, la correction s'y écrit ; sinon l'affectation est coupée autour de la case.
+            if (a.detail) {
+              const texte = ajusterDetail(r, l, c, v)
+              if (texte !== null) void lancer(espace.modifierLignes(a.base, [l.chemin], a.detail, texte))
+              return
+            }
+            if (v === null) return
             const morceaux = ajusterSurPeriode(r, l, c, v)
             if (!morceaux) return
             const valeurs = morceaux.map((m) => ({
@@ -556,6 +681,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
                         {titre(a.base, id)}
                       </button>
                       {!lecture && l ? (
+                        <>
                         <label className="jours-charge">
                           <input
                             key={`${portee}-${valeur}`}
@@ -575,6 +701,12 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
                           />
                           {unite}
                         </label>
+                        {a.detail && [...lireDetail(texteDe(l, a.detail)).keys()].some((j) => j >= c.debut && j <= c.fin) && (
+                          <button className="discret revenir-charge" onClick={() => ajuster(l, null)}>
+                            Revenir à l’affectation
+                          </button>
+                        )}
+                        </>
                       ) : (
                         <span className="discret">{valeur ? `${valeur} ${unite}` : ''}</span>
                       )}
@@ -699,10 +831,20 @@ function GraphiqueCharge(p: {
                   const y1 = y(haut + v)
                   const y0 = y(haut)
                   haut += v
+                  // La part provisoire (scénario, aperçu) en haut du segment, atténuée.
+                  const prov = Math.min(v, d.provisoires[c] ?? 0)
+                  const yp = y(haut - v + (v - prov))
                   return (
-                    <rect key={c} x={x} y={y1} width={largeurBarre} height={Math.max(0, y0 - y1)} fill={p.couleur(c, parEffectif)} className="segment-charge">
-                      <title>{`${p.nom(c, parEffectif)} : ${nombre(v)} j`}</title>
-                    </rect>
+                    <g key={c}>
+                      <rect x={x} y={prov > 0 ? yp : y1} width={largeurBarre} height={Math.max(0, y0 - (prov > 0 ? yp : y1))} fill={p.couleur(c, parEffectif)} className="segment-charge">
+                        <title>{`${p.nom(c, parEffectif)} : ${nombre(v)} j${prov > 0 ? `, dont ${nombre(prov)} j provisoires` : ''}`}</title>
+                      </rect>
+                      {prov > 0 && (
+                        <rect x={x} y={y1} width={largeurBarre} height={Math.max(0, yp - y1)} fill={p.couleur(c, parEffectif)} className="segment-charge provisoire">
+                          <title>{`${p.nom(c, parEffectif)} : ${nombre(v)} j, dont ${nombre(prov)} j provisoires`}</title>
+                        </rect>
+                      )}
+                    </g>
                   )
                 })}
                 <text x={x + largeurBarre / 2} y={hauteur - marge.bas + 16} textAnchor="middle" className={`texte-periode ${periode.debut <= p.aujourdhui && p.aujourdhui <= periode.fin ? 'courante' : ''}`}>
@@ -746,9 +888,10 @@ function ParProjet(p: {
   besoins: readonly LigneChargee[]
   titre: (base: string | undefined, id: string) => string
   baseProjets: string | undefined
+  options: OptionsCalcul
 }) {
   if (!p.r.besoins) return <p className="discret">Choisis la base des besoins dans « Options » : pour chaque projet, combien de jours de quel rôle, et avant quand.</p>
-  const couvertures = couvrirBesoins(p.r, p.ressources, p.affectations, p.besoins)
+  const couvertures = couvrirBesoins(p.r, p.ressources, p.affectations, p.besoins, p.options)
   const parProjet = new Map<string, typeof couvertures>()
   for (const c of couvertures) parProjet.set(c.projet ?? '', [...(parProjet.get(c.projet ?? '') ?? []), c])
   if (parProjet.size === 0) return <p className="discret">Aucun besoin pour l’instant.</p>

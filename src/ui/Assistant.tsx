@@ -603,7 +603,7 @@ export function IndicateurIA({ session }: { session: SessionAssistant }) {
   return null
 }
 
-const LECTURES = new Set(['chercher_lignes', 'chercher_texte', 'calculer_charge', 'lire_page', 'chercher_documents', 'lire_document'])
+const LECTURES = new Set(['chercher_lignes', 'chercher_texte', 'calculer_charge', 'proposer_remplissage', 'lire_page', 'chercher_documents', 'lire_document'])
 
 function BulleReponse({ resultat: r, appliquer, annuler }: { resultat: Resultat; appliquer: () => void; annuler: () => void }) {
   if (r.type === 'envoi') {
