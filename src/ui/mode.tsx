@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Schema } from '../core/schema'
-import { BookOpen, Maximize2, Minimize2, PenLine } from 'lucide-react'
+import { BookOpen, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PenLine } from 'lucide-react'
 import { Icone } from './icones'
 
 // Mode consultation (spec §7) : l'espace en lecture seule, sans outils, pour
@@ -101,6 +101,42 @@ export function BasculePleinEcran({ actif, basculer }: { actif: boolean; bascule
   return (
     <button className="discret bascule-mode" onClick={basculer} title={titre} aria-label={titre} aria-pressed={actif}>
       <Icone de={actif ? Minimize2 : Maximize2} taille={16} />
+    </button>
+  )
+}
+
+const CLE_BARRE = 'mdbase.barre-reduite'
+
+/** Barre latérale réduite : préférence de cette machine (localStorage, sans échec si indisponible), jamais dans le dossier. */
+export function useBarreReduite(): [boolean, () => void] {
+  const [reduite, setReduite] = useState(() => {
+    try {
+      return localStorage.getItem(CLE_BARRE) === 'oui'
+    } catch {
+      return false
+    }
+  })
+  const basculer = useCallback(() => {
+    setReduite((avant) => {
+      const suivant = !avant
+      try {
+        if (suivant) localStorage.setItem(CLE_BARRE, 'oui')
+        else localStorage.removeItem(CLE_BARRE)
+      } catch {
+        // Stockage indisponible : le réglage vaut pour cette visite seulement.
+      }
+      return suivant
+    })
+  }, [])
+  return [reduite, basculer]
+}
+
+/** Réduit ou redéploie la barre latérale ; l'icône montre ce que fait le clic. */
+export function BasculeBarre({ reduite, basculer }: { reduite: boolean; basculer: () => void }) {
+  const titre = reduite ? 'Déployer la barre latérale (Ctrl+B)' : 'Réduire la barre latérale (Ctrl+B)'
+  return (
+    <button className="discret bascule-barre" onClick={basculer} title={titre} aria-label={titre} aria-expanded={!reduite}>
+      <Icone de={reduite ? PanelLeftOpen : PanelLeftClose} taille={16} />
     </button>
   )
 }

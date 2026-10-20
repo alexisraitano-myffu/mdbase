@@ -8,7 +8,7 @@ import { BookOpen, ChevronRight, Ellipsis, Inbox, ListChecks, Plus, RefreshCw, R
 import { FenetreImport } from './Echange'
 import { Icone } from './icones'
 import { FenetreBaseJira } from './Jira'
-import { useConsultation } from './mode'
+import { BasculeBarre, useConsultation } from './mode'
 import type { ModulesActifs } from './modules'
 
 type Props = {
@@ -30,6 +30,8 @@ type Props = {
   /** Relit le dossier (changements faits ailleurs), et l'état de la dernière relecture. */
   relire: () => void
   relu: { enCours: boolean; a: Date | null }
+  /** Réduit la barre latérale (le bouton de sa tête). */
+  reduire: () => void
   /** Modules activés (spec §19) : ce qu'ils montrent dans la barre. */
   assistantActif: boolean
   modules: Pick<ModulesActifs, 'jira' | 'inbox' | 'contexte' | 'taches' | 'dashboards'>
@@ -84,7 +86,7 @@ function BasculeSection(p: { nom: string; replie: boolean; basculer: () => void;
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules, documents }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules, documents, reduire }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -162,7 +164,10 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
 
   return (
     <nav className="barre-laterale">
-      <div className="nom-espace">{nomEspace}</div>
+      <div className="tete-barre">
+        <div className="nom-espace">{nomEspace}</div>
+        <BasculeBarre reduite={false} basculer={reduire} />
+      </div>
       <button className="discret bouton-recherche" onClick={chercher}>
         <Icone de={Search} />
         Rechercher

@@ -98,7 +98,13 @@ button:hover { background: var(--survol); }
   overflow-y: auto;
   box-sizing: border-box;
 }
-.nom-espace { font-weight: 600; padding: 0.25rem 0.5rem 0.75rem; }
+.tete-barre { display: flex; align-items: flex-start; gap: 4px; }
+.nom-espace { font-weight: 600; padding: 0.25rem 0.5rem 0.75rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.tete-barre .bascule-barre { opacity: 0.6; }
+.tete-barre .bascule-barre:hover, .tete-barre .bascule-barre:focus-visible { opacity: 1; }
+.coin-gauche-contenu { position: absolute; top: 0.55rem; left: 0.55rem; z-index: 5; }
+.espace.barre-reduite { padding-left: 8px; }
+.barre-reduite .contenu { padding-left: 3rem; }
 .entree-base { border: none; background: none; text-align: left; padding: 0.3rem 0.5rem; }
 .entree-base.active { background: var(--selection); font-weight: 500; }
 .barre-laterale .changer { margin-top: auto; text-align: left; }

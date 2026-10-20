@@ -88,3 +88,24 @@ test('dossier mémorisé sans autorisation : l’accueil reste complet, un refus
     await rm(profil, { recursive: true, force: true })
   }
 })
+
+test('barre latérale : la réduire, la redéployer par un bouton ou Ctrl+B, et la retrouver réduite au rechargement', async ({ page }) => {
+  await page.goto('./')
+  await page.getByRole('button', { name: 'Essayer avec la démo' }).click()
+  const barre = page.locator('.barre-laterale')
+  await expect(barre).toBeVisible()
+  await page.getByRole('button', { name: /Réduire la barre latérale/ }).click()
+  await expect(barre).toHaveCount(0)
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'test-results/barre-reduite.png' })
+  await page.reload() // préférence de la machine : toujours réduite
+  await expect(page.getByRole('button', { name: /Déployer la barre latérale/ })).toBeVisible()
+  await expect(barre).toHaveCount(0)
+  await page.getByRole('button', { name: /Déployer la barre latérale/ }).click()
+  await expect(barre).toBeVisible()
+  await page.keyboard.press('ControlOrMeta+b')
+  await expect(barre).toHaveCount(0)
+  await page.keyboard.press('ControlOrMeta+b')
+  await expect(barre).toBeVisible()
+  await page.screenshot({ path: 'test-results/barre-deployee.png' })
+})

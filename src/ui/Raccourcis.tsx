@@ -24,6 +24,7 @@ const GROUPES: Groupe[] = [
       { touches: [['mod', 'K']], action: 'Rechercher dans tout l’espace' },
       { touches: [['mod', 'J']], action: 'Ouvrir ou fermer le panneau de l’assistant IA' },
       { touches: [['mod', 'E']], action: 'Passer de l’édition à la consultation, et retour' },
+      { touches: [['mod', 'B']], action: 'Réduire ou déployer la barre latérale' },
       { touches: [['mod', 'Z']], action: 'Annuler la dernière modification' },
       { touches: [['mod', 'Maj', 'Z'], ['mod', 'Y']], action: 'Rétablir' },
       { touches: [['?']], action: 'Afficher ces raccourcis' },

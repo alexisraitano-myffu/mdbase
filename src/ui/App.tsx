@@ -24,7 +24,7 @@ import { FenetreReglagesIA, IndicateurIA, PanneauAssistant } from './Assistant'
 import { SessionAssistant } from './sessionAssistant'
 import { enregistrerReglages, lireReglages, type ReglagesIA } from '../adapters/ia/reglages'
 import { estChampDeSaisie } from './clavier'
-import { BasculeMode, BasculePleinEcran, ContexteMode, useModeMemorise, usePleinEcran } from './mode'
+import { BasculeBarre, BasculeMode, BasculePleinEcran, ContexteMode, useBarreReduite, useModeMemorise, usePleinEcran } from './mode'
 import { AideRaccourcis } from './Raccourcis'
 import { ToutesLesTaches } from './Taches'
 import { PanneauInbox, useInbox } from './Inbox'
@@ -307,9 +307,11 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
   const [pageDemandee, setPageDemandee] = useState<{ base: string; id: string; jeton: number } | null>(null)
   const [consultation, basculerMode] = useModeMemorise()
   const [pleinEcran, basculerPleinEcran] = usePleinEcran()
+  const [barreReduite, basculerBarre] = useBarreReduite()
 
   // Ctrl+K / ⌘K ouvre la recherche globale depuis n'importe où (spec §11) ; Ctrl+J / ⌘J, l'assistant IA
-  // (pas en consultation) ; Ctrl+E / ⌘E bascule entre consultation et édition, comme Obsidian.
+  // (pas en consultation) ; Ctrl+E / ⌘E bascule entre consultation et édition, comme Obsidian ;
+  // Ctrl+B / ⌘B réduit ou redéploie la barre latérale.
   useEffect(() => {
     const clavier = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return
@@ -325,11 +327,14 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
       } else if (touche === 'e' && !estChampDeSaisie(e.target)) {
         e.preventDefault()
         basculerMode()
+      } else if (touche === 'b' && !estChampDeSaisie(e.target)) {
+        e.preventDefault()
+        basculerBarre()
       }
     }
     document.addEventListener('keydown', clavier)
     return () => document.removeEventListener('keydown', clavier)
-  }, [basculerAssistant, consultation, basculerMode])
+  }, [basculerAssistant, consultation, basculerMode, basculerBarre])
   // En consultation, le panneau de l'assistant se referme : il n'a rien à y faire (une demande en cours continue).
   useEffect(() => {
     if (consultation) {
@@ -369,8 +374,8 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
     <ContexteEspace.Provider value={{ espace, etat }}>
       <ContexteOuvrir.Provider value={ouvrirResultat}>
       <ContexteMode.Provider value={consultation}>
-        <div className={`espace ${consultation ? 'consultation' : ''} ${pleinEcran ? 'vue-plein-ecran' : ''}`}>
-          <BarreLaterale
+        <div className={`espace ${consultation ? 'consultation' : ''} ${pleinEcran ? 'vue-plein-ecran' : ''} ${barreReduite ? 'barre-reduite' : ''}`}>
+          {!barreReduite && <BarreLaterale
             espace={espace}
             etat={etat}
             nomEspace={nom}
@@ -396,8 +401,14 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
             }}
             relire={rafraichir}
             relu={relu}
-          />
+            reduire={basculerBarre}
+          />}
           <main className="contenu">
+            {barreReduite && (
+              <div className="coin-gauche-contenu">
+                <BasculeBarre reduite basculer={basculerBarre} />
+              </div>
+            )}
             <div className="coin-contenu">
               <AideRaccourcis />
               <BasculePleinEcran actif={pleinEcran} basculer={basculerPleinEcran} />
