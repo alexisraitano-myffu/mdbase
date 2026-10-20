@@ -748,6 +748,15 @@ export function confirmerScenario(r: ReglagesCharge, lignes: readonly LigneCharg
   return plan
 }
 
+/** Premier nom de scénario libre de la forme « Option A », « Option B »… */
+export function nomScenarioLibre(pris: readonly string[]): string {
+  for (let i = 0; i < 26; i++) {
+    const nom = `Option ${String.fromCharCode(65 + i)}`
+    if (!pris.includes(nom)) return nom
+  }
+  return `Option ${pris.length + 1}`
+}
+
 /** Nom d'un niveau tiré du nom de sa base, au singulier : « Programmes » → « programme ». */
 export function nomNiveau(nom: string | undefined, defaut: string): string {
   const n = (nom ?? '').trim().toLowerCase()

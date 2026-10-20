@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useRef, useState } from 'react'
-import { Check, ChevronLeft, ChevronRight, PaintBucket, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CircleHelp, PaintBucket, Trash2, X } from 'lucide-react'
 import type { LigneChargee } from '../core/base'
 import {
   ajusterDetail,
@@ -9,6 +9,7 @@ import {
   lireDetail,
   lireMoratoires,
   nomNiveau,
+  nomScenarioLibre,
   arrondiJours,
   calculerCharge,
   capaciteDe,
@@ -35,6 +36,7 @@ import { useLancer } from './actions'
 import { Choix } from './Choix'
 import { useEspace } from './contexte-espace'
 import { couleurOption } from './couleurs'
+import { AideCharge } from './AideCharge'
 import { Flottant } from './flottant'
 import { RemplirCharge } from './RemplirCharge'
 import { Icone } from './icones'
@@ -64,6 +66,8 @@ const libelleJour = (iso: string) => `${Number(iso.slice(8, 10))} ${MOIS_COURTS[
 const SANS_GROUPE = '\u0000'
 /** Lignes d'une base absente : toujours le même tableau, pour ne pas relancer les calculs mémorisés. */
 const AUCUNE: readonly LigneChargee[] = []
+/** Entrée « Nouveau scénario » du choix de scénario (jamais un nom d'option). */
+const NOUVEAU_SCENARIO = '\u0000nouveau'
 const TOUS = ''
 /** Navigation : un pas des flèches, en périodes. */
 const PAS: Record<Maille, number> = { jour: 5, semaine: 4, mois: 3 }
@@ -128,6 +132,10 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   const [remplirOuvert, setRemplirOuvert] = useState(false)
   const [finScenario, setFinScenario] = useState<'confirmer' | 'abandonner' | null>(null)
   const boutonFinScenario = useRef<HTMLButtonElement>(null)
+  const boutonAide = useRef<HTMLButtonElement>(null)
+  const [aideOuverte, setAideOuverte] = useState(false)
+  /** Nom du scénario en cours de création (null : pas de création). */
+  const [nouveauScenario, setNouveauScenario] = useState<string | null>(null)
 
   const r: ReglagesCharge = vue
   const maille: Maille = mailleLocale ?? vue.maille ?? 'semaine'
@@ -247,6 +255,16 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
       })(),
     )
     setScenario(null)
+  }
+
+  /** Crée l'option du scénario et l'affiche : ce qu'on crée ou modifie ensuite y va. */
+  const creerScenario = async () => {
+    const nom = nouveauScenario?.trim()
+    const a = r.affectations
+    if (!nom || !a?.scenario || scenarios.includes(nom)) return
+    setNouveauScenario(null)
+    await lancer(espace.ajouterOption(a.base, a.scenario, nom))
+    setScenario(nom)
   }
 
   /**
@@ -404,24 +422,46 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
             </div>
           </>
         )}
-        {mode !== 'projets' && scenarios.length > 0 && (
+        {mode !== 'projets' && colScenario?.type === 'select' && (scenarios.length > 0 || !lecture) && (
           <div className="scenario-charge">
-          <Choix
-            valeur={scenarioAffiche ?? ''}
-            entrees={[{ valeur: '', libelle: 'Plan réel' }, ...scenarios.map((x) => ({ valeur: x, libelle: `Plan réel + ${x}` }))]}
-            libelle="Scénario"
-            changer={(v) => setScenario(v || null)}
-          />
-          {!lecture && scenarioAffiche && (
-            <>
-              <button ref={boutonFinScenario} className="discret" onClick={() => setFinScenario('confirmer')}>
-                <Icone de={Check} /> Confirmer
-              </button>
-              <button className="discret danger-texte" onClick={() => setFinScenario('abandonner')}>
-                <Icone de={Trash2} /> Abandonner
-              </button>
-            </>
-          )}
+            {nouveauScenario === null ? (
+              <Choix
+                valeur={scenarioAffiche ?? ''}
+                entrees={[
+                  { valeur: '', libelle: 'Plan réel' },
+                  ...scenarios.map((x) => ({ valeur: x, libelle: `Plan réel + ${x}` })),
+                  ...(lecture ? [] : [{ valeur: NOUVEAU_SCENARIO, libelle: 'Nouveau scénario' }]),
+                ]}
+                libelle="Scénario"
+                changer={(v) => (v === NOUVEAU_SCENARIO ? setNouveauScenario(nomScenarioLibre(scenarios)) : setScenario(v || null))}
+              />
+            ) : (
+              <form
+                className="nouveau-scenario"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void creerScenario()
+                }}
+              >
+                <input className="nom-scenario" autoFocus value={nouveauScenario} aria-label="Nom du nouveau scénario" onChange={(e) => setNouveauScenario(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setNouveauScenario(null)} />
+                <button type="submit" className="principal" disabled={!nouveauScenario.trim() || scenarios.includes(nouveauScenario.trim())}>
+                  Créer le scénario
+                </button>
+                <button type="button" className="discret" aria-label="Annuler le nouveau scénario" onClick={() => setNouveauScenario(null)}>
+                  <Icone de={X} />
+                </button>
+              </form>
+            )}
+            {!lecture && scenarioAffiche && nouveauScenario === null && (
+              <>
+                <button ref={boutonFinScenario} className="discret" onClick={() => setFinScenario('confirmer')}>
+                  <Icone de={Check} /> Confirmer
+                </button>
+                <button className="discret danger-texte" onClick={() => setFinScenario('abandonner')}>
+                  <Icone de={Trash2} /> Abandonner
+                </button>
+              </>
+            )}
           </div>
         )}
         {!lecture && mode !== 'projets' && (
@@ -442,6 +482,9 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
             )}
           </div>
         )}
+        <button ref={boutonAide} className="discret aide-charge-bouton" aria-label="Comment se servir du plan de charge" aria-expanded={aideOuverte} onClick={() => setAideOuverte((o) => !o)}>
+          <Icone de={CircleHelp} />
+        </button>
       </div>
 
       {remplirOuvert && !lecture && (
@@ -474,6 +517,12 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
             setScenario(sc)
           }}
         />
+      )}
+
+      {aideOuverte && (
+        <Flottant ancre={boutonAide.current} fermer={() => setAideOuverte(false)}>
+          <AideCharge />
+        </Flottant>
       )}
 
       {finScenario && scenarioAffiche && (

@@ -1913,6 +1913,12 @@ kbd.touche svg.icone { margin: 0; }
 .champs-remplir label > span:first-child { color: var(--discret); }
 .jours-remplir { width: 5rem; }
 .nom-scenario { width: 8rem; }
+.nouveau-scenario { display: inline-flex; align-items: center; gap: 4px; }
+.aide-charge-bouton { margin-left: auto; }
+.legende-charge + .aide-charge-bouton { margin-left: 0; }
+.aide-charge { padding: 10px 12px; max-width: 420px; max-height: min(70vh, 560px); overflow-y: auto; font-size: 0.85rem; line-height: 1.45; }
+.aide-charge h4 { margin: 0.8rem 0 0.2rem; font-size: 0.85rem; }
+.aide-charge p { margin: 0.2rem 0; color: var(--texte-doux); }
 .resultat-remplir { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; }
 .resultat-remplir .boutons { margin-left: auto; display: flex; gap: 0.4rem; }
 .case-charge.selection { outline: 2px solid var(--accent); outline-offset: -2px; }

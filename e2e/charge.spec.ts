@@ -121,7 +121,31 @@ test('scénario : l’essai du modèle se voit en pointillé, puis s’abandonne
   await page.locator('.confirmation').getByRole('button', { name: 'Abandonner' }).click()
   await expect.poll(async () => (await espace.lister('affectations')).length).toBe(avant - 3)
   await expect.poll(() => espace.lire('affectations/_schema.yaml')).not.toContain('Option A')
-  await expect(page.getByRole('button', { name: 'Scénario' })).toHaveCount(0)
+  // Le choix reste là, sans Option A, pour en créer un autre.
+  await expect(page.getByRole('button', { name: 'Scénario' })).toHaveText(/Plan réel/)
+  await page.getByRole('button', { name: 'Scénario' }).click()
+  await expect(page.getByRole('option', { name: 'Plan réel + Option A' })).toHaveCount(0)
+})
+
+test('scénario : en créer un depuis la barre, nommé, il s’affiche aussitôt', async ({ espace, page }) => {
+  await choisir(page.getByRole('button', { name: 'Scénario' }), 'Nouveau scénario')
+  await expect(page.getByRole('textbox', { name: 'Nom du nouveau scénario' })).toHaveValue('Option B')
+  await page.getByRole('textbox', { name: 'Nom du nouveau scénario' }).fill('Embauche')
+  await page.getByRole('button', { name: 'Créer le scénario' }).click()
+  await expect(page.getByRole('button', { name: 'Scénario' })).toContainText('Plan réel + Embauche')
+  await expect(page.getByRole('button', { name: 'Confirmer' })).toBeVisible()
+  await expect.poll(() => espace.lire('affectations/_schema.yaml')).toContain('Embauche')
+})
+
+test('aide : le « ? » ouvre le mode d’emploi', async ({ page }) => {
+  await page.getByRole('button', { name: 'Comment se servir du plan de charge' }).click()
+  const aide = page.getByRole('dialog', { name: 'Comment se servir du plan de charge' })
+  await expect(aide).toContainText('Nouveau scénario')
+  await expect(aide).toContainText('Au plus tôt')
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'test-results/plan-de-charge-aide.png' })
+  await page.keyboard.press('Escape')
+  await expect(aide).toHaveCount(0)
 })
 
 test('scénario : ajuster une affectation réelle la copie dans le scénario, le plan réel ne bouge pas avant Confirmer', async ({ espace, page }) => {

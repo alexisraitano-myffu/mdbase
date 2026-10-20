@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ListRestart, Plus, X } from 'lucide-react'
 import type { LigneChargee } from '../core/base'
-import { besoinsAPlacer, ligneApercu, remplir, type LigneRemplissage, type ModeRemplissage, type OptionsCalcul, type ReglagesCharge, type Remplissage } from '../core/charge'
+import { besoinsAPlacer, ligneApercu, nomScenarioLibre, remplir, type LigneRemplissage, type ModeRemplissage, type OptionsCalcul, type ReglagesCharge, type Remplissage } from '../core/charge'
 import type { DepotEspace } from '../core/depot-espace'
 import { decaler, MOIS_COURTS } from '../core/temps'
 import { useLancer } from './actions'
@@ -44,15 +44,6 @@ type Props = {
 /** Une ligne en saisie : les jours restent du texte tant qu'on tape. */
 type Saisie = { role: string; jours: string; debut: string; fin: string }
 
-/** Premier nom libre de la forme « Option A », « Option B »… */
-function nomLibre(pris: readonly string[]): string {
-  for (let i = 0; i < 26; i++) {
-    const nom = `Option ${String.fromCharCode(65 + i)}`
-    if (!pris.includes(nom)) return nom
-  }
-  return `Option ${pris.length + 1}`
-}
-
 const jours = (n: number) => String(n).replace('.', ',')
 const date = (iso: string) => `${Number(iso.slice(8, 10))} ${MOIS_COURTS[Number(iso.slice(5, 7)) - 1]}`
 const majuscule = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
@@ -66,7 +57,7 @@ export function RemplirCharge(p: Props) {
   const [version, setVersion] = useState('')
   const [mode, setMode] = useState<ModeRemplissage>('tot')
   const [scenario, setScenario] = useState(a.scenario ? (p.scenarios[0] ?? NOUVEAU) : '')
-  const [nouveau, setNouveau] = useState(() => nomLibre(p.scenarios))
+  const [nouveau, setNouveau] = useState(() => nomScenarioLibre(p.scenarios))
   const versions = projet && a.version ? p.versionsDe(projet) : []
   const nomScenario = scenario === NOUVEAU ? nouveau.trim() : scenario
   const { scenario: affiche = null, moratoires, phases } = p.options
