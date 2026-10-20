@@ -17,4 +17,6 @@ colonnes:
     type: select
     options:
       - { label: Option A, couleur: orange }
+  - { cle: remplace, nom: Remplace, type: relation, cible: affectations, proprietaire: true, inverse: remplacee_par }
+  - { cle: remplacee_par, nom: Remplacée par, type: relation, cible: affectations, proprietaire: false, inverse: remplace }
 vues: [ tableau ]

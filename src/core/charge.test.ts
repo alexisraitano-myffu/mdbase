@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { ajusterDetail, ajusterSurPeriode, besoinsAPlacer, calculerCharge, fenetreBesoin, ecrireDetail, ligneApercu, lireDetail, nomNiveau, remplir, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
+import { ajusterDetail, ajusterSurPeriode, besoinsAPlacer, calculerCharge, confirmerScenario, fenetreBesoin, ecrireDetail, ligneApercu, lireDetail, nomNiveau, remplir, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
 
 const ligne = (id: string, champs: Record<string, unknown>): LigneChargee => ({
   id,
@@ -201,6 +201,35 @@ describe('scénarios', () => {
   it('un aperçu compte comme provisoire, quel que soit le scénario', () => {
     const apercu = [ligneApercu('x', { ressource: ['bob'], projet: ['p9'], debut: '2026-10-19', fin: '2026-10-23', jours: 1 })]
     expect(calculerCharge(R, RESSOURCES, aff, [], sem, { apercu }).get('bob')![0]).toMatchObject({ charge: 1, provisoire: 1 })
+  })
+})
+
+describe('un scénario qui remplace une affectation réelle', () => {
+  const S = { ...R, affectations: { ...R.affectations!, remplace: 'remplace' } }
+  const sem = periodes('semaine', '2026-10-19', 1)
+  const aff = [
+    ligne('a1', { titre: 'Alice sur p1', ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 5 }),
+    ligne('c1', { titre: 'Alice sur p1', ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 2, scenario: 'Option A', remplace: 'a1' }),
+    ligne('b1', { ressource: 'bob', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 4 }),
+    ligne('c2', { ressource: 'bob', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 0, scenario: 'Option A', remplace: 'b1' }),
+  ]
+
+  it('la copie masque l’originale quand le scénario est affiché ; une copie à 0 retire la ressource ; le plan réel ne bouge pas', () => {
+    expect(calculerCharge(S, RESSOURCES, aff, [], sem).get('alice')![0]).toMatchObject({ charge: 5, affectations: ['a1'] })
+    const essai = calculerCharge(S, RESSOURCES, aff, [], sem, { scenario: 'Option A' })
+    expect(essai.get('alice')![0]).toMatchObject({ charge: 2, provisoire: 2, affectations: ['c1'] })
+    expect(essai.get('bob')![0]).toMatchObject({ charge: 0 })
+  })
+
+  it('confirmer : chaque copie se recopie sur son originale puis disparaît ; les autres deviennent réelles', () => {
+    const avecNouvelle = [...aff, ligne('n1', { ressource: 'carla', projet: 'p2', debut: '2026-10-19', fin: '2026-10-23', jours: 1, scenario: 'Option A' })]
+    const plan = confirmerScenario(S, avecNouvelle, 'Option A', ['titre', 'ressource', 'projet', 'debut', 'fin', 'jours', 'total', 'detail', 'scenario', 'remplace'], 'titre')
+    expect(plan.recopier).toEqual([
+      { copie: 'c1.md', originale: 'a1.md', valeurs: { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 2, total: undefined, detail: undefined } },
+      { copie: 'c2.md', originale: 'b1.md', valeurs: { ressource: 'bob', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 0, total: undefined, detail: undefined } },
+    ])
+    expect(plan.supprimer).toEqual(['c1.md', 'c2.md'])
+    expect(plan.rendreReelles).toEqual(['n1.md'])
   })
 })
 

@@ -3,7 +3,7 @@ nom: Plan de charge
 type: charge
 capacite: capacite
 groupe: role
-affectations: { base: affectations, ressource: ressource, projet: projet, debut: debut, fin: fin, jours: jours, total: total, version: version, detail: detail, scenario: scenario }
+affectations: { base: affectations, ressource: ressource, projet: projet, debut: debut, fin: fin, jours: jours, total: total, version: version, detail: detail, scenario: scenario, remplace: remplace }
 absences: { base: absences, ressource: ressource, debut: debut, fin: fin }
 besoins: { base: besoins, projet: projet, role: role, jours: jours, avant: avant, apres: a_partir_de }
 moratoires: { base: moratoires, debut: debut, fin: fin, ferme: ferme }

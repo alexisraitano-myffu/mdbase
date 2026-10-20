@@ -119,9 +119,48 @@ test('scénario : l’essai du modèle se voit en pointillé, puis s’abandonne
   const avant = (await espace.lister('affectations')).length
   await page.getByRole('button', { name: 'Abandonner' }).click()
   await page.locator('.confirmation').getByRole('button', { name: 'Abandonner' }).click()
-  await expect.poll(async () => (await espace.lister('affectations')).length).toBe(avant - 2)
+  await expect.poll(async () => (await espace.lister('affectations')).length).toBe(avant - 3)
   await expect.poll(() => espace.lire('affectations/_schema.yaml')).not.toContain('Option A')
   await expect(page.getByRole('button', { name: 'Scénario' })).toHaveCount(0)
+})
+
+test('scénario : ajuster une affectation réelle la copie dans le scénario, le plan réel ne bouge pas avant Confirmer', async ({ espace, page }) => {
+  await page.getByRole('radio', { name: 'Jour' }).click()
+  await choisir(page.getByRole('button', { name: 'Scénario' }), 'Plan réel + Option A')
+  const camille = page.locator('.grille-charge .ressource-charge', { hasText: 'Camille' })
+  const originale = (await espace.lister('affectations')).find((f) => f.startsWith('camille-portail'))!
+  const avant = await espace.lire(`affectations/${originale}`)
+  const nombre = (await espace.lister('affectations')).length
+  await camille.locator('.case-charge').nth(0).click()
+  await page.getByRole('spinbutton', { name: 'Jours ce jour' }).fill('0.5')
+  await page.keyboard.press('Enter')
+  await expect(camille.locator('.case-charge').nth(0)).toHaveText('0,5')
+  await expect(camille.locator('.case-charge').nth(0)).toHaveClass(/provisoire/)
+  // Une copie dans Option A, qui remplace l'originale ; l'originale n'a pas changé.
+  await expect.poll(async () => (await espace.lister('affectations')).length).toBe(nombre + 1)
+  const copieDe = async () => {
+    for (const f of await espace.lister('affectations')) if (f.endsWith('.md') && (await espace.lire(`affectations/${f}`)).includes('remplace: acami001')) return f
+    return null
+  }
+  await expect.poll(copieDe).not.toBeNull()
+  const copie = (await copieDe())!
+  await expect.poll(() => espace.lire(`affectations/${copie}`)).toContain('scenario: Option A')
+  expect(await espace.lire(`affectations/${copie}`)).toMatch(/\d{4}-\d{2}-\d{2}: 0\.5\n {2}\d{4}-\d{2}-\d{2}: 0\.5/)
+  expect(await espace.lire(`affectations/${originale}`)).toBe(avant)
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'test-results/plan-de-charge-scenario-copie.png' })
+  // Le plan réel seul montre toujours 1.
+  await choisir(page.getByRole('button', { name: 'Scénario' }), 'Plan réel')
+  await expect(camille.locator('.case-charge').nth(0)).toHaveText('1')
+  // Confirmer recopie la modification sur l'originale et retire la copie.
+  await choisir(page.getByRole('button', { name: 'Scénario' }), 'Plan réel + Option A')
+  await page.getByRole('button', { name: 'Confirmer' }).click()
+  await page.locator('.confirmation').getByRole('button', { name: 'Confirmer' }).click()
+  await expect.poll(() => espace.lire(`affectations/${originale}`)).toMatch(/\d{4}-\d{2}-\d{2}: 0\.5\n {2}\d{4}-\d{2}-\d{2}: 0\.5/)
+  await expect.poll(async () => (await espace.lister('affectations')).includes(copie)).toBe(false)
+  expect(await espace.lire(`affectations/${originale}`)).not.toContain('scenario:')
+  await expect(camille.locator('.case-charge').nth(0)).toHaveText('0,5')
+  await expect(camille.locator('.case-charge').nth(0)).not.toHaveClass(/provisoire/)
 })
 
 test('remplir : une ligne par rôle, l’aperçu dans la grille, puis les affectations créées dans un nouveau scénario', async ({ espace, page }) => {

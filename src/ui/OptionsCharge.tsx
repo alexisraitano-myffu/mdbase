@@ -10,7 +10,7 @@ import { Reglage, Section } from './reglages'
 // colonnes des affectations, des absences et des besoins. Un lien ne s'écrit
 // que complet ; changer de base reprend ses premières colonnes de chaque sorte.
 
-type Champ = { cle: string; libelle: string; garde: (c: Colonne, ctx: { ressources: string; projets?: string }) => boolean; facultatif?: string }
+type Champ = { cle: string; libelle: string; garde: (c: Colonne, ctx: { ressources: string; projets?: string; base?: string }) => boolean; facultatif?: string }
 type Lien = 'affectations' | 'absences' | 'besoins' | 'phases' | 'moratoires'
 
 const date = (c: Colonne) => c.type === 'date'
@@ -23,14 +23,15 @@ const relationVers = (cible: string | undefined) => (c: Colonne) => c.type === '
 const CHAMPS: Record<Lien, Champ[]> = {
   affectations: [
     { cle: 'ressource', libelle: 'Ressource', garde: (c, x) => relationVers(x.ressources)(c) },
-    { cle: 'projet', libelle: 'Projet (ou programme…)', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources },
+    { cle: 'projet', libelle: 'Projet (ou programme…)', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources && c.cible !== x.base },
     { cle: 'debut', libelle: 'Début', garde: date },
     { cle: 'fin', libelle: 'Fin', garde: date },
     { cle: 'jours', libelle: 'Jours par semaine', garde: (c) => c.type === 'number' },
     { cle: 'total', libelle: 'Jours au total', garde: (c) => c.type === 'number', facultatif: 'aucune (par semaine seulement)' },
-    { cle: 'version', libelle: 'Version (ou étape…)', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources && c.cible !== x.projets, facultatif: 'aucune' },
+    { cle: 'version', libelle: 'Version (ou étape…)', garde: (c, x) => c.type === 'relation' && c.cible !== x.ressources && c.cible !== x.projets && c.cible !== x.base, facultatif: 'aucune' },
     { cle: 'detail', libelle: 'Détail jour par jour', garde: (c) => c.type === 'text', facultatif: 'aucun (une case modifiée coupe l’affectation)' },
     { cle: 'scenario', libelle: 'Scénario', garde: (c) => c.type === 'select', facultatif: 'aucun (pas d’essais)' },
+    { cle: 'remplace', libelle: 'Remplace (dans un scénario)', garde: (c, x) => c.type === 'relation' && c.cible === x.base, facultatif: 'aucune (un essai ne modifie pas le réel)' },
   ],
   absences: [
     { cle: 'ressource', libelle: 'Ressource', garde: (c, x) => relationVers(x.ressources)(c) },
@@ -97,7 +98,7 @@ export function OptionsCharge({ schema, vue, modifier }: { schema: Schema; vue: 
     const objet: Record<string, string> = { base }
     for (const ch of CHAMPS[lien]) {
       const voulue = valeurs?.[ch.cle]
-      const candidates = s.colonnes.filter((c) => ch.garde(c, ctx) && !pris.has(c.cle))
+      const candidates = s.colonnes.filter((c) => ch.garde(c, { ...ctx, base: s.id }) && !pris.has(c.cle))
       if (ch.facultatif) {
         // Une colonne facultative ne se choisit jamais seule : seulement celle demandée.
         if (voulue && candidates.some((c) => c.cle === voulue)) {
@@ -196,7 +197,7 @@ export function OptionsCharge({ schema, vue, modifier }: { schema: Schema; vue: 
                 <Reglage key={ch.cle} libelle={ch.libelle}>
                   <Choix
                     valeur={actuel[ch.cle] ?? ''}
-                    entrees={[...(ch.facultatif ? [{ valeur: '', libelle: ch.facultatif }] : []), ...entreesColonnes(s.colonnes.filter((c) => ch.garde(c, ctx)))]}
+                    entrees={[...(ch.facultatif ? [{ valeur: '', libelle: ch.facultatif }] : []), ...entreesColonnes(s.colonnes.filter((c) => ch.garde(c, { ...ctx, base: s.id })))]}
                     libelle={`${TITRES[lien].titre} : ${ch.libelle}`}
                     inconnue={`${actuel[ch.cle]} (disparue)`}
                     changer={(v) => reglerLien(lien, s.id, { ...actuel, [ch.cle]: v })}

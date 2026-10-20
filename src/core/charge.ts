@@ -25,6 +25,8 @@ export type LienAffectations = {
   detail?: string
   /** Colonne `select` : vide pour le plan réel, sinon le scénario (l'essai) de l'affectation. */
   scenario?: string
+  /** Relation de la base vers elle-même : l'affectation réelle qu'une affectation de scénario remplace. */
+  remplace?: string
 }
 
 /**
@@ -331,7 +333,9 @@ function lireAffectations(r: ReglagesCharge, lignes: readonly LigneChargee[], fe
     const lue = { id: l.id, ...p, parJour, detail, projet: ids(l, a.projet)[0] ?? '', version: a.version ? (ids(l, a.version)[0] ?? '') : '', provisoire: apercu || scenario !== null, apercu }
     for (const res of ids(l, a.ressource)) parRessource.set(res, [...(parRessource.get(res) ?? []), lue])
   }
-  for (const l of lignes) lire(l, false)
+  // Les affectations réelles remplacées par une affectation du scénario affiché ne comptent pas.
+  const remplacees = new Set(a.remplace && options.scenario ? lignes.flatMap((l) => (texte(l, a.scenario) === options.scenario ? ids(l, a.remplace!) : [])) : [])
+  for (const l of lignes) if (!remplacees.has(l.id)) lire(l, false)
   for (const l of options.apercu ?? []) lire(l, true)
   return parRessource
 }
@@ -716,6 +720,34 @@ export function besoinsAPlacer(
   })
 }
 
+/** Ce que « Confirmer » fait d'un scénario : recopier chaque copie sur l'affectation qu'elle remplace, la supprimer, et rendre réelles les autres. */
+export type Confirmation = { recopier: { copie: string; originale: string; valeurs: Modifications }[]; supprimer: string[]; rendreReelles: string[] }
+
+/**
+ * Plan de « Confirmer » pour `scenario` (chemins des lignes) : les valeurs
+ * saisies de chaque copie (sauf scénario, remplace et titre) recopiées sur
+ * l'affectation qu'elle remplace, absentes comprises (elles sont vidées).
+ * `colonnes` : les colonnes saisies de la base des affectations.
+ */
+export function confirmerScenario(r: ReglagesCharge, lignes: readonly LigneChargee[], scenario: string, colonnes: readonly string[], champTitre: string): Confirmation {
+  const a = r.affectations
+  const plan: Confirmation = { recopier: [], supprimer: [], rendreReelles: [] }
+  if (!a?.scenario) return plan
+  for (const l of lignes) {
+    if (texte(l, a.scenario) !== scenario) continue
+    const originale = a.remplace ? lignes.find((x) => x.id === ids(l, a.remplace!)[0] && texte(x, a.scenario) === null) : undefined
+    if (!originale) {
+      plan.rendreReelles.push(l.chemin)
+      continue
+    }
+    const valeurs: Modifications = {}
+    for (const cle of colonnes) if (cle !== a.scenario && cle !== a.remplace && cle !== champTitre) valeurs[cle] = valeur(l, cle)
+    plan.recopier.push({ copie: l.chemin, originale: originale.chemin, valeurs })
+    plan.supprimer.push(l.chemin)
+  }
+  return plan
+}
+
 /** Nom d'un niveau tiré du nom de sa base, au singulier : « Programmes » → « programme ». */
 export function nomNiveau(nom: string | undefined, defaut: string): string {
   const n = (nom ?? '').trim().toLowerCase()
@@ -750,7 +782,7 @@ export function reglagesChargeParDefaut(bases: Schemas, base: string): ReglagesC
 
   const aff = autres.flatMap(({ id, s }) => {
     const ressource = relationsVers(s, base)[0]
-    const projet = colonnesDe(s, 'relation').find((c): c is ColonneRelation => c.type === 'relation' && c.cible !== base && c.proprietaire)
+    const projet = colonnesDe(s, 'relation').find((c): c is ColonneRelation => c.type === 'relation' && c.cible !== base && c.cible !== id && c.proprietaire)
     const dates = saisies(s, 'date')
     const nombres = saisies(s, 'number')
     const total = nombres.length > 1 ? nombres.find((c) => /total/i.test(`${c.cle} ${c.nom}`)) : undefined
@@ -759,11 +791,12 @@ export function reglagesChargeParDefaut(bases: Schemas, base: string): ReglagesC
     const version =
       projet &&
       colonnesDe(s, 'relation').find(
-        (c): c is ColonneRelation => c.type === 'relation' && c.proprietaire && c.cible !== base && c.cible !== projet.cible && relationsVers(bases.get(c.cible)?.depot?.schema ?? schema, projet.cible).length > 0,
+        (c): c is ColonneRelation => c.type === 'relation' && c.proprietaire && c.cible !== base && c.cible !== id && c.cible !== projet.cible && relationsVers(bases.get(c.cible)?.depot?.schema ?? schema, projet.cible).length > 0,
       )
     const detail = saisies(s, 'text').find((c) => c.cle !== s.champTitre && /d[ée]tail/i.test(`${c.cle} ${c.nom}`))
     const scenario = saisies(s, 'select').find((c) => /sc[ée]nario/i.test(`${c.cle} ${c.nom}`))
-    return ressource && projet && dates[0] && jours ? [{ id, ressource, projet, dates, jours, total, version, detail, scenario }] : []
+    const remplace = colonnesDe(s, 'relation').find((c): c is ColonneRelation => c.type === 'relation' && c.proprietaire && c.cible === id)
+    return ressource && projet && dates[0] && jours ? [{ id, ressource, projet, dates, jours, total, version, detail, scenario, remplace }] : []
   })[0]
   if (aff) {
     r.affectations = { base: aff.id, ressource: aff.ressource.cle, projet: aff.projet.cle, debut: aff.dates[0]!.cle, fin: (aff.dates[1] ?? aff.dates[0]!).cle, jours: aff.jours.cle }
@@ -771,6 +804,7 @@ export function reglagesChargeParDefaut(bases: Schemas, base: string): ReglagesC
     if (aff.version) r.affectations.version = aff.version.cle
     if (aff.detail) r.affectations.detail = aff.detail.cle
     if (aff.scenario) r.affectations.scenario = aff.scenario.cle
+    if (aff.remplace) r.affectations.remplace = aff.remplace.cle
   }
 
   const abs = autres.find(({ id, s }) => id !== aff?.id && relationsVers(s, base)[0] && saisies(s, 'date')[0] && saisies(s, 'number').length === 0)

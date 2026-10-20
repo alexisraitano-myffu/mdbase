@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, PaintBucket, Trash2 } from 'lucide-re
 import type { LigneChargee } from '../core/base'
 import {
   ajusterDetail,
+  confirmerScenario,
   ajusterSurPeriode,
   gelsDe,
   lireDetail,
@@ -27,7 +28,7 @@ import {
 import { COULEURS, couleurDeLigne } from '../core/couleurs'
 import type { DepotEspace } from '../core/depot-espace'
 import type { LigneVue } from '../core/filtres'
-import { colonne as colonneDe, type Schema } from '../core/schema'
+import { colonne as colonneDe, estSaisie, type Schema } from '../core/schema'
 import { decaler, jourDe, jourSemaine, JOURS_COURTS, libelleMois, MOIS_COURTS } from '../core/temps'
 import type { ModificationVue, Vue } from '../core/vue'
 import { useLancer } from './actions'
@@ -233,13 +234,39 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
     const chemins = lignesScenario.map((l) => l.chemin)
     await lancer(
       (async () => {
-        if (fin === 'confirmer') await espace.modifierLignes(a.base, chemins, a.scenario!, undefined)
-        else await espace.supprimerLignes(a.base, chemins, true)
+        await espace.enUneEtape(async () => {
+          if (fin === 'abandonner') return espace.supprimerLignes(a.base, chemins, true)
+          // Chaque copie se recopie sur l'affectation qu'elle remplace, puis disparaît ; les autres deviennent réelles.
+          const saisies = schemaAff.colonnes.filter((c) => estSaisie(c) || (c.type === 'relation' && c.proprietaire)).map((c) => c.cle)
+          const plan = confirmerScenario(r, affectations, nom, saisies, schemaAff.champTitre)
+          for (const x of plan.recopier) for (const [cle, v] of Object.entries(x.valeurs)) await espace.modifierLignes(a.base, [x.originale], cle, v)
+          if (plan.supprimer.length > 0) await espace.supprimerLignes(a.base, plan.supprimer, true)
+          if (plan.rendreReelles.length > 0) await espace.modifierLignes(a.base, plan.rendreReelles, a.scenario!, undefined)
+        })
         await espace.retirerOption(a.base, a.scenario!, nom)
       })(),
     )
     setScenario(null)
   }
+
+  /**
+   * La ligne à modifier : une affectation réelle, quand un scénario est
+   * affiché (et la base sait dire « remplace »), est d'abord copiée dans ce
+   * scénario ; c'est la copie qui reçoit la modification.
+   */
+  const versScenario = async (l: LigneChargee): Promise<string> => {
+    const a = r.affectations!
+    const sc = a.scenario ? l.cellules[a.scenario] : undefined
+    if (!scenarioAffiche || !a.scenario || !a.remplace || (sc?.etat === 'ok' && sc.valeur)) return l.chemin
+    const [copie] = await espace.dupliquerLignes(a.base, [l.chemin])
+    if (!copie) return l.chemin
+    await espace.modifierLignes(a.base, [copie.chemin], a.scenario, scenarioAffiche)
+    await espace.modifierLignes(a.base, [copie.chemin], a.remplace, [l.id])
+    return copie.chemin
+  }
+  /** Une modification de l'éditeur de case, sur la ligne ou sa copie de scénario, en une étape d'annulation. */
+  const modifierAffectation = (l: LigneChargee, ecrire: (chemin: string) => Promise<unknown>) =>
+    void lancer(espace.enUneEtape(async () => ecrire(await versScenario(l))))
   const changerRegrouper = (g: Regrouper) => {
     setOuvertes(new Set())
     if (lecture) setRegrouperLocal(g)
@@ -661,7 +688,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
             // Avec une colonne de détail, la correction s'y écrit ; sinon l'affectation est coupée autour de la case.
             if (a.detail) {
               const texte = ajusterDetail(r, l, c, v, options)
-              if (texte !== null) void lancer(espace.modifierLignes(a.base, [l.chemin], a.detail, texte))
+              if (texte !== null) modifierAffectation(l, (chemin) => espace.modifierLignes(a.base, [chemin], a.detail!, texte))
               return
             }
             if (v === null) return
@@ -672,7 +699,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
               [a.fin]: m.fin,
               ...(m.total !== undefined ? { [a.total!]: m.total, [a.jours]: undefined } : { [a.jours]: m.jours, ...(a.total ? { [a.total]: undefined } : {}) }),
             }))
-            void lancer(espace.decouperLigne(a.base, l.chemin, valeurs))
+            modifierAffectation(l, (chemin) => espace.decouperLigne(a.base, chemin, valeurs))
           }
           return (
             <Flottant ancre={detail.ancre} fermer={() => setDetail(null)}>
@@ -727,7 +754,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
                               const v = e.target.value === '' ? undefined : Number(e.target.value.replace(',', '.'))
                               if (v !== undefined && !Number.isFinite(v)) return
                               if (surLaCase) ajuster(l, v ?? 0)
-                              else void lancer(espace.modifierLignes(a.base, [l.chemin], cle, v))
+                              else modifierAffectation(l, (chemin) => espace.modifierLignes(a.base, [chemin], cle, v))
                             }}
                             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                           />
