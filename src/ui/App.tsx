@@ -123,11 +123,19 @@ export function App() {
       else setRefus(true)
     })
   const demo = (neuve: boolean) => tenter(async () => ouvrir(await ouvrirDemo(neuve)))
+  // « Changer de dossier » ramène à l'accueil : un autre dossier, la démo, ou une démo neuve.
+  // Au bureau (pas de démo), il ouvre directement le sélecteur.
+  const accueil = () =>
+    tenter(async () => {
+      if (etat.type === 'ouvert') await etat.espace.vider()
+      setAvecDemo(await demoExiste())
+      setEtat({ type: 'aucun' })
+    })
 
   if (etat.type === 'ouvert') {
     return (
       <FournisseurActions>
-        <Espace nom={etat.nom} espace={etat.espace} changer={choisir} surveiller={BUREAU ? surveillerEspace : undefined} />
+        <Espace nom={etat.nom} espace={etat.espace} changer={BUREAU ? choisir : accueil} surveiller={BUREAU ? surveillerEspace : undefined} />
       </FournisseurActions>
     )
   }

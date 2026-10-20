@@ -27,8 +27,8 @@ test('« Essayer avec la démo » ouvre la démo ; « Repartir d’une démo neu
   await page.locator('.entree-base', { hasText: 'Projets' }).click()
   await expect(page.locator('.rangee', { hasText: 'Ligne d’essai' })).toBeVisible()
 
-  await page.evaluate(() => indexedDB.deleteDatabase('mdbase'))
-  await page.reload()
+  // « Changer de dossier » ramène à l'accueil, d'où l'on repart d'une démo neuve.
+  await page.getByRole('button', { name: 'Changer de dossier' }).click()
   await page.getByRole('button', { name: 'Repartir d’une démo neuve' }).click()
   await page.locator('.entree-base', { hasText: 'Projets' }).click()
   await expect(page.locator('.rangee', { hasText: 'Site vitrine' })).toBeVisible()

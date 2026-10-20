@@ -181,6 +181,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 - Assistant IA : il relit le détail des quatre derniers échanges (ce qu'il a lu et proposé, pas seulement le texte de sa réponse), pour mieux suivre la conversation d'une demande à l'autre.
 ### Fixed
+- Démo : une fois ouverte, rien ne ramenait à l'accueil, donc à « Repartir d'une démo neuve ». Dans le navigateur, « Changer de dossier » ramène maintenant à l'accueil (un autre dossier, la démo, ou une démo neuve) ; au bureau, il ouvre toujours le sélecteur.
 - Une liste ouverte dans un panneau (« Filtrer ») : après un changement, Échap fermait aussi le panneau au lieu de la seule liste.
 - Assistant IA et Claude : modifier une vue de calendrier ou de timeline (ses filtres, par exemple) remplaçait sa date de début par la première colonne date de la base.
 - Inbox : un texte tapé juste après « Ajouter », pendant l'écriture du précédent, était effacé.
