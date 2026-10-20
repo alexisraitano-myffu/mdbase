@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LigneChargee } from './base'
-import { ajusterDetail, ajusterSurPeriode, calculerCharge, ecrireDetail, ligneApercu, lireDetail, nomNiveau, remplir, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
+import { ajusterDetail, ajusterSurPeriode, besoinsAPlacer, calculerCharge, fenetreBesoin, ecrireDetail, ligneApercu, lireDetail, nomNiveau, remplir, couvrirBesoins, decalerPeriode, empiler, estOuvre, etatCase, feriesFrance, ouvresDeLaSemaine, paques, periodes, semaines, type ReglagesCharge } from './charge'
 
 const ligne = (id: string, champs: Record<string, unknown>): LigneChargee => ({
   id,
@@ -207,11 +207,13 @@ describe('scénarios', () => {
 describe('remplir', () => {
   // Alice (Dev, 5 j) a 3 j/sem. sur p1 ; Bob (Dev, 4 j) est libre ; Carla est en Test.
   const aff = [ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-30', jours: 3 })]
-  const demande = { projet: 'p2', role: 'Dev', jours: 6, debut: '2026-10-19', fin: '2026-10-30', mode: 'tot' as const, scenario: 'Option A' }
+  const dev = { role: 'Dev', jours: 6, debut: '2026-10-19', fin: '2026-10-30' }
+  const demande = { projet: 'p2', mode: 'tot' as const, scenario: 'Option A', lignes: [dev] }
 
   it('au plus tôt : la ressource la plus disponible d’abord, chaque jour, une affectation par ressource avec son détail', () => {
     const res = remplir(R, RESSOURCES, aff, [], demande)
     expect(res).toMatchObject({ places: 6, manque: 0 })
+    expect(res.lignes).toEqual([{ role: 'Dev', jours: 6, places: 6, manque: 0, fin: '2026-10-30', gel: null, finTravail: '2026-10-23' }])
     // Bob (0,8 j libre par jour) puis Alice (0,4 j) : 1,2 j par jour pendant 5 jours.
     expect(res.affectations.map((x) => [x.ressource, x.jours, x.valeurs['debut'], x.valeurs['fin'], x.valeurs['jours'], x.valeurs['detail']])).toEqual([
       ['bob', 4, '2026-10-19', '2026-10-23', 4, undefined],
@@ -224,18 +226,71 @@ describe('remplir', () => {
     const res = remplir(R, RESSOURCES, aff, [], { ...demande, mode: 'lisse' })
     expect(res.places).toBe(6)
     expect(res.affectations.map((x) => [x.ressource, x.valeurs['debut'], x.valeurs['fin'], x.valeurs['jours']])).toEqual([['bob', '2026-10-19', '2026-10-30', 3]])
-    expect(remplir(R, RESSOURCES, aff, [], { ...demande, jours: 30 })).toMatchObject({ places: 12, manque: 18 })
+    expect(remplir(R, RESSOURCES, aff, [], { ...demande, lignes: [{ ...dev, jours: 30 }] })).toMatchObject({ places: 12, manque: 18 })
   })
 
   it('sans colonne de détail : une affectation par suite de jours égaux, au total', () => {
     const sansDetail = { ...R, affectations: { ...R.affectations!, detail: undefined } }
-    const res = remplir(sansDetail, RESSOURCES, aff, [], { ...demande, jours: 1.2, role: null })
+    const res = remplir(sansDetail, RESSOURCES, aff, [], { ...demande, lignes: [{ ...dev, jours: 1.2, role: null }] })
     expect(res.affectations.map((x) => [x.ressource, x.valeurs['debut'], x.valeurs['fin'], x.valeurs['total']])).toEqual([['carla', '2026-10-19', '2026-10-19', 1], ['bob', '2026-10-19', '2026-10-19', 0.2]])
   })
 
   it('la situation du scénario affiché compte : sa capacité prise ne se redonne pas', () => {
     const avecEssai = [...aff, ligne('a2', { ressource: 'bob', projet: 'p3', debut: '2026-10-19', fin: '2026-10-30', jours: 4, scenario: 'Option A' })]
     expect(remplir(R, RESSOURCES, avecEssai, [], demande, { scenario: 'Option A' }).affectations.map((x) => x.ressource)).toEqual(['alice'])
+  })
+
+  it('une ligne par rôle, chacune sur ses ressources ; la deuxième ne reprend pas la capacité de la première', () => {
+    const res = remplir(R, RESSOURCES, aff, [], {
+      ...demande,
+      lignes: [dev, { role: 'Test', jours: 3, debut: '2026-10-26', fin: '2026-10-30' }, { role: 'Dev', jours: 2, debut: '2026-10-19', fin: '2026-10-23' }],
+    })
+    expect(res.affectations.map((x) => [x.ligne, x.ressource])).toEqual([[0, 'bob'], [0, 'alice'], [1, 'carla']])
+    expect(res.lignes.map((l) => [l.places, l.manque, l.finTravail])).toEqual([[6, 0, '2026-10-23'], [3, 0, '2026-10-28'], [0, 2, null]])
+  })
+})
+
+describe('moratoires', () => {
+  const M = { ...R, moratoires: { base: 'moratoires', debut: 'debut', fin: 'fin', ferme: 'ferme' } }
+  const moratoires = [ligne('m1', { debut: '2026-10-21', fin: '2026-10-22', ferme: true }), ligne('m2', { debut: '2026-10-28', fin: '2026-11-03' })]
+
+  it('fermé : personne ne travaille, comme un jour férié (capacité et charge)', () => {
+    const aff = [ligne('a1', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 5 })]
+    const c = calculerCharge(M, RESSOURCES, aff, [], periodes('jour', '2026-10-19', 5), { moratoires }).get('alice')!
+    expect(c.map(etatCase)).toEqual(['pleine', 'pleine', 'fermee', 'fermee', 'pleine'])
+    expect(calculerCharge(M, RESSOURCES, aff, [], periodes('semaine', '2026-10-19', 1), { moratoires }).get('alice')![0]).toMatchObject({ capacite: 3, charge: 3 })
+  })
+
+  it('gel des livraisons : on travaille, mais la fin d’une ligne à remplir recule à la veille du gel', () => {
+    const res = remplir(M, RESSOURCES, [], [], { projet: 'p2', mode: 'lisse', lignes: [{ role: 'Test', jours: 4, debut: '2026-10-19', fin: '2026-10-30' }] }, { moratoires })
+    expect(res.lignes[0]).toMatchObject({ fin: '2026-10-27', gel: 'm2', places: 4 })
+    expect(res.affectations[0]!.valeurs['fin']).toBe('2026-10-27')
+  })
+})
+
+describe('fenêtre d’un besoin', () => {
+  const P = { ...R, besoins: { ...R.besoins!, apres: 'apres', phase: 'phase' }, phases: { base: 'phases', debut: 'debut', fin: 'fin', role: 'role' } }
+  const phases = [ligne('ph1', { debut: '2026-10-26', fin: '2026-10-30', role: 'Test' })]
+  const aff = [
+    ligne('a1', { ressource: 'carla', projet: 'p1', debut: '2026-10-19', fin: '2026-10-30', jours: 5 }),
+    ligne('a2', { ressource: 'alice', projet: 'p1', debut: '2026-10-19', fin: '2026-10-23', jours: 5 }),
+  ]
+
+  it('une phase donne la fenêtre et le rôle ; les dates du besoin l’emportent', () => {
+    expect(fenetreBesoin(P, ligne('b1', { projet: 'p1', jours: 5, phase: 'ph1' }), phases)).toEqual({ role: 'Test', debut: '2026-10-26', fin: '2026-10-30', phase: 'ph1' })
+    expect(fenetreBesoin(P, ligne('b2', { projet: 'p1', role: 'Dev', jours: 5, phase: 'ph1', apres: '2026-10-27' }), phases)).toMatchObject({ role: 'Dev', debut: '2026-10-27', fin: '2026-10-30' })
+  })
+
+  it('la couverture ne compte que la fenêtre ; les lignes à placer partent de ce qui manque', () => {
+    const besoins = [ligne('b1', { projet: 'p1', jours: 8, phase: 'ph1' }), ligne('b2', { projet: 'p1', role: 'Dev', jours: 10, avant: '2026-10-23' })]
+    expect(couvrirBesoins(P, RESSOURCES, aff, besoins, { phases }).map((c) => [c.besoin, c.role, c.apres, c.avant, c.affectes])).toEqual([
+      ['b1', 'Test', '2026-10-26', '2026-10-30', 5],
+      ['b2', 'Dev', null, '2026-10-23', 5],
+    ])
+    expect(besoinsAPlacer(P, RESSOURCES, aff, besoins, 'p1', '2026-10-20', '2026-12-31', { phases })).toEqual([
+      { role: 'Test', jours: 3, debut: '2026-10-26', fin: '2026-10-30', besoin: 'b1' },
+      { role: 'Dev', jours: 5, debut: '2026-10-20', fin: '2026-10-23', besoin: 'b2' },
+    ])
   })
 })
 
@@ -257,8 +312,8 @@ describe('couverture des besoins', () => {
     ]
     const besoins = [ligne('b1', { projet: 'p1', role: 'Dev', jours: 20, avant: '2026-10-30' }), ligne('b2', { projet: 'p1', role: 'Test', jours: 5 })]
     expect(couvrirBesoins(R, RESSOURCES, aff, besoins)).toEqual([
-      { besoin: 'b1', projet: 'p1', role: 'Dev', avant: '2026-10-30', demandes: 20, affectes: 10 },
-      { besoin: 'b2', projet: 'p1', role: 'Test', avant: null, demandes: 5, affectes: 10 },
+      { besoin: 'b1', projet: 'p1', role: 'Dev', apres: null, avant: '2026-10-30', demandes: 20, affectes: 10 },
+      { besoin: 'b2', projet: 'p1', role: 'Test', apres: null, avant: null, demandes: 5, affectes: 10 },
     ])
   })
 })

@@ -11,7 +11,7 @@ import { Reglage, Section } from './reglages'
 // que complet ; changer de base reprend ses premières colonnes de chaque sorte.
 
 type Champ = { cle: string; libelle: string; garde: (c: Colonne, ctx: { ressources: string; projets?: string }) => boolean; facultatif?: string }
-type Lien = 'affectations' | 'absences' | 'besoins'
+type Lien = 'affectations' | 'absences' | 'besoins' | 'phases' | 'moratoires'
 
 const date = (c: Colonne) => c.type === 'date'
 const MAILLES: Maille[] = ['jour', 'semaine', 'mois']
@@ -42,13 +42,31 @@ const CHAMPS: Record<Lien, Champ[]> = {
     { cle: 'role', libelle: 'Rôle', garde: (c) => c.type === 'select' },
     { cle: 'jours', libelle: 'Jours', garde: (c) => c.type === 'number' },
     { cle: 'avant', libelle: 'À faire avant', garde: date },
+    { cle: 'apres', libelle: 'À partir de', garde: date, facultatif: 'aucune (dès aujourd’hui)' },
+    { cle: 'phase', libelle: 'Phase', garde: (c, x) => c.type === 'relation' && c.cible !== x.projets && c.cible !== x.ressources, facultatif: 'aucune' },
+  ],
+  phases: [
+    { cle: 'debut', libelle: 'Début', garde: date },
+    { cle: 'fin', libelle: 'Fin', garde: date },
+    { cle: 'role', libelle: 'Rôle', garde: (c) => c.type === 'select', facultatif: 'aucun' },
+  ],
+  moratoires: [
+    { cle: 'debut', libelle: 'Début', garde: date },
+    { cle: 'fin', libelle: 'Fin', garde: date },
+    { cle: 'ferme', libelle: 'Fermé (personne ne travaille)', garde: (c) => c.type === 'checkbox', facultatif: 'aucune (gels des livraisons seulement)' },
   ],
 }
 
 const TITRES: Record<Lien, { titre: string; aide: string; vide?: string }> = {
   affectations: { titre: 'Affectations', aide: 'Qui travaille sur quel projet, de quand à quand, combien de jours par semaine.' },
   absences: { titre: 'Absences', aide: 'Elles réduisent la capacité de la ressource.', vide: 'aucune' },
-  besoins: { titre: 'Besoins', aide: 'Pour chaque projet, combien de jours de quel rôle, et avant quand : le mode « Par projet ».', vide: 'aucun' },
+  besoins: { titre: 'Besoins', aide: 'Pour chaque projet, combien de jours de quel rôle, dans quelle fenêtre (à partir de, avant, ou une phase) : le mode « Besoins » et « Remplir ».', vide: 'aucun' },
+  phases: { titre: 'Phases', aide: 'Leurs dates donnent la fenêtre des besoins qui s’y relient (le développement avant la recette).', vide: 'aucune' },
+  moratoires: {
+    titre: 'Moratoires',
+    aide: 'Fermé : personne ne travaille, comme un jour férié. Sinon, un gel des livraisons : on travaille, mais rien ne doit finir dedans.',
+    vide: 'aucun',
+  },
 }
 
 export function OptionsCharge({ schema, vue, modifier }: { schema: Schema; vue: Vue; modifier: (m: ModificationVue) => void }) {
@@ -157,7 +175,7 @@ export function OptionsCharge({ schema, vue, modifier }: { schema: Schema; vue: 
           />
         </Reglage>
       </Section>
-      {(['affectations', 'absences', 'besoins'] as const).map((lien) => {
+      {(['affectations', 'absences', 'besoins', 'phases', 'moratoires'] as const).map((lien) => {
         const actuel = vue[lien] as Record<string, string> | undefined
         const s = actuel && bases.find((b) => b.id === actuel.base)
         const entreesBases: EntreeChoix[] = [...(TITRES[lien].vide ? [{ valeur: '', libelle: TITRES[lien].vide }] : []), ...bases.map((b) => ({ valeur: b.id, libelle: b.nom }))]

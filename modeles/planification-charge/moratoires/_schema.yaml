@@ -1,0 +1,10 @@
+version: 1
+id: moratoires
+nom: Moratoires
+champ_titre: nom
+colonnes:
+  - { cle: nom, nom: Moratoire, type: text }
+  - { cle: debut, nom: Début, type: date }
+  - { cle: fin, nom: Fin, type: date }
+  - { cle: ferme, nom: Fermé, type: checkbox }
+vues: [ tableau ]

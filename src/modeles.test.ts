@@ -85,7 +85,7 @@ describe('modèle planification-charge', () => {
   it('ses exemples se calculent, dates ramenées autour d’aujourd’hui', async () => {
     const { espace } = await ouvrir()
     const r = await espace.utiliserModele(MODELES.find((m) => m.id === 'planification-charge')!)
-    expect(r.bases).toEqual(['ressources', 'projets-2', 'versions', 'besoins', 'affectations', 'absences'])
+    expect(r.bases).toEqual(['ressources', 'projets-2', 'versions', 'besoins', 'affectations', 'absences', 'moratoires'])
     const etat = espace.etat()
     const v = (base: string, id: string, cle: string) => {
       const c = etat.calculs.get(base)?.get(id)?.[cle]
@@ -98,9 +98,10 @@ describe('modèle planification-charge', () => {
     // La vue Plan de charge du modèle : ses réglages sont ceux qu'une nouvelle vue retrouverait seule.
     const charge = etat.bases.get('ressources')!.vues[0]!
     expect(charge.type).toBe('charge')
-    const { capacite, groupe, affectations, absences, besoins } = charge
+    const { capacite, groupe, affectations, absences, besoins, moratoires } = charge
     expect(affectations).toMatchObject({ detail: 'detail', scenario: 'scenario' })
-    expect(reglagesChargeParDefaut(etat.bases, 'ressources')).toEqual({ capacite, groupe, affectations, absences, besoins })
+    expect(besoins).toMatchObject({ apres: 'a_partir_de' })
+    expect(reglagesChargeParDefaut(etat.bases, 'ressources')).toEqual({ capacite, groupe, affectations, absences, besoins, moratoires })
     expect(affectations?.projet).toBe('projet')
     // L'outil commun à l'assistant et au MCP lit les mêmes chiffres.
     const texte = lire(etat, { id: 'c1', nom: 'calculer_charge', arguments: '{"semaines": 2}' }, { aujourdhui: '2026-10-21' })
@@ -120,5 +121,17 @@ describe('modèle planification-charge', () => {
     expect(remplissage).toContain('10 j placés')
     expect(remplissage).toContain('"scenario":"Option B"')
     expect(remplissage).toContain('ajoute d\'abord l\'option avec ajouter_options')
+    // Moratoires : la fermeture de fin d'année retire des jours ; une fin dans le gel recule avant lui.
+    const decembre = lire(etat, { id: 'c5', nom: 'calculer_charge', arguments: '{"debut": "2026-12-21", "semaines": 1}' }, { aujourdhui: '2026-10-21' })
+    expect(decembre).toContain('Moratoire Fermeture de fin d\'année du 2026-12-24 au 2026-12-28 : fermé')
+    expect(decembre).toContain('Nora (Pilotage) | 21/12 1/3') // 24 fermé, 25 férié : trois jours ouvrés
+    const gel = lire(
+      etat,
+      { id: 'c6', nom: 'proposer_remplissage', arguments: '{"projet": "Intranet RH", "lignes": [{"role": "Test", "jours": 5, "debut": "2026-12-01", "fin": "2026-12-20"}]}' },
+      { aujourdhui: '2026-10-21' },
+    )
+    expect(gel).toContain('au 2026-12-13 (fin ramenée avant le gel Gel des mises en production)')
+    const parBesoins = lire(etat, { id: 'c7', nom: 'proposer_remplissage', arguments: '{"projet": "Portail client", "depuis_besoins": true}' }, { aujourdhui: '2026-10-21' })
+    expect(parBesoins).toMatch(/Test, [\d,]+ j du 2026-11-23 au 2026-11-30/)
   })
 })

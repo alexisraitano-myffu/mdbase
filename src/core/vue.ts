@@ -1,4 +1,4 @@
-import type { Feries, LienAbsences, LienAffectations, LienBesoins, Maille } from './charge'
+import type { Feries, LienAbsences, LienAffectations, LienBesoins, LienMoratoires, LienPhases, Maille } from './charge'
 import { Document, isMap, parse, parseDocument, type YAMLMap, type YAMLSeq } from 'yaml'
 import { estObjet } from './schema'
 import { OPTIONS_SORTIE_CONFIG } from './schema-ecriture'
@@ -134,6 +134,9 @@ export type Vue = {
   affectations?: LienAffectations
   absences?: LienAbsences
   besoins?: LienBesoins
+  /** Plan de charge : phases (fenêtres des besoins) et moratoires (fermetures, gels des livraisons). */
+  phases?: LienPhases
+  moratoires?: LienMoratoires
   /** Plan de charge : jours fériés retirés des jours ouvrés (France par défaut). */
   feries?: Feries
   /** Plan de charge : colonnes par jour ouvré, par semaine (défaut) ou par mois. */
@@ -177,6 +180,8 @@ const REGLAGES = {
   affectations: 'affectations',
   absences: 'absences',
   besoins: 'besoins',
+  phases: 'phases',
+  moratoires: 'moratoires',
   feries: 'feries',
   maille: 'maille',
   periodes: 'periodes',
@@ -244,8 +249,12 @@ function lireReglages(brut: Record<string, unknown>): Partial<Vue> {
   if (affectations) r.affectations = affectations
   const absences = lien(brut.absences, ['base', 'ressource', 'debut', 'fin'])
   if (absences) r.absences = absences
-  const besoins = lien(brut.besoins, ['base', 'projet', 'role', 'jours', 'avant'])
+  const besoins = lien(brut.besoins, ['base', 'projet', 'role', 'jours', 'avant'], ['apres', 'phase'])
   if (besoins) r.besoins = besoins
+  const phases = lien(brut.phases, ['base', 'debut', 'fin'], ['role'])
+  if (phases) r.phases = phases
+  const moratoires = lien(brut.moratoires, ['base', 'debut', 'fin'], ['ferme'])
+  if (moratoires) r.moratoires = moratoires
   if (brut.feries === 'france' || brut.feries === 'aucun') r.feries = brut.feries
   if (brut.maille === 'jour' || brut.maille === 'semaine' || brut.maille === 'mois') r.maille = brut.maille
   if (estNombre(brut.periodes) && brut.periodes >= 1) r.periodes = Math.min(Math.round(brut.periodes), 120)

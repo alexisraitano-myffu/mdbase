@@ -5,4 +5,5 @@ projet: pport001
 role: Test
 jours: 15
 avant: {{jour:42}}
+a_partir_de: {{jour:35}}
 ---

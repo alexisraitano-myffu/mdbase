@@ -27,11 +27,30 @@ export type LienAffectations = {
   scenario?: string
 }
 
-/** Options du calcul : le scénario affiché en plus du plan réel, et des affectations d'aperçu (« Remplir »), comptées comme provisoires. */
-export type OptionsCalcul = { scenario?: string | null; apercu?: readonly LigneChargee[] }
+/**
+ * Options du calcul : le scénario affiché en plus du plan réel, des affectations
+ * d'aperçu (« Remplir ») comptées comme provisoires, et les lignes des moratoires
+ * et des phases (bases réglées dans `moratoires` et `phases`).
+ */
+export type OptionsCalcul = { scenario?: string | null; apercu?: readonly LigneChargee[]; moratoires?: readonly LigneChargee[]; phases?: readonly LigneChargee[] }
 export type LienAbsences = { base: string; ressource: string; debut: string; fin: string }
-export type LienBesoins = { base: string; projet: string; role: string; jours: string; avant: string }
+export type LienBesoins = {
+  base: string
+  projet: string
+  role: string
+  jours: string
+  avant: string
+  /** Date à partir de laquelle le travail peut se faire. */
+  apres?: string
+  /** Relation vers une phase, qui donne la fenêtre (et le rôle, à défaut). */
+  phase?: string
+}
+export type LienPhases = { base: string; debut: string; fin: string; role?: string }
+/** `ferme` : case à cocher ; cochée, personne ne travaille ; sinon (ou sans colonne), un gel des livraisons. */
+export type LienMoratoires = { base: string; debut: string; fin: string; ferme?: string }
 export type Feries = 'france' | 'aucun'
+/** Jours ouvrés : les fériés, et les jours fermés par un moratoire. */
+export type Calendrier = Feries | { feries: Feries; fermes: ReadonlySet<string> }
 export type Maille = 'jour' | 'semaine' | 'mois'
 
 /** Réglages de la vue `charge` (vue de la base des ressources). */
@@ -43,6 +62,8 @@ export type ReglagesCharge = {
   affectations?: LienAffectations
   absences?: LienAbsences
   besoins?: LienBesoins
+  phases?: LienPhases
+  moratoires?: LienMoratoires
   feries?: Feries
   maille?: Maille
 }
@@ -85,14 +106,16 @@ export function feriesFrance(annee: number): ReadonlySet<string> {
 }
 
 /** Un jour ouvré : du lundi au vendredi, hors jours fériés si on en tient compte. */
-export function estOuvre(jour: string, feries: Feries = 'france'): boolean {
+export function estOuvre(jour: string, cal: Calendrier = 'france'): boolean {
   const j = jourSemaine(jour)
   if (j === 0 || j === 6) return false
+  if (typeof cal !== 'string' && cal.fermes.has(jour)) return false
+  const feries = typeof cal === 'string' ? cal : cal.feries
   return feries === 'aucun' || !feriesFrance(Number(jour.slice(0, 4))).has(jour)
 }
 
 /** Jours ouvrés de la semaine qui commence au lundi `lundi`. */
-export function ouvresDeLaSemaine(lundi: string, feries: Feries = 'france'): string[] {
+export function ouvresDeLaSemaine(lundi: string, feries: Calendrier = 'france'): string[] {
   return [0, 1, 2, 3, 4].map((i) => decaler(lundi, i)).filter((j) => estOuvre(j, feries))
 }
 
@@ -143,7 +166,7 @@ export function decalerPeriode(maille: Maille, jour: string, pas: number): strin
 }
 
 /** Jours ouvrés d'une période. */
-export const ouvresDe = (p: Periode, feries: Feries = 'france'): string[] => {
+export const ouvresDe = (p: Periode, feries: Calendrier = 'france'): string[] => {
   const jours: string[] = []
   for (let j = p.debut; j <= p.fin; j = decaler(j, 1)) if (estOuvre(j, feries)) jours.push(j)
   return jours
@@ -175,6 +198,51 @@ const plage = (l: LigneChargee, debut: string, fin: string): { debut: string; fi
 const texte = (l: LigneChargee, cle: string | undefined): string | null => {
   const v = valeur(l, cle)
   return typeof v === 'string' && v !== '' ? v : Array.isArray(v) && typeof v[0] === 'string' ? v[0] : null
+}
+
+// ── Moratoires et phases ──────────────────────────────────────────
+
+/** Un moratoire lu ; son nom est le titre de sa ligne (`id`). */
+export type Moratoire = { id: string; debut: string; fin: string; ferme: boolean }
+
+/** Moratoires lus (ceux sans dates sont ignorés). */
+export function lireMoratoires(r: ReglagesCharge, lignes: readonly LigneChargee[] = []): Moratoire[] {
+  const m = r.moratoires
+  if (!m) return []
+  return lignes.flatMap((l) => {
+    const p = plage(l, m.debut, m.fin)
+    return p ? [{ id: l.id, ...p, ferme: valeur(l, m.ferme) === true }] : []
+  })
+}
+
+/** Calendrier du calcul : fériés de la vue, et jours fermés par un moratoire. */
+export function calendrierDe(r: ReglagesCharge, options: OptionsCalcul = {}): Calendrier {
+  const feries = r.feries ?? 'france'
+  const fermes = new Set<string>()
+  for (const m of lireMoratoires(r, options.moratoires)) if (m.ferme) for (let j = m.debut; j <= m.fin; j = decaler(j, 1)) fermes.add(j)
+  return fermes.size > 0 ? { feries, fermes } : feries
+}
+
+/** Gels des livraisons (moratoires non fermés) qui contiennent `jour`. */
+export function gelsDe(r: ReglagesCharge, jour: string, options: OptionsCalcul = {}): Moratoire[] {
+  return lireMoratoires(r, options.moratoires).filter((m) => !m.ferme && m.debut <= jour && jour <= m.fin)
+}
+
+/** Un besoin : son rôle et sa fenêtre (début, fin), tirés de ses colonnes ou, à défaut, de sa phase. */
+export type FenetreBesoin = { role: string | null; debut: string | null; fin: string | null; phase: string | null }
+
+export function fenetreBesoin(r: ReglagesCharge, besoin: LigneChargee, phases: readonly LigneChargee[] = []): FenetreBesoin {
+  const bs = r.besoins
+  if (!bs) return { role: null, debut: null, fin: null, phase: null }
+  const ph = r.phases
+  const idPhase = bs.phase ? (ids(besoin, bs.phase)[0] ?? null) : null
+  const phase = ph && idPhase ? phases.find((l) => l.id === idPhase) : undefined
+  return {
+    role: texte(besoin, bs.role) ?? (phase && ph ? texte(phase, ph.role) : null),
+    debut: jourDe(valeur(besoin, bs.apres)) ?? (phase && ph ? jourDe(valeur(phase, ph.debut)) : null),
+    fin: jourDe(valeur(besoin, bs.avant)) ?? (phase && ph ? jourDe(valeur(phase, ph.fin)) : null),
+    phase: idPhase,
+  }
 }
 
 export const capaciteDe = (r: ReglagesCharge, ressource: LigneChargee): number => nombre(ressource, r.capacite) ?? 5
@@ -237,12 +305,12 @@ export function ecrireDetail(m: ReadonlyMap<string, number>, ancien?: string | n
 }
 
 /** Une affectation lue : sa plage, sa charge par jour ouvré (et le détail qui l'emporte), son projet et sa version. */
-type AffectationLue = { id: string; debut: string; fin: string; parJour: number; detail: ReadonlyMap<string, number>; projet: string; version: string; provisoire: boolean }
+type AffectationLue = { id: string; debut: string; fin: string; parJour: number; detail: ReadonlyMap<string, number>; projet: string; version: string; provisoire: boolean; apercu: boolean }
 
 /** Charge d'une affectation un jour ouvré de sa plage. */
 const chargeDuJour = (aff: AffectationLue, jour: string) => aff.detail.get(jour) ?? aff.parJour
 
-function lireAffectations(r: ReglagesCharge, lignes: readonly LigneChargee[], feries: Feries, options: OptionsCalcul = {}): Map<string, AffectationLue[]> {
+function lireAffectations(r: ReglagesCharge, lignes: readonly LigneChargee[], feries: Calendrier, options: OptionsCalcul = {}): Map<string, AffectationLue[]> {
   const a = r.affectations
   const parRessource = new Map<string, AffectationLue[]>()
   if (!a) return parRessource
@@ -260,7 +328,7 @@ function lireAffectations(r: ReglagesCharge, lignes: readonly LigneChargee[], fe
     } else if (parSemaine !== null && parSemaine > 0) parJour = parSemaine / 5
     const detail = lireDetail(a.detail ? texte(l, a.detail) : null)
     if (parJour <= 0 && ![...detail.values()].some((v) => v > 0)) return
-    const lue = { id: l.id, ...p, parJour, detail, projet: ids(l, a.projet)[0] ?? '', version: a.version ? (ids(l, a.version)[0] ?? '') : '', provisoire: apercu || scenario !== null }
+    const lue = { id: l.id, ...p, parJour, detail, projet: ids(l, a.projet)[0] ?? '', version: a.version ? (ids(l, a.version)[0] ?? '') : '', provisoire: apercu || scenario !== null, apercu }
     for (const res of ids(l, a.ressource)) parRessource.set(res, [...(parRessource.get(res) ?? []), lue])
   }
   for (const l of lignes) lire(l, false)
@@ -282,7 +350,7 @@ export function calculerCharge(
   colonnes: readonly Periode[],
   options: OptionsCalcul = {},
 ): Map<string, CaseCharge[]> {
-  const feries = r.feries ?? 'france'
+  const feries = calendrierDe(r, options)
   const ouvres = colonnes.map((p) => ouvresDe(p, feries))
   const parRessource = lireAffectations(r, affectations, feries, options)
   const absentes = new Map<string, LigneChargee[]>()
@@ -303,7 +371,7 @@ export function calculerCharge(
           const couverts = jours.filter((j) => j >= aff.debut && j <= aff.fin)
           if (couverts.length === 0) continue
           const part = couverts.reduce((t, j) => t + chargeDuJour(aff, j), 0)
-          if (couverts.some((j) => aff.detail.has(j))) c.ajustee = true
+          if (!aff.apercu && couverts.some((j) => aff.detail.has(j))) c.ajustee = true
           c.charge += part
           c.parProjet[aff.projet] = (c.parProjet[aff.projet] ?? 0) + part
           const cle = aff.version || `@${aff.projet}`
@@ -351,6 +419,8 @@ export type Couverture = {
   besoin: string
   projet: string | null
   role: string | null
+  /** Fenêtre du besoin : à partir de (ou null), avant (ou null). */
+  apres: string | null
   avant: string | null
   demandes: number
   affectes: number
@@ -358,7 +428,8 @@ export type Couverture = {
 
 /**
  * Pour chaque besoin, les jours affectés à son projet par des ressources de
- * son rôle jusqu'à sa date (toute affectation si le besoin n'a pas de date).
+ * son rôle dans sa fenêtre (de sa date de début, s'il en a une, jusqu'à sa
+ * date ; ses colonnes, ou sa phase). Sans date, toute affectation compte.
  */
 export function couvrirBesoins(
   r: ReglagesCharge,
@@ -369,13 +440,12 @@ export function couvrirBesoins(
 ): Couverture[] {
   const bs = r.besoins
   if (!bs) return []
-  const feries = r.feries ?? 'france'
+  const feries = calendrierDe(r, options)
   const roles = new Map(ressources.map((res) => [res.id, roleDe(r, res)]))
   const parRessource = lireAffectations(r, affectations, feries, options)
   return besoins.map((besoin) => {
     const projet = ids(besoin, bs.projet)[0] ?? null
-    const role = texte(besoin, bs.role)
-    const avant = jourDe(valeur(besoin, bs.avant))
+    const { role, debut: apres, fin: avant } = fenetreBesoin(r, besoin, options.phases)
     let affectes = 0
     if (projet) {
       const vues = new Set<string>()
@@ -386,12 +456,13 @@ export function couvrirBesoins(
           const cle = `${res}:${aff.id}`
           if (aff.projet !== projet || vues.has(cle)) continue
           vues.add(cle)
+          const debut = apres && apres > aff.debut ? apres : aff.debut
           const fin = avant && avant < aff.fin ? avant : aff.fin
-          if (fin >= aff.debut) for (const j of ouvresDe({ debut: aff.debut, fin }, feries)) affectes += chargeDuJour(aff, j)
+          if (fin >= debut) for (const j of ouvresDe({ debut, fin }, feries)) affectes += chargeDuJour(aff, j)
         }
       }
     }
-    return { besoin: besoin.id, projet, role, avant, demandes: nombre(besoin, bs.jours) ?? 0, affectes: Math.round(affectes * 100) / 100 }
+    return { besoin: besoin.id, projet, role, apres, avant, demandes: nombre(besoin, bs.jours) ?? 0, affectes: Math.round(affectes * 100) / 100 }
   })
 }
 
@@ -409,10 +480,10 @@ const auCentieme = (n: number) => Math.round(n * 100) / 100
  * omis. Liste vide : l'affectation n'a plus lieu d'être. `null` si la période
  * ne touche pas l'affectation ou n'a aucun jour ouvré.
  */
-export function ajusterSurPeriode(r: ReglagesCharge, aff: LigneChargee, p: Periode, valeur: number): Morceau[] | null {
+export function ajusterSurPeriode(r: ReglagesCharge, aff: LigneChargee, p: Periode, valeur: number, options: OptionsCalcul = {}): Morceau[] | null {
   const a = r.affectations
   if (!a) return null
-  const feries = r.feries ?? 'france'
+  const feries = calendrierDe(r, options)
   const pl = plage(aff, a.debut, a.fin)
   if (!pl || pl.fin < p.debut || pl.debut > p.fin) return null
   const milieu = { debut: pl.debut > p.debut ? pl.debut : p.debut, fin: pl.fin < p.fin ? pl.fin : p.fin }
@@ -439,10 +510,10 @@ export function ajusterSurPeriode(r: ReglagesCharge, aff: LigneChargee, p: Perio
  * sur la charge habituelle quitte le détail. `undefined` : détail vide.
  * `null` si la période ne touche aucun jour ouvré de l'affectation.
  */
-export function ajusterDetail(r: ReglagesCharge, aff: LigneChargee, p: Periode, valeur: number | null): string | undefined | null {
+export function ajusterDetail(r: ReglagesCharge, aff: LigneChargee, p: Periode, valeur: number | null, options: OptionsCalcul = {}): string | undefined | null {
   const a = r.affectations
   if (!a?.detail) return null
-  const feries = r.feries ?? 'france'
+  const feries = calendrierDe(r, options)
   const lue = lireAffectations({ ...r, affectations: { ...a, scenario: undefined } }, [ligneSansRessource(aff, a.ressource)], feries).get('')?.[0]
   const pl = plage(aff, a.debut, a.fin)
   if (!pl) return null
@@ -476,20 +547,38 @@ export const ligneApercu = (id: string, valeurs: Modifications): LigneChargee =>
 // ── Remplir ───────────────────────────────────────────────────────
 
 export type ModeRemplissage = 'tot' | 'lisse'
-export type Demande = { projet: string; version?: string | null; role?: string | null; jours: number; debut: string; fin: string; mode: ModeRemplissage; scenario?: string | null }
+/** Une ligne à placer : un rôle (toutes les ressources sans rôle), des jours, une période ; le besoin d'où elle vient, le cas échéant. */
+export type LigneRemplissage = { role: string | null; jours: number; debut: string; fin: string; besoin?: string }
+export type Demande = { projet: string; version?: string | null; mode: ModeRemplissage; scenario?: string | null; lignes: readonly LigneRemplissage[] }
+export type ResultatLigne = {
+  role: string | null
+  jours: number
+  places: number
+  manque: number
+  /** Fin réellement utilisée : la veille d'un gel des livraisons qui contenait la fin demandée. */
+  fin: string
+  /** Le gel qui a ramené la fin (son id), sinon null. */
+  gel: string | null
+  /** Dernier jour où quelque chose est placé. */
+  finTravail: string | null
+}
 export type Remplissage = {
-  /** Affectations à créer : la ressource et les valeurs (colonnes des affectations, titre à part). */
-  affectations: { ressource: string; jours: number; valeurs: Modifications }[]
+  /** Affectations à créer : la ressource, la ligne d'origine et les valeurs (colonnes des affectations, titre à part). */
+  affectations: { ressource: string; ligne: number; jours: number; valeurs: Modifications }[]
+  lignes: ResultatLigne[]
   places: number
   manque: number
 }
 
 /**
- * Place `jours` jours d'un projet sur une période, dans la capacité libre de
- * la situation affichée (plan réel et scénario de `options`), par les
- * ressources du rôle (toutes sans rôle) : au plus tôt (chaque jour, de la
- * ressource la plus disponible sur la période à la suivante) ou lissé (chaque
- * jour vise le reste divisé par les jours restants). Rien n'est écrit.
+ * Place des jours d'un projet, ligne par ligne (une par rôle), dans la capacité
+ * libre de la situation affichée (plan réel, scénario et moratoires de
+ * `options`) : chaque ligne sur sa période et par les ressources de son rôle,
+ * au plus tôt (chaque jour, de la ressource la plus disponible sur la période
+ * à la suivante) ou lissé (chaque jour vise le reste divisé par les jours
+ * restants). La capacité prise par une ligne n'est plus libre pour la
+ * suivante. Une fin qui tombe dans un gel des livraisons est ramenée à la
+ * veille du gel. Rien n'est écrit.
  */
 export function remplir(
   r: ReglagesCharge,
@@ -499,19 +588,50 @@ export function remplir(
   d: Demande,
   options: OptionsCalcul = {},
 ): Remplissage {
+  const resultat: Remplissage = { affectations: [], lignes: [], places: 0, manque: 0 }
+  const deja: LigneChargee[] = []
+  d.lignes.forEach((ligne, n) => {
+    // La fin recule devant les gels qui la contiennent (plusieurs gels peuvent se suivre).
+    let fin = ligne.fin
+    let gel: string | null = null
+    for (let g = gelsDe(r, fin, options)[0]; g; g = gelsDe(r, fin, options)[0]) {
+      gel = g.id
+      fin = decaler(g.debut, -1)
+    }
+    const part = placerLigne(r, ressources, affectations, absences, d, { ...ligne, fin }, { ...options, apercu: [...(options.apercu ?? []), ...deja] })
+    for (const x of part.affectations) {
+      resultat.affectations.push({ ...x, ligne: n })
+      deja.push(ligneApercu(`remplir-${n}-${deja.length}`, x.valeurs))
+    }
+    resultat.lignes.push({ role: ligne.role, jours: ligne.jours, places: part.places, manque: part.manque, fin, gel, finTravail: part.finTravail })
+  })
+  resultat.places = auCentieme(resultat.lignes.reduce((t, l) => t + l.places, 0))
+  resultat.manque = auCentieme(resultat.lignes.reduce((t, l) => t + l.manque, 0))
+  return resultat
+}
+
+function placerLigne(
+  r: ReglagesCharge,
+  ressources: readonly LigneChargee[],
+  affectations: readonly LigneChargee[],
+  absences: readonly LigneChargee[],
+  d: Demande,
+  ligne: LigneRemplissage,
+  options: OptionsCalcul,
+): { affectations: { ressource: string; jours: number; valeurs: Modifications }[]; places: number; manque: number; finTravail: string | null } {
   const a = r.affectations
-  const vide = { affectations: [], places: 0, manque: Math.max(0, d.jours) }
-  if (!a || d.jours <= 0 || d.fin < d.debut) return vide
-  const feries = r.feries ?? 'france'
-  const jours = ouvresDe({ debut: d.debut, fin: d.fin }, feries)
-  const candidats = ressources.filter((l) => !d.role || roleDe(r, l) === d.role)
+  const vide = { affectations: [], places: 0, manque: Math.max(0, auCentieme(ligne.jours)), finTravail: null }
+  if (!a || ligne.jours <= 0 || ligne.fin < ligne.debut) return vide
+  const jours = ouvresDe({ debut: ligne.debut, fin: ligne.fin }, calendrierDe(r, options))
+  const candidats = ressources.filter((l) => !ligne.role || roleDe(r, l) === ligne.role)
   if (jours.length === 0 || candidats.length === 0) return vide
   const cases = calculerCharge(r, candidats, affectations, absences, jours.map((j) => ({ debut: j, fin: j })), options)
   const libre = new Map(candidats.map((l) => [l.id, cases.get(l.id)!.map((c) => Math.max(0, auCentieme(c.capacite - c.charge)))]))
   const somme = (t: number[]) => t.reduce((x, y) => x + y, 0)
   const ordre = [...candidats].sort((x, y) => somme(libre.get(y.id)!) - somme(libre.get(x.id)!))
   const alloue = new Map(candidats.map((l) => [l.id, jours.map(() => 0)]))
-  let reste = d.jours
+  let reste = ligne.jours
+  let dernier = -1
   jours.forEach((_, k) => {
     let quota = d.mode === 'lisse' ? reste / (jours.length - k) : reste
     for (const l of ordre) {
@@ -521,6 +641,7 @@ export function remplir(
       alloue.get(l.id)![k] = pris
       quota -= pris
       reste = auCentieme(reste - pris)
+      dernier = k
     }
   })
 
@@ -529,7 +650,7 @@ export function remplir(
     ...(d.version && a.version ? { [a.version]: [d.version] } : {}),
     ...(d.scenario && a.scenario ? { [a.scenario]: d.scenario } : {}),
   }
-  const resultat: Remplissage['affectations'] = []
+  const resultat: { ressource: string; jours: number; valeurs: Modifications }[] = []
   for (const l of ordre) {
     const t = alloue.get(l.id)!
     const utilises = t.flatMap((v, k) => (v > 0 ? [k] : []))
@@ -541,13 +662,13 @@ export function remplir(
       for (const k of utilises) freq.set(t[k]!, (freq.get(t[k]!) ?? 0) + 1)
       const parJour = [...freq].sort((x, y) => y[1] - x[1] || y[0] - x[0])[0]![0]
       const premier = utilises[0]!
-      const dernier = utilises.at(-1)!
+      const fin = utilises.at(-1)!
       const detail = new Map<string, number>()
-      for (let k = premier; k <= dernier; k++) if (Math.abs(t[k]! - parJour) > 1e-9) detail.set(jours[k]!, t[k]!)
+      for (let k = premier; k <= fin; k++) if (Math.abs(t[k]! - parJour) > 1e-9) detail.set(jours[k]!, t[k]!)
       resultat.push({
         ressource: l.id,
         jours: total,
-        valeurs: { ...communes, [a.ressource]: [l.id], [a.debut]: jours[premier]!, [a.fin]: jours[dernier]!, [a.jours]: auCentieme(parJour * 5), [a.detail]: ecrireDetail(detail) },
+        valeurs: { ...communes, [a.ressource]: [l.id], [a.debut]: jours[premier]!, [a.fin]: jours[fin]!, [a.jours]: auCentieme(parJour * 5), [a.detail]: ecrireDetail(detail) },
       })
       continue
     }
@@ -569,8 +690,30 @@ export function remplir(
       k = fin + 1
     }
   }
-  const places = auCentieme(d.jours - reste)
-  return { affectations: resultat, places, manque: auCentieme(Math.max(0, reste)) }
+  return { affectations: resultat, places: auCentieme(ligne.jours - reste), manque: auCentieme(Math.max(0, reste)), finTravail: dernier >= 0 ? jours[dernier]! : null }
+}
+
+/**
+ * Lignes à placer d'après les besoins d'un projet : pour chaque besoin pas
+ * encore couvert, ce qui manque, par son rôle, dans sa fenêtre (début : sa date
+ * de début ou aujourd'hui ; fin : sa date, ou `finParDefaut`).
+ */
+export function besoinsAPlacer(
+  r: ReglagesCharge,
+  ressources: readonly LigneChargee[],
+  affectations: readonly LigneChargee[],
+  besoins: readonly LigneChargee[],
+  projet: string,
+  aujourdhui: string,
+  finParDefaut: string,
+  options: OptionsCalcul = {},
+): LigneRemplissage[] {
+  return couvrirBesoins(r, ressources, affectations, besoins, options).flatMap((c) => {
+    const manque = auCentieme(c.demandes - c.affectes)
+    if (c.projet !== projet || manque <= 0.25) return []
+    const debut = c.apres && c.apres > aujourdhui ? c.apres : aujourdhui
+    return [{ role: c.role, jours: manque, debut, fin: c.avant ?? finParDefaut, besoin: c.besoin }]
+  })
 }
 
 /** Nom d'un niveau tiré du nom de sa base, au singulier : « Programmes » → « programme ». */
@@ -639,8 +782,34 @@ export function reglagesChargeParDefaut(bases: Schemas, base: string): ReglagesC
   const projets = aff?.projet.cible
   const bes = projets && autres.find(({ id, s }) => id !== aff.id && relationsVers(s, projets)[0] && saisies(s, 'select')[0] && saisies(s, 'number')[0])
   if (bes) {
-    const avant = saisies(bes.s, 'date')[0]
-    if (avant) r.besoins = { base: bes.id, projet: relationsVers(bes.s, projets!)[0]!.cle, role: saisies(bes.s, 'select')[0]!.cle, jours: saisies(bes.s, 'number')[0]!.cle, avant: avant.cle }
+    const dates = saisies(bes.s, 'date')
+    const apres = dates.find((c) => /partir|apr[eè]s|d[ée]but/i.test(`${c.cle} ${c.nom}`))
+    const avant = dates.find((c) => c !== apres)
+    // Phase : une relation vers une base qui a deux dates (autre que les projets).
+    const phase = colonnesDe(bes.s, 'relation').find((c): c is ColonneRelation => {
+      if (c.type !== 'relation' || !c.proprietaire || c.cible === projets) return false
+      const s = bases.get(c.cible)?.depot?.schema
+      return s !== undefined && saisies(s, 'date').length >= 2
+    })
+    if (avant) {
+      r.besoins = { base: bes.id, projet: relationsVers(bes.s, projets!)[0]!.cle, role: saisies(bes.s, 'select')[0]!.cle, jours: saisies(bes.s, 'number')[0]!.cle, avant: avant.cle }
+      if (apres) r.besoins.apres = apres.cle
+      if (phase) {
+        r.besoins.phase = phase.cle
+        const s = bases.get(phase.cible)!.depot!.schema
+        const [debut, fin] = saisies(s, 'date')
+        const role = saisies(s, 'select').find((c) => /r[ôo]le/i.test(`${c.cle} ${c.nom}`))
+        r.phases = { base: phase.cible, debut: debut!.cle, fin: fin!.cle, ...(role && { role: role.cle }) }
+      }
+    }
+  }
+
+  // Moratoires : une base nommée ainsi, avec des dates ; sa case à cocher dit « fermé ».
+  const mor = autres.find(({ id, s }) => /morato/i.test(`${id} ${s.nom}`) && saisies(s, 'date').length > 0)
+  if (mor) {
+    const [debut, fin] = saisies(mor.s, 'date')
+    const ferme = saisies(mor.s, 'checkbox')[0]
+    r.moratoires = { base: mor.id, debut: debut!.cle, fin: (fin ?? debut!).cle, ...(ferme && { ferme: ferme.cle }) }
   }
   return r
 }

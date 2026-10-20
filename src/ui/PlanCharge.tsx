@@ -4,7 +4,9 @@ import type { LigneChargee } from '../core/base'
 import {
   ajusterDetail,
   ajusterSurPeriode,
+  gelsDe,
   lireDetail,
+  lireMoratoires,
   nomNiveau,
   arrondiJours,
   calculerCharge,
@@ -59,6 +61,8 @@ const nombre = (n: number) => String(arrondiJours(n)).replace('.', ',')
 const nombreFin = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',')
 const libelleJour = (iso: string) => `${Number(iso.slice(8, 10))} ${MOIS_COURTS[Number(iso.slice(5, 7)) - 1]}`
 const SANS_GROUPE = '\u0000'
+/** Lignes d'une base absente : toujours le même tableau, pour ne pas relancer les calculs mémorisés. */
+const AUCUNE: readonly LigneChargee[] = []
 const TOUS = ''
 /** Navigation : un pas des flèches, en périodes. */
 const PAS: Record<Maille, number> = { jour: 5, semaine: 4, mois: 3 }
@@ -131,12 +135,14 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
   // Par défaut : la semaine précédente en tête, le jour même, le mois en cours.
   const depart = curseur ?? (maille === 'semaine' ? decaler(aujourdhui, -7) : aujourdhui)
   const colonnes = useMemo(() => periodesDe(maille, depart, n), [maille, depart, n])
-  const lignesDe = (id: string | undefined) => (id ? (etat.bases.get(id)?.depot?.lignes() ?? []) : [])
+  const lignesDe = (id: string | undefined) => (id ? (etat.bases.get(id)?.depot?.lignes() ?? AUCUNE) : AUCUNE)
   const affectations = lignesDe(r.affectations?.base)
   const absences = lignesDe(r.absences?.base)
   const besoins = lignesDe(r.besoins?.base)
   const ressources = useMemo(() => lignesVue.map((lv) => lv.ligne), [lignesVue])
-  const options: OptionsCalcul = useMemo(() => ({ scenario, apercu }), [scenario, apercu])
+  const moratoires = lignesDe(r.moratoires?.base)
+  const phases = lignesDe(r.phases?.base)
+  const options: OptionsCalcul = useMemo(() => ({ scenario, apercu, moratoires, phases }), [scenario, apercu, moratoires, phases])
   const charge = useMemo(() => calculerCharge(r, ressources, affectations, absences, colonnes, options), [r, ressources, affectations, absences, colonnes, options])
 
   const schema = etat.bases.get(base)?.depot?.schema
@@ -214,7 +220,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
       })
   })()
   // Remplir calcule sur la situation affichée (plan réel et scénario), sans son propre aperçu.
-  const scenarioOptions: OptionsCalcul = { scenario: scenarioAffiche }
+  const scenarioOptions: OptionsCalcul = { scenario: scenarioAffiche, moratoires, phases }
   const lignesScenario = scenarioAffiche && r.affectations.scenario ? affectations.filter((l) => {
     const c = l.cellules[r.affectations!.scenario!]
     return c?.etat === 'ok' && c.valeur === scenarioAffiche
@@ -284,6 +290,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
         [schemaAff.champTitre]: `${titre(base, s.ressource)} sur ${titre(baseProjets, projet)}`,
         [a.ressource]: [s.ressource],
         [a.projet]: [projet],
+        ...(scenarioAffiche && a.scenario ? { [a.scenario]: scenarioAffiche } : {}),
         ...(s.version && a.version ? { [a.version]: [s.version] } : {}),
         [a.debut]: colonnes[de]!.debut,
         [a.fin]: colonnes[jusqua]!.fin,
@@ -306,6 +313,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
     if (regrouper === 'projet') return lu(r.affectations!.projet) === bloc.cle
     return bloc.cle.startsWith('@') ? lu(r.affectations!.version) === '' && lu(r.affectations!.projet) === bloc.cle.slice(1) : lu(r.affectations!.version) === bloc.cle
   }
+  const listeMoratoires = lireMoratoires(r, moratoires)
   const jalonsDe = (p: Periode) => jalons.filter((j) => j.date >= p.debut && j.date <= p.fin)
 
   // Couleurs : l'option de `couleur_par` (colonne des projets), sinon la palette dans l'ordre des projets ; les versions en nuances.
@@ -416,6 +424,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
           ressources={ressources}
           affectations={affectations}
           absences={absences}
+          besoins={besoins}
           options={scenarioOptions}
           projets={projets.map((x) => ({ id: x.id, titre: titre(baseProjets, x.id) }))}
           versionsDe={(projet) => versions.filter((v) => projetDeVersion(v.id) === projet).map((v) => ({ id: v.id, titre: titre(baseVersions, v.id) }))}
@@ -424,6 +433,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
           nomProjet={nomProjet}
           nomVersion={nomVersion}
           titreRessource={(id) => titre(base, id)}
+          titreMoratoire={(id) => titre(r.moratoires?.base, id)}
           champTitre={schemaAff.champTitre}
           aujourdhui={aujourdhui}
           apercu={setApercu}
@@ -462,7 +472,7 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
           <table className={`grille-charge maille-${maille}`} onPointerLeave={() => !glisse.current && setSelection(null)}>
             <thead>
               <tr className="bandeau-charge">
-                <th className="nom-charge" rowSpan={2}>
+                <th className="nom-charge" rowSpan={listeMoratoires.length > 0 ? 3 : 2}>
                   Ressource
                 </th>
                 {bandeau(maille, colonnes).map((b, i) => (
@@ -474,14 +484,36 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
               <tr>
                 {colonnes.map((p) => {
                   const ici = jalonsDe(p)
+                  // Une sortie dans un gel des livraisons est signalée sur son jalon.
+                  const gelees = ici.flatMap((j) => gelsDe(r, j.date, options).map((g) => `${titre(baseVersions, j.id)} tombe dans ${titre(r.moratoires?.base, g.id)}`))
                   return (
                     <th key={p.debut} className={p.debut <= aujourdhui && aujourdhui <= p.fin ? 'periode-courante' : ''} title={maille === 'jour' ? libelleJour(p.debut) : undefined}>
                       {libellePeriode(maille, p)}
-                      {ici.length > 0 && <span className="jalon-charge" title={ici.map((j) => `${titre(baseVersions, j.id)} : ${libelleJour(j.date)}`).join('\n')} aria-label={`Sortie : ${ici.map((j) => titre(baseVersions, j.id)).join(', ')}`} />}
+                      {ici.length > 0 && (
+                        <span
+                          className={`jalon-charge ${gelees.length > 0 ? 'dans-un-gel' : ''}`}
+                          title={[...ici.map((j) => `${titre(baseVersions, j.id)} : ${libelleJour(j.date)}`), ...gelees].join('\n')}
+                          aria-label={`Sortie : ${ici.map((j) => titre(baseVersions, j.id)).join(', ')}${gelees.length > 0 ? ` (${gelees.join(', ')})` : ''}`}
+                        />
+                      )}
                     </th>
                   )
                 })}
               </tr>
+              {listeMoratoires.length > 0 && (
+                <tr className="moratoires-charge">
+                  {colonnes.map((p) => {
+                    const ici = listeMoratoires.filter((m) => m.debut <= p.fin && m.fin >= p.debut)
+                    return (
+                      <th
+                        key={p.debut}
+                        className={ici.length === 0 ? '' : ici.some((m) => m.ferme) ? 'moratoire-ferme' : 'moratoire-gel'}
+                        title={ici.map((m) => `${titre(r.moratoires?.base, m.id)} : ${m.ferme ? 'fermé' : 'gel des livraisons'}, du ${libelleJour(m.debut)} au ${libelleJour(m.fin)}`).join('\n') || undefined}
+                      />
+                    )
+                  })}
+                </tr>
+              )}
             </thead>
             <tbody>
               {blocs.map((bloc) => (
@@ -628,12 +660,12 @@ export function PlanCharge({ espace, base, vue, modifierVue, lignesVue, ouvrirPa
           const ajuster = (l: LigneChargee, v: number | null) => {
             // Avec une colonne de détail, la correction s'y écrit ; sinon l'affectation est coupée autour de la case.
             if (a.detail) {
-              const texte = ajusterDetail(r, l, c, v)
+              const texte = ajusterDetail(r, l, c, v, options)
               if (texte !== null) void lancer(espace.modifierLignes(a.base, [l.chemin], a.detail, texte))
               return
             }
             if (v === null) return
-            const morceaux = ajusterSurPeriode(r, l, c, v)
+            const morceaux = ajusterSurPeriode(r, l, c, v, options)
             if (!morceaux) return
             const valeurs = morceaux.map((m) => ({
               [a.debut]: m.debut,

@@ -1895,13 +1895,22 @@ kbd.touche svg.icone { margin: 0; }
 .legende-charge .charge-provisoire { outline: 1.5px dashed var(--accent); outline-offset: -2px; }
 .segment-charge.provisoire { opacity: 0.45; }
 .revenir-charge { font-size: 0.85em; padding: 0; }
+.moratoires-charge th { padding: 0; height: 6px; }
+.moratoires-charge th.moratoire-gel { background: var(--charge-pleine-texte); opacity: 0.55; border-radius: 3px; }
+.moratoires-charge th.moratoire-ferme { background: repeating-linear-gradient(135deg, var(--discret) 0 3px, transparent 3px 6px); border-radius: 3px; }
+.jalon-charge.dans-un-gel { background: var(--charge-surchargee-texte); }
+.lignes-remplir { display: flex; flex-direction: column; gap: 0.4rem; }
+.ligne-remplir { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.9em; }
+.resultat-ligne { margin-left: 0.4rem; }
+.actions-lignes { display: flex; gap: 0.8rem; }
+.scenario-remplir { display: inline-flex; align-items: center; gap: 0.4rem; }
 .scenario-charge { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .remplir-charge { border: 1px solid var(--bordure); border-radius: 8px; padding: 0.6rem 0.8rem; margin: 0 0 0.8rem; display: flex; flex-direction: column; gap: 0.6rem; background: var(--fond); }
 .entete-remplir { display: flex; align-items: center; gap: 0.6rem; }
 .entete-remplir button { margin-left: auto; }
 .champs-remplir { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1rem; }
 .champs-remplir label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85em; }
-.champs-remplir label > span { color: var(--discret); }
+.champs-remplir label > span:first-child { color: var(--discret); }
 .jours-remplir { width: 5rem; }
 .nom-scenario { width: 8rem; }
 .resultat-remplir { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; }

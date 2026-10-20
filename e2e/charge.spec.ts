@@ -124,15 +124,23 @@ test('scénario : l’essai du modèle se voit en pointillé, puis s’abandonne
   await expect(page.getByRole('button', { name: 'Scénario' })).toHaveCount(0)
 })
 
-test('remplir : l’aperçu se voit dans la grille, puis les affectations sont créées dans un nouveau scénario', async ({ espace, page }) => {
+test('remplir : une ligne par rôle, l’aperçu dans la grille, puis les affectations créées dans un nouveau scénario', async ({ espace, page }) => {
   await page.getByRole('button', { name: 'Remplir' }).click()
   const panneau = page.getByRole('region', { name: 'Remplir' })
   await choisir(panneau.getByRole('button', { name: 'Remplir : projet' }), 'Intranet RH')
   await expect(panneau.getByRole('radio', { name: 'Au plus tôt' })).toHaveAttribute('aria-checked', 'true')
-  await panneau.getByRole('spinbutton', { name: 'Jours à placer' }).fill('6')
+  // Sans besoins : une ligne à remplir, puis une deuxième, pour un autre rôle.
+  await choisir(panneau.getByRole('button', { name: 'Ligne 1 : rôle' }), 'Design')
+  await panneau.getByRole('spinbutton', { name: 'Ligne 1 : jours' }).fill('4')
+  await panneau.getByRole('button', { name: 'Ajouter un rôle' }).click()
+  await choisir(panneau.getByRole('button', { name: 'Ligne 2 : rôle' }), 'Pilotage')
+  await panneau.getByRole('spinbutton', { name: 'Ligne 2 : jours' }).fill('2')
+  const lignes = panneau.getByRole('listitem')
+  await expect(lignes.nth(0)).toContainText('4 j placés')
+  await expect(lignes.nth(1)).toContainText('2 j placés')
   await choisir(panneau.getByRole('button', { name: 'Remplir : scénario' }), 'Nouveau scénario')
   await expect(panneau.getByRole('textbox', { name: 'Nom du scénario' })).toHaveValue('Option B')
-  await expect(panneau.locator('.resultat-remplir')).toContainText('6 j placés')
+  await expect(panneau.locator('.resultat-remplir')).toContainText('6 j placés en tout')
   await expect(page.locator('.grille-charge .case-charge.provisoire').first()).toBeVisible()
   await page.screenshot({ path: 'test-results/plan-de-charge-remplir.png' })
   const avant = (await espace.lister('affectations')).length
@@ -140,6 +148,23 @@ test('remplir : l’aperçu se voit dans la grille, puis les affectations sont c
   await expect.poll(async () => (await espace.lister('affectations')).length).toBeGreaterThan(avant)
   await expect.poll(() => espace.lire('affectations/_schema.yaml')).toContain('Option B')
   await expect(page.getByRole('button', { name: 'Scénario' })).toContainText('Plan réel + Option B')
+})
+
+test('remplir d’après les besoins : ce qui manque, rôle par rôle, dans la fenêtre de chaque besoin', async ({ page }) => {
+  await page.getByRole('button', { name: 'Remplir' }).click()
+  const panneau = page.getByRole('region', { name: 'Remplir' })
+  await choisir(panneau.getByRole('button', { name: 'Remplir : projet' }), 'Application mobile')
+  const lignes = panneau.getByRole('listitem')
+  await expect(lignes).toHaveCount(2)
+  await expect(panneau.getByRole('button', { name: 'Ligne 1 : rôle' })).toContainText('Design')
+  await expect(panneau.getByRole('button', { name: 'Ligne 2 : rôle' })).toContainText('Développement')
+  await expect(panneau.getByRole('spinbutton', { name: 'Ligne 2 : jours' })).toHaveValue('80')
+  await page.screenshot({ path: 'test-results/plan-de-charge-remplir-besoins.png' })
+})
+
+test('moratoires : une bande au-dessus des semaines, hachurée quand c’est fermé', async ({ page }) => {
+  await expect(page.locator('.moratoires-charge th.moratoire-gel').first()).toBeVisible()
+  await expect(page.locator('.moratoires-charge th.moratoire-ferme').first()).toBeVisible()
 })
 
 test('grouper par projet puis par version : chaque ressource sous ce sur quoi elle travaille', async ({ espace, page }) => {

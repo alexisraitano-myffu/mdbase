@@ -1,6 +1,7 @@
-import { arrondiJours, calculerCharge, couvrirBesoins, etatCase, periodes, remplir, roleDe, type Maille } from '../charge'
+import { arrondiJours, besoinsAPlacer, calculerCharge, couvrirBesoins, etatCase, lireMoratoires, periodes, remplir, roleDe, type LigneRemplissage, type Maille, type OptionsCalcul, type ReglagesCharge } from '../charge'
 import type { EtatEspace } from '../depot-espace'
 import type { Vue } from '../vue'
+import { decaler } from '../temps'
 import { erreur, trouverBase, trouverLigne } from './references'
 
 // `calculer_charge` (spec §21) : la charge, la capacité et la couverture des
@@ -25,6 +26,12 @@ function vueCharge(etat: EtatEspace, args: Record<string, unknown>): { base: str
   return choisie
 }
 
+/** Les lignes des moratoires et des phases de la vue, pour le calcul. */
+const contexte = (etat: EtatEspace, vue: ReglagesCharge, scenario: string | null): OptionsCalcul => {
+  const lignes = (id: string | undefined) => (id ? (etat.bases.get(id)?.depot?.lignes() ?? []) : [])
+  return { scenario, moratoires: lignes(vue.moratoires?.base), phases: lignes(vue.phases?.base) }
+}
+
 const scenarioDe = (args: Record<string, unknown>) => (typeof args.scenario === 'string' && args.scenario.trim() !== '' ? args.scenario.trim() : null)
 
 export function calculerChargeOutil(etat: EtatEspace, args: Record<string, unknown>, aujourdhui: string): string {
@@ -39,7 +46,8 @@ export function calculerChargeOutil(etat: EtatEspace, args: Record<string, unkno
   const affectations = lignes(aff.base)
   const colonnes = periodes(maille, debut, n)
   const scenario = scenarioDe(args)
-  const charge = calculerCharge(vue, ressources, affectations, lignes(vue.absences?.base), colonnes, { scenario })
+  const options = contexte(etat, vue, scenario)
+  const charge = calculerCharge(vue, ressources, affectations, lignes(vue.absences?.base), colonnes, options)
   const titre = (b: string | undefined, id: string) => (b && etat.titres.get(b)?.get(id)) || id
   const projets = etat.bases.get(aff.base)?.depot?.schema.colonnes.find((c) => c.cle === aff.projet)
   const baseProjets = projets?.type === 'relation' ? projets.cible : undefined
@@ -55,16 +63,17 @@ export function calculerChargeOutil(etat: EtatEspace, args: Record<string, unkno
   })
   const sortie = [
     `Plan de charge « ${vue.nom} » (base ${base}), ${n} ${UNITES[maille][n > 1 ? 1 : 0]} à partir du ${colonnes[0]!.debut}${scenario ? `, plan réel + scénario « ${scenario} »` : ', plan réel'} ; chaque période : charge/capacité nette en jours (absences et fériés retirés de la capacité).`,
+    ...lireMoratoires(vue, options.moratoires).map((m) => `Moratoire ${titre(vue.moratoires?.base, m.id)} du ${m.debut} au ${m.fin} : ${m.ferme ? 'fermé, personne ne travaille' : 'gel des livraisons (on travaille, rien ne se livre)'}`),
     ...lignesRessources,
   ]
   if (vue.besoins) {
-    const couvertures = couvrirBesoins(vue, ressources, affectations, lignes(vue.besoins.base), { scenario })
+    const couvertures = couvrirBesoins(vue, ressources, affectations, lignes(vue.besoins.base), options)
     if (couvertures.length > 0) {
       sortie.push('Besoins (jours affectés au projet par le rôle avant la date / jours demandés) :')
       for (const c of couvertures) {
         const manque = c.demandes - c.affectes
         sortie.push(
-          `${c.besoin} | ${c.projet ? titre(baseProjets, c.projet) : 'sans projet'} | ${c.role ?? 'tout rôle'}${c.avant ? ` avant ${c.avant}` : ''} | ${nombre(c.affectes)}/${nombre(c.demandes)}${manque > 0.25 ? ` : il manque ${nombre(manque)} j` : ' : couvert'}`,
+          `${c.besoin} | ${c.projet ? titre(baseProjets, c.projet) : 'sans projet'} | ${c.role ?? 'tout rôle'}${c.apres ? ` à partir du ${c.apres}` : ''}${c.avant ? ` avant ${c.avant}` : ''} | ${nombre(c.affectes)}/${nombre(c.demandes)}${manque > 0.25 ? ` : il manque ${nombre(manque)} j` : ' : couvert'}`,
         )
       }
     }
@@ -84,23 +93,44 @@ export function proposerRemplissageOutil(etat: EtatEspace, args: Record<string, 
   const projet = trouverLigne(etat, baseProjets, args.projet)
   const baseVersions = cible(aff.version)
   const version = args.version === undefined || args.version === null || args.version === '' ? null : baseVersions ? trouverLigne(etat, baseVersions, args.version) : erreur('pas de colonne de version réglée')
-  const jours = typeof args.jours === 'number' && args.jours > 0 ? args.jours : erreur('jours : nombre positif attendu')
-  const debut = jourValide(args.debut) ? args.debut : aujourdhui
-  const fin = jourValide(args.fin) ? args.fin : erreur('fin : AAAA-MM-JJ attendu')
   const mode = args.mode === 'lisse' ? 'lisse' : 'tot'
-  const role = typeof args.role === 'string' && args.role !== '' ? args.role : null
   const scenario = scenarioDe(args)
+  const options = contexte(etat, vue, scenario)
   const lignes = (id: string | undefined) => (id ? (etat.bases.get(id)?.depot?.lignes() ?? []) : [])
-  const res = remplir(vue, lignes(base), lignes(aff.base), lignes(vue.absences?.base), { projet, version, role, jours, debut, fin, mode, scenario }, { scenario })
+  const finParDefaut = jourValide(args.fin) ? args.fin : null
+  // Les lignes : données une à une, d'après les besoins du projet, ou une seule (rôle, jours, début, fin).
+  const aPlacer: LigneRemplissage[] = Array.isArray(args.lignes)
+    ? args.lignes.map((l: unknown, i) => {
+        const x = (typeof l === 'object' && l !== null ? l : {}) as Record<string, unknown>
+        const jours = typeof x.jours === 'number' && x.jours > 0 ? x.jours : erreur(`lignes[${i}].jours : nombre positif attendu`)
+        const fin = jourValide(x.fin) ? x.fin : (finParDefaut ?? erreur(`lignes[${i}].fin : AAAA-MM-JJ attendu`))
+        return { role: typeof x.role === 'string' && x.role !== '' ? x.role : null, jours, debut: jourValide(x.debut) ? x.debut : aujourdhui, fin }
+      })
+    : args.depuis_besoins === true
+      ? besoinsAPlacer(vue, lignes(base), lignes(aff.base), lignes(vue.besoins?.base), projet, aujourdhui, finParDefaut ?? decaler(aujourdhui, 27), options)
+      : [
+          {
+            role: typeof args.role === 'string' && args.role !== '' ? args.role : null,
+            jours: typeof args.jours === 'number' && args.jours > 0 ? args.jours : erreur('jours : nombre positif attendu (ou lignes, ou depuis_besoins)'),
+            debut: jourValide(args.debut) ? args.debut : aujourdhui,
+            fin: finParDefaut ?? erreur('fin : AAAA-MM-JJ attendu'),
+          },
+        ]
+  if (aPlacer.length === 0) return `Rien à placer pour « ${projet} » : ses besoins sont couverts (ou il n'en a pas).`
+  const res = remplir(vue, lignes(base), lignes(aff.base), lignes(vue.absences?.base), { projet, version, mode, scenario, lignes: aPlacer }, options)
   const titre = (b: string | undefined, id: string) => (b && etat.titres.get(b)?.get(id)) || id
   const sortie = [
-    `Remplissage de ${nombre(jours)} j de « ${titre(baseProjets, projet)} » du ${debut} au ${fin}, ${mode === 'lisse' ? 'lissé' : 'au plus tôt'}${role ? `, rôle ${role}` : ''}, dans la capacité libre du plan réel${scenario ? ` + scénario « ${scenario} »` : ''} : ${nombre(res.places)} j placés${res.manque > 0 ? `, il manque ${nombre(res.manque)} j` : ''}.`,
+    `Remplissage de « ${titre(baseProjets, projet)} », ${mode === 'lisse' ? 'lissé' : 'au plus tôt'}, dans la capacité libre du plan réel${scenario ? ` + scénario « ${scenario} »` : ''} : ${nombre(res.places)} j placés${res.manque > 0 ? `, il manque ${nombre(res.manque)} j` : ''}.`,
+    ...res.lignes.map(
+      (l, i) =>
+        `${i + 1}. ${l.role ?? 'tout rôle'}, ${nombre(l.jours)} j du ${aPlacer[i]!.debut} au ${l.fin}${l.gel ? ` (fin ramenée avant le gel ${titre(vue.moratoires?.base, l.gel)})` : ''} : ${nombre(l.places)} j placés${l.manque > 0 ? `, il manque ${nombre(l.manque)} j` : ''}${l.finTravail ? `, fini le ${l.finTravail}` : ''}`,
+    ),
   ]
   if (res.affectations.length === 0) return [...sortie, 'Aucune affectation à créer.'].join('\n')
   sortie.push(`Affectations à créer avec creer_lignes dans la base ${aff.base} (rien n'est écrit pour l'instant) :`)
   for (const x of res.affectations) sortie.push(JSON.stringify({ [schemaAff.champTitre]: `${titre(base, x.ressource)} sur ${titre(baseProjets, projet)}`, ...x.valeurs }))
-  const options = aff.scenario ? schemaAff.colonnes.find((c) => c.cle === aff.scenario) : undefined
-  if (scenario && aff.scenario && options?.type === 'select' && !options.options.some((o) => o.label === scenario))
+  const colScenario = aff.scenario ? schemaAff.colonnes.find((c) => c.cle === aff.scenario) : undefined
+  if (scenario && aff.scenario && colScenario?.type === 'select' && !colScenario.options.some((o) => o.label === scenario))
     sortie.push(`Le scénario « ${scenario} » n'existe pas encore : ajoute d'abord l'option avec ajouter_options (colonne ${aff.scenario} de ${aff.base}).`)
   if (scenario && !aff.scenario) sortie.push('La vue n’a pas de colonne de scénario : ces affectations iraient dans le plan réel.')
   return sortie.join('\n')

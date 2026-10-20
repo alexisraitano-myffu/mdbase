@@ -82,7 +82,7 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
   {
     nom: 'proposer_remplissage',
     description:
-      "Calcule où placer N jours d'un projet sur une période, dans la capacité libre d'une vue Plan de charge (comme le bouton « Remplir ») : au plus tôt (par défaut) ou lissé. Rend ce qui est placé, ce qui manque, et les affectations exactes à créer ensuite avec creer_lignes (dans un scénario si on en donne un). N'écrit rien.",
+      "Calcule où placer les jours d'un projet, une ligne par rôle (ou d'après ses besoins), dans la capacité libre d'une vue Plan de charge (comme le bouton « Remplir ») : au plus tôt (par défaut) ou lissé, moratoires compris (une fin dans un gel des livraisons recule avant). Rend ce qui est placé, ce qui manque, et les affectations exactes à créer ensuite avec creer_lignes (dans un scénario si on en donne un). N'écrit rien.",
     parametres: {
       type: 'object',
       properties: {
@@ -90,14 +90,24 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
         vue: { type: 'string', description: 'id ou nom de la vue Plan de charge' },
         projet: { type: 'string', description: 'id ou titre du projet' },
         version: { type: 'string', description: 'id ou titre de la version, facultatif' },
-        role: { type: 'string', description: 'rôle des ressources à utiliser (toutes sans rôle)' },
-        jours: { type: 'number', description: 'jours à placer' },
-        debut: { type: 'string', description: 'AAAA-MM-JJ (par défaut : aujourd’hui)' },
-        fin: { type: 'string', description: 'AAAA-MM-JJ' },
+        lignes: {
+          type: 'array',
+          description: 'une ligne par rôle, placées l’une après l’autre : chacune sur ses dates et par les ressources de son rôle',
+          items: {
+            type: 'object',
+            properties: { role: { type: 'string' }, jours: { type: 'number' }, debut: { type: 'string', description: 'AAAA-MM-JJ (aujourd’hui par défaut)' }, fin: { type: 'string', description: 'AAAA-MM-JJ (fin générale par défaut)' } },
+            required: ['jours'],
+          },
+        },
+        depuis_besoins: { type: 'boolean', description: 'les lignes d’après les besoins du projet : ce qui manque, par rôle, dans la fenêtre de chaque besoin (phase comprise)' },
+        role: { type: 'string', description: 'sans lignes : rôle des ressources à utiliser (toutes sans rôle)' },
+        jours: { type: 'number', description: 'sans lignes : jours à placer' },
+        debut: { type: 'string', description: 'sans lignes : AAAA-MM-JJ (par défaut : aujourd’hui)' },
+        fin: { type: 'string', description: 'AAAA-MM-JJ : fin de la période (et des lignes ou besoins sans date ; quatre semaines par défaut pour les besoins)' },
         mode: { type: 'string', enum: ['tot', 'lisse'], description: 'au plus tôt (défaut) ou lissé sur la période' },
         scenario: { type: 'string', description: 'scénario où créer les affectations ; sa capacité prise compte aussi' },
       },
-      required: ['projet', 'jours', 'fin'],
+      required: ['projet'],
     },
   },
   {
