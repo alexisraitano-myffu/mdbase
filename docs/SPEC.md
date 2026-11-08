@@ -1217,7 +1217,7 @@ moratoires: { base: moratoires, debut: debut, fin: fin, ferme: ferme } # faculta
 - Les deux niveaux ne sont pas figés : « projet » est n'importe quelle relation des affectations (programme, client…) et « version » une relation vers une base liée à la première (étape, lot…). L'interface les nomme d'après leur base (« Par programme », « Par étape »).
 - Assistant IA et MCP : un outil `calculer_charge` (lecture) rend la charge, la capacité et la couverture sur une période (avec un scénario, facultatif), pour répondre à « qui est disponible en mars ? » ; un outil `proposer_remplissage` (lecture) rend ce que « Remplir » placerait, avec les valeurs exactes des affectations à créer ; les affectations se créent avec les outils des lignes (règle §17 : outil commun aux deux).
 
-## 22. Wiki [PROPOSÉ, demandé par Alex le 08/11/2026]
+## 22. Wiki [DÉCIDÉ, validé par Alex le 08/11/2026]
 
 Les bases disent **ce qui est** (lignes typées, colonnes, vues) ; le wiki explique **comment ça marche** : fonctionnement d'une application, procédures, glossaire, décisions. Deux mondes séparés, reliés par des liens à sens unique.
 
@@ -1266,7 +1266,9 @@ Corps en Markdown (§9 : mêmes blocs, liens, surlignage).
 
 ### Interface
 - **Module** « Wiki » du magasin (§19, catégorie Organisation), choix gardé par machine. Un espace dont `_wiki/` contient une page garde le module actif (« utilisé par 12 pages »). Désactivé : aucune trace dans l'interface, aucun fichier touché.
+- **Pas de dossiers à part** : comme dans Notion, toute page peut contenir des sous-pages ; une page sans contenu qui regroupe des sous-pages joue le rôle de dossier. Les pages sont à plat sur le disque, l'arbre n'existe que dans l'app.
 - **Barre latérale** : une entrée « Wiki » et, dessous, l'arbre des pages (déplié ou replié, préférence de la machine). Créer une page à la racine ou sous une page, renommer, supprimer (avec ses sous-pages, après confirmation qui dit combien de pages la citent), déplacer et réordonner par glisser-déposer. Glisser une page dans sa propre descendance est refusé.
+- **« / Page »** (menu des blocs, §9) : dans une page wiki, crée une sous-page **de la page en cours**, insère un lien vers elle au curseur et l'ouvre. « / Page dans… » demande d'abord l'emplacement dans l'arbre. Dans le corps d'une ligne (module actif), « / Page » demande toujours l'emplacement.
 - **Page** : plein écran, fil d'Ariane des parents, titre éditable, corps. Aucun en-tête de propriétés. En bas : « Citée par » (pages et lignes qui la citent) et ses sous-pages.
 - **Aperçu d'une ligne** au survol de sa pastille : titre, base, et les premières colonnes de sa mise en page par défaut, lues à l'affichage.
 - **Page d'une ligne** : section « Citée dans » (pages wiki et lignes qui la citent), sans contenu du wiki. Remplace le [PLUS TARD] des rétroliens (§9).
