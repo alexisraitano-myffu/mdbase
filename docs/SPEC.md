@@ -57,6 +57,8 @@ MonEspace/
   _espace.yaml
   _dashboards/
     pilotage.yaml
+  _wiki/                 (module Wiki, §22 ; pages à plat, absent tant qu'il ne sert pas)
+    procedures--k2x9m4pq.md
   _assistant/            (module IA, §12 ; absent tant qu'il ne sert pas)
     memoire.md
     skills/
@@ -576,7 +578,7 @@ contenus:                                  # optionnel : contenus liés sous le 
 - **Références à une ligne** [DÉCIDÉ, demandé par Alex le 02/10/2026] : « @ » dans le corps ouvre la liste des lignes de tout l'espace (titre, et nom de la base), filtrée par la suite de la saisie ; choisir une ligne écrit un lien wiki à la manière d'Obsidian, `[[projets/site-vitrine--psite001|Site vitrine]]` : le chemin du fichier sans `.md`, le titre en alias. Aucune clé YAML.
   - Le lien se résout par l'**id** qui termine le nom du fichier : cherché dans la base du dossier, puis dans toutes les bases. Une ligne renommée (fichier renommé) ou une base renommée reste donc trouvée ; le texte du lien n'est jamais réécrit.
   - Dans l'éditeur, le lien s'affiche comme une pastille au **titre actuel** de la ligne (l'alias sert seulement si la ligne est introuvable, la pastille est alors barrée) ; un clic ouvre la page, la syntaxe revient quand le curseur la touche. Un lien dans un bloc de code reste du texte.
-  - [PLUS TARD] Liste des pages qui citent une ligne (rétroliens).
+  - Liste des pages qui citent une ligne (rétroliens) : avec le wiki, section « Citée dans » (§22).
 - Pas d'images en V1.
 
 ---
@@ -1145,7 +1147,7 @@ But : un outil **très simple à l'installation**, où l'on ajoute ce qui sert q
 - **Socle**, toujours là : bases, vue tableau, pages (propriétés, corps, onglets relation, contenus liés), relations, rollups, formules, filtres et tris, recherche, annulation, import et export. De quoi créer une petite base simple sans rien voir d'autre.
 - **Catalogue** par catégories ; chaque module a un nom, une phrase, une image de ce qu'il montre, et « Ajouter » ou « Retirer » :
   - Vues : Kanban, Collection, Calendrier, Timeline, Plan de charge (§21) ;
-  - Organisation : Tâches (§9), Dashboards (blocs de vues, analyse SQL, fiches, §10) ;
+  - Organisation : Tâches (§9), Dashboards (blocs de vues, analyse SQL, fiches, §10), Wiki (§22) ;
   - Assistant : Assistant IA, Inbox, Contexte IA ;
   - Intégrations : Jira, Claude (MCP).
   Un module retiré disparaît des menus (« Nouvelle vue », « Ajouter un bloc », barre latérale) ; rien d'autre ne change. Quand des vues manquent au menu « Nouvelle vue », sa dernière entrée, « Plus de vues », ouvre le magasin.
@@ -1214,6 +1216,73 @@ moratoires: { base: moratoires, debut: debut, fin: fin, ferme: ferme } # faculta
 
 - Les deux niveaux ne sont pas figés : « projet » est n'importe quelle relation des affectations (programme, client…) et « version » une relation vers une base liée à la première (étape, lot…). L'interface les nomme d'après leur base (« Par programme », « Par étape »).
 - Assistant IA et MCP : un outil `calculer_charge` (lecture) rend la charge, la capacité et la couverture sur une période (avec un scénario, facultatif), pour répondre à « qui est disponible en mars ? » ; un outil `proposer_remplissage` (lecture) rend ce que « Remplir » placerait, avec les valeurs exactes des affectations à créer ; les affectations se créent avec les outils des lignes (règle §17 : outil commun aux deux).
+
+## 22. Wiki [PROPOSÉ, demandé par Alex le 08/11/2026]
+
+Les bases disent **ce qui est** (lignes typées, colonnes, vues) ; le wiki explique **comment ça marche** : fonctionnement d'une application, procédures, glossaire, décisions. Deux mondes séparés, reliés par des liens à sens unique.
+
+### Règles
+- **Liens, pas de copie.** Une page cite une ligne, elle ne recopie jamais ses valeurs. Une valeur montrée dans le wiki (aperçu au survol) est lue dans la base à l'affichage, jamais écrite dans la page.
+- **Pas de base déguisée.** Une page n'a pas de colonnes, pas de vues, pas de filtres. Le frontmatter ne contient que les clés ci-dessous ; une clé inconnue est conservée (§4) mais jamais affichée ni proposée.
+- **Aucune base n'est un prérequis.** Un wiki par espace, qui fonctionne sans aucune base.
+- Une ligne ne contient jamais le contenu du wiki : elle montre seulement les pages qui la citent.
+
+### Fichiers
+```
+MonEspace/
+  _wiki/
+    procedures--k2x9m4pq.md
+    deploiement--p4m1z8rt.md        (parent : procedures)
+    glossaire--a7c3e5g9.md
+    _modeles/
+      decision.md
+```
+- **Toutes les pages sont à plat** dans `_wiki/`, comme les bases à la racine de l'espace (§3). L'arbre vient de la clé `parent`, pas des dossiers. Déplacer une page, même avec toutes ses sous-pages, ne change qu'**une clé dans un fichier** ; renommer une page ne renomme qu'un fichier (principe 4, §1, et collaboration par dossier partagé).
+  - Écarté : une page et ses sous-pages dans un dossier voisin (« note de dossier » d'Obsidian). Plus lisible dans l'explorateur, mais renommer ou déplacer une page déplace tous les fichiers de sa descendance aux yeux de la synchro, et casse les liens des outils qui résolvent par chemin.
+- Nom de fichier : `<slug-du-titre>--<id>.md`, mêmes règles que les lignes (§3) : id de 8 caractères `[a-z0-9]`, jamais modifié ; slug mis à jour à la sortie du titre ; résolution par l'`id` du frontmatter.
+- Frontmatter, écrit par l'app :
+
+```yaml
+---
+id: p4m1z8rt
+titre: Déploiement
+parent: k2x9m4pq        # absent : page à la racine
+ordre: 2.5              # rang parmi les pages de même parent
+_cree: 2026-11-08T10:12
+_modifie: 2026-11-08T11:40
+---
+Corps en Markdown (§9 : mêmes blocs, liens, surlignage).
+```
+- `ordre` est un nombre : placer une page entre deux autres lui donne la moyenne de leurs rangs, sans toucher les voisines (un seul fichier écrit). Égalité ou absence : tri par titre.
+- `parent` vers une page introuvable : la page s'affiche à la racine, signalée ; rien n'est réécrit tant que l'utilisateur ne la déplace pas.
+- `_wiki/_modeles/` : les modèles de l'espace (plus bas). Tout fichier ou dossier de `_wiki/` préfixé par `_` est de la configuration, jamais une page.
+- `_wiki/` n'est jamais pris pour une base.
+
+### Liens
+- Vers une ligne : le format des références existant (§9), `[[projets/site-vitrine--psite001|Site vitrine]]`, saisi par « @ ».
+- Vers une page : `[[_wiki/deploiement--p4m1z8rt|Déploiement]]`, saisi par « [[ » (liste des pages filtrée par la saisie). Résolu par l'id qui termine la cible : une page renommée ou déplacée reste trouvée, le texte du lien n'est jamais réécrit.
+- Affichage : pastille au **titre actuel** ; un clic ouvre la ligne ou la page ; introuvable, la pastille est barrée et la page compte ses liens morts.
+- Le corps d'une ligne peut aussi citer une page wiki (« [[ »), quand le module est actif.
+
+### Interface
+- **Module** « Wiki » du magasin (§19, catégorie Organisation), choix gardé par machine. Un espace dont `_wiki/` contient une page garde le module actif (« utilisé par 12 pages »). Désactivé : aucune trace dans l'interface, aucun fichier touché.
+- **Barre latérale** : une entrée « Wiki » et, dessous, l'arbre des pages (déplié ou replié, préférence de la machine). Créer une page à la racine ou sous une page, renommer, supprimer (avec ses sous-pages, après confirmation qui dit combien de pages la citent), déplacer et réordonner par glisser-déposer. Glisser une page dans sa propre descendance est refusé.
+- **Page** : plein écran, fil d'Ariane des parents, titre éditable, corps. Aucun en-tête de propriétés. En bas : « Citée par » (pages et lignes qui la citent) et ses sous-pages.
+- **Aperçu d'une ligne** au survol de sa pastille : titre, base, et les premières colonnes de sa mise en page par défaut, lues à l'affichage.
+- **Page d'une ligne** : section « Citée dans » (pages wiki et lignes qui la citent), sans contenu du wiki. Remplace le [PLUS TARD] des rétroliens (§9).
+- **Recherche globale** (§11) : les pages wiki y entrent, poids titre ×3 et corps ×1, groupées sous « Wiki » avec leur chemin dans l'arbre ; filtre « Wiki seulement ».
+- **Modèles** : « Nouvelle page » propose une page vide ou un modèle. Modèles livrés : procédure, fiche d'application, décision, glossaire, compte rendu. Un fichier de `_wiki/_modeles/` (frontmatter `nom`, corps = la trame) s'ajoute à la liste.
+- **Déplacer vers le wiki** (corps d'une ligne, ou une sélection de lignes du tableau) : choix de la page parente, une page créée par ligne avec son corps ; dans la ligne, au choix, un lien vers la page ou rien. Jamais automatique, en une étape d'annulation.
+- Annulation (Ctrl+Z), écriture sûre (§4), relecture au retour sur l'onglet (§12) et copies de conflit OneDrive : comme pour les lignes.
+
+### Index
+Les rétroliens viennent d'un index des liens de tout l'espace (corps des lignes et pages), **en mémoire**, construit en une passe à l'ouverture puis tenu à jour fichier par fichier ; rien n'est écrit sur le disque.
+
+### Assistant et MCP
+Outils communs à l'assistant et au MCP (§17, règle de l'outil commun) : `lister_wiki` (l'arbre), `lire_wiki`, `ecrire_wiki` (créer ou modifier une page), `deplacer_wiki`, `chercher_wiki`. Absents quand le module est désactivé. Côté assistant, une écriture passe par l'aperçu comme les autres ; côté MCP, elle s'applique aussitôt (§17).
+
+### Hors périmètre
+Historique des versions, commentaires, droits par page (les droits sont ceux du dossier, voir la collaboration), export, images.
 
 ## 20. Rapports [PLUS TARD]
 
