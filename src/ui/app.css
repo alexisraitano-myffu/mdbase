@@ -1998,3 +1998,10 @@ button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
 .emplacements-wiki .option { display: flex; align-items: center; gap: 0.4em; width: 100%; }
 .sous-pages-wiki { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
 .sous-pages-wiki button { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.25rem 0.4rem; }
+.apercu-reference { position: fixed; z-index: 60; width: 280px; box-sizing: border-box; padding: 0.6rem 0.75rem; background: var(--surface); border: 1px solid var(--bordure); border-radius: 8px; box-shadow: var(--ombre); font-size: 0.9em; pointer-events: none; }
+.apercu-reference .base-apercu { font-size: 0.8em; color: var(--discret); }
+.apercu-reference dl { margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.apercu-reference dl > div { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.5rem; align-items: baseline; }
+.apercu-reference dt { color: var(--discret); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apercu-reference dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.liens-morts-wiki { margin-left: auto; display: inline-flex; align-items: center; gap: 0.3em; color: var(--discret); }

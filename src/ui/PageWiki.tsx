@@ -1,5 +1,7 @@
 import { createContext, lazy, Suspense, useContext, useRef, useState, type ReactNode } from 'react'
-import { ChevronRight, FileText, FolderTree } from 'lucide-react'
+import { ChevronRight, FileText, FolderTree, Unlink } from 'lucide-react'
+import { lireLiens, resoudreLien } from '../core/liens-internes'
+import { SurvolReferences } from './ApercuReference'
 import type { DepotEspace } from '../core/depot-espace'
 import { arbreWiki, comparerPages, parentsDe, type NoeudWiki, type PageWiki } from '../core/wiki'
 import { useLancer } from './actions'
@@ -59,6 +61,8 @@ export function VuePageWiki(p: { id: string; ouvrir: (id: string) => void }) {
   if (page.corps !== suivi.corps) setSuivi({ corps: page.corps, version: suivi.version + (page.corps === emis.current ? 0 : 1) })
   const sousPages = pages.filter((x) => x.parent === page.id).sort(comparerPages)
   const parents = parentsDe(pages, page.id)
+  // Liens vers une ligne ou une page qui n'existe plus : signalés, jamais réécrits.
+  const morts = lireLiens(page.corps).filter((l) => !resoudreLien(etat, l.cible)).length
   return (
     <article className="page-wiki">
       <nav className="ariane-wiki" aria-label="Fil d’Ariane">
@@ -72,9 +76,16 @@ export function VuePageWiki(p: { id: string; ouvrir: (id: string) => void }) {
             </button>
           </span>
         ))}
+        {morts > 0 && (
+          <span className="liens-morts-wiki" title="Liens vers une ligne ou une page supprimée : barrés dans le texte">
+            <Icone de={Unlink} />
+            {morts > 1 ? `${morts} liens morts` : '1 lien mort'}
+          </span>
+        )}
       </nav>
       <TitrePage key={page.id} espace={espace} page={page} lecture={lecture} />
       <div className="corps-page corps-wiki">
+        <SurvolReferences>
         <Suspense fallback={<div className="discret">Chargement de l'éditeur…</div>}>
           <EditeurCorps
             key={`${page.id}:${suivi.version}`}
@@ -87,6 +98,7 @@ export function VuePageWiki(p: { id: string; ouvrir: (id: string) => void }) {
             }}
           />
         </Suspense>
+        </SurvolReferences>
       </div>
       {sousPages.length > 0 && (
         <section className="bas-page-wiki">

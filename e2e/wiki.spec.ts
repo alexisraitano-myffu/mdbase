@@ -193,3 +193,28 @@ test('« / Page » depuis le corps d’une ligne demande l’emplacement', async
   await expect.poll(async () => (await lireWiki(espace))['Intégration continue']).toMatchObject({ parent: 'Procédures' })
   await expect.poll(() => espace.lire('taches/integration--tinte002.md')).toMatch(/\[\[_wiki\/[a-z0-9]{8}\]\]/)
 })
+
+test('liens vivants : l’aperçu d’une ligne montre ses valeurs actuelles, un lien mort est compté', async ({ espace, page }) => {
+  await espace.ecrire('_wiki/procedures--wproc001.md', '---\nid: wproc001\ntitre: Procédures\n---\nLe projet [[projets/site-vitrine--psite001|Site vitrine]] et [[projets/disparu--zzzz0000|Disparu]].\n')
+  await espace.retourSurOnglet()
+  await entree(page, 'Procédures').click()
+  const corps = page.locator('.page-wiki .editeur-corps .cm-content')
+  await expect(corps.locator('.cm-reference.cassee')).toHaveText('Disparu')
+  await expect(page.locator('.liens-morts-wiki')).toHaveText('1 lien mort')
+
+  const avant = await espace.lire('_wiki/procedures--wproc001.md')
+  await corps.locator('.cm-reference', { hasText: 'Site vitrine' }).hover()
+  const apercu = page.getByRole('tooltip')
+  await expect(apercu).toContainText('Projets')
+  await expect(apercu).toContainText('En cours')
+  await page.screenshot({ path: 'test-results/wiki-apercu.png' })
+  await page.mouse.move(5, 5)
+  await expect(apercu).toHaveCount(0)
+
+  // Le statut change dans la base : l'aperçu suit, le fichier de la page ne bouge pas.
+  await espace.remplacer('projets/site-vitrine--psite001.md', 'statut: En cours', 'statut: Terminé')
+  await espace.retourSurOnglet()
+  await corps.locator('.cm-reference', { hasText: 'Site vitrine' }).hover()
+  await expect(apercu).toContainText('Terminé')
+  expect(await espace.lire('_wiki/procedures--wproc001.md')).toBe(avant)
+})

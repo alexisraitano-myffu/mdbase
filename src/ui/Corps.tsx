@@ -3,6 +3,7 @@ import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import { useConsultation } from './mode'
 import { useSourceLiens } from './PageWiki'
+import { SurvolReferences } from './ApercuReference'
 
 // CodeMirror pèse lourd : chargé seulement à l'ouverture d'une première page.
 const EditeurCorps = lazy(() => import('./EditeurCorps').then((m) => ({ default: m.EditeurCorps })))
@@ -21,6 +22,7 @@ export function Corps({ depot, ligne }: { depot: DepotBase; ligne: LigneChargee 
   if (ligne.corps !== suivi.corps) setSuivi({ corps: ligne.corps, version: suivi.version + (ligne.corps === emis.current ? 0 : 1) })
   return (
     <div className="corps-page">
+      <SurvolReferences>
       <Suspense fallback={<div className="discret">Chargement de l'éditeur…</div>}>
         <EditeurCorps
           key={`${idLigne}:${suivi.version}`}
@@ -34,6 +36,7 @@ export function Corps({ depot, ligne }: { depot: DepotBase; ligne: LigneChargee 
           }}
         />
       </Suspense>
+      </SurvolReferences>
     </div>
   )
 }
