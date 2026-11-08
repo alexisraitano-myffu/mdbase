@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import { ChevronRight, FileText, Plus } from 'lucide-react'
+import { ChevronRight, File, FileText, LayoutTemplate, Plus } from 'lucide-react'
 import type { DepotEspace, EtatEspace } from '../core/depot-espace'
+import { MODELES_WIKI_LIVRES, type ModeleWiki } from '../core/modeles-wiki'
 import { arbreWiki, citePage, placementWiki, type NoeudWiki, type PositionDepot } from '../core/wiki'
 import { useLancer } from './actions'
 import { BasculeSection, BoutonMenuEntree, ChampEnLigne } from './BarreLaterale'
@@ -30,13 +31,20 @@ export function SectionWiki(p: {
   const lecture = useConsultation()
   const { pages } = p.etat.wiki
   const arbre = useMemo(() => arbreWiki(pages), [pages])
-  const [creation, setCreation] = useState<{ parent: string | null } | null>(null)
+  // Nouvelle page : d'abord le choix (page vide ou modèle), puis le titre.
+  const [choix, setChoix] = useState<{ parent: string | null; ancre: HTMLElement | null } | null>(null)
+  const [creation, setCreation] = useState<{ parent: string | null; modele?: ModeleWiki } | null>(null)
+  const nouvelle = (parent: string | null, ancre: HTMLElement | null) => {
+    if (parent !== null && p.replis.has(`wiki:${parent}`)) p.basculer(`wiki:${parent}`)
+    setCreation(null)
+    setChoix({ parent, ancre })
+  }
   const [cible, setCible] = useState<Cible | null>(null)
   const replie = p.replis.has('wiki')
 
-  const creer = async (titre: string, parent: string | null) => {
+  const creer = async (titre: string, parent: string | null, modele?: ModeleWiki) => {
     setCreation(null)
-    const page = await lancer((async () => p.espace.creerPageWiki({ titre, parent }))())
+    const page = await lancer((async () => p.espace.creerPageWiki({ titre, parent, ...(modele && { corps: modele.corps }) }))())
     if (page) p.ouvrir(page.id)
   }
 
@@ -74,10 +82,7 @@ export function SectionWiki(p: {
           ouvrir={() => p.ouvrir(id)}
           basculer={() => p.basculer(`wiki:${id}`)}
           renommer={(titre) => void lancer(p.espace.renommerPageWiki(id, titre))}
-          sousPage={() => {
-            if (ferme) p.basculer(`wiki:${id}`)
-            setCreation({ parent: id })
-          }}
+          sousPage={(ancre) => nouvelle(id, ancre)}
           portee={() => {
             const partent = p.espace.porteeSuppressionPageWiki(id)
             return { sousPages: partent.length - 1, citations: citations(partent) }
@@ -106,7 +111,7 @@ export function SectionWiki(p: {
         {!ferme && n.enfants.map((e) => ligne(e, profondeur + 1))}
         {!ferme && creation?.parent === id && (
           <div style={{ paddingLeft: `${(profondeur + 1) * 0.9}rem` }}>
-            <ChampEnLigne placeholder="Titre de la sous-page" valider={(t) => void creer(t, id)} annuler={() => setCreation(null)} />
+            <ChampEnLigne placeholder={creation.modele ? `Titre (${creation.modele.nom})` : 'Titre de la sous-page'} valider={(t) => void creer(t, id, creation.modele)} annuler={() => setCreation(null)} />
           </div>
         )}
       </div>
@@ -138,7 +143,7 @@ export function SectionWiki(p: {
       <div className="titre-groupe">
         <BasculeSection nom="Wiki" replie={replie} basculer={() => p.basculer('wiki')} caches={pages.length - (ouverteSeule ? 1 : 0)} />
         {!lecture && (
-          <button className="discret menu-groupe" onClick={() => setCreation({ parent: null })} aria-label="Nouvelle page" title="Nouvelle page">
+          <button className="discret menu-groupe" onClick={(e) => nouvelle(null, e.currentTarget)} aria-label="Nouvelle page" title="Nouvelle page">
             <Icone de={Plus} />
           </button>
         )}
@@ -156,7 +161,20 @@ export function SectionWiki(p: {
         </div>
       )}
       {!replie && pages.length === 0 && creation === null && !lecture && <div className="vide">Aucune page : « + » pour en créer une</div>}
-      {creation?.parent === null && <ChampEnLigne placeholder="Titre de la page" valider={(t) => void creer(t, null)} annuler={() => setCreation(null)} />}
+      {creation?.parent === null && (
+        <ChampEnLigne placeholder={creation.modele ? `Titre (${creation.modele.nom})` : 'Titre de la page'} valider={(t) => void creer(t, null, creation.modele)} annuler={() => setCreation(null)} />
+      )}
+      {choix && (
+        <Flottant ancre={choix.ancre} fermer={() => setChoix(null)}>
+          <ChoixModele
+            modeles={p.etat.wiki.modeles}
+            choisir={(modele) => {
+              setChoix(null)
+              setCreation({ parent: choix.parent, ...(modele && { modele }) })
+            }}
+          />
+        </Flottant>
+      )}
     </section>
   )
 }
@@ -170,7 +188,7 @@ function EntreePage(p: {
   ouvrir: () => void
   basculer: () => void
   renommer: (titre: string) => void
-  sousPage: () => void
+  sousPage: (ancre: HTMLElement | null) => void
   portee: () => { sousPages: number; citations: number }
   supprimer: () => void
   survol: (e: DragEvent<HTMLDivElement>) => void
@@ -257,7 +275,7 @@ function EntreePage(p: {
         <Flottant ancre={ancre.current} fermer={() => setMenu(null)}>
           {menu === 'options' ? (
             <>
-              <button className="option" onClick={() => (setMenu(null), p.sousPage())}>
+              <button className="option" onClick={() => (setMenu(null), p.sousPage(ancre.current))}>
                 Nouvelle sous-page
               </button>
               <button className="option" onClick={() => (setMenu(null), setEdition(true))}>
@@ -286,6 +304,34 @@ function EntreePage(p: {
             </div>
           )}
         </Flottant>
+      )}
+    </div>
+  )
+}
+
+/** « Nouvelle page » : page vide, un modèle livré, ou un modèle de l'espace (`_wiki/_modeles/`). */
+function ChoixModele(p: { modeles: readonly ModeleWiki[]; choisir: (modele: ModeleWiki | null) => void }) {
+  const option = (m: ModeleWiki) => (
+    <button key={m.id} className="option" onClick={() => p.choisir(m)}>
+      <Icone de={LayoutTemplate} />
+      {m.nom}
+    </button>
+  )
+  return (
+    <div className="menu-modeles-wiki" role="menu" aria-label="Nouvelle page">
+      <button className="option" onClick={() => p.choisir(null)}>
+        <Icone de={File} />
+        Page vide
+      </button>
+      <div className="separateur-menu" />
+      <div className="titre-menu discret">Modèles</div>
+      {MODELES_WIKI_LIVRES.map(option)}
+      {p.modeles.length > 0 && (
+        <>
+          <div className="separateur-menu" />
+          <div className="titre-menu discret">Modèles de l’espace</div>
+          {p.modeles.map(option)}
+        </>
       )}
     </div>
   )

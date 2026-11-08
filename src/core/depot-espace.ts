@@ -24,6 +24,7 @@ import { copieDeConflit, doublons } from './conflits'
 import { convertirValeur, type ColonneImportee } from './echange'
 import { Historique, type Changement } from './historique'
 import { IndexLiens, type SourceLien } from './index-liens'
+import { chargerModelesWiki, type ModeleWiki } from './modeles-wiki'
 import { adaptateurWiki, chargerWiki, descendants, DOSSIER_WIKI, ordreEnFin, pageDe, peutDeplacer, SCHEMA_WIKI, type PageWiki } from './wiki'
 import { IndexRecherche, type Resultat } from './recherche'
 import { MemoireAssistant } from './ia/memoire'
@@ -104,6 +105,8 @@ export type EtatWiki = {
   doublons: ReadonlyMap<string, LigneChargee[]>
   /** Fichiers de `_wiki/` qui ne sont pas des pages lisibles, jamais effacés. */
   nonReconnus: readonly { chemin: string; raison: string }[]
+  /** Modèles de l'espace (`_wiki/_modeles/`), les modèles livrés à part (`MODELES_WIKI_LIVRES`). */
+  modeles: readonly ModeleWiki[]
 }
 
 /** `chemin` est une copie de conflit de synchro de `original` (même dossier). */
@@ -135,7 +138,7 @@ export class DepotEspace {
   private readonly dashboards = new Map<string, EtatDashboard>()
   private config: ConfigEspace = lireEspace(null)
   private logoSvg: string | undefined
-  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [], theme: { couleurs: {} }, wiki: { pages: [], doublons: new Map(), nonReconnus: [] } }
+  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [], theme: { couleurs: {} }, wiki: { pages: [], doublons: new Map(), nonReconnus: [], modeles: [] } }
   private readonly abonnes = new Set<() => void>()
   /** Bases dont le `_schema.yaml` manquait à la dernière relecture (voir `rafraichirBase`). */
   private readonly schemasAbsents = new Set<string>()
@@ -148,6 +151,7 @@ export class DepotEspace {
   /** Pages du wiki : un dépôt de lignes sur le schéma interne du wiki (spec §22). */
   private wiki!: DepotBase
   private nonReconnusWiki: { chemin: string; raison: string }[] = []
+  private modelesWiki: ModeleWiki[] = []
   /** Mémoire et skills de l'assistant IA (`_assistant/`, spec §3). */
   readonly assistant: MemoireAssistant
   /** Annuler / rétablir sur les données (cellules, lignes créées ou supprimées). */
@@ -227,6 +231,11 @@ export class DepotEspace {
     const wiki = await this.wiki.rafraichir()
     if (wiki && (wiki.change || !memes(wiki.nonReconnus, this.nonReconnusWiki))) {
       this.nonReconnusWiki = wiki.nonReconnus
+      change = true
+    }
+    const modeles = await chargerModelesWiki(this.adaptateur)
+    if (!memes(modeles, this.modelesWiki)) {
+      this.modelesWiki = modeles
       change = true
     }
     if (this.configEnVol === 0) {
@@ -1806,6 +1815,7 @@ export class DepotEspace {
   private async chargerWiki() {
     const { pages, nonReconnus } = await chargerWiki(this.adaptateur)
     this.nonReconnusWiki = nonReconnus
+    this.modelesWiki = await chargerModelesWiki(this.adaptateur)
     this.wiki = new DepotBase(adaptateurWiki(this.adaptateur), SCHEMA_WIKI, pages, { ...this.options, journal: (c) => this.noter(c) })
     this.wiki.abonner(() => this.publier())
   }
@@ -1842,9 +1852,9 @@ export class DepotEspace {
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
     const wiki: EtatWiki =
-      lignesWiki === this.lignesWikiPubliees && this.nonReconnusWiki === this.instantane.wiki.nonReconnus
+      lignesWiki === this.lignesWikiPubliees && this.nonReconnusWiki === this.instantane.wiki.nonReconnus && this.modelesWiki === this.instantane.wiki.modeles
         ? this.instantane.wiki
-        : { pages: lignesWiki.map(pageDe), doublons: doublons(lignesWiki), nonReconnus: this.nonReconnusWiki }
+        : { pages: lignesWiki.map(pageDe), doublons: doublons(lignesWiki), nonReconnus: this.nonReconnusWiki, modeles: this.modelesWiki }
     this.lignesWikiPubliees = lignesWiki
     this.liens.synchroniser(this.corpsIndexes(lignesWiki))
     this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies, theme: { ...this.config.theme, ...(this.logoSvg && { logoSvg: this.logoSvg }) }, ...(this.config.taches && { taches: this.config.taches }), wiki }

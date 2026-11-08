@@ -130,4 +130,21 @@ describe('wiki', () => {
     expect(espace.chercher('hyperion')).toEqual([])
     await ecrire()
   })
+
+  it('modèles de l’espace : `_wiki/_modeles/` n’est jamais une page, relu au retour', async () => {
+    const { a, espace } = await ouvrir({
+      '_wiki/_modeles/decision.md': '---\nnom: Décision d’architecture\n---\n## Contexte\n',
+      '_wiki/_modeles/sans-entete.md': 'Trame nue.\n',
+    })
+    expect(espace.etat().wiki.pages).toEqual([])
+    expect(espace.etat().wiki.nonReconnus).toEqual([])
+    expect(espace.etat().wiki.modeles).toEqual([
+      { id: '_wiki/_modeles/decision.md', nom: 'Décision d’architecture', corps: '## Contexte\n' },
+      { id: '_wiki/_modeles/sans-entete.md', nom: 'sans-entete', corps: 'Trame nue.\n' },
+    ])
+    await a.ecrire('_wiki/_modeles/glossaire.md', '---\nnom: Glossaire maison\n---\n### Terme\n')
+    expect(await espace.rafraichir()).toBe(true)
+    expect(espace.etat().wiki.modeles.map((m) => m.nom)).toEqual(['Décision d’architecture', 'Glossaire maison', 'sans-entete'])
+    expect(await espace.rafraichir()).toBe(false)
+  })
 })

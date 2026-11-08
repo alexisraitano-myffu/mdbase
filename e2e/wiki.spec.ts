@@ -19,7 +19,7 @@ async function lireWiki(espace: { lister: (d: string) => Promise<string[]>; lire
   return Object.fromEntries(brut.map(({ f, t }) => [cle(t, 'titre')!, { fichier: f, parent: titres.get(cle(t, 'parent') ?? '') ?? null, ordre: Number(cle(t, 'ordre')) }]))
 }
 
-async function nouvellePage(page: Page, titre: string, parent?: string) {
+async function nouvellePage(page: Page, titre: string, parent?: string, modele = 'Page vide') {
   if (parent) {
     await entree(page, parent).hover()
     await entree(page, parent).getByRole('button', { name: `Options de la page ${parent}` }).click()
@@ -28,6 +28,7 @@ async function nouvellePage(page: Page, titre: string, parent?: string) {
     await page.locator('.groupe.wiki .titre-groupe').hover() // le « + » n'apparaît qu'au survol
     await page.getByRole('button', { name: 'Nouvelle page' }).click()
   }
+  await page.getByRole('menu', { name: 'Nouvelle page' }).getByRole('button', { name: modele, exact: true }).click()
   await page.locator('.champ-en-ligne').fill(titre)
   await page.keyboard.press('Enter')
   await expect(page.getByLabel('Titre de la page')).toHaveValue(titre)
@@ -272,4 +273,24 @@ test('recherche : un mot du corps d’une page la retrouve depuis Ctrl+K, avec s
   await expect(recherche.locator('.base-resultats')).toHaveText(['Wiki'])
   await page.keyboard.press('Enter')
   await expect(page.getByLabel('Titre de la page')).toHaveValue('Déploiement')
+})
+
+test('modèles : « Décision » donne sa trame, un modèle maison de `_wiki/_modeles/` apparaît dans la liste', async ({ espace, page }) => {
+  await ajouterModule(page, 'Wiki')
+  await nouvellePage(page, 'Choix de l’hébergeur', undefined, 'Décision')
+  await expect.poll(async () => espace.lire(`_wiki/${(await lireWiki(espace))['Choix de l’hébergeur']!.fichier}`)).toContain('**Statut :** proposée\n\n## Contexte\n')
+  await expect(page.locator('.page-wiki .editeur-corps')).toContainText('Options envisagées')
+
+  await espace.ecrire('_wiki/_modeles/fiche-serveur.md', '---\nnom: Fiche serveur\n---\n## Adresse\n\n## Sauvegardes\n')
+  await espace.retourSurOnglet()
+  await page.locator('.groupe.wiki .titre-groupe').hover()
+  await page.getByRole('button', { name: 'Nouvelle page' }).click()
+  const menu = page.getByRole('menu', { name: 'Nouvelle page' })
+  await expect(menu.getByRole('button')).toHaveText(['Page vide', 'Procédure', 'Fiche d’application', 'Décision', 'Glossaire', 'Compte rendu', 'Fiche serveur'])
+  await page.screenshot({ path: 'test-results/wiki-modeles.png' })
+  await page.keyboard.press('Escape')
+  await nouvellePage(page, 'Hyperion', 'Choix de l’hébergeur', 'Fiche serveur')
+  await expect.poll(async () => espace.lire(`_wiki/${(await lireWiki(espace)).Hyperion!.fichier}`)).toMatch(/---\n## Adresse\n\n## Sauvegardes\n$/)
+  // Le modèle n'est jamais une page.
+  await expect(arbre(page).locator('.nom-entree')).toHaveText(['Choix de l’hébergeur', 'Hyperion'])
 })
