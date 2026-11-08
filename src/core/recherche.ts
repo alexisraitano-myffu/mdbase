@@ -1,9 +1,10 @@
 import MiniSearch from 'minisearch'
 import type { LigneChargee } from './base'
 import type { Schema } from './schema'
+import { DOSSIER_WIKI } from './wiki'
 
 // Recherche globale (spec §11) : plein texte sur les titres, les champs texte et
-// le corps de toutes les bases. Index en mémoire, tenu à jour ligne par ligne :
+// le corps de toutes les bases, et des pages du wiki (base `_wiki`, spec §22). Index en mémoire, tenu à jour ligne par ligne :
 // seules les lignes dont le texte a changé sont réindexées.
 
 type Document = { id: string; base: string; ligne: string; titre: string; texte: string; corps: string }
@@ -44,7 +45,8 @@ export class IndexRecherche {
   synchroniser(bases: Iterable<{ schema: Schema; lignes: readonly LigneChargee[] }>): void {
     const vus = new Set<string>()
     for (const { schema, lignes } of bases) {
-      const champsTexte = schema.colonnes.filter((c) => (c.type === 'text' || c.type === 'url') && c.cle !== schema.champTitre)
+      // Une page du wiki (spec §22) : son titre et son corps seulement, jamais l'id de son parent.
+      const champsTexte = schema.id === DOSSIER_WIKI ? [] : schema.colonnes.filter((c) => (c.type === 'text' || c.type === 'url') && c.cle !== schema.champTitre)
       for (const l of lignes) {
         const id = `${schema.id}/${l.id}`
         if (vus.has(id)) continue // id en double : la première ligne l'emporte, comme partout
@@ -88,13 +90,14 @@ export class IndexRecherche {
 
   /**
    * Lignes qui partagent au moins un mot avec un texte libre (une demande à
-   * l'assistant, pas une recherche) : mots courts ignorés, meilleurs scores d'abord.
+   * l'assistant, pas une recherche) : mots courts ignorés, meilleurs scores
+   * d'abord. Jamais une page du wiki : l'assistant y a ses propres outils.
    */
   candidats(texte: string, limite = 20): { base: string; ligne: string }[] {
     const mots = texte.split(/[^\p{L}\p{N}]+/u).filter((m) => m.length >= 3)
     if (mots.length === 0) return []
     return this.index
-      .search(mots.join(' '), { combineWith: 'OR' })
+      .search(mots.join(' '), { combineWith: 'OR', filter: (r) => r.base !== DOSSIER_WIKI })
       .slice(0, limite)
       .map((r) => {
         const doc = this.documents.get(String(r.id))!

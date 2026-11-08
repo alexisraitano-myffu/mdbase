@@ -2012,3 +2012,7 @@ button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
 .retroliens .titre-retrolien { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .retroliens .base-retrolien { margin-left: auto; font-size: 0.85em; color: var(--tres-discret-texte); }
 .page-wiki .retroliens + .bas-page-wiki { margin-top: 1.25rem; }
+.filtres-recherche { display: flex; gap: 0.4rem; padding: 0.5rem 0.75rem 0.1rem; }
+.filtre-recherche { display: inline-flex; align-items: center; gap: 0.35em; font-size: 0.85em; padding: 0.15rem 0.5rem; border: 1px solid var(--bordure); border-radius: 999px; }
+.filtre-recherche.actif { background: var(--selection); color: var(--texte); border-color: transparent; }
+.chemin-resultat { font-weight: 400; }

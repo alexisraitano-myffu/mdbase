@@ -248,3 +248,28 @@ test('rétroliens : « Citée dans » sur la ligne, « Citée par » sur la page
   await expect(page.locator('.contenu-page')).toBeVisible()
   await expect(page.getByRole('region', { name: 'Citée dans' }).getByRole('button', { name: /Déploiement/ })).toHaveCount(0)
 })
+
+test('recherche : un mot du corps d’une page la retrouve depuis Ctrl+K, avec son chemin ; filtre « Wiki seulement »', async ({ espace, page }) => {
+  await espace.ecrire('_wiki/procedures--wproc001.md', '---\nid: wproc001\ntitre: Procédures\n---\n')
+  await espace.ecrire('_wiki/deploiement--wdepl002.md', '---\nid: wdepl002\ntitre: Déploiement\nparent: wproc001\n---\nRedémarrer le serveur hyperion après la mise en ligne.\n')
+  await espace.retourSurOnglet()
+  await expect(entree(page, 'Déploiement')).toBeVisible()
+  await page.keyboard.press('ControlOrMeta+k')
+  const recherche = page.getByRole('dialog', { name: 'Recherche globale' })
+  await recherche.getByPlaceholder('Chercher dans tout l’espace…').fill('hyperion')
+  const resultat = recherche.locator('.resultat')
+  await expect(resultat).toHaveCount(1)
+  await expect(resultat.locator('.titre-resultat')).toHaveText('Procédures / Déploiement')
+  await expect(resultat).toContainText('serveur hyperion')
+  await expect(recherche.locator('.base-resultats')).toHaveText('Wiki')
+  await page.screenshot({ path: 'test-results/wiki-recherche.png' })
+
+  // « Wiki seulement » : une page cherchée par un mot présent aussi dans les bases.
+  await recherche.getByPlaceholder('Chercher dans tout l’espace…').fill('mise en ligne')
+  await expect(recherche.locator('.base-resultats')).toContainText(['Wiki'])
+  expect(await recherche.locator('.base-resultats').count()).toBeGreaterThan(1)
+  await recherche.getByRole('button', { name: 'Wiki seulement' }).click()
+  await expect(recherche.locator('.base-resultats')).toHaveText(['Wiki'])
+  await page.keyboard.press('Enter')
+  await expect(page.getByLabel('Titre de la page')).toHaveValue('Déploiement')
+})

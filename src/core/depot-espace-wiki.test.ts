@@ -117,4 +117,17 @@ describe('wiki', () => {
     expect(espace.citant(navi)).toEqual([{ base: 'clients', id: 'c0000001' }])
     await ecrire()
   })
+
+  it('recherche : un mot du corps d’une page la trouve ; jamais l’id du parent, jamais pour l’assistant', async () => {
+    const { espace, ecrire } = await ouvrir()
+    const parent = await espace.creerPageWiki({ titre: 'Procédures' })
+    const p = await espace.creerPageWiki({ titre: 'Déploiement', parent: parent.id, corps: 'Redémarrer le serveur hyperion après la mise en ligne.' })
+    expect(espace.chercher('hyperion')).toMatchObject([{ base: '_wiki', ligne: p.id, titre: 'Déploiement' }])
+    expect(espace.chercher('hyperion')[0]!.extrait).toContain('serveur hyperion')
+    expect(espace.chercher(parent.id)).toEqual([])
+    expect(espace.candidats('le serveur hyperion')).toEqual([])
+    await espace.supprimerPageWiki(p.id)
+    expect(espace.chercher('hyperion')).toEqual([])
+    await ecrire()
+  })
 })

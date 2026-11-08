@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { DepotEspace, EtatEspace } from '../core/depot-espace'
 import type { Resultat } from '../core/recherche'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { DOSSIER_WIKI, parentsDe } from '../core/wiki'
+import { ArrowDown, ArrowUp, FileText } from 'lucide-react'
 import { Icone } from './icones'
 
 type Props = {
@@ -21,9 +22,15 @@ type Props = {
 export function RechercheGlobale({ espace, etat, ouvrir, fermer }: Props) {
   const [requete, setRequete] = useState('')
   const [choisi, setChoisi] = useState(0)
+  // Filtre « Wiki seulement » (spec §22), proposé dès que l'espace a des pages.
+  const [wikiSeul, setWikiSeul] = useState(false)
+  const avecWiki = etat.wiki.pages.length > 0
   const liste = useRef<HTMLDivElement>(null)
   // `etat` en dépendance : l'index suit les modifications faites pendant que la recherche est ouverte.
-  const resultats = useMemo(() => espace.chercher(requete), [espace, requete, etat])
+  const resultats = useMemo(
+    () => (wikiSeul && avecWiki ? espace.chercher(requete, 500).filter((r) => r.base === DOSSIER_WIKI).slice(0, 50) : espace.chercher(requete)),
+    [espace, requete, etat, wikiSeul, avecWiki],
+  )
 
   // Groupes dans l'ordre du meilleur résultat de chaque base ; la navigation au clavier suit l'affichage.
   const groupes = useMemo(() => {
@@ -43,7 +50,13 @@ export function RechercheGlobale({ espace, etat, ouvrir, fermer }: Props) {
     ouvrir(r.base, r.ligne)
     fermer()
   }
+  /** Chemin d'une page dans l'arbre du wiki : ses parents, de la racine au parent direct. */
+  const chemin = (id: string) =>
+    parentsDe(etat.wiki.pages, id)
+      .map((p) => p.titre || 'Sans titre')
+      .join(' / ')
   const nomBase = (id: string) => {
+    if (id === DOSSIER_WIKI) return 'Wiki'
     const c = etat.bases.get(id)?.chargement
     return c?.ok ? c.base.schema.nom : id
   }
@@ -74,6 +87,19 @@ export function RechercheGlobale({ espace, etat, ouvrir, fermer }: Props) {
             }
           }}
         />
+        {avecWiki && (
+          <div className="filtres-recherche">
+            <button
+              className={`discret filtre-recherche ${wikiSeul ? 'actif' : ''}`}
+              aria-pressed={wikiSeul}
+              // Le focus reste dans le champ : Entrée ouvre toujours le résultat choisi.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => (setWikiSeul((v) => !v), setChoisi(0))}>
+              <Icone de={FileText} />
+              Wiki seulement
+            </button>
+          </div>
+        )}
         <div className="resultats-recherche" ref={liste}>
           {requete.trim() !== '' && aplatis.length === 0 && <p className="discret vide-recherche">Aucun résultat</p>}
           {groupes.map(([base, rs]) => (
@@ -88,7 +114,10 @@ export function RechercheGlobale({ espace, etat, ouvrir, fermer }: Props) {
                     onMouseMove={() => i !== actif && setChoisi(i)}
                     onClick={() => valider(r)}
                   >
-                    <span className="titre-resultat">{r.titre || 'Sans titre'}</span>
+                    <span className="titre-resultat">
+                      {r.base === DOSSIER_WIKI && chemin(r.ligne) && <span className="chemin-resultat discret">{chemin(r.ligne)} / </span>}
+                      {r.titre || 'Sans titre'}
+                    </span>
                     {r.extrait && <span className="extrait-resultat discret">{surligner(r.extrait, r.surlignages)}</span>}
                   </button>
                 )

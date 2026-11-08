@@ -1085,7 +1085,7 @@ export class DepotEspace {
     return null
   }
 
-  /** Recherche globale (spec §11) : titres, champs texte et corps de toutes les bases. */
+  /** Recherche globale (spec §11) : titres, champs texte et corps de toutes les bases, et pages du wiki (base `_wiki`). */
   chercher(requete: string, limite?: number): Resultat[] {
     return this.recherche.chercher(requete, limite)
   }
@@ -1837,10 +1837,10 @@ export class DepotEspace {
       })))
     }
     const aujourdhui = this.options.aujourdhui()
-    this.recherche.synchroniser(aCalculer.values())
+    const lignesWiki = this.wiki?.lignes() ?? []
+    this.recherche.synchroniser([...aCalculer.values(), { schema: SCHEMA_WIKI, lignes: lignesWiki }])
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
-    const lignesWiki = this.wiki?.lignes() ?? []
     const wiki: EtatWiki =
       lignesWiki === this.lignesWikiPubliees && this.nonReconnusWiki === this.instantane.wiki.nonReconnus
         ? this.instantane.wiki
