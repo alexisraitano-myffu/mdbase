@@ -3,7 +3,12 @@ import { choisir, expect, test } from './espace'
 // Plan de charge (spec §21) : la grille ressources × semaines du modèle
 // « Planification de charge », une affectation créée en glissant, la couverture des besoins.
 
+// Un mercredi : les dates du modèle partent du lundi de la semaine en cours, et
+// un week-end la grille à la journée commencerait sur la formation de Sami.
+const AUJOURDHUI = new Date('2026-11-04T10:00:00')
+
 test.beforeEach(async ({ espace: _, page }) => {
+  await page.clock.setFixedTime(AUJOURDHUI)
   await page.getByRole('button', { name: 'Magasin' }).click()
   await page.getByRole('article', { name: 'Planification de charge' }).getByRole('button', { name: 'Utiliser ce modèle' }).click()
   await expect(page.locator('h1', { hasText: 'Ressources' })).toBeVisible()
@@ -53,7 +58,7 @@ test('à la journée : une colonne par jour ouvré, glisser crée une affectatio
   const sami = page.locator('.grille-charge .ressource-charge', { hasText: 'Sami' })
   await expect(sami.locator('.case-charge')).toHaveCount(20)
   // Bandeau : le mois et l'année au-dessus des jours (20 jours ouvrés couvrent un ou deux mois).
-  const mois = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date())
+  const mois = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(AUJOURDHUI)
   await expect(page.locator('.bandeau-charge')).toContainText(mois.replace(/^./, (c) => c.toUpperCase()), { ignoreCase: true })
   const avant = await espace.lister('affectations')
   await sami.locator('.case-charge').nth(0).hover()
