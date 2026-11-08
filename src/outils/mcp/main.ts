@@ -42,12 +42,14 @@ async function principal(): Promise<void> {
   // Moteur SQL des dashboards (spec §10 « Analyse ») : le fichier du moteur est livré à côté du serveur.
   const sql = new SessionSql(() => moteurNode(join(dirname(fileURLToPath(import.meta.url)), 'duckdb-eh.wasm')))
   const serveur = new Server({ name: 'mdbase', version: __VERSION__ }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS })
-  serveur.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: outilsMcp() }))
+  // Hors de l'app, pas de réglage des modules : le wiki est offert dès que l'espace a des pages.
+  const wiki = () => espace.etat().wiki.pages.length > 0
+  serveur.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: outilsMcp(wiki()) }))
   // Un appel à la fois : chaque écriture voit l'espace laissé par la précédente.
   let file: Promise<unknown> = Promise.resolve()
   serveur.setRequestHandler(CallToolRequestSchema, (requete) => {
     const suite = file.then(async () => {
-      const r = await executer(espace, requete.params.name, requete.params.arguments, jour(new Date()), sql)
+      const r = await executer(espace, requete.params.name, requete.params.arguments, jour(new Date()), sql, wiki())
       return { content: [{ type: 'text' as const, text: r.texte }], isError: r.erreur ?? false }
     })
     file = suite.catch(() => {})

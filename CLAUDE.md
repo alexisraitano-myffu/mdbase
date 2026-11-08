@@ -73,7 +73,8 @@ src/
                            conversation), memoire.ts (`_assistant/` : mémoire écrite aussitôt, skills
                            écrits après confirmation), mcp.ts (outils exposés à un client MCP, exécution d'un appel : partagé par le serveur Node et l'app de bureau),
                            connaissance.ts (§18 : contexte, documents cherchés
-                           par minisearch, inbox et historique des traités, outils de l'inbox)
+                           par minisearch, inbox et historique des traités, outils de l'inbox),
+                           wiki.ts (§22 : outils du wiki, offerts si le module est actif ; écritures en actions « suite » du plan)
     fixtures/              données de test partagées
   adapters/
     fsa/         implémentation File System Access + dossier mémorisé (IndexedDB)

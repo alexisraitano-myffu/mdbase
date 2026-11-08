@@ -4,6 +4,7 @@ import { verifierAnalyse } from './analyse'
 import { estLecture, lireTout, OUTILS_LECTURE } from './lecture'
 import type { DefinitionOutil } from './modele'
 import { decrireEspace, OUTILS } from './outils'
+import { estOutilWiki, OUTILS_WIKI, OUTILS_WIKI_LECTURE } from './wiki'
 import { appliquerPlan, ErreurProposition, resumerPlan, validerAppel, type Plan } from './plan'
 
 // Serveur MCP de mdbase : les outils de l'assistant (spec §12) exposés à un
@@ -41,9 +42,13 @@ export type OutilMcp = {
 /** Les descriptions de l'app parlent des lignes listées « plus bas », dans son message : ici, c'est `decrire_espace`. */
 const pourMcp = (d: string) => d.replace(/les lignes listées plus bas/g, 'les lignes de `decrire_espace`')
 
-export function outilsMcp(): OutilMcp[] {
-  const lecture = [DECRIRE, ...OUTILS_LECTURE].map((o) => ({ name: o.nom, description: pourMcp(o.description), inputSchema: o.parametres, annotations: { readOnlyHint: true } }))
-  const ecriture = OUTILS.filter((o) => !PROPRES_A_L_APP.has(o.nom)).map((o) => ({
+/**
+ * Outils offerts au client. `wiki` : ceux du wiki (spec §22) en plus, quand le
+ * module est actif dans l'app ; hors de l'app, quand l'espace a des pages.
+ */
+export function outilsMcp(wiki = false): OutilMcp[] {
+  const lecture = [DECRIRE, ...OUTILS_LECTURE, ...(wiki ? OUTILS_WIKI_LECTURE : [])].map((o) => ({ name: o.nom, description: pourMcp(o.description), inputSchema: o.parametres, annotations: { readOnlyHint: true } }))
+  const ecriture = [...OUTILS.filter((o) => !PROPRES_A_L_APP.has(o.nom)), ...(wiki ? OUTILS_WIKI : [])].map((o) => ({
     name: o.nom,
     description: o.description,
     inputSchema: o.parametres,
@@ -58,13 +63,14 @@ export type Resultat = { texte: string; erreur?: true }
  * Exécute un appel d'outil. L'espace est relu d'abord : l'app ou un autre
  * outil a pu changer les fichiers depuis l'appel précédent.
  */
-export async function executer(espace: DepotEspace, nom: string, args: unknown, aujourdhui: string, sql?: SessionSql): Promise<Resultat> {
+export async function executer(espace: DepotEspace, nom: string, args: unknown, aujourdhui: string, sql?: SessionSql, wiki = false): Promise<Resultat> {
   const ctx = { aujourdhui, ...(sql && { sql }) }
   await espace.rafraichir()
+  if (estOutilWiki(nom) && !wiki) return { texte: `Outil inconnu : ${nom} (module Wiki inactif)`, erreur: true }
   if (nom === DECRIRE.nom) return { texte: decrireEspace(espace.etat(), { aujourdhui, baseOuverte: null, candidats: [] }) }
   const appel = { id: nom, nom, arguments: JSON.stringify(args ?? {}) }
   if (estLecture(appel)) return { texte: await lireTout(espace.etat(), appel, ctx) }
-  if (PROPRES_A_L_APP.has(nom) || !OUTILS.some((o) => o.nom === nom)) return { texte: `Outil inconnu : ${nom}`, erreur: true }
+  if (PROPRES_A_L_APP.has(nom) || !(OUTILS.some((o) => o.nom === nom) || estOutilWiki(nom))) return { texte: `Outil inconnu : ${nom}`, erreur: true }
 
   let plan: Plan
   try {
@@ -114,7 +120,7 @@ type Requete = { jsonrpc?: string; id?: string | number | null; method?: string;
  * Répond aux messages d'un client MCP sur l'espace ouvert. Renvoie le texte de la réponse,
  * ou `null` pour une notification (rien à renvoyer). Les appels d'outils passent un par un.
  */
-export function serveurMcp(espace: DepotEspace, o: { version: string; aujourdhui: () => string; sql?: SessionSql }): (message: string) => Promise<string | null> {
+export function serveurMcp(espace: DepotEspace, o: { version: string; aujourdhui: () => string; sql?: SessionSql; wiki?: () => boolean }): (message: string) => Promise<string | null> {
   let file: Promise<unknown> = Promise.resolve()
   const enFile = <T>(f: () => Promise<T>): Promise<T> => {
     const suite = file.then(f)
@@ -144,11 +150,11 @@ export function serveurMcp(espace: DepotEspace, o: { version: string; aujourdhui
       case 'ping':
         return repondre({})
       case 'tools/list':
-        return repondre({ tools: outilsMcp() })
+        return repondre({ tools: outilsMcp(o.wiki?.() ?? false) })
       case 'tools/call': {
         const nom = typeof r.params?.name === 'string' ? r.params.name : ''
         try {
-          const res = await enFile(() => executer(espace, nom, r.params?.arguments, o.aujourdhui(), o.sql))
+          const res = await enFile(() => executer(espace, nom, r.params?.arguments, o.aujourdhui(), o.sql, o.wiki?.() ?? false))
           return repondre({ content: [{ type: 'text', text: res.texte }], isError: res.erreur ?? false })
         } catch (e) {
           return repondre({ content: [{ type: 'text', text: `Erreur : ${e instanceof Error ? e.message : String(e)}` }], isError: true })

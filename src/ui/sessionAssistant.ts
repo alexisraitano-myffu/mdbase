@@ -6,7 +6,7 @@ import { appliquerPlan, resumerPlan, type ActionMemoire, type Plan } from '../co
 import { modeleCompatibleOpenAI } from '../adapters/ia/compatible-openai'
 import { enregistrerConversations, lireConversations, type ConversationGardee, type ReglagesIA, type TourGarde } from '../adapters/ia/reglages'
 import { aujourdhui, maintenant } from '../adapters/navigateur'
-import { contexteActif } from './modules'
+import { contexteActif, wikiActif } from './modules'
 
 // Conversation avec l'assistant IA (spec §12, « Module IA »), hors de tout
 // composant : fermer ou replier le panneau ne coupe pas une demande en cours.
@@ -225,6 +225,7 @@ export class SessionAssistant {
         skill: d.skill,
         inbox: suite ? undefined : d.inbox,
         contexte: contexteActif(),
+        wiki: wikiActif(this.espace.etat()),
         historique: passes.flatMap((t) => echange(t) ?? []),
         signal: arret.signal,
         progression: (p) => {

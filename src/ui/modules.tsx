@@ -68,6 +68,8 @@ export function useModules(etat: EtatEspace): ModulesActifs {
 
 /** Pour une lecture hors composant (la session de l'assistant). */
 export const contexteActif = () => lireChoix().contexte ?? false
+/** Wiki actif hors composant : choisi sur cette machine, ou utilisé par l'espace (des pages). */
+export const wikiActif = (etat: EtatEspace) => lireChoix().wiki === true || etat.wiki.pages.length > 0
 
 /** Types de vue proposés à la création : le tableau, et les vues ajoutées. */
 export function useTypesActifs(): (t: TypeVue) => boolean {

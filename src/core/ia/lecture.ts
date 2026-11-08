@@ -7,6 +7,7 @@ import type { AppelOutil, DefinitionOutil } from './modele'
 import { executerSqlOutil, type ContexteSql } from './analyse'
 import { calculerChargeOutil, proposerRemplissageOutil } from './charge'
 import { FILTRE } from './outils'
+import { estLectureWiki, lireWiki } from './wiki'
 import { erreur, ErreurProposition, lireFiltres, normaliser, trouverBase, trouverColonne, trouverLigne } from './references'
 
 // Outils de lecture de l'assistant (spec §12, « Module IA ») : le modèle lit
@@ -118,10 +119,12 @@ export const OUTILS_LECTURE: DefinitionOutil[] = [
 ]
 
 const NOMS = new Set(OUTILS_LECTURE.map((o) => o.nom))
-export const estLecture = (appel: AppelOutil) => NOMS.has(appel.nom)
+/** Lectures des bases et du wiki (dont les outils ne sont offerts que si le module est actif). */
+export const estLecture = (appel: AppelOutil) => NOMS.has(appel.nom) || estLectureWiki(appel.nom)
 
 /** Toute lecture, `executer_sql` compris (qui passe par le moteur SQL, donc attend). */
 export async function lireTout(etat: EtatEspace, appel: AppelOutil, ctx: Contexte & ContexteSql): Promise<string> {
+  if (estLectureWiki(appel.nom)) return lireWiki(etat, appel)
   if (appel.nom !== 'executer_sql') return lire(etat, appel, ctx)
   try {
     const args: unknown = JSON.parse(appel.arguments || '{}')

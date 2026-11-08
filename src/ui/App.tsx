@@ -29,7 +29,7 @@ import { AideRaccourcis } from './Raccourcis'
 import { ToutesLesTaches } from './Taches'
 import { PanneauInbox, useInbox } from './Inbox'
 import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
-import { FenetreModules, useModules, useOuvertureMagasin } from './modules'
+import { FenetreModules, useModules, useOuvertureMagasin, wikiActif } from './modules'
 import { useSynchroJiraBureau } from './synchroJira'
 import { ContexteCreerPage, FenetreEmplacement, VuePageWiki, type CreerPageWiki } from './PageWiki'
 import { DOSSIER_WIKI } from '../core/wiki'
@@ -240,7 +240,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
     let fini = false
     void getVersion().then((version) => {
       if (fini) return
-      arret = ecouterMcp(serveurMcp(espace, { version, aujourdhui, sql: sessionSql }))
+      arret = ecouterMcp(serveurMcp(espace, { version, aujourdhui, sql: sessionSql, wiki: () => wikiActif(espace.etat()) }))
     })
     return () => {
       fini = true

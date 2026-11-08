@@ -15,6 +15,7 @@ import { nouveauSchema } from '../schema-ecriture'
 import { PROFONDEUR_MAX, type Bande, type Filtre, type FiltreRapide, type ModificationVue, type Niveau, type Tri, type TypeVue, type Vue } from '../vue'
 import { insererRemarque } from './connaissance'
 import { erreur, lireFiltres, normaliser, texteRequis, titreDe, trouverBase, trouverColonne, trouverLigne } from './references'
+import { appliquerWiki, decrireActionWiki, validerWiki, type ActionWiki, type BrouillonWiki, type CreeesWiki } from './wiki'
 
 // Outils de structure de l'assistant (spec §12, « Module IA ») : bases,
 // colonnes, vues, dashboards, suppression de lignes, contenu des pages.
@@ -34,6 +35,9 @@ export class Brouillon {
   readonly groupes: string[]
   /** Titres des lignes que le plan crée, par base : `ecrire_contenu` peut les viser. */
   readonly creees = new Map<string, string[]>()
+  /** Pages du wiki, et titres de celles que le plan crée : un appel suivant peut les viser. */
+  readonly wiki: BrouillonWiki
+
 
   constructor(etat: EtatEspace) {
     this.source = etat
@@ -43,6 +47,7 @@ export class Brouillon {
     }
     this.dashboards = etat.dashboards.map((d) => ({ id: d.id, nom: d.dashboard?.nom ?? d.id, dashboard: d.dashboard }))
     this.groupes = etat.groupes.map((g) => g.nom)
+    this.wiki = { pages: etat.wiki.pages, creees: [] }
   }
 
   /** Vue de l'état attendue par les validations de données (`plan.ts`). */
@@ -132,6 +137,8 @@ export type ActionSuite =
   | { type: 'ecrire_contenu'; base: string; nomBase: string; ligne: string | null; titre: string; contenu: string; mode: 'remplacer' | 'ajouter' }
   /** Entrée datée ajoutée à une section de la page (spec §18), sans réécrire le reste. */
   | { type: 'ajouter_remarque'; base: string; nomBase: string; ligne: string | null; titre: string; section?: string; entree: string }
+  /** Pages du wiki (spec §22), créées, écrites ou rangées. */
+  | ActionWiki
 
 export const TYPES_COLONNE = [...TYPES_CREABLES, 'relation', 'rollup', 'formula', ...TYPES_HORODATAGE] as const
 export const TYPES_VUE: readonly TypeVue[] = ['tableau', 'kanban', 'collection', 'calendrier', 'timeline']
@@ -850,6 +857,9 @@ export function validerStructure(b: Brouillon, nom: string, args: Record<string,
         suite: { type: 'supprimer_lignes', base: base.id, nomBase: base.schema.nom, lignes: cibles.map((l) => ({ id: l.id, titre: titreDe(etat, base.id, l.id) })), liens },
       }
     }
+    case 'ecrire_wiki':
+    case 'deplacer_wiki':
+      return { suite: validerWiki(b.wiki, nom, args) }
     case 'ecrire_contenu': {
       const bb = b.base(args.base)
       const contenu = texteRequis(args, 'contenu')
@@ -960,6 +970,9 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
     }
     case 'ajouter_remarque':
       return { texte: `Noter dans « ${a.titre} » (${a.nomBase})${a.section ? `, section ${a.section}` : ''} : ${a.entree}`, danger: false }
+    case 'ecrire_wiki':
+    case 'deplacer_wiki':
+      return { texte: decrireActionWiki(a), danger: false }
     case 'ecrire_contenu':
       return { texte: `${a.mode === 'ajouter' ? 'Compléter' : 'Écrire'} le contenu de la page « ${a.titre} » (${a.nomBase}) : ${a.contenu.length > 80 ? `${a.contenu.slice(0, 80)}…` : a.contenu}`, danger: false }
   }
@@ -1149,7 +1162,12 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
 
 /** Applique les suppressions de lignes et le contenu des pages, après les données du plan. */
 export async function appliquerSuite(espace: DepotEspace, actions: readonly ActionSuite[], corr: Correspondances): Promise<void> {
+  const creeesWiki: CreeesWiki = new Map()
   for (const a of actions) {
+    if (a.type === 'ecrire_wiki' || a.type === 'deplacer_wiki') {
+      await appliquerWiki(espace, a, creeesWiki)
+      continue
+    }
     const base = corr.base(a.base)
     const depot = espace.etat().bases.get(base)?.depot
     if (!depot) continue

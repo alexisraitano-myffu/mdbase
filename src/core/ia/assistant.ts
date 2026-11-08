@@ -5,6 +5,7 @@ import type { SessionSql } from '../bi/calcul'
 import { verifierAnalyse } from './analyse'
 import { estLecture, lireTout, OUTILS_LECTURE } from './lecture'
 import { CONSIGNE, decrireEspace, OUTILS } from './outils'
+import { OUTILS_WIKI, OUTILS_WIKI_LECTURE } from './wiki'
 import { ErreurProposition, validerAppel, type ActionMemoire, type AppelValide, type Operation, type Plan, type SkillPropose } from './plan'
 import { Brouillon, type ActionStructure, type ActionSuite } from './structure'
 
@@ -51,6 +52,8 @@ export type OptionsDemande = {
   contexte?: boolean
   /** Éléments de l'inbox à traiter (spec §18), ids : ils accompagnent la demande. */
   inbox?: readonly string[]
+  /** Module Wiki actif (spec §19) : ses outils de lecture et d'écriture sont offerts. */
+  wiki?: boolean
   /** Moteur SQL (spec §10 « Analyse ») : `executer_sql`, et vérification des requêtes d'un dashboard proposé. */
   sql?: SessionSql
 }
@@ -105,15 +108,19 @@ function decrireConnaissance(c: Connaissance): string {
   return parties.join('\n')
 }
 
+/** Le wiki n'est pas envoyé : le modèle le lit avec ses outils. */
+const decrireWiki = (n: number) =>
+  `## Wiki\n${n === 0 ? 'Le wiki est vide.' : `${n} page${n > 1 ? 's' : ''}`} : lister_wiki, lire_wiki et chercher_wiki pour le lire, ecrire_wiki et deplacer_wiki pour l'écrire. Une page du wiki n'est pas une ligne : jamais ecrire_contenu pour elle.`
+
 export async function proposer(modele: ModeleIA, espace: DepotEspace, demande: string, o: OptionsDemande): Promise<Proposition> {
   const assistant = await espace.assistant.lire()
   const connaissance = assistant.connaissance ?? { contexte: '', documents: [], inbox: [], traites: [] }
   const contexte = decrireEspace(espace.etat(), { ...o, candidats: espace.candidats(demande), memoire: assistant.memoire, skills: assistant.skills })
   const savoir = o.contexte === false ? '' : decrireConnaissance(connaissance)
   const inbox = o.inbox ? connaissance.inbox.filter((e) => o.inbox!.includes(e.id)) : []
-  const outils = [...OUTILS_LECTURE, ...(o.contexte !== false && connaissance.documents.length > 0 ? OUTILS_DOCUMENTS : []), ...OUTILS, ...(inbox.length > 0 ? OUTILS_INBOX : [])]
+  const outils = [...OUTILS_LECTURE, ...(o.contexte !== false && connaissance.documents.length > 0 ? OUTILS_DOCUMENTS : []), ...(o.wiki ? OUTILS_WIKI_LECTURE : []), ...OUTILS, ...(o.wiki ? OUTILS_WIKI : []), ...(inbox.length > 0 ? OUTILS_INBOX : [])]
   const messages: MessageIA[] = [
-    { role: 'system', contenu: [CONSIGNE, savoir, contexte].filter(Boolean).join('\n\n') },
+    { role: 'system', contenu: [CONSIGNE, savoir, contexte, o.wiki ? decrireWiki(espace.etat().wiki.pages.length) : ''].filter(Boolean).join('\n\n') },
     ...(o.historique ?? []).slice(-ECHANGES_MAX).flatMap((e, i, liste) => rejouer(e, i >= liste.length - ECHANGES_DETAILLES)),
     { role: 'user', contenu: inbox.length > 0 ? `${avecSkill(demande, o.skill)}\n\n${CONSIGNE_INBOX}\n\n## Inbox\n${decrireInbox(inbox)}` : avecSkill(demande, o.skill) },
   ]
