@@ -24,7 +24,7 @@ type IdChoix = Exclude<IdModule, 'assistant'>
 export type ChoixModules = Partial<Record<IdChoix, boolean>>
 export type ModulesActifs = Record<IdChoix, boolean>
 
-const IDS: readonly IdChoix[] = ['kanban', 'collection', 'calendrier', 'timeline', 'charge', 'taches', 'dashboards', 'inbox', 'contexte', 'jira', 'mcp']
+const IDS: readonly IdChoix[] = ['kanban', 'collection', 'calendrier', 'timeline', 'charge', 'taches', 'dashboards', 'inbox', 'contexte', 'jira', 'mcp', 'wiki']
 const CLE = 'mdbase.modules'
 const abonnes = new Set<() => void>()
 let courant: ChoixModules | null = null

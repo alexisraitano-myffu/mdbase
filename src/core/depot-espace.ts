@@ -23,6 +23,7 @@ import { boucle } from './graphe'
 import { copieDeConflit, doublons } from './conflits'
 import { convertirValeur, type ColonneImportee } from './echange'
 import { Historique, type Changement } from './historique'
+import { adaptateurWiki, chargerWiki, descendants, DOSSIER_WIKI, ordreEnFin, pageDe, peutDeplacer, SCHEMA_WIKI, type PageWiki } from './wiki'
 import { IndexRecherche, type Resultat } from './recherche'
 import { MemoireAssistant } from './ia/memoire'
 import { ErreurEcriture, type Modifications } from './ligne'
@@ -92,6 +93,16 @@ export type EtatEspace = {
   theme: Theme & { logoSvg?: string }
   /** Base des tâches désignée dans `_espace.yaml`, telle qu'écrite (à résoudre par `resoudreBaseTaches`). */
   taches?: ConfigTaches
+  /** Wiki de l'espace (spec §22), vide tant que `_wiki/` n'a pas de page. */
+  wiki: EtatWiki
+}
+
+export type EtatWiki = {
+  pages: readonly PageWiki[]
+  /** Ids portés par plusieurs fichiers de `_wiki/` (copie de conflit, copie à la main). */
+  doublons: ReadonlyMap<string, LigneChargee[]>
+  /** Fichiers de `_wiki/` qui ne sont pas des pages lisibles, jamais effacés. */
+  nonReconnus: readonly { chemin: string; raison: string }[]
 }
 
 /** `chemin` est une copie de conflit de synchro de `original` (même dossier). */
@@ -123,7 +134,7 @@ export class DepotEspace {
   private readonly dashboards = new Map<string, EtatDashboard>()
   private config: ConfigEspace = lireEspace(null)
   private logoSvg: string | undefined
-  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [], theme: { couleurs: {} } }
+  private instantane: EtatEspace = { dashboards: [], groupes: [], horsGroupe: [], bases: new Map(), calculs: new Map(), titres: new Map(), doublons: new Map(), copiesConflit: [], theme: { couleurs: {} }, wiki: { pages: [], doublons: new Map(), nonReconnus: [] } }
   private readonly abonnes = new Set<() => void>()
   /** Bases dont le `_schema.yaml` manquait à la dernière relecture (voir `rafraichirBase`). */
   private readonly schemasAbsents = new Set<string>()
@@ -133,6 +144,9 @@ export class DepotEspace {
   /** Modifications de configuration appliquées en mémoire mais pas encore écrites. */
   private configEnVol = 0
   private copies: CopieConflit[] = []
+  /** Pages du wiki : un dépôt de lignes sur le schéma interne du wiki (spec §22). */
+  private wiki!: DepotBase
+  private nonReconnusWiki: { chemin: string; raison: string }[] = []
   /** Mémoire et skills de l'assistant IA (`_assistant/`, spec §3). */
   readonly assistant: MemoireAssistant
   /** Annuler / rétablir sur les données (cellules, lignes créées ou supprimées). */
@@ -151,6 +165,7 @@ export class DepotEspace {
     d.config = lireEspace(await d.lireOuNull(FICHIER_ESPACE))
     d.logoSvg = await d.lireLogo()
     for (const id of await listerBases(adaptateur)) await d.chargerBase(id)
+    await d.chargerWiki()
     await d.chargerDashboards()
     d.copies = await d.chercherCopies()
     d.publier()
@@ -165,7 +180,7 @@ export class DepotEspace {
   }
 
   async vider(): Promise<void> {
-    await Promise.all([...this.bases.values()].map((b) => b.depot?.vider()))
+    await Promise.all([...[...this.bases.values()].map((b) => b.depot?.vider()), this.wiki.vider()])
   }
 
   // ── Changements externes ─────────────────────────────────────────
@@ -207,6 +222,11 @@ export class DepotEspace {
       // Nouveau dossier, ou dossier qui n'était pas une base : on le recharge en entier.
       await this.chargerBase(id)
       if (!b || !memes(b.chargement, this.bases.get(id)!.chargement)) change = true
+    }
+    const wiki = await this.wiki.rafraichir()
+    if (wiki && (wiki.change || !memes(wiki.nonReconnus, this.nonReconnusWiki))) {
+      this.nonReconnusWiki = wiki.nonReconnus
+      change = true
     }
     if (this.configEnVol === 0) {
       const avant = new Map(this.dashboards)
@@ -1471,7 +1491,7 @@ export class DepotEspace {
    * supprimée depuis, ligne disparue) est laissé tel quel, sans bloquer le reste.
    */
   private async inverser(c: Changement): Promise<void> {
-    const depot = this.bases.get(c.base)?.depot
+    const depot = c.base === DOSSIER_WIKI ? this.wiki : this.bases.get(c.base)?.depot
     if (!depot) return
     const ligne = depot.lignes().find((l) => l.id === c.id)
     try {
@@ -1782,6 +1802,13 @@ export class DepotEspace {
     this.bases.set(id, { id, chargement, depot, vues, pages, ...(synchro && { synchro }) })
   }
 
+  private async chargerWiki() {
+    const { pages, nonReconnus } = await chargerWiki(this.adaptateur)
+    this.nonReconnusWiki = nonReconnus
+    this.wiki = new DepotBase(adaptateurWiki(this.adaptateur), SCHEMA_WIKI, pages, { ...this.options, journal: (c) => this.noter(c) })
+    this.wiki.abonner(() => this.publier())
+  }
+
   private async lireOuNull(chemin: string): Promise<string | null> {
     try {
       return await this.adaptateur.lire(chemin)
@@ -1812,8 +1839,80 @@ export class DepotEspace {
     this.recherche.synchroniser(aCalculer.values())
     const calculs = calculer(aCalculer, { aujourdhui, maintenant: this.options.maintenant?.() ?? `${aujourdhui}T00:00` })
     const dashboards = ordreDashboards(this.config, [...this.dashboards.keys()]).map((id) => this.dashboards.get(id)!)
-    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies, theme: { ...this.config.theme, ...(this.logoSvg && { logoSvg: this.logoSvg }) }, ...(this.config.taches && { taches: this.config.taches }) }
+    const lignesWiki = this.wiki?.lignes() ?? []
+    const wiki: EtatWiki =
+      lignesWiki === this.lignesWikiPubliees && this.nonReconnusWiki === this.instantane.wiki.nonReconnus
+        ? this.instantane.wiki
+        : { pages: lignesWiki.map(pageDe), doublons: doublons(lignesWiki), nonReconnus: this.nonReconnusWiki }
+    this.lignesWikiPubliees = lignesWiki
+    this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies, theme: { ...this.config.theme, ...(this.logoSvg && { logoSvg: this.logoSvg }) }, ...(this.config.taches && { taches: this.config.taches }), wiki }
     for (const fn of this.abonnes) fn()
+  }
+
+  /** Lignes du wiki à la dernière publication : l'état du wiki garde sa référence tant qu'elles n'ont pas changé. */
+  private lignesWikiPubliees: readonly LigneChargee[] | null = null
+
+  // ── Wiki (spec §22) ──────────────────────────────────────────────
+
+  /**
+   * Crée une page, en dernier sous `parent` (à la racine sans parent), et
+   * l'écrit aussitôt. Le dossier `_wiki/` naît avec la première page.
+   */
+  creerPageWiki(p: { titre?: string; parent?: string | null; corps?: string } = {}): Promise<PageWiki> {
+    const parent = p.parent ?? null
+    const pages = this.instantane.wiki.pages
+    if (parent !== null && !pages.some((x) => x.id === parent)) throw new ErreurSchema(`Page parente introuvable : ${parent}`)
+    return this.enUneEtape(async () => {
+      const l = await this.wiki.creer({ titre: p.titre ?? '', ...(parent !== null && { parent }), ordre: ordreEnFin(pages, parent) })
+      if (p.corps) this.wiki.modifierCorps(l.chemin, p.corps)
+      return pageDe(this.wiki.lignes().find((x) => x.id === l.id) ?? l)
+    })
+  }
+
+  /** Change le titre d'une page et le nom de son fichier (à la sortie du champ titre, spec §3). */
+  async renommerPageWiki(id: string, titre: string): Promise<void> {
+    const chemin = this.cheminPageWiki(id)
+    this.wiki.modifier(chemin, 'titre', titre.trim() === '' ? undefined : titre)
+    await this.wiki.renommerSelonTitre(chemin)
+  }
+
+  /** Modifie le corps d'une page : affichage immédiat, écriture regroupée comme pour une ligne. */
+  modifierCorpsPageWiki(id: string, corps: string): void {
+    this.wiki.modifierCorps(this.cheminPageWiki(id), corps)
+  }
+
+  /**
+   * Déplace une page sous `parent` (`null` : à la racine), au rang `ordre`.
+   * Ses sous-pages suivent sans être réécrites : seul son fichier change.
+   */
+  deplacerPageWiki(id: string, parent: string | null, ordre: number): void {
+    const pages = this.instantane.wiki.pages
+    const chemin = this.cheminPageWiki(id)
+    if (parent !== null && !pages.some((x) => x.id === parent)) throw new ErreurSchema(`Page parente introuvable : ${parent}`)
+    if (!peutDeplacer(pages, id, parent)) throw new ErreurSchema('Une page ne peut pas aller sous elle-même ni sous ses sous-pages')
+    this.enUneEtape(() => {
+      this.wiki.modifier(chemin, 'parent', parent ?? undefined)
+      this.wiki.modifier(chemin, 'ordre', ordre)
+    })
+  }
+
+  /** Pages supprimées avec `id` : elle et toutes ses sous-pages. */
+  porteeSuppressionPageWiki(id: string): string[] {
+    return [id, ...descendants(this.instantane.wiki.pages, id)]
+  }
+
+  /** Supprime une page et toutes ses sous-pages, en une étape d'annulation. */
+  supprimerPageWiki(id: string): Promise<void> {
+    const chemins = this.porteeSuppressionPageWiki(id).map((x) => this.cheminPageWiki(x))
+    return this.enUneEtape(async () => {
+      for (const c of chemins) await this.wiki.supprimer(c)
+    })
+  }
+
+  private cheminPageWiki(id: string): string {
+    const l = this.wiki.lignes().find((x) => x.id === id)
+    if (!l) throw new ErreurSchema(`Page introuvable : ${id}`)
+    return l.chemin
   }
 }
 

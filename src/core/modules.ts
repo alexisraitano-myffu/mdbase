@@ -8,7 +8,7 @@ import type { TypeVue } from './vue'
 // l'espace utilise déjà, déduit des fichiers : un tel module est toujours
 // actif, pour qu'aucune version ni aucun réglage ne cache ce qu'un espace contient.
 
-export type IdModule = 'kanban' | 'collection' | 'calendrier' | 'timeline' | 'charge' | 'taches' | 'dashboards' | 'assistant' | 'inbox' | 'contexte' | 'jira' | 'mcp'
+export type IdModule = 'kanban' | 'collection' | 'calendrier' | 'timeline' | 'charge' | 'taches' | 'dashboards' | 'assistant' | 'inbox' | 'contexte' | 'jira' | 'mcp' | 'wiki'
 
 /** Types de vue qui sont des modules ; le tableau est dans le socle. */
 export const VUES_MODULES = ['kanban', 'collection', 'calendrier', 'timeline', 'charge'] as const satisfies readonly TypeVue[]
@@ -23,7 +23,7 @@ const CASE = /^\s*[-*+] \[[ xX]\]/m
  * Pourquoi chaque module est utilisé par l'espace (« utilisé par 3 vues ») ;
  * absent s'il ne l'est pas. Ne compte que ce qui est écrit dans les fichiers.
  */
-export function usagesModules(etat: Pick<EtatEspace, 'bases' | 'dashboards' | 'taches'>): Partial<Record<IdModule, string>> {
+export function usagesModules(etat: Pick<EtatEspace, 'bases' | 'dashboards' | 'taches' | 'wiki'>): Partial<Record<IdModule, string>> {
   const usages: Partial<Record<IdModule, string>> = {}
 
   const vues = new Map<TypeVue, number>()
@@ -49,6 +49,9 @@ export function usagesModules(etat: Pick<EtatEspace, 'bases' | 'dashboards' | 't
 
   const jira = bases.filter((b) => b.depot?.schema.source !== undefined).length
   if (jira > 0) usages.jira = `Utilisé par ${pluriel(jira, 'base Jira', 'bases Jira')}`
+
+  const pages = etat.wiki.pages.length
+  if (pages > 0) usages.wiki = `Utilisé par ${pluriel(pages, 'page', 'pages')}`
 
   return usages
 }
