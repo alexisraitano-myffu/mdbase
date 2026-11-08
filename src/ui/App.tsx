@@ -31,11 +31,12 @@ import { PanneauInbox, useInbox } from './Inbox'
 import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
 import { FenetreModules, useModules, useOuvertureMagasin } from './modules'
 import { useSynchroJiraBureau } from './synchroJira'
+import { VuePageWiki } from './PageWiki'
 import { getVersion } from '@tauri-apps/api/app'
 import { ecouterMcp } from '../adapters/tauri/mcp'
 import { serveurMcp } from '../core/ia/mcp'
 
-export type Selection = { type: 'base' | 'dashboard'; id: string } | { type: 'taches' }
+export type Selection = { type: 'base' | 'dashboard' | 'wiki'; id: string } | { type: 'taches' }
 
 type Etat =
   | { type: 'incompatible' }
@@ -383,6 +384,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
             choisir={choisir}
             choisirDashboard={(id) => setSelection({ type: 'dashboard', id })}
             toutesLesTaches={() => setSelection({ type: 'taches' })}
+            ouvrirPageWiki={(id) => setSelection({ type: 'wiki', id })}
             changerDossier={changer}
             chercher={() => setRecherche(true)}
             assistant={basculerAssistant}
@@ -416,7 +418,8 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
             </div>
             {dashboard && <VueDashboard key={dashboard.id} espace={espace} etat={dashboard} allerABase={choisir} />}
             {selection?.type === 'taches' && <ToutesLesTaches ouvrir={ouvrirResultat} />}
-            {!base && !dashboard && selection?.type !== 'taches' && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
+            {selection?.type === 'wiki' && <VuePageWiki key={selection.id} id={selection.id} ouvrir={(id) => setSelection({ type: 'wiki', id })} />}
+            {!base && !dashboard && selection?.type !== 'taches' && selection?.type !== 'wiki' && <p className="discret">Aucune base : crée-en une dans la barre latérale.</p>}
             {base && !base.chargement.ok && (
               <p className="erreur">
                 « {base.id} » n'est pas une base : {base.chargement.raison}

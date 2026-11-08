@@ -1977,3 +1977,16 @@ kbd.touche svg.icone { margin: 0; }
 .legende-graphique li { display: inline-flex; align-items: center; gap: 6px; }
 .pastille-graphique { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(var(--ombre), 0.12); }
 .trait-legende { width: 16px; border-top: 1.5px dashed var(--texte); }
+
+/* Wiki : arbre de la barre latérale et page ouverte (spec §22) */
+.entree-wiki { gap: 0.3em; }
+.chevron-wiki { flex-shrink: 0; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; padding: 0; border-radius: 3px; }
+button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
+.chevron-wiki svg { transition: transform 150ms ease; }
+.chevron-wiki svg.deplie { transform: rotate(90deg); }
+.entree-wiki.cible-avant { box-shadow: inset 0 2px 0 var(--accent); }
+.entree-wiki.cible-apres { box-shadow: inset 0 -2px 0 var(--accent); }
+.entree-wiki.cible-dans { background: var(--accent-fond); }
+.page-wiki { max-width: 46rem; }
+.sous-pages-wiki { list-style: none; padding: 0; margin: 1rem 0 0; display: flex; flex-direction: column; gap: 2px; }
+.sous-pages-wiki button { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.25rem 0.4rem; }

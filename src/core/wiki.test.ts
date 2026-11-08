@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arbreWiki, descendants, ordreEntre, ordreEnFin, peutDeplacer, type NoeudWiki, type PageWiki } from './wiki'
+import { arbreWiki, citePage, descendants, ordreEntre, ordreEnFin, peutDeplacer, placementWiki, type NoeudWiki, type PageWiki } from './wiki'
 
 // Wiki (spec §22) : l'arbre vient de la clé `parent` de pages à plat.
 
@@ -40,5 +40,32 @@ describe('arbre du wiki', () => {
     expect(ordreEntre(null, null)).toBe(1)
     expect(ordreEnFin([page('a', null, 1), page('b', null, 7), page('c', 'a', 40)], null)).toBe(8)
     expect(ordreEnFin([], 'a')).toBe(1)
+  })
+})
+
+describe('placementWiki et citePage', () => {
+  const p = (id: string, parent: string | null, ordre: number | null): PageWiki => ({ id, chemin: `_wiki/${id}--${id}.md`, titre: id, parent, ordre, corps: '' })
+  const pages = [p('a', null, 1), p('b', null, 2), p('c', null, 3), p('a1', 'a', 1), p('a2', 'a', 2)]
+
+  it('avant, après, dedans : un seul rang calculé entre les voisines', () => {
+    expect(placementWiki(pages, 'c', 'b', 'avant')).toEqual({ parent: null, ordre: 1.5 })
+    expect(placementWiki(pages, 'a', 'c', 'apres')).toEqual({ parent: null, ordre: 4 })
+    expect(placementWiki(pages, 'a', 'b', 'apres')).toEqual({ parent: null, ordre: 2.5 })
+    expect(placementWiki(pages, 'c', 'a1', 'avant')).toEqual({ parent: 'a', ordre: 0 })
+    expect(placementWiki(pages, 'c', 'a', 'dans')).toEqual({ parent: 'a', ordre: 3 })
+    expect(placementWiki(pages, 'b', 'c', 'dans')).toEqual({ parent: 'c', ordre: 1 })
+  })
+
+  it('refuse sur elle-même et dans sa descendance', () => {
+    expect(placementWiki(pages, 'a', 'a', 'dans')).toBeNull()
+    expect(placementWiki(pages, 'a', 'a1', 'dans')).toBeNull()
+    expect(placementWiki(pages, 'a', 'a2', 'apres')).toBeNull()
+  })
+
+  it('citePage reconnaît le lien par id, avec ou sans titre affiché', () => {
+    expect(citePage('voir [[_wiki/deploiement--p4m1z8rt|Déploiement]]', 'p4m1z8rt')).toBe(true)
+    expect(citePage('voir [[_wiki/ancien-nom--p4m1z8rt]]', 'p4m1z8rt')).toBe(true)
+    expect(citePage('voir [[_wiki/deploiement--p4m1z8rtx]]', 'p4m1z8rt')).toBe(false)
+    expect(citePage('p4m1z8rt', 'p4m1z8rt')).toBe(false)
   })
 })

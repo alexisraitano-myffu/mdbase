@@ -191,3 +191,32 @@ export function ordreEnFin(pages: readonly PageWiki[], parent: string | null): n
   const rangs = pages.filter((p) => p.parent === parent && p.ordre !== null).map((p) => p.ordre!)
   return ordreEntre(rangs.length > 0 ? Math.max(...rangs) : undefined, undefined)
 }
+
+/** Où une page lâchée sur une autre doit aller : juste avant, juste après, ou dedans (en dernier). */
+export type PositionDepot = 'avant' | 'apres' | 'dans'
+
+/**
+ * Parent et rang d'une page `id` déposée par rapport à `cible` (glisser-déposer
+ * de la barre latérale). `null` si le dépôt est refusé : sur elle-même, ou dans
+ * sa propre descendance.
+ */
+export function placementWiki(pages: readonly PageWiki[], id: string, cible: string, position: PositionDepot): { parent: string | null; ordre: number } | null {
+  if (id === cible) return null
+  const c = pages.find((p) => p.id === cible)
+  if (!c) return null
+  const parent = position === 'dans' ? c.id : c.parent
+  if (!peutDeplacer(pages, id, parent)) return null
+  const autres = pages.filter((p) => p.id !== id)
+  if (position === 'dans') return { parent, ordre: ordreEnFin(autres, parent) }
+  const soeurs = autres.filter((p) => p.parent === parent).sort(comparerPages)
+  const i = soeurs.findIndex((p) => p.id === cible)
+  const [avant, apres] = position === 'avant' ? [soeurs[i - 1], soeurs[i]] : [soeurs[i], soeurs[i + 1]]
+  return { parent, ordre: ordreEntre(avant?.ordre, apres?.ordre) }
+}
+
+/** Un texte cite-t-il la page `id` (`[[_wiki/<slug>--<id>|…]]`, spec §22) ? */
+export function citePage(texte: string, id: string): boolean {
+  if (!texte.includes('[[_wiki/')) return false
+  const echappe = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`\\[\\[_wiki/[^\\]|]*--${echappe}(?:\\.md)?(?:\\||\\]\\])`).test(texte)
+}

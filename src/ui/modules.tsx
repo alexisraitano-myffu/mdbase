@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { BookOpen, Bot, Check, Copy, Inbox, LayoutDashboard, LayoutTemplate, ListChecks, RefreshCw, Sparkles, type LucideIcon } from 'lucide-react'
+import { BookOpen, Bot, Check, Copy, FileText, Inbox, LayoutDashboard, LayoutTemplate, ListChecks, RefreshCw, Sparkles, type LucideIcon } from 'lucide-react'
 import type { EtatEspace } from '../core/depot-espace'
 import { estVueModule, usagesModules, type IdModule } from '../core/modules'
 import type { TypeVue } from '../core/vue'
@@ -107,6 +107,7 @@ const CATALOGUE: { categorie: string; fiches: Fiche[] }[] = [
     fiches: [
       { id: 'taches', nom: 'Tâches', icone: ListChecks, phrase: 'Toutes les tâches de l’espace au même endroit : cases des pages et base des tâches, avec sous-tâches.', apercu: <ApercuTaches /> },
       { id: 'dashboards', nom: 'Dashboards', icone: LayoutDashboard, phrase: 'Des vues de plusieurs bases sur une page, des graphiques et des fiches calculés en SQL.', apercu: <ApercuDashboards /> },
+      { id: 'wiki', nom: 'Wiki', icone: FileText, phrase: 'Des pages libres rangées en arbre : procédures, notes, documentation. Une page qui a des sous-pages sert de dossier.', apercu: <ApercuWiki /> },
     ],
   },
   {
@@ -418,6 +419,31 @@ function ApercuDashboards() {
       {[0, 1, 2].map((i) => (
         <Trait key={i} x={14} y={44 + i * 7} l={[80, 64, 72][i]!} />
       ))}
+    </Croquis>
+  )
+}
+
+function ApercuWiki() {
+  // L'arbre à gauche (pages et sous-pages en retrait), la page ouverte à droite.
+  const arbre: [number, number, number, boolean?][] = [
+    [0, 12, 26],
+    [1, 20, 22, true],
+    [1, 28, 18],
+    [0, 36, 24],
+    [1, 44, 20],
+    [2, 52, 16],
+  ]
+  return (
+    <Croquis>
+      {arbre.map(([niveau, y, l, actif], i) =>
+        actif ? <rect key={i} x={8 + niveau * 6} y={y - 2.5} width={l + 4} height={7} rx={1.5} className="plein" /> : <Trait key={i} x={10 + niveau * 6} y={y} l={l} />,
+      )}
+      <Carte x={50} y={8} l={62} h={56} />
+      <rect x={56} y={14} width={34} height={4} rx={1.5} className="plein" />
+      {[0, 1, 2, 3].map((i) => (
+        <Trait key={i} x={56} y={25 + i * 7} l={[48, 40, 46, 30][i]!} />
+      ))}
+      <rect x={56} y={54} width={20} height={5} rx={1.5} className="doux" />
     </Croquis>
   )
 }

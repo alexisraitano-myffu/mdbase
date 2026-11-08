@@ -1,6 +1,7 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import type { DepotEspace, EtatEspace, PorteeSuppressionBase } from '../core/depot-espace'
 import { useLancer } from './actions'
+import { SectionWiki } from './ArbreWiki'
 import { AlerteCopies } from './Conflits'
 import type { Selection } from './App'
 import { Flottant } from './flottant'
@@ -25,6 +26,8 @@ type Props = {
   indicateurIA?: ReactNode
   /** Ouvre la recherche globale. */
   chercher: () => void
+  /** Ouvre une page du wiki. */
+  ouvrirPageWiki: (id: string) => void
   /** Affiche la page « Toutes les tâches ». */
   toutesLesTaches: () => void
   /** Relit le dossier (changements faits ailleurs), et l'état de la dernière relecture. */
@@ -34,7 +37,7 @@ type Props = {
   reduire: () => void
   /** Modules activés (spec §19) : ce qu'ils montrent dans la barre. */
   assistantActif: boolean
-  modules: Pick<ModulesActifs, 'jira' | 'inbox' | 'contexte' | 'taches' | 'dashboards'>
+  modules: Pick<ModulesActifs, 'jira' | 'inbox' | 'contexte' | 'taches' | 'dashboards' | 'wiki'>
   /** Entrée Inbox : éléments en attente, panneau ouvert, ouvrir ou fermer. */
   inbox: { compte: number; ouverte: boolean; basculer: () => void }
   ouvrirModules: () => void
@@ -68,7 +71,7 @@ function useReplis(nomEspace: string) {
 }
 
 /** Nom d'une section qui la replie ou la déplie au clic ; repliée, le nombre d'entrées cachées. */
-function BasculeSection(p: { nom: string; replie: boolean; basculer: () => void; caches: number; renommer?: () => void; discret?: boolean }) {
+export function BasculeSection(p: { nom: string; replie: boolean; basculer: () => void; caches: number; renommer?: () => void; discret?: boolean }) {
   return (
     <button
       className={`bascule-section ${p.discret ? 'discret' : ''}`}
@@ -86,7 +89,7 @@ function BasculeSection(p: { nom: string; replie: boolean; basculer: () => void;
 }
 
 /** Barre latérale (spec §2) : groupes plats de bases, glisser-déposer entre groupes. */
-export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules, documents, reduire }: Props) {
+export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, choisirDashboard, changerDossier, chercher, toutesLesTaches, ouvrirPageWiki, assistant, indicateurIA, relire, relu, assistantActif, modules, inbox, ouvrirModules, documents, reduire }: Props) {
   const lancer = useLancer()
   const [creation, setCreation] = useState<'base' | 'groupe' | 'dashboard' | null>(null)
   const choisie = selection?.type === 'base' ? selection.id : null
@@ -241,6 +244,10 @@ export function BarreLaterale({ espace, etat, nomEspace, selection, choisir, cho
           />
         )}
       </section>
+      )}
+
+      {modules.wiki && (
+        <SectionWiki espace={espace} etat={etat} ouverte={selection?.type === 'wiki' ? selection.id : null} ouvrir={ouvrirPageWiki} replis={replis} basculer={basculer} />
       )}
 
       {etat.groupes.map((g) => (
@@ -427,13 +434,13 @@ function ConfirmerSuppressionBase(p: { nom: string; portee: PorteeSuppressionBas
 }
 
 /** Bouton ⋯ d'une entrée de la barre latérale : le même menu que le clic droit. */
-function BoutonMenuEntree(p: { ouvert: boolean; ouvrir: () => void; libelle: string }) {
+export function BoutonMenuEntree(p: { ouvert: boolean; ouvrir: () => void; libelle: string; titre?: string }) {
   return (
     <button
       className="discret menu-entree"
       aria-label={p.libelle}
       aria-expanded={p.ouvert}
-      title="Renommer, dupliquer, supprimer"
+      title={p.titre ?? 'Renommer, dupliquer, supprimer'}
       onClick={(e) => {
         e.stopPropagation()
         p.ouvrir()
@@ -578,7 +585,7 @@ function EnteteGroupe(p: { nom: string; replie: boolean; basculer: () => void; c
   )
 }
 
-function ChampEnLigne(p: {
+export function ChampEnLigne(p: {
   initial?: string
   placeholder?: string
   valider: (valeur: string) => void
