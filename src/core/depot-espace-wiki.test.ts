@@ -104,4 +104,17 @@ describe('wiki', () => {
     const { espace } = await ouvrir({ '_wiki/glossaire--g0000001.md': texte, '_wiki/glossaire--g0000001-PC-Bureau.md': texte })
     expect(espace.etat().wiki.doublons.get('g0000001')).toHaveLength(2)
   })
+
+  it('rétroliens : une page qui cite une ligne apparaît dans ses citations, et en sort quand la citation est retirée', async () => {
+    const { espace, ecrire } = await ouvrir({ 'clients/acme--c0000001.md': '---\nid: c0000001\nnom: Acme\n---\nVoir [[projets/navi--p0000001|Navi]].\n' })
+    const navi = { base: 'projets', id: 'p0000001' }
+    expect(espace.citant(navi)).toEqual([{ base: 'clients', id: 'c0000001' }])
+    const p = await espace.creerPageWiki({ titre: 'Procédures', corps: 'Le projet [[projets/ancien--p0000001|Navi]].' })
+    expect(espace.citant(navi)).toEqual([{ base: 'clients', id: 'c0000001' }, { base: '_wiki', id: p.id }])
+    const q = await espace.creerPageWiki({ titre: 'Index', corps: `[[_wiki/procedures--${p.id}]]` })
+    expect(espace.citant({ base: '_wiki', id: p.id })).toEqual([{ base: '_wiki', id: q.id }])
+    espace.modifierCorpsPageWiki(p.id, 'Plus de lien.')
+    expect(espace.citant(navi)).toEqual([{ base: 'clients', id: 'c0000001' }])
+    await ecrire()
+  })
 })

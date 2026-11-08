@@ -29,6 +29,7 @@ import { DonneesDe, useConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, ListChecks, Maximize2, Minimize2, Plus, TriangleAlert, X } from 'lucide-react'
 import { Choix } from './Choix'
 import { ContenusLies, ReglageContenus } from './ContenusLies'
+import { Retroliens } from './Retroliens'
 import { Corps } from './Corps'
 import { Interrupteur, Reglage, Section } from './reglages'
 import { OngletTaches, restantesDeLaPage } from './Taches'
@@ -151,6 +152,7 @@ export function Page(p: Props) {
           </DonneesDe>
         )}
         {!corpsSeul && actif.type !== 'taches' && contenus}
+        <Retroliens key={`citee:${p.base}/${ligne.id}`} cible={{ base: p.base, id: ligne.id }} titre="Citée dans" />
       </div>
     </Cadre>
   )

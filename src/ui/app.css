@@ -2005,3 +2005,10 @@ button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
 .apercu-reference dt { color: var(--discret); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .apercu-reference dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
 .liens-morts-wiki { margin-left: auto; display: inline-flex; align-items: center; gap: 0.3em; color: var(--discret); }
+.retroliens { margin-top: 2.5rem; border-top: 1px solid var(--bordure); padding-top: 0.75rem; }
+.retroliens h2 { font-size: 0.8em; font-weight: 600; color: var(--discret); margin: 0 0 0.4rem; }
+.retroliens ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.retroliens button { display: flex; align-items: center; gap: 0.4em; width: 100%; text-align: left; padding: 0.25rem 0.4rem; }
+.retroliens .titre-retrolien { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.retroliens .base-retrolien { margin-left: auto; font-size: 0.85em; color: var(--tres-discret-texte); }
+.page-wiki .retroliens + .bas-page-wiki { margin-top: 1.25rem; }

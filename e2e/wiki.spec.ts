@@ -218,3 +218,33 @@ test('liens vivants : l’aperçu d’une ligne montre ses valeurs actuelles, un
   await expect(apercu).toContainText('Terminé')
   expect(await espace.lire('_wiki/procedures--wproc001.md')).toBe(avant)
 })
+
+test('rétroliens : « Citée dans » sur la ligne, « Citée par » sur la page, à jour quand la citation part', async ({ espace, page }) => {
+  await espace.ecrire('_wiki/deploiement--wdepl002.md', '---\nid: wdepl002\ntitre: Déploiement\n---\nÉtapes.\n')
+  await espace.ecrire('_wiki/accueil--wacc0003.md', '---\nid: wacc0003\ntitre: Accueil\n---\nCommencer par [[_wiki/deploiement--wdepl002|Déploiement]].\n')
+  await espace.retourSurOnglet()
+  await entree(page, 'Déploiement').click()
+  const citeePar = page.getByRole('region', { name: 'Citée par' })
+  await expect(citeePar.getByRole('button')).toHaveText(['AccueilWiki'])
+
+  // Citer une ligne depuis la page : elle apparaît dans « Citée dans » de la ligne.
+  const corps = page.locator('.page-wiki .editeur-corps .cm-content')
+  await corps.click()
+  await page.keyboard.press('ControlOrMeta+End')
+  await page.keyboard.type(' Pour @site vi')
+  await option(page, 'Site vitrine').click()
+  await espace.ouvrirPage('Projets', 'Site vitrine')
+  const citeeDans = page.getByRole('region', { name: 'Citée dans' })
+  await expect(citeeDans.getByRole('button', { name: /Déploiement/ })).toBeVisible()
+  await expect(citeeDans).not.toContainText('Étapes') // jamais le contenu du wiki
+  await page.screenshot({ path: 'test-results/wiki-citee-dans.png' })
+  await citeeDans.getByRole('button', { name: /Déploiement/ }).click()
+  await expect(page.getByLabel('Titre de la page')).toHaveValue('Déploiement')
+
+  // La citation retirée : la ligne ne la montre plus.
+  await espace.remplacer('_wiki/deploiement--wdepl002.md', / Pour \[\[[^\]]+\]\]/, '')
+  await espace.retourSurOnglet()
+  await espace.ouvrirPage('Projets', 'Site vitrine')
+  await expect(page.locator('.contenu-page')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Citée dans' }).getByRole('button', { name: /Déploiement/ })).toHaveCount(0)
+})

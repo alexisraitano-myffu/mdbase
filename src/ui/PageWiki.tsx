@@ -2,8 +2,9 @@ import { createContext, lazy, Suspense, useContext, useRef, useState, type React
 import { ChevronRight, FileText, FolderTree, Unlink } from 'lucide-react'
 import { lireLiens, resoudreLien } from '../core/liens-internes'
 import { SurvolReferences } from './ApercuReference'
+import { Retroliens } from './Retroliens'
 import type { DepotEspace } from '../core/depot-espace'
-import { arbreWiki, comparerPages, parentsDe, type NoeudWiki, type PageWiki } from '../core/wiki'
+import { arbreWiki, comparerPages, DOSSIER_WIKI, parentsDe, type NoeudWiki, type PageWiki } from '../core/wiki'
 import { useLancer } from './actions'
 import { ContexteEspace, ContexteOuvrir, useEspace } from './contexte-espace'
 import { Fenetre } from './fenetre'
@@ -100,6 +101,7 @@ export function VuePageWiki(p: { id: string; ouvrir: (id: string) => void }) {
         </Suspense>
         </SurvolReferences>
       </div>
+      <Retroliens cible={{ base: DOSSIER_WIKI, id: page.id }} titre="Citée par" />
       {sousPages.length > 0 && (
         <section className="bas-page-wiki">
           <h2>Sous-pages</h2>

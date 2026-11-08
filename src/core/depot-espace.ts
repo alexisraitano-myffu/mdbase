@@ -23,6 +23,7 @@ import { boucle } from './graphe'
 import { copieDeConflit, doublons } from './conflits'
 import { convertirValeur, type ColonneImportee } from './echange'
 import { Historique, type Changement } from './historique'
+import { IndexLiens, type SourceLien } from './index-liens'
 import { adaptateurWiki, chargerWiki, descendants, DOSSIER_WIKI, ordreEnFin, pageDe, peutDeplacer, SCHEMA_WIKI, type PageWiki } from './wiki'
 import { IndexRecherche, type Resultat } from './recherche'
 import { MemoireAssistant } from './ia/memoire'
@@ -1845,8 +1846,22 @@ export class DepotEspace {
         ? this.instantane.wiki
         : { pages: lignesWiki.map(pageDe), doublons: doublons(lignesWiki), nonReconnus: this.nonReconnusWiki }
     this.lignesWikiPubliees = lignesWiki
+    this.liens.synchroniser(this.corpsIndexes(lignesWiki))
     this.instantane = { dashboards, groupes, horsGroupe, bases: new Map(this.bases), calculs, titres, doublons: enDouble, copiesConflit: this.copies, theme: { ...this.config.theme, ...(this.logoSvg && { logoSvg: this.logoSvg }) }, ...(this.config.taches && { taches: this.config.taches }), wiki }
     for (const fn of this.abonnes) fn()
+  }
+
+  /** Index des liens (spec §22) : en mémoire, tenu à jour à chaque publication, corps par corps. */
+  private readonly liens = new IndexLiens()
+
+  private *corpsIndexes(lignesWiki: readonly LigneChargee[]): Iterable<SourceLien & { corps: string }> {
+    for (const b of this.bases.values()) for (const l of b.depot?.lignes() ?? []) yield { base: b.id, id: l.id, corps: l.corps }
+    for (const l of lignesWiki) yield { base: DOSSIER_WIKI, id: l.id, corps: l.corps }
+  }
+
+  /** Lignes et pages du wiki qui citent `cible` (une ligne, ou une page si `base` vaut `_wiki`). */
+  citant(cible: SourceLien): SourceLien[] {
+    return this.liens.citant(this.instantane, cible)
   }
 
   /** Lignes du wiki à la dernière publication : l'état du wiki garde sa référence tant qu'elles n'ont pas changé. */
