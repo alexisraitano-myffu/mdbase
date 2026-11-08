@@ -1876,6 +1876,11 @@ export class DepotEspace {
     await this.wiki.renommerSelonTitre(chemin)
   }
 
+  /** Change le titre pendant la saisie, sans renommer le fichier (fait par `renommerPageWiki` à la sortie du champ). */
+  titrerPageWiki(id: string, titre: string): void {
+    this.wiki.modifier(this.cheminPageWiki(id), 'titre', titre.trim() === '' ? undefined : titre)
+  }
+
   /** Modifie le corps d'une page : affichage immédiat, écriture regroupée comme pour une ligne. */
   modifierCorpsPageWiki(id: string, corps: string): void {
     this.wiki.modifierCorps(this.cheminPageWiki(id), corps)

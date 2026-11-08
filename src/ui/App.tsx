@@ -31,7 +31,8 @@ import { PanneauInbox, useInbox } from './Inbox'
 import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
 import { FenetreModules, useModules, useOuvertureMagasin } from './modules'
 import { useSynchroJiraBureau } from './synchroJira'
-import { VuePageWiki } from './PageWiki'
+import { ContexteCreerPage, FenetreEmplacement, VuePageWiki, type CreerPageWiki } from './PageWiki'
+import { DOSSIER_WIKI } from '../core/wiki'
 import { getVersion } from '@tauri-apps/api/app'
 import { ecouterMcp } from '../adapters/tauri/mcp'
 import { serveurMcp } from '../core/ia/mcp'
@@ -366,7 +367,15 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
       clearTimeout(minuterie)
     }
   }, [espace, lancer, consultation])
+  // « / Page » (spec §22) : la fenêtre « Où créer la page ? » rend sa réponse à l'éditeur qui l'a demandée.
+  const [emplacement, setEmplacement] = useState<((parent: string | null | undefined) => void) | null>(null)
+  const creerPageWiki: CreerPageWiki = async (parent) => {
+    const choisi = parent === 'demander' ? await new Promise<string | null | undefined>((r) => setEmplacement(() => r)) : parent
+    if (choisi === undefined) return null
+    return (await lancer((async () => espace.creerPageWiki({ parent: choisi }))())) ?? null
+  }
   const ouvrirResultat = (base: string, id: string) => {
+    if (base === DOSSIER_WIKI) return setSelection({ type: 'wiki', id })
     setSelection({ type: 'base', id: base })
     setPageDemandee((d) => ({ base, id, jeton: (d?.jeton ?? 0) + 1 }))
   }
@@ -374,6 +383,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
   return (
     <ContexteEspace.Provider value={{ espace, etat }}>
       <ContexteOuvrir.Provider value={ouvrirResultat}>
+      <ContexteCreerPage.Provider value={modules.wiki ? creerPageWiki : null}>
       <ContexteMode.Provider value={consultation}>
         <div className={`espace ${consultation ? 'consultation' : ''} ${pleinEcran ? 'vue-plein-ecran' : ''} ${barreReduite ? 'barre-reduite' : ''}`}>
           {!barreReduite && <BarreLaterale
@@ -493,6 +503,19 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
           </div>
         )}
       </ContexteMode.Provider>
+      {emplacement && (
+        <FenetreEmplacement
+          choisir={(parent) => {
+            setEmplacement(null)
+            emplacement(parent)
+          }}
+          fermer={() => {
+            setEmplacement(null)
+            emplacement(undefined)
+          }}
+        />
+      )}
+      </ContexteCreerPage.Provider>
       </ContexteOuvrir.Provider>
     </ContexteEspace.Provider>
   )

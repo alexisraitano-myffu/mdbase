@@ -1987,6 +1987,14 @@ button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
 .entree-wiki.cible-avant { box-shadow: inset 0 2px 0 var(--accent); }
 .entree-wiki.cible-apres { box-shadow: inset 0 -2px 0 var(--accent); }
 .entree-wiki.cible-dans { background: var(--accent-fond); }
-.page-wiki { max-width: 46rem; }
-.sous-pages-wiki { list-style: none; padding: 0; margin: 1rem 0 0; display: flex; flex-direction: column; gap: 2px; }
+.page-wiki { width: 100%; max-width: 46rem; box-sizing: border-box; margin: 0 auto; padding: 0.5rem 1.5rem 4rem; }
+.page-wiki .corps-wiki { border-top: 0; padding-top: 0; }
+.ariane-wiki { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3em; font-size: 0.85em; color: var(--discret); margin-bottom: 0.5rem; min-height: 1.6em; }
+.ariane-wiki .etape-ariane { display: inline-flex; align-items: center; gap: 0.3em; }
+.ariane-wiki button { padding: 0.1rem 0.25rem; }
+.bas-page-wiki { margin-top: 2.5rem; border-top: 1px solid var(--bordure); padding-top: 0.75rem; }
+.bas-page-wiki h2 { font-size: 0.8em; font-weight: 600; color: var(--discret); margin: 0 0 0.4rem; }
+.emplacements-wiki, .emplacements-wiki ul { list-style: none; margin: 0; padding: 0; }
+.emplacements-wiki .option { display: flex; align-items: center; gap: 0.4em; width: 100%; }
+.sous-pages-wiki { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
 .sous-pages-wiki button { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.25rem 0.4rem; }

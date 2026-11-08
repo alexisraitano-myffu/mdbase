@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arbreWiki, citePage, descendants, ordreEntre, ordreEnFin, peutDeplacer, placementWiki, type NoeudWiki, type PageWiki } from './wiki'
+import { arbreWiki, citePage, parentsDe, descendants, ordreEntre, ordreEnFin, peutDeplacer, placementWiki, type NoeudWiki, type PageWiki } from './wiki'
 
 // Wiki (spec §22) : l'arbre vient de la clé `parent` de pages à plat.
 
@@ -67,5 +67,15 @@ describe('placementWiki et citePage', () => {
     expect(citePage('voir [[_wiki/ancien-nom--p4m1z8rt]]', 'p4m1z8rt')).toBe(true)
     expect(citePage('voir [[_wiki/deploiement--p4m1z8rtx]]', 'p4m1z8rt')).toBe(false)
     expect(citePage('p4m1z8rt', 'p4m1z8rt')).toBe(false)
+  })
+})
+
+describe('parentsDe', () => {
+  const p = (id: string, parent: string | null): PageWiki => ({ id, chemin: `_wiki/${id}.md`, titre: id, parent, ordre: null, corps: '' })
+  it('de la racine au parent direct ; vide à la racine ; s’arrête sur une boucle', () => {
+    const pages = [p('a', null), p('b', 'a'), p('c', 'b'), p('x', 'y'), p('y', 'x')]
+    expect(parentsDe(pages, 'c').map((x) => x.id)).toEqual(['a', 'b'])
+    expect(parentsDe(pages, 'a')).toEqual([])
+    expect(parentsDe(pages, 'x').map((x) => x.id)).toEqual(['y'])
   })
 })

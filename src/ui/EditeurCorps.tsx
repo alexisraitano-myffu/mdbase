@@ -9,7 +9,7 @@ import { langageMarkdown } from './editeur/langage'
 import { liens as champLiens, raccourcisLiens } from './editeur/liens'
 import { collerMisEnForme } from './editeur/coller'
 import { menu, raccourcisMiseEnForme } from './editeur/mise-en-forme'
-import { menuReferences, pastillesReferences, type SourceLiens } from './editeur/references'
+import { menuNouvellePage, menuPages, menuReferences, pastillesReferences, rafraichirPastilles, type SourceLiens } from './editeur/references'
 import { repli } from './editeur/repli'
 import { MenuTexte } from './MenuTexte'
 
@@ -34,7 +34,7 @@ const styleMarkdown = HighlightStyle.define([
  * Le texte n'est jamais normalisé : seul ce que l'utilisateur tape change le
  * fichier, et ouvrir une page ne le réécrit jamais.
  */
-export function EditeurCorps({ initial, changer, lecture = false, liens }: { initial: string; changer: (markdown: string) => void; lecture?: boolean; liens?: SourceLiens }) {
+export function EditeurCorps({ initial, changer, lecture = false, liens, libelle = 'Contenu de la page' }: { initial: string; changer: (markdown: string) => void; lecture?: boolean; liens?: SourceLiens; libelle?: string }) {
   const racine = useRef<HTMLDivElement>(null)
   const changerCourant = useRef(changer)
   changerCourant.current = changer
@@ -56,14 +56,14 @@ export function EditeurCorps({ initial, changer, lecture = false, liens }: { ini
           indentUnit.of('    '),
           syntaxHighlighting(styleMarkdown),
           EditorView.lineWrapping,
-          EditorView.contentAttributes.of({ 'aria-label': 'Contenu de la page', spellcheck: 'true', lang: 'fr' }),
+          EditorView.contentAttributes.of({ 'aria-label': libelle, spellcheck: 'true', lang: 'fr' }),
           placeholder('Écris ici, tape « / » pour insérer un bloc ou « @ » pour citer une page'),
           apercu,
           pastillesReferences(() => liensCourants.current ?? null),
           repli,
           champLiens,
           collerMisEnForme,
-          menu(menuReferences(() => liensCourants.current ?? null)),
+          menu(menuReferences(() => liensCourants.current ?? null), menuPages(() => liensCourants.current ?? null), menuNouvellePage(() => liensCourants.current ?? null)),
           keymap.of([...raccourcisMiseEnForme, ...raccourcisLiens, ...defaultKeymap, ...historyKeymap, indentWithTab]),
           modifiable.current.of(etatLecture(lectureInitiale.current)),
           EditorView.updateListener.of((u) => {
@@ -79,6 +79,12 @@ export function EditeurCorps({ initial, changer, lecture = false, liens }: { ini
     }
     // `initial` volontairement lu une seule fois : le parent remonte l'éditeur à chaque changement de ligne.
   }, [])
+
+  // Titres et pages changent pendant que la page est ouverte : les pastilles suivent.
+  const etatEspace = liens?.etat()
+  useEffect(() => {
+    vue.current?.dispatch({ effects: rafraichirPastilles.of(null) })
+  }, [etatEspace])
 
   // Mode consultation : le texte reste affiché, rien ne s'y tape.
   useEffect(() => {

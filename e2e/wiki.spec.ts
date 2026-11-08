@@ -30,7 +30,7 @@ async function nouvellePage(page: Page, titre: string, parent?: string) {
   }
   await page.locator('.champ-en-ligne').fill(titre)
   await page.keyboard.press('Enter')
-  await expect(page.locator('.page-wiki h1')).toHaveText(titre)
+  await expect(page.getByLabel('Titre de la page')).toHaveValue(titre)
 }
 
 /** Glisse une entrée sur le haut, le milieu ou le bas d'une autre. */
@@ -123,4 +123,73 @@ test('le magasin présente le wiki ; une page dans le dossier suffit à le garde
   await page.keyboard.press('Escape')
   await entree(page, 'Notes').click()
   await expect(page.locator('.page-wiki')).toContainText('Un texte.')
+})
+
+/** Une option du menu de l'éditeur, par son libellé exact (le détail est à côté). */
+const option = (page: Page, libelle: string) =>
+  page.locator('.cm-tooltip-autocomplete li', { has: page.locator('.cm-completionLabel', { hasText: new RegExp(`^${libelle}$`) }) })
+
+test('page en plein écran : écrire, citer une ligne et une page, suivre les liens, « / Page » crée une sous-page', async ({ espace, page }) => {
+  await ajouterModule(page, 'Wiki')
+  await nouvellePage(page, 'Procédures')
+  await nouvellePage(page, 'Déploiement', 'Procédures')
+  await entree(page, 'Procédures').click()
+  const corps = page.locator('.page-wiki .editeur-corps .cm-content')
+  await corps.click()
+  await page.keyboard.type('Voir @site vi')
+  await option(page, 'Site vitrine').click()
+  await page.keyboard.type(' et [[dépl')
+  await option(page, 'Déploiement').click()
+  const procedures = () => lireWiki(espace).then((w) => `_wiki/${w.Procédures!.fichier}`)
+  await expect.poll(async () => espace.lire(await procedures())).toMatch(/\nVoir \[\[projets\/site-vitrine--psite001\|Site vitrine\]\] et \[\[_wiki\/deploiement--[a-z0-9]{8}\|Déploiement\]\]$/)
+
+  // « / Page » : une sous-page de la page en cours, liée au curseur, ouverte, titre à écrire.
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('/page')
+  await option(page, 'Page').click()
+  const titre = page.getByLabel('Titre de la page')
+  await expect(titre).toBeFocused()
+  await page.keyboard.type('Serveurs')
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await lireWiki(espace)).Serveurs).toMatchObject({ parent: 'Procédures' })
+  await expect(page.locator('.ariane-wiki')).toContainText('Procédures')
+  await page.locator('.ariane-wiki').getByRole('button', { name: 'Procédures' }).click()
+  await expect(titre).toHaveValue('Procédures')
+  await page.mouse.click(5, 5)
+  await expect(corps.locator('.cm-reference')).toHaveText(['Site vitrine', 'Déploiement', 'Serveurs'])
+
+  // Les liens restent justes après le renommage de la ligne et le déplacement de la page.
+  await espace.remplacer('projets/site-vitrine--psite001.md', 'titre: Site vitrine', 'titre: Site institutionnel')
+  await glisserSur(entree(page, 'Déploiement'), entree(page, 'Procédures'), 'avant')
+  await expect.poll(async () => (await lireWiki(espace)).Déploiement).toMatchObject({ parent: null })
+  await espace.retourSurOnglet()
+  await expect(corps.locator('.cm-reference:not(.cassee)')).toHaveText(['Site institutionnel', 'Déploiement', 'Serveurs'])
+  await page.screenshot({ path: 'test-results/wiki-page.png' })
+
+  // Suivre : une pastille de page ouvre la page, une pastille de ligne ouvre la ligne.
+  await corps.locator('.cm-reference', { hasText: 'Déploiement' }).click()
+  await expect(titre).toHaveValue('Déploiement')
+  await entree(page, 'Procédures').click()
+  await corps.locator('.cm-reference', { hasText: 'Site institutionnel' }).click()
+  await expect(page.locator('.titre-page')).toHaveValue('Site institutionnel')
+})
+
+test('« / Page » depuis le corps d’une ligne demande l’emplacement', async ({ espace, page }) => {
+  await ajouterModule(page, 'Wiki')
+  await nouvellePage(page, 'Procédures')
+  await espace.ouvrirPage('Tâches', 'Intégration')
+  const corps = page.locator('.editeur-corps .cm-content')
+  await corps.click()
+  await page.keyboard.press('ControlOrMeta+End')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('/page')
+  await expect(option(page, 'Page dans…')).toHaveCount(0) // hors du wiki, « Page » demande toujours
+  await option(page, 'Page').click()
+  const fenetre = page.getByRole('dialog', { name: 'Où créer la page ?' })
+  await fenetre.getByRole('button', { name: 'Procédures' }).click()
+  await expect(page.getByLabel('Titre de la page')).toBeFocused()
+  await page.keyboard.type('Intégration continue')
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await lireWiki(espace))['Intégration continue']).toMatchObject({ parent: 'Procédures' })
+  await expect.poll(() => espace.lire('taches/integration--tinte002.md')).toMatch(/\[\[_wiki\/[a-z0-9]{8}\]\]/)
 })

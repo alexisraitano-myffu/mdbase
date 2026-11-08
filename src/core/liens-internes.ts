@@ -1,4 +1,5 @@
 import type { EtatEspace } from './depot-espace'
+import { DOSSIER_WIKI } from './wiki'
 
 // Références à une ligne dans le corps d'une page (spec §9, « Références ») :
 // un lien wiki à la manière d'Obsidian, `[[projets/site-vitrine--psite001|Site vitrine]]`.
@@ -21,7 +22,7 @@ export function ecrireLien(chemin: string, titre: string): string {
 }
 
 /**
- * Ligne visée par un lien : l'id après le dernier `--` du nom de fichier, cherché
+ * Ligne (ou page du wiki, `base` vaut alors `_wiki`) visée par un lien : l'id après le dernier `--` du nom de fichier, cherché
  * d'abord dans la base du dossier, puis dans toutes les bases (base renommée).
  * `null` pour un lien cassé.
  */
@@ -31,7 +32,15 @@ export function resoudreLien(etat: EtatEspace, cible: string): { base: string; i
   const id = nom.includes('--') ? nom.slice(nom.lastIndexOf('--') + 2) : nom
   if (!id) return null
   const dossier = segments.length > 1 ? segments.slice(0, -1).join('/') : null
+  // Page du wiki (spec §22) : `[[_wiki/<slug>--<id>]]`, cherchée parmi les pages seulement.
+  if (dossier === DOSSIER_WIKI) return etat.wiki.pages.some((p) => p.id === id) ? { base: DOSSIER_WIKI, id } : null
   if (dossier && etat.titres.get(dossier)?.has(id)) return { base: dossier, id }
   for (const [base, titres] of etat.titres) if (titres.has(id)) return { base, id }
   return null
+}
+
+/** Titre actuel de ce que vise un lien résolu : la ligne ou la page du wiki. */
+export function titreCible(etat: EtatEspace, cible: { base: string; id: string }): string {
+  if (cible.base === DOSSIER_WIKI) return etat.wiki.pages.find((p) => p.id === cible.id)?.titre || 'Sans titre'
+  return etat.titres.get(cible.base)?.get(cible.id) || 'Sans titre'
 }

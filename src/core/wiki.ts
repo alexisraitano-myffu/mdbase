@@ -220,3 +220,15 @@ export function citePage(texte: string, id: string): boolean {
   const echappe = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`\\[\\[_wiki/[^\\]|]*--${echappe}(?:\\.md)?(?:\\||\\]\\])`).test(texte)
 }
+
+/** Les parents d'une page, de la racine à son parent direct (fil d'Ariane) ; s'arrête sur une boucle. */
+export function parentsDe(pages: readonly PageWiki[], id: string): PageWiki[] {
+  const parId = new Map(pages.map((p) => [p.id, p]))
+  const chaine: PageWiki[] = []
+  const vus = new Set([id])
+  for (let x = parId.get(parId.get(id)?.parent ?? ''); x && !vus.has(x.id); x = parId.get(x.parent ?? '')) {
+    vus.add(x.id)
+    chaine.unshift(x)
+  }
+  return chaine
+}
