@@ -135,6 +135,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Plan de charge, scénario sur le réel : quand un scénario est affiché, modifier une affectation réelle (un jour, toute l'affectation, une découpe) la copie dans ce scénario avec une relation « Remplace » ; c'est la copie qui change, le plan réel reste intact. Affiché, le scénario masque l'affectation remplacée. « Confirmer » recopie chaque copie sur son affectation et la supprime, en une étape d'annulation. Le modèle gagne la colonne et un exemple.
 - Plan de charge : « Nouveau scénario » dans le menu « Plan réel » (un nom à donner, « Option B » proposé), sans passer par « Remplir » ; et un « ? » au bout de la barre qui ouvre le mode d'emploi.
 - Barre latérale réduite : un bouton dans sa tête la masque, un bouton en haut à gauche (ou Ctrl+B / ⌘B) la redéploie ; le choix est gardé sur la machine.
+- Wiki (module du magasin, catégorie Organisation) : des pages libres rangées en arbre dans la barre latérale, stockées à plat dans `_wiki/` (l'arbre vient de la clé `parent`). Créer une page ou une sous-page, la renommer, la supprimer avec ses sous-pages (la confirmation compte ce qui y renvoie), la ranger par glisser-déposer avant, après ou dans une autre page.
+- Page du wiki en plein écran : fil d'Ariane, titre, contenu dans l'éditeur des pages, sous-pages. « [[ » cite une page du wiki, « / Page » en crée une et la cite (on choisit où la ranger) ; les liens suivent un renommage, et les liens morts sont comptés.
+- Aperçu au survol d'une ligne citée (base, titre, quatre propriétés), dans une page du wiki comme dans la page d'une ligne. Rétroliens : « Citée par » sous une page du wiki, « Citée dans » sous la page d'une ligne.
+- Recherche globale : les pages du wiki y entrent, dans un groupe « Wiki » avec leur chemin, et un filtre « Wiki seulement ».
+- Modèles de page : Procédure, Fiche d'application, Décision, Glossaire, Compte rendu, et ceux de l'espace (`_wiki/_modeles/`), proposés à la création d'une page.
+- « Déplacer vers le wiki… » depuis le menu d'une ligne, ou « Vers le wiki » pour une sélection : une page par ligne avec son titre et son contenu, et dans la ligne, au choix, un lien vers sa page ou rien ; en une étape d'annulation.
+- Outils du wiki pour l'assistant et le MCP (`lister_wiki`, `lire_wiki`, `chercher_wiki`, `ecrire_wiki`, `deplacer_wiki`), offerts seulement quand le module est actif. Les écritures de l'assistant passent par l'aperçu ; celles du MCP s'appliquent aussitôt.
 
 ### Changed
 - Colonne « Créé le » : une ligne sans date de création enregistrée (créée avant cette colonne, ou hors de l'app) reste vide, au lieu de prendre la date de son fichier. « Modifié le » garde ce repli.
