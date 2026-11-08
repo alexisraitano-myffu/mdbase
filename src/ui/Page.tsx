@@ -30,6 +30,7 @@ import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, ListChecks, Maximize2, Minim
 import { Choix } from './Choix'
 import { ContenusLies, ReglageContenus } from './ContenusLies'
 import { Retroliens } from './Retroliens'
+import { FenetreVersWiki } from './VersWiki'
 import { Corps } from './Corps'
 import { Interrupteur, Reglage, Section } from './reglages'
 import { OngletTaches, restantesDeLaPage } from './Taches'
@@ -215,7 +216,8 @@ function MenuLigne({ base, ligne, fermerPage }: { base: string; ligne: LigneChar
   const { espace } = useEspace()
   const lancer = useLancer()
   const ancre = useRef<HTMLButtonElement>(null)
-  const [etape, setEtape] = useState<'ferme' | 'menu' | 'confirmer'>('ferme')
+  const [etape, setEtape] = useState<'ferme' | 'menu' | 'confirmer' | 'wiki'>('ferme')
+  const wiki = useModules(espace.etat()).wiki
   const [nettoyer, setNettoyer] = useState(true)
   const liens = etape === 'confirmer' ? espace.liensVers(base, ligne.id).length : 0
   const titre = titreLigne(ligne, espace.etat().bases.get(base)!.depot!.schema.champTitre)
@@ -227,11 +229,17 @@ function MenuLigne({ base, ligne, fermerPage }: { base: string; ligne: LigneChar
       </button>
       {etape === 'menu' && (
         <Flottant ancre={ancre.current} fermer={() => setEtape('ferme')}>
+          {wiki && ligne.corps.trim() !== '' && (
+            <button className="option" onClick={() => setEtape('wiki')}>
+              Déplacer vers le wiki…
+            </button>
+          )}
           <button className="option danger-texte" onClick={() => setEtape('confirmer')}>
             Supprimer la ligne…
           </button>
         </Flottant>
       )}
+      {etape === 'wiki' && <FenetreVersWiki base={base} chemins={[ligne.chemin]} fermer={() => setEtape('ferme')} />}
       {etape === 'confirmer' && (
         <Flottant ancre={ancre.current} fermer={() => setEtape('ferme')}>
           <div className="confirmation">

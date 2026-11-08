@@ -294,3 +294,48 @@ test('modèles : « Décision » donne sa trame, un modèle maison de `_wiki/_mo
   // Le modèle n'est jamais une page.
   await expect(arbre(page).locator('.nom-entree')).toHaveText(['Choix de l’hébergeur', 'Hyperion'])
 })
+
+test('déplacer vers le wiki : le corps d’une ligne devient une page, la ligne la cite, Ctrl+Z remet tout', async ({ espace, page }) => {
+  await ajouterModule(page, 'Wiki')
+  await nouvellePage(page, 'Documentation')
+  const avant = await espace.lire('projets/site-vitrine--psite001.md')
+  await espace.ouvrirPage('Projets', 'Site vitrine')
+  await page.getByRole('button', { name: 'Actions de la ligne' }).click()
+  await page.getByRole('button', { name: 'Déplacer vers le wiki…' }).click()
+  const fenetre = page.getByRole('dialog', { name: 'Déplacer vers le wiki' })
+  await fenetre.getByRole('button', { name: 'Documentation' }).click()
+  await expect(fenetre.getByRole('radio', { name: 'Un lien vers sa page' })).toBeChecked()
+  await page.screenshot({ path: 'test-results/wiki-deplacer.png' })
+  await fenetre.getByRole('button', { name: 'Déplacer' }).click()
+
+  await expect.poll(async () => (await lireWiki(espace))['Site vitrine']).toMatchObject({ parent: 'Documentation' })
+  const pageCreee = `_wiki/${(await lireWiki(espace))['Site vitrine']!.fichier}`
+  await expect.poll(() => espace.lire(pageCreee)).toContain("Refaire le site vitrine d'Acme")
+  await expect.poll(() => espace.lire('projets/site-vitrine--psite001.md')).toMatch(/\n---\n\[\[_wiki\/site-vitrine--[a-z0-9]{8}\|Site vitrine\]\]\n$/)
+  await expect(page.locator('.contenu-page .cm-reference')).toHaveText('Site vitrine')
+
+  await page.mouse.click(5, 5)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => espace.lire('projets/site-vitrine--psite001.md').then((t) => t.replace(/_modifie: .*\n/, ''))).toBe(avant)
+  await expect(arbre(page).locator('.nom-entree')).toHaveText(['Documentation'])
+})
+
+test('déplacer vers le wiki depuis le tableau : une page par ligne choisie, rien laissé dans les lignes', async ({ espace, page }) => {
+  await ajouterModule(page, 'Wiki')
+  await espace.remplacer('taches/paiement--tpaie006.md', /\n---\n$/, '\n---\nPrestataire choisi : à confirmer.\n')
+  await espace.retourSurOnglet()
+  await espace.base('Tâches')
+  for (const t of ['Paiement', 'Intégration']) {
+    const rangee = page.locator('.rangee', { hasText: t }).first()
+    await rangee.hover()
+    await rangee.locator('.gouttiere input').click()
+  }
+  await page.locator('.barre-selection').getByRole('button', { name: 'Vers le wiki' }).click()
+  const fenetre = page.getByRole('dialog', { name: 'Déplacer vers le wiki' })
+  await expect(fenetre).toContainText('Le contenu de 2 lignes devient 2 pages du wiki')
+  await fenetre.getByRole('radio', { name: /Rien/ }).check()
+  await fenetre.getByRole('button', { name: 'Déplacer' }).click()
+  await expect(arbre(page).locator('.nom-entree')).toHaveText(['Paiement', 'Intégration'])
+  await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toMatch(/\n---\n$/)
+  await expect.poll(() => espace.lire('taches/integration--tinte002.md')).toMatch(/\n---\n$/)
+})

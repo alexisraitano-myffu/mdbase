@@ -2018,3 +2018,10 @@ button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
 .chemin-resultat { font-weight: 400; }
 .menu-modeles-wiki { display: flex; flex-direction: column; min-width: 13rem; }
 .menu-modeles-wiki .option { display: flex; align-items: center; gap: 0.45em; }
+.vers-wiki { display: flex; flex-direction: column; gap: 0.4rem; min-width: min(26rem, 80vw); }
+.vers-wiki p { margin: 0 0 0.4rem; }
+.vers-wiki h3 { font-size: 0.85em; font-weight: 600; color: var(--discret); margin: 0.6rem 0 0.1rem; }
+.vers-wiki .emplacements-wiki { max-height: 14rem; overflow: auto; }
+.emplacements-wiki .option.choisie { background: var(--selection); font-weight: 500; }
+.vers-wiki .boutons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.8rem; }
+.vers-wiki .emplacements-wiki .option.choisie { background: var(--selection); }

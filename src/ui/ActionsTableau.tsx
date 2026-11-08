@@ -5,7 +5,9 @@ import { useLancer } from './actions'
 import { Fenetre } from './fenetre'
 import { Flottant } from './flottant'
 import { Icone } from './icones'
-import { Copy, CopyPlus, Trash2, X } from 'lucide-react'
+import { BookOpen, Copy, CopyPlus, Trash2, X } from 'lucide-react'
+import { useModules } from './modules'
+import { FenetreVersWiki } from './VersWiki'
 
 // Actions du tableau sur plusieurs lignes ou cellules (spec §7, « plusieurs lignes à la fois »).
 
@@ -25,6 +27,8 @@ export function BarreSelection(p: {
   const bouton = useRef<HTMLButtonElement>(null)
   const [nettoyer, setNettoyer] = useState(true)
   const [copie, setCopie] = useState(false)
+  const [versWiki, setVersWiki] = useState(false)
+  const wiki = useModules(p.espace.etat()).wiki && p.choisies.some((l) => l.corps.trim() !== '')
   const n = p.choisies.length
   const pluriel = n > 1 ? 's' : ''
   const liens = p.confirmer ? [...new Set(p.choisies.map((l) => l.id))].reduce((t, id) => t + p.espace.liensVers(p.base, id).length, 0) : 0
@@ -49,6 +53,12 @@ export function BarreSelection(p: {
       <button className="discret" onClick={() => void p.dupliquer()}>
         <Icone de={CopyPlus} /> Dupliquer
       </button>
+      {wiki && (
+        <button className="discret" onClick={() => setVersWiki(true)} title="Le contenu de chaque ligne devient une page du wiki">
+          <Icone de={BookOpen} /> Vers le wiki
+        </button>
+      )}
+      {versWiki && <FenetreVersWiki base={p.base} chemins={p.choisies.map((l) => l.chemin)} fermer={() => setVersWiki(false)} />}
       <button ref={bouton} className="discret danger-texte" onClick={() => p.setConfirmer(true)}>
         <Icone de={Trash2} /> Supprimer
       </button>

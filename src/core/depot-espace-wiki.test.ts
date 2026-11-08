@@ -147,4 +147,31 @@ describe('wiki', () => {
     expect(espace.etat().wiki.modeles.map((m) => m.nom)).toEqual(['Décision d’architecture', 'Glossaire maison', 'sans-entete'])
     expect(await espace.rafraichir()).toBe(false)
   })
+
+  it('déplacer vers le wiki : une page par ligne, un lien dans la ligne, Ctrl+Z remet tout', async () => {
+    const { a, espace, ecrire, pages } = await ouvrir({
+      'projets/navi--p0000001.md': '---\nid: p0000001\ntitre: Navi\nclient: c0000001\n---\n## Déploiement\n\nÉtapes.\n',
+      'projets/sinam--p0000002.md': '---\nid: p0000002\ntitre: sinam\nclient: c0000001\n---\nNotes.\n',
+    })
+    const parent = await espace.creerPageWiki({ titre: 'Projets' })
+    await ecrire()
+    const lignes = ['projets/navi--p0000001.md', 'projets/sinam--p0000002.md', 'projets/seul--p0000003.md']
+    const creees = await espace.deplacerVersWiki('projets', lignes, parent.id, true)
+    await ecrire()
+    expect(creees.map((p) => [p.titre, p.parent])).toEqual([['Navi', parent.id], ['sinam', parent.id]])
+    expect(await a.lire(creees[0]!.chemin)).toMatch(/\n---\n## Déploiement\n\nÉtapes\.\n$/)
+    expect(await a.lire('projets/navi--p0000001.md')).toBe(`---\nid: p0000001\ntitre: Navi\nclient: c0000001\n_modifie: 2026-11-08T10:00\n---\n[[_wiki/navi--${creees[0]!.id}|Navi]]\n`)
+    expect(await a.lire('projets/seul--p0000003.md')).toBe('---\nid: p0000003\ntitre: Seul\n---\n') // corps vide : laissée telle quelle
+
+    await espace.annuler()
+    await ecrire()
+    expect(pages().map((p) => p.titre)).toEqual(['Projets'])
+    expect(await a.lire('projets/navi--p0000001.md')).toMatch(/\n---\n## Déploiement\n\nÉtapes\.\n$/)
+
+    // Sans lien : le corps de la ligne est vidé.
+    await espace.deplacerVersWiki('projets', ['projets/sinam--p0000002.md'], null, false)
+    await ecrire()
+    expect(await a.lire('projets/sinam--p0000002.md')).toMatch(/^---\nid: p0000002\n[\s\S]*\n---\n$/)
+    expect(() => espace.deplacerVersWiki('projets', ['projets/seul--p0000003.md'], null, true)).toThrow('Aucune de ces lignes')
+  })
 })

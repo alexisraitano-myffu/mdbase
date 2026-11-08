@@ -24,6 +24,7 @@ import { copieDeConflit, doublons } from './conflits'
 import { convertirValeur, type ColonneImportee } from './echange'
 import { Historique, type Changement } from './historique'
 import { IndexLiens, type SourceLien } from './index-liens'
+import { ecrireLien } from './liens-internes'
 import { chargerModelesWiki, type ModeleWiki } from './modeles-wiki'
 import { adaptateurWiki, chargerWiki, descendants, DOSSIER_WIKI, ordreEnFin, pageDe, peutDeplacer, SCHEMA_WIKI, type PageWiki } from './wiki'
 import { IndexRecherche, type Resultat } from './recherche'
@@ -1923,6 +1924,34 @@ export class DepotEspace {
     this.enUneEtape(() => {
       this.wiki.modifier(chemin, 'parent', parent ?? undefined)
       this.wiki.modifier(chemin, 'ordre', ordre)
+    })
+  }
+
+  /**
+   * « Déplacer vers le wiki » (spec §22) : une page par ligne sous `parent`,
+   * avec le titre et le corps de la ligne ; dans la ligne, au choix, un lien
+   * vers sa page (`lien`) ou rien. Une ligne au corps vide est laissée telle
+   * quelle. En une étape d'annulation. Rend les pages créées.
+   */
+  deplacerVersWiki(base: string, chemins: readonly string[], parent: string | null, lien: boolean): Promise<PageWiki[]> {
+    const depot = this.depot(base)
+    if (parent !== null && !this.instantane.wiki.pages.some((x) => x.id === parent)) throw new ErreurSchema(`Page parente introuvable : ${parent}`)
+    const lignes = chemins.flatMap((c) => depot.lignes().filter((l) => l.chemin === c && l.corps.trim() !== ''))
+    if (lignes.length === 0) throw new ErreurSchema('Aucune de ces lignes n’a de contenu à déplacer')
+    return this.enUneEtape(async () => {
+      const pages: PageWiki[] = []
+      for (const l of lignes) {
+        const t = l.cellules[depot.schema.champTitre]
+        const titre = t?.etat === 'ok' && typeof t.valeur === 'string' ? t.valeur : ''
+        const ordre = ordreEnFin(this.wiki.lignes().map(pageDe), parent)
+        const cree = await this.wiki.creer({ titre, ...(parent !== null && { parent }), ordre })
+        this.wiki.modifierCorps(cree.chemin, l.corps)
+        const page = pageDe(this.wiki.lignes().find((x) => x.id === cree.id) ?? cree)
+        const actuelle = depot.lignes().find((x) => x.id === l.id)
+        if (actuelle) depot.modifierCorps(actuelle.chemin, lien ? `${ecrireLien(page.chemin, titre)}\n` : '')
+        pages.push(page)
+      }
+      return pages
     })
   }
 
