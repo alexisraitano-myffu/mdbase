@@ -120,7 +120,9 @@ test('une relation depuis une autre base trouve un ticket par son numéro', asyn
   await page.getByPlaceholder('Nom de la colonne').fill('Ticket')
   await page.getByRole('button', { name: 'Relation…' }).click()
   await page.locator('.flottant .option', { hasText: 'Tickets Jira' }).click()
-  const index = await page.locator('.entete .cellule-entete').evaluateAll((els) => els.findIndex((e) => e.textContent?.trim() === 'Ticket'))
+  // L'en-tête arrive après l'écriture du schéma : sans l'attendre, l'index vaut -1 et le clic tombe ailleurs.
+  await expect(page.locator('.entete .cellule-entete', { hasText: /^Ticket$/ })).toBeVisible()
+  const index =await page.locator('.entete .cellule-entete').evaluateAll((els) => els.findIndex((e) => e.textContent?.trim() === 'Ticket'))
   const cellule = espace.rangee('Intégration').locator('.case').nth(index)
   await cellule.click()
   await page.getByPlaceholder('Chercher une ligne à lier').fill('APP-102')
