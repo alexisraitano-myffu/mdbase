@@ -6,6 +6,7 @@ import {
   type ColumnDef,
   type Updater,
 } from '@tanstack/react-table'
+import { HAUTEURS_LIGNE, useAffichage } from './affichage'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as EvenementPointeur } from 'react'
 import type { LigneChargee } from '../core/base'
@@ -30,7 +31,6 @@ import { PiedTableau } from './PiedTableau'
 import { useConsultation, useModeConsultation } from './mode'
 import { ArrowDown, ArrowUp, ChevronRight, Plus } from 'lucide-react'
 
-const HAUTEUR_LIGNE = 34
 const HAUTEUR_GROUPE = 40
 const LARGEUR_DEFAUT = 180
 const LARGEUR_TITRE = 260
@@ -179,10 +179,11 @@ export function Tableau(p: Props) {
   }, [lignesVue, colonneGroupe, colonneSous, replies, aDesCalculs, etat, lecture])
 
   const retourLigne = vue?.retourLigne === true
+  const hauteurLigne = HAUTEURS_LIGNE[useAffichage().densite]
   const virtuel = useVirtualizer({
     count: elements.length,
     getScrollElement: () => defilement.current,
-    estimateSize: (i) => (elements[i]?.type === 'groupe' ? HAUTEUR_GROUPE : HAUTEUR_LIGNE),
+    estimateSize: (i) => (elements[i]?.type === 'groupe' ? HAUTEUR_GROUPE : hauteurLigne),
     overscan: 12,
   })
 

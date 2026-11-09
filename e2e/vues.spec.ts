@@ -873,3 +873,33 @@ test.describe('dashboards et recherche', () => {
     expect(espace).toBeTruthy()
   })
 })
+
+test('options d’affichage : pleine largeur, taille et police des pages, densité du tableau ; gardées sur la machine, sans toucher aux fichiers', async ({ espace, page }) => {
+  await espace.ecrire('_wiki/notes--wnote001.md', '---\nid: wnote001\ntitre: Notes\n---\nUn texte assez long pour la largeur de la page.\n')
+  await espace.retourSurOnglet()
+  await page.locator('.entree-wiki', { hasText: 'Notes' }).click()
+  const pageWiki = page.locator('.page-wiki')
+  const corps = pageWiki.locator('.editeur-corps')
+  const largeurAvant = (await pageWiki.boundingBox())!.width
+  const tailleAvant = await corps.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+
+  await page.getByRole('button', { name: 'Affichage' }).click()
+  const panneau = page.getByRole('dialog', { name: 'Affichage' })
+  await panneau.getByRole('switch', { name: 'Pleine largeur' }).check()
+  await choisir(panneau.getByRole('button', { name: 'Taille du texte' }), 'Grande')
+  await choisir(panneau.getByRole('button', { name: 'Police' }), 'Avec empattement')
+  await expect.poll(async () => (await pageWiki.boundingBox())!.width).toBeGreaterThan(largeurAvant + 100)
+  expect(await corps.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeCloseTo(tailleAvant * 1.125, 0)
+  expect(await corps.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/serif/)
+  await page.screenshot({ path: 'test-results/affichage-pleine-largeur.png' })
+
+  // Densité : les lignes du tableau rapetissent.
+  await choisir(panneau.getByRole('button', { name: 'Densité' }), 'Compacte')
+  await page.keyboard.press('Escape')
+  await espace.base('Tâches')
+  await expect.poll(async () => (await espace.rangee('Intégration').boundingBox())!.height).toBeLessThanOrEqual(29)
+
+  // Gardées sur la machine, jamais dans le dossier.
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem('mdbase.affichage')))!)).toEqual({ pleineLargeur: true, taille: 'grande', police: 'serif', densite: 'compacte' })
+  expect(await espace.lire('_wiki/notes--wnote001.md')).toContain('titre: Notes\n---\nUn texte')
+})

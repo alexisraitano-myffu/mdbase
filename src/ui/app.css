@@ -146,8 +146,8 @@ button:hover { background: var(--survol); }
   box-sizing: border-box;
 }
 .rangee { border-bottom: 1px solid var(--bordure); }
-.tableau:not(.retour-ligne) .rangee { height: 34px; }
-.retour-ligne .rangee { min-height: 34px; }
+.tableau:not(.retour-ligne) .rangee { height: var(--hauteur-ligne); }
+.retour-ligne .rangee { min-height: var(--hauteur-ligne); }
 .retour-ligne .cellule { white-space: normal; height: auto; min-height: 100%; align-items: flex-start; padding-top: 7px; padding-bottom: 7px; overflow-wrap: anywhere; }
 .rangee-groupe { align-items: center; gap: 8px; height: 40px; padding: 0 0.25rem; margin-top: 0; cursor: pointer; font-weight: 500; border-bottom: 1px solid var(--bordure); }
 .rangee-groupe:hover { background: var(--survol-leger); }
@@ -2033,3 +2033,16 @@ button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
 .emplacements-wiki .option.choisie { background: var(--selection); font-weight: 500; }
 .vers-wiki .boutons { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.8rem; }
 .vers-wiki .emplacements-wiki .option.choisie { background: var(--selection); }
+
+/* Options d'affichage (affichage.tsx) : préférences de la machine, posées sur <html>. */
+:root { --hauteur-ligne: 34px; --taille-pages: 1em; --police-pages: inherit; }
+:root[data-densite='compacte'] { --hauteur-ligne: 28px; }
+:root[data-taille='petite'] { --taille-pages: 0.9em; }
+:root[data-taille='grande'] { --taille-pages: 1.125em; }
+:root[data-police='serif'] { --police-pages: Charter, 'Iowan Old Style', Georgia, Cambria, serif; }
+:root[data-police='mono'] { --police-pages: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+:is(.page-wiki, .contenu-page) .editeur-corps { font-size: var(--taille-pages); font-family: var(--police-pages); }
+:root[data-largeur='pleine'] .page-wiki { max-width: none; }
+:root[data-largeur='pleine'] .page.plein-ecran .contenu-page { max-width: none; }
+.panneau-affichage { width: 300px; padding: 0 6px 6px; }
+:is(.page-wiki, .contenu-page) .titre-page { font-family: var(--police-pages); }

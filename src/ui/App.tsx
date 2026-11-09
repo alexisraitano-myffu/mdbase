@@ -29,6 +29,7 @@ import { AideRaccourcis } from './Raccourcis'
 import { ToutesLesTaches } from './Taches'
 import { PanneauInbox, useInbox } from './Inbox'
 import { PanneauDocuments, useDocuments, type OngletDocuments } from './Documents'
+import { BoutonAffichage, useAppliquerAffichage } from './affichage'
 import { FenetreModules, useModules, useOuvertureMagasin, wikiActif } from './modules'
 import { useSynchroJiraBureau } from './synchroJira'
 import { ContexteCreerPage, FenetreEmplacement, VuePageWiki, type CreerPageWiki } from './PageWiki'
@@ -231,6 +232,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
   const panneauIA = panneau === 'ia'
   const [fenetreModules, setFenetreModules] = useState(false)
   const modules = useModules(etat)
+  useAppliquerAffichage()
   useOuvertureMagasin(useCallback(() => setFenetreModules(true), []))
   useSynchroJiraBureau(espace, BUREAU && modules.jira)
   // Claude (MCP) : l'app répond aux messages relayés par `mdbase --mcp`, sur l'espace ouvert.
@@ -423,6 +425,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
             )}
             <div className="coin-contenu">
               <AideRaccourcis />
+              <BoutonAffichage />
               <BasculePleinEcran actif={pleinEcran} basculer={basculerPleinEcran} />
               <BasculeMode consultation={consultation} basculer={basculerMode} />
             </div>
