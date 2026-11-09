@@ -91,7 +91,7 @@ src/
     jira/        script de synchro Jira (§16), publié en dist/mdbase-jira.mjs
     mcp/         serveur MCP sur stdio (§17), publié en dist/mdbase.mcpb ; outils exposés et exécution dans core/ia/mcp.ts
   ui/            React ; panneaux à droite exclusifs (assistant, Inbox.tsx, Documents.tsx : état `panneau` dans App),
-                 modules.tsx (§19 : modules activés par machine, localStorage), synchroJira.ts (synchro Jira périodique de l'app de bureau)
+                 modules.tsx (§19 : modules activés par machine, localStorage), affichage.tsx (options d'affichage de la machine, posées en attributs sur <html>), synchroJira.ts (synchro Jira périodique de l'app de bureau)
   main.tsx       point d'entrée mince : monte l'UI, aucune logique
 src-tauri/       app de bureau Tauri 2 (Rust) : fichiers.rs (accès au dossier, chemins bornés à la racine, testé par cargo test),
                  lib.rs (commandes, dossier retenu, surveillance notify), echos.rs (écritures de l'app ignorées par la surveillance),

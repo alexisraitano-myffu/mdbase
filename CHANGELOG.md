@@ -142,6 +142,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Modèles de page : Procédure, Fiche d'application, Décision, Glossaire, Compte rendu, et ceux de l'espace (`_wiki/_modeles/`), proposés à la création d'une page.
 - « Déplacer vers le wiki… » depuis le menu d'une ligne, ou « Vers le wiki » pour une sélection : une page par ligne avec son titre et son contenu, et dans la ligne, au choix, un lien vers sa page ou rien ; en une étape d'annulation.
 - Outils du wiki pour l'assistant et le MCP (`lister_wiki`, `lire_wiki`, `chercher_wiki`, `ecrire_wiki`, `deplacer_wiki`), offerts seulement quand le module est actif. Les écritures de l'assistant passent par l'aperçu ; celles du MCP s'appliquent aussitôt.
+- Tableaux Markdown rendus dans les pages (corps d'une ligne et wiki) : hors du curseur, un vrai tableau (alignements, gras, code, liens), qui défile de côté s'il est large ; un clic rend le Markdown pour le modifier. Rien n'est réécrit.
+- Options d'affichage (bouton « Affichage » en haut à droite) : pleine largeur des pages, taille et police de leur texte, densité des lignes du tableau. Réglages de la machine, jamais dans le dossier.
 
 ### Changed
 - Colonne « Créé le » : une ligne sans date de création enregistrée (créée avant cette colonne, ou hors de l'app) reste vide, au lieu de prendre la date de son fichier. « Modifié le » garde ce repli.
@@ -189,6 +191,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 - Assistant IA : il relit le détail des quatre derniers échanges (ce qu'il a lu et proposé, pas seulement le texte de sa réponse), pour mieux suivre la conversation d'une demande à l'autre.
 ### Fixed
+- Une page du wiki plus haute que la fenêtre défile enfin jusqu'en bas (rétroliens et sous-pages compris).
 - Démo : une fois ouverte, rien ne ramenait à l'accueil, donc à « Repartir d'une démo neuve ». Dans le navigateur, « Changer de dossier » ramène maintenant à l'accueil (un autre dossier, la démo, ou une démo neuve) ; au bureau, il ouvre toujours le sélecteur.
 - Une liste ouverte dans un panneau (« Filtrer ») : après un changement, Échap fermait aussi le panneau au lieu de la seule liste.
 - Assistant IA et Claude : modifier une vue de calendrier ou de timeline (ses filtres, par exemple) remplaçait sa date de début par la première colonne date de la base.
