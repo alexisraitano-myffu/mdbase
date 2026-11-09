@@ -5,6 +5,7 @@ import { EditorView, keymap, placeholder } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { apercu } from './editeur/apercu'
+import { tableaux } from './editeur/tableaux'
 import { langageMarkdown } from './editeur/langage'
 import { liens as champLiens, raccourcisLiens } from './editeur/liens'
 import { collerMisEnForme } from './editeur/coller'
@@ -59,6 +60,7 @@ export function EditeurCorps({ initial, changer, lecture = false, liens, libelle
           EditorView.contentAttributes.of({ 'aria-label': libelle, spellcheck: 'true', lang: 'fr' }),
           placeholder('Écris ici, tape « / » pour insérer un bloc ou « @ » pour citer une page'),
           apercu,
+          tableaux,
           pastillesReferences(() => liensCourants.current ?? null),
           repli,
           champLiens,

@@ -431,6 +431,12 @@ button:hover { background: var(--survol); }
 .editeur-corps .cm-puce::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--texte-doux); vertical-align: middle; }
 .editeur-corps .cm-case { width: 13px; height: 13px; margin: 0 6px 0 2px; vertical-align: -2px; cursor: pointer; }
 .editeur-corps .cm-tache-faite { color: var(--discret); text-decoration: line-through; text-decoration-color: var(--tres-discret-texte); }
+.editeur-corps .cm-tableau { overflow-x: auto; margin: 0.4rem 0; cursor: text; }
+.editeur-corps .cm-tableau table { border-collapse: collapse; font-size: 0.95em; }
+.editeur-corps .cm-tableau :is(th, td) { border: 1px solid var(--bordure); padding: 4px 10px; vertical-align: top; text-align: left; }
+.editeur-corps .cm-tableau th { background: var(--fond-doux); font-weight: 600; }
+.editeur-corps .cm-tableau code { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9em; background: var(--fond-doux); padding: 0 3px; border-radius: 3px; }
+.editeur-corps .cm-tableau-lien { color: var(--accent); }
 .editeur-corps .cm-separateur { display: inline-block; width: 100%; height: 1px; background: var(--bordure); vertical-align: middle; }
 /* Repli des titres : le chevron apparaît au survol de l'éditeur, reste visible quand le titre est replié. */
 .editeur-corps .cm-gutters { background: transparent; border: 0; color: var(--discret); }
@@ -1987,6 +1993,8 @@ button.chevron-wiki:hover { background: rgba(var(--ombre), 0.08); }
 .entree-wiki.cible-avant { box-shadow: inset 0 2px 0 var(--accent); }
 .entree-wiki.cible-apres { box-shadow: inset 0 -2px 0 var(--accent); }
 .entree-wiki.cible-dans { background: var(--accent-fond); }
+/* `.contenu` coupe ce qui dépasse : la page défile dans sa propre zone. */
+.defilement-wiki { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -2rem; padding: 0 2rem; }
 .page-wiki { width: 100%; max-width: 46rem; box-sizing: border-box; margin: 0 auto; padding: 0.5rem 1.5rem 4rem; }
 .page-wiki .corps-wiki { border-top: 0; padding-top: 0; }
 .ariane-wiki { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3em; font-size: 0.85em; color: var(--discret); margin-bottom: 0.5rem; min-height: 1.6em; }

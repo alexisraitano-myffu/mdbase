@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { convertirLeHtml, htmlEnMarkdown } from './coller'
 import { adresseLien } from './liens'
+import { alignementsDe, cellulesDe } from './tableaux'
 
 describe('coller du texte mis en forme', () => {
   it('le HTML d’une page devient du Markdown : titres, gras, listes, liens, tableau', async () => {
@@ -37,5 +38,17 @@ describe('surlignage dans la grammaire', () => {
     const arbre = (t: string) => langageMarkdown.language.parser.parse(t).toString()
     expect(arbre('Le =={rouge}devis== est ==urgent==.')).toBe('Document(Paragraph(Surligne(SurligneMark,SurligneMark),Surligne(SurligneMark,SurligneMark)))')
     expect(arbre('a == b')).toBe('Document(Paragraph)')
+  })
+})
+
+describe('tableaux Markdown de l’aperçu', () => {
+  it('cellules d’une ligne : barres de bord facultatives, barre échappée gardée, cellules vides', () => {
+    expect(cellulesDe('| Terme | Définition |')).toEqual(['Terme', 'Définition'])
+    expect(cellulesDe('Terme | Définition')).toEqual(['Terme', 'Définition'])
+    expect(cellulesDe('| a \\| b |  | c |')).toEqual(['a | b', '', 'c'])
+  })
+
+  it('alignements lus sur la ligne de séparation', () => {
+    expect(alignementsDe('|:---|:---:|---:|---|')).toEqual(['left', 'center', 'right', null])
   })
 })

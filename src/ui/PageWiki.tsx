@@ -64,7 +64,9 @@ export function VuePageWiki(p: { id: string; ouvrir: (id: string) => void }) {
   const parents = parentsDe(pages, page.id)
   // Liens vers une ligne ou une page qui n'existe plus : signalés, jamais réécrits.
   const morts = lireLiens(page.corps).filter((l) => !resoudreLien(etat, l.cible)).length
+  // La zone qui défile prend toute la largeur : sa barre reste au bord, pas contre la colonne de texte.
   return (
+    <div className="defilement-wiki">
     <article className="page-wiki">
       <nav className="ariane-wiki" aria-label="Fil d’Ariane">
         <Icone de={FileText} />
@@ -118,6 +120,7 @@ export function VuePageWiki(p: { id: string; ouvrir: (id: string) => void }) {
         </section>
       )}
     </article>
+    </div>
   )
 }
 

@@ -339,3 +339,37 @@ test('déplacer vers le wiki depuis le tableau : une page par ligne choisie, rie
   await expect.poll(() => espace.lire('taches/paiement--tpaie006.md')).toMatch(/\n---\n$/)
   await expect.poll(() => espace.lire('taches/integration--tinte002.md')).toMatch(/\n---\n$/)
 })
+
+test('page longue avec un tableau : le tableau est rendu, un clic rend le Markdown, la page défile jusqu’en bas', async ({ espace, page }) => {
+  const tableau = ['| Terme | Définition | Exemple |', '|:---|:---|---:|', ...Array.from({ length: 10 }, (_, i) => `| Terme ${i + 1} | Une **définition** \\| longue | \`${i + 1}\` |`)].join('\n')
+  const texte = Array.from({ length: 100 }, (_, i) => `Ligne de texte numéro ${i + 1}.`).join('\n\n')
+  const contenu = `---\nid: wglos001\ntitre: Glossaire\n---\n## Termes\n\n${tableau}\n\n${texte}\n`
+  await espace.ecrire('_wiki/glossaire--wglos001.md', contenu)
+  await espace.ecrire('_wiki/detail--wdeta002.md', '---\nid: wdeta002\ntitre: Détail\nparent: wglos001\n---\n')
+  await espace.retourSurOnglet()
+  await entree(page, 'Glossaire').click()
+
+  const corps = page.locator('.page-wiki .editeur-corps .cm-content')
+  const rendu = corps.locator('.cm-tableau table')
+  await expect(rendu.locator('th')).toHaveText(['Terme', 'Définition', 'Exemple'])
+  await expect(rendu.locator('tbody tr')).toHaveCount(10)
+  await expect(rendu.locator('tbody tr').first().locator('td').nth(1)).toHaveText('Une définition | longue')
+  await expect(rendu.locator('tbody tr').first().locator('strong')).toHaveText('définition')
+  await expect(rendu.locator('tbody tr').first().locator('td').nth(2)).toHaveCSS('text-align', 'right')
+  await page.screenshot({ path: 'test-results/wiki-tableau.png' })
+
+  // Un clic dans le tableau : le Markdown revient, à modifier comme du texte.
+  await rendu.locator('td').first().click()
+  await expect(corps.locator('.cm-tableau')).toHaveCount(0)
+  await expect(corps.locator('.cm-line', { hasText: '| Terme | Définition | Exemple |' })).toBeVisible()
+
+  // La page défile : les sous-pages, tout en bas, sont atteintes.
+  const zone = page.locator('.defilement-wiki')
+  expect(await zone.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+  await zone.evaluate((el) => el.scrollTo(0, el.scrollHeight))
+  await expect(page.getByRole('list', { name: 'Sous-pages' })).toBeInViewport()
+  await page.screenshot({ path: 'test-results/wiki-bas-de-page.png' })
+
+  // Rien n'a été réécrit : ouvrir et afficher ne touche pas au fichier.
+  expect(await espace.lire('_wiki/glossaire--wglos001.md')).toBe(contenu)
+})
