@@ -87,7 +87,7 @@ export function correspond(ligne: LigneChargee, schema: Schema, f: Filtre, ctx: 
     case 'nombre':
       return comparerNombre(Number(v), f)
     case 'date':
-      return comparerDate(String(v).slice(0, 10), f, ctx)
+      return comparerDate(String(v), f, ctx)
     case 'case':
       return v === (f.valeur === true || f.valeur === 'true')
     case 'choix':
@@ -152,25 +152,36 @@ function comparerNombre(v: number, f: Filtre): boolean {
   }
 }
 
-/** Une date de filtre : `AAAA-MM-JJ` ou le mot `aujourdhui`. */
+/** Une date de filtre : `AAAA-MM-JJ`, `AAAA-MM-JJTHH:mm` ou le mot `aujourdhui`. */
 function dateFiltre(x: unknown, ctx: Contexte): string | null {
   if (x === 'aujourdhui') return ctx.aujourdhui
-  return typeof x === 'string' && /^\d{4}-\d{2}-\d{2}/.test(x) ? x.slice(0, 10) : null
+  if (typeof x !== 'string') return null
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(x)) return x.slice(0, 16)
+  return /^\d{4}-\d{2}-\d{2}/.test(x) ? x.slice(0, 10) : null
 }
 
-function comparerDate(v: string, f: Filtre, ctx: Contexte): boolean {
+/**
+ * La valeur ramenée à la précision du filtre (spec §3 « Date avec heure ») :
+ * le jour seul si le filtre n'a pas d'heure, sinon l'heure (minuit à défaut).
+ */
+const auNiveau = (v: string, d: string) => (d.length > 10 ? (v.length > 10 ? v.slice(0, 16) : `${v.slice(0, 10)}T00:00`) : v.slice(0, 10))
+
+function comparerDate(valeur: string, f: Filtre, ctx: Contexte): boolean {
+  const v = valeur.slice(0, 10)
   switch (f.operateur) {
     case 'egal':
     case 'avant':
     case 'apres': {
       const d = dateFiltre(f.valeur, ctx)
       if (d === null) return true
-      return f.operateur === 'egal' ? v === d : f.operateur === 'avant' ? v < d : v > d
+      const w = auNiveau(valeur, d)
+      return f.operateur === 'egal' ? w === d : f.operateur === 'avant' ? w < d : w > d
     }
     case 'entre': {
       const [a, b] = Array.isArray(f.valeur) ? f.valeur.map((x) => dateFiltre(x, ctx)) : []
       if (!a || !b) return true
-      return v >= (a < b ? a : b) && v <= (a < b ? b : a)
+      const [bas, haut] = a < b ? [a, b] : [b, a]
+      return auNiveau(valeur, bas) >= bas && auNiveau(valeur, haut) <= haut
     }
     case 'aujourdhui':
       return v === ctx.aujourdhui

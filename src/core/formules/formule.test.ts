@@ -93,6 +93,21 @@ describe('calcul', () => {
     expect(calcul('majuscules("éa") == "ÉA"')).toBe(true)
   })
 
+  it('heures : écart, jours ouvrés, heures ouvrées (spec §3 « Date avec heure »)', () => {
+    expect(calcul('ecart_heures("2026-11-12T10:00", "2026-11-12T12:30")')).toBe(2.5)
+    // Une date sans heure vaut minuit.
+    expect(calcul('ecart_heures(prop("Échéance"), "2026-11-13T06:00")', { echeance: '2026-11-12' })).toBe(30)
+    // Du lundi 9 au vendredi 13 novembre 2026, sans le 11 novembre (férié).
+    expect(calcul('jours_ouvres("2026-11-09", "2026-11-13")')).toBe(4)
+    expect(calcul('jours_ouvres("2026-11-13", "2026-11-09")')).toBe(-4)
+    // Vendredi 17 h → lundi 9 h : une heure le vendredi, une le lundi.
+    expect(calcul('heures_ouvrees("2026-11-13T17:00", "2026-11-16T09:00", "08:00", "18:00")')).toBe(2)
+    expect(calcul('heures_ouvrees("2026-11-13T17:00", "2026-11-16T09:00")')).toBe(2)
+    expect(calcul('heures_ouvrees("2026-11-16T07:00", "2026-11-16T07:30")')).toBe(0)
+    expect(calcul('heures_ouvrees(prop("Échéance"), "2026-11-16T09:00")')).toBeUndefined()
+    expect(() => calcul('heures_ouvrees("2026-11-13", "2026-11-16", "18:00", "08:00")')).toThrow(ErreurCalcul)
+  })
+
   it('dates : écart, ajouts, formats', () => {
     expect(calcul('ecart_jours(aujourdhui(), prop("Échéance"))', { echeance: '2026-10-01' })).toBe(7)
     expect(calcul('ajouter_jours("2026-02-27", 2)')).toBe('2026-03-01')

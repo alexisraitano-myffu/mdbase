@@ -100,7 +100,7 @@ const estIdPrevu = (v: string) => /^\+.+:\d+$/.test(v)
 
 /** Colonne à créer, telle que validée. */
 export type NouvelleColonne =
-  | { type: TypeCreable; nom: string; options: Option[] }
+  | { type: TypeCreable; nom: string; options: Option[]; heure?: boolean }
   | { type: 'relation'; nom: string; cible: string; cleMiroir: string }
   | { type: 'rollup'; nom: string; relation: string; /** Base liée par la relation, où vit `champ`. */ cible: string; champ: string; calcul: Calcul }
   | { type: 'formula'; nom: string; expression: string }
@@ -225,11 +225,12 @@ function lireColonne(b: Brouillon, base: string, brut: unknown): { action: Actio
     return { action: action({ type, nom, expression: (colonne as Extract<Colonne, { type: 'formula' }>).expression }), colonne }
   }
   const options = type === 'select' || type === 'multiselect' ? lireOptions(brut.options) : []
+  const heure = type === 'date' && brut.heure === true
   const colonne: Colonne =
     type === 'select' || type === 'multiselect'
       ? { cle, nom, type, options }
-      : { cle, nom, type: type as Exclude<TypeCreable, 'select' | 'multiselect'> }
-  return { action: action({ type: type as TypeCreable, nom, options }), colonne }
+      : { cle, nom, type: type as Exclude<TypeCreable, 'select' | 'multiselect'>, ...(heure && { heure: true }) }
+  return { action: action({ type: type as TypeCreable, nom, options, ...(heure && { heure: true }) }), colonne }
 }
 
 function ajouterColonnes(b: Brouillon, base: string, brut: unknown): ActionStructure[] {
@@ -919,7 +920,9 @@ export function decrireAction(a: ActionStructure | ActionSuite): { texte: string
               ? ` : ${c.expression}`
               : 'options' in c && c.options.length > 0
                 ? ` [${c.options.map((o) => o.label).join(', ')}]`
-                : ''
+                : 'heure' in c && c.heure
+                  ? ' avec l’heure'
+                  : ''
       return { texte: `Ajouter la colonne « ${c.nom} » (${NOMS_TYPES[c.type]}${detail}) à ${a.nomBase}`, danger: false }
     }
     case 'ajouter_options': {
@@ -1090,7 +1093,7 @@ export async function appliquerStructure(espace: DepotEspace, actions: readonly 
         else if (c.type === 'formula') cle = await espace.ajouterFormule(base, c.nom, c.expression)
         else if (c.type === 'created' || c.type === 'modified') cle = await espace.ajouterHorodatage(base, c.nom, c.type)
         else {
-          cle = await espace.ajouterColonne(base, c.nom, c.type)
+          cle = await espace.ajouterColonne(base, c.nom, c.type, c.heure)
           for (const o of c.options) {
             await espace.ajouterOption(base, cle, o.label)
             if (o.couleur) await espace.changerCouleurOption(base, cle, o.label, o.couleur)

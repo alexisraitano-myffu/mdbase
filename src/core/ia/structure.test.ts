@@ -58,6 +58,23 @@ describe('assistant : structure', () => {
     expect(await a.lire('taches/a--t0000001.md')).toContain('priorite: Haute\n')
   })
 
+  it('une date avec l’heure : option écrite au schéma, valeur gardée à la minute (spec §3)', async () => {
+    const { a, espace, ecrire } = await ouvrir()
+    const p = await plan(
+      espace,
+      appel('ajouter_colonnes', { base: 'taches', colonnes: [{ nom: 'Ouvert le', type: 'date', heure: true }] }),
+      appel('modifier_lignes', { base: 'taches', lignes: ['t0000001'], valeurs: { 'Ouvert le': '2026-11-12T10:42' } }),
+    )
+    expect(resumerPlan(p)).toContain('Ajouter la colonne « Ouvert le » (date avec l’heure) à Tâches')
+    await appliquerPlan(espace, p)
+    await ecrire()
+    expect(await a.lire('taches/_schema.yaml')).toMatch(/cle: ouvert_le\n    nom: Ouvert le\n    type: date\n    heure: true/)
+    expect(await a.lire('taches/a--t0000001.md')).toContain('ouvert_le: 2026-11-12T10:42\n')
+    await espace.regleHeure('taches', 'ouvert_le', false)
+    expect(await a.lire('taches/_schema.yaml')).not.toContain('heure: true')
+    expect(await a.lire('taches/a--t0000001.md')).toContain('ouvert_le: 2026-11-12T10:42\n')
+  })
+
   it('nouvelle base avec colonnes, lignes créées dedans, contenu de leur page', async () => {
     const { a, espace, ecrire } = await ouvrir()
     const p = await plan(

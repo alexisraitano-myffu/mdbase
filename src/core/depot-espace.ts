@@ -764,7 +764,8 @@ export class DepotEspace {
 
   // ── Colonnes ─────────────────────────────────────────────────────
 
-  ajouterColonne(base: string, nom: string, type: TypeCreable): Promise<string> {
+  /** `heure` : une date saisie avec l'heure (spec §3 « Date avec heure »), ignoré pour un autre type. */
+  ajouterColonne(base: string, nom: string, type: TypeCreable, heure = false): Promise<string> {
     return this.enFile(async () => {
       this.refuserSiSynchronisee(base)
       const schema = this.schema(base)
@@ -773,7 +774,7 @@ export class DepotEspace {
       const nouvelle: Colonne =
         type === 'select' || type === 'multiselect'
           ? { cle, nom: nomAffiche, type, options: [] }
-          : { cle, nom: nomAffiche, type }
+          : { cle, nom: nomAffiche, type, ...(type === 'date' && heure && { heure: true }) }
       await this.modifierSchema(base, { type: 'ajouter_colonne', colonne: nouvelle })
       return cle
     })
@@ -787,6 +788,18 @@ export class DepotEspace {
       const cle = cleColonne(nom, schema.colonnes.map((c) => c.cle))
       await this.modifierSchema(base, { type: 'ajouter_colonne', colonne: { cle, nom: nom.trim() || cle, type } })
       return cle
+    })
+  }
+
+  /**
+   * Date avec ou sans l'heure (spec §3) : ne touche que `_schema.yaml`, jamais
+   * les valeurs (une heure déjà écrite reste, cachée ou non).
+   */
+  regleHeure(base: string, cle: string, heure: boolean): Promise<void> {
+    return this.enFile(async () => {
+      this.refuserSiSynchronisee(base)
+      if (colonne(this.schema(base), cle)?.type !== 'date') throw new ErreurSchema('Seule une colonne date peut porter l’heure')
+      await this.modifierSchema(base, { type: 'modifier_colonne', cle, proprietes: { heure: heure ? true : undefined } })
     })
   }
 

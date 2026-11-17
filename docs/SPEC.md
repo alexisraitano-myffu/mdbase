@@ -226,7 +226,7 @@ _modifie: 2026-10-12T09:05
 
 ---
 
-### Date avec heure [PROPOSÉ, demandé par Alex le 17/11/2026]
+### Date avec heure [DÉCIDÉ, demandé par Alex le 17/11/2026]
 
 Une date peut déjà porter une heure (`AAAA-MM-JJTHH:mm`, tableau ci-dessus) ; il manque de pouvoir la saisir, la filtrer et calculer avec. Pas de nouveau type : une **option de la colonne `date`**, comme « Inclure l'heure » dans Notion. Aucune colonne existante ne change.
 
@@ -238,7 +238,7 @@ Une date peut déjà porter une heure (`AAAA-MM-JJTHH:mm`, tableau ci-dessus) ; 
 ```
 
 - **Saisie** : avec `heure: true`, la cellule et la page proposent la date et l'heure. Sans, le jour seul ; une valeur qui a déjà une heure (écrite à la main, par Jira) la garde et l'affiche, comme aujourd'hui.
-- **Stockage** inchangé : `AAAA-MM-JJTHH:mm`, heure locale, sans fuseau. Toujours écrit entre guillemets (sinon le YAML le lit comme un horodatage), les deux formes relues. Une valeur sans heure dans une colonne avec heure vaut minuit.
+- **Stockage** inchangé : `AAAA-MM-JJTHH:mm`, heure locale, sans fuseau, écrit comme aujourd'hui (YAML 1.2 le relit comme un texte, avec ou sans guillemets). Une valeur sans heure dans une colonne avec heure vaut minuit.
 - **Basculer l'option** ne réécrit aucun fichier : passer à `heure: true` laisse les valeurs telles quelles (minuit à l'affichage) ; retirer l'heure la cache seulement, sans effacer ce qui est écrit.
 - **Filtres** : mêmes opérateurs. `avant`, `apres` et `entre` tiennent compte de l'heure quand la valeur du filtre en a une ; les filtres relatifs (`aujourdhui`, `jours_passes`…) restent au jour.
 - **Tris, calendrier, timeline** : l'heure départage deux valeurs du même jour ; sans heure, une valeur passe avant celles du même jour qui en ont une.
@@ -1044,7 +1044,7 @@ Description du ticket, convertie en Markdown.
 - `--demarrage` (Windows) : après un passage réussi, copie le script dans `%LOCALAPPDATA%\mdbase\` (hors des Téléchargements) et pose `mdbase-jira.cmd` dans le dossier Démarrage de l'utilisateur, qui relance `--suivre` à chaque ouverture de session, fenêtre réduite, sans droits administrateur. `--sans-demarrage` le retire. Le bandeau de la base (bouton « Script ») donne le téléchargement et les deux commandes à copier : l'app ne connaît pas le chemin du dossier de l'espace, le script si.
 - [PLUS TARD] plusieurs scripts sur un même espace partagé (verrou).
 
-### Historique, résolution et temps [PROPOSÉ, demandé par Alex le 17/11/2026]
+### Historique, résolution et temps [DÉCIDÉ, demandé par Alex le 17/11/2026]
 
 But : tracer un **burndown par version** (tickets restants jusqu'à la livraison, puis en heures) et mesurer les **délais de résolution** à l'heure près. La date du dernier mouvement ne suffit pas : il faut la date de chaque passage de statut.
 
@@ -1074,6 +1074,7 @@ Colonnes ajoutées au schéma par la synchro quand le réglage est actif (comme 
 - **Historique** [DÉCIDÉ, demandé par Alex le 17/11/2026 : une colonne texte, pas de base de transitions, pour ne pas multiplier les lignes] : une ligne par passage, du plus ancien au plus récent, `2026-11-12T10:42 · En cours → En revue`. Valeur sur plusieurs lignes dans le frontmatter (bloc YAML `|`).
 - **Terminé le** : la date du **dernier** passage dans la catégorie Jira « Terminé » (`statusCategory = done`), lue dans l'historique ; vide si le ticket n'y est pas aujourd'hui (rouvert). La catégorie, pas le libellé : juste quels que soient le workflow et les statuts renommés. Écrite par la synchro (base en lecture seule), pas une colonne calculée.
 - **Temps** : Jira les donne en secondes ; écrits en heures (deux décimales). Les valeurs du ticket lui-même, sans ses sous-tâches : une sous-tâche synchronisée est sa propre ligne, l'agrégat compterait deux fois.
+- **Temps saisis** : le total du ticket seulement (`timespent`, somme de ses saisies). Le détail de chaque saisie (qui, quel jour) n'est pas lu : un « temps passé par personne et par semaine » demanderait de lire les worklogs un par un [PLUS TARD].
 - **Lecture** : l'historique des statuts par `POST /rest/api/3/changelog/bulkfetch` (`fieldIds: ["status"]`), pour les seuls tickets relus par la synchro incrémentale ; tout l'historique d'un ticket la première fois. Rien n'est écrit si l'historique n'a pas changé (« Bougé le » inchangé : remplir ces colonnes n'est pas un mouvement).
 - **Jira Data Center** : pas de `bulkfetch` ; le même historique par `expand=changelog` sur la recherche (à faire avec la connexion par jeton personnel, ticket à part).
 - **Burndown** : un modèle de dashboard « Burndown par version » (§10, analyse SQL) : paramètre version, du premier jour de développement à l'échéance de la version, ligne idéale et tickets restants chaque jour (`cree` avant le jour, `termine` vide ou après) ; en heures, la somme des estimations initiales des tickets restants. Le reste à faire tel qu'il était un jour passé n'est pas dans l'historique des statuts : la courbe en heures part des estimations, pas des réestimations.

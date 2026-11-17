@@ -62,6 +62,19 @@ describe('correspond', () => {
     expect(ok(l, f('echeance', 'entre', ['2026-09-25', '2026-09-01']))).toBe(true)
   })
 
+  it('dates avec heure : avant, après, entre à l’heure près quand le filtre en a une', () => {
+    const l = ligne({ echeance: '2026-09-20T14:00' })
+    expect(ok(l, f('echeance', 'avant', '2026-09-20T15:00'))).toBe(true)
+    expect(ok(l, f('echeance', 'apres', '2026-09-20T15:00'))).toBe(false)
+    expect(ok(l, f('echeance', 'egal', '2026-09-20T14:00'))).toBe(true)
+    expect(ok(l, f('echeance', 'entre', ['2026-09-20T08:00', '2026-09-20T12:00']))).toBe(false)
+    expect(ok(l, f('echeance', 'entre', ['2026-09-20T12:00', '2026-09-21']))).toBe(true)
+    // Sans heure, la valeur vaut minuit.
+    const jour = ligne({ echeance: '2026-09-20' })
+    expect(ok(jour, f('echeance', 'avant', '2026-09-20T00:01'))).toBe(true)
+    expect(ok(jour, f('echeance', 'egal', '2026-09-20'))).toBe(true)
+  })
+
   it('dates relatives', () => {
     const d = (jours: number) => ligne({ echeance: decaler(ctx.aujourdhui, jours) })
     expect(ok(d(0), f('echeance', 'aujourdhui'))).toBe(true)

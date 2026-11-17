@@ -13,7 +13,11 @@ export const CLE_MODIFIE = '_modifie'
 export type Option = { label: string; couleur?: string }
 
 type Commun = { cle: string; nom: string }
-export type ColonneSimple = Commun & { type: 'text' | 'number' | 'date' | 'checkbox' | 'url' }
+export type ColonneSimple = Commun & {
+  type: 'text' | 'number' | 'date' | 'checkbox' | 'url'
+  /** Date seulement : saisie avec l'heure (`AAAA-MM-JJTHH:mm`, spec §3 « Date avec heure »). */
+  heure?: boolean
+}
 export type ColonneChoix = Commun & { type: 'select' | 'multiselect'; options: Option[] }
 export type ColonneRelation = Commun & {
   type: 'relation'
@@ -165,6 +169,11 @@ export function natureDe(c: Colonne): Nature {
 
 export type LectureSchema = { schema: Schema | null; avertissements: string[] }
 
+/** Date saisie avec l'heure (option `heure: true` d'une colonne date). */
+export function avecHeure(c: Colonne): boolean {
+  return c.type === 'date' && c.heure === true
+}
+
 /** Colonne dont la valeur est écrite dans les fichiers de lignes (spec §3, invariant 1). */
 export function estSaisie(c: Colonne): boolean {
   if (c.type === 'relation') return c.proprietaire
@@ -235,9 +244,10 @@ function lireColonne(c: unknown): Colonne | string {
   if (typeof c.cle !== 'string' || c.cle === '') return 'clé manquante'
   const commun = { cle: c.cle, nom: typeof c.nom === 'string' ? c.nom : c.cle }
   switch (c.type) {
+    case 'date':
+      return { ...commun, type: 'date', ...(c.heure === true && { heure: true }) }
     case 'text':
     case 'number':
-    case 'date':
     case 'checkbox':
     case 'url':
     case 'created':

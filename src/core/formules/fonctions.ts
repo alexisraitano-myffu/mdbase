@@ -1,4 +1,4 @@
-import { ajouterMois, decaler, decalerValeur, ecartJours } from '../temps'
+import { ajouterMois, decaler, decalerValeur, ecartHeures, ecartJours, heuresOuvrees, joursOuvres, lireHeure } from '../temps'
 
 // Fonctions des formules (spec §6), liste fermée : l'interpréteur ne connaît
 // qu'elles. Chacune se type avant d'être évaluée, ce qui permet de refuser
@@ -114,6 +114,45 @@ export const FONCTIONS: ReadonlyMap<string, Fonction> = new Map<string, Fonction
       retour: 'nombre',
       videSiVide: true,
       calculer: ([a, b]) => ecartJours(date(a), date(b)),
+    },
+  ],
+  [
+    'ecart_heures',
+    {
+      signature: 'ecart_heures(début, fin)',
+      description: 'Nombre d’heures de « début » à « fin », décimales comprises (2 h 30 donne 2,5) ; une date sans heure vaut minuit.',
+      args: ['date', 'date'],
+      retour: 'nombre',
+      videSiVide: true,
+      calculer: ([a, b]) => ecartHeures(texte(a), texte(b)),
+    },
+  ],
+  [
+    'jours_ouvres',
+    {
+      signature: 'jours_ouvres(début, fin)',
+      description: 'Jours ouvrés de « début » à « fin », les deux compris : sans les week-ends ni les jours fériés de France.',
+      args: ['date', 'date'],
+      retour: 'nombre',
+      videSiVide: true,
+      calculer: ([a, b]) => joursOuvres(texte(a), texte(b)),
+    },
+  ],
+  [
+    'heures_ouvrees',
+    {
+      signature: 'heures_ouvrees(début, fin, "08:00", "18:00")',
+      description: 'Heures de « début » à « fin » comptées dans la plage horaire des jours ouvrés (par défaut de 8 h à 18 h).',
+      args: ['date', 'date', 'texte', 'texte'],
+      optionnels: 2,
+      retour: 'nombre',
+      calculer: ([a, b, h1, h2]) => {
+        if (a === undefined || b === undefined || a === '' || b === '') return undefined
+        const debut = lireHeure(texte(h1 ?? '08:00'))
+        const fin = lireHeure(texte(h2 ?? '18:00'))
+        if (debut === null || fin === null || fin <= debut) throw new ErreurCalcul('plage horaire attendue, comme "08:00" et "18:00"')
+        return heuresOuvrees(texte(a), texte(b), debut, fin)
+      },
     },
   ],
   [

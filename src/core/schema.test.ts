@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TEXTE_SCHEMA_PROJETS, schemaProjets } from './fixtures/schema-projets'
-import { colonneOrigine, estSaisie, lireSchema, type Schema } from './schema'
+import { avecHeure, colonneOrigine, estSaisie, lireSchema, type Schema } from './schema'
 
 describe('lireSchema', () => {
   it('lit toutes les colonnes du schéma d’exemple', () => {
@@ -21,6 +21,15 @@ describe('lireSchema', () => {
   it('distingue colonnes saisies et calculées', () => {
     const saisies = schemaProjets().colonnes.filter(estSaisie).map((c) => c.cle)
     expect(saisies).toEqual(['titre', 'statut', 'echeance', 'budget', 'urgent', 'tags', 'site', 'client'])
+  })
+
+  it('lit l’option heure d’une date, ignorée sur un autre type', () => {
+    const { schema } = lireSchema(
+      'champ_titre: t\ncolonnes:\n  - { cle: t, type: text, heure: true }\n  - { cle: d, type: date, heure: true }\n  - { cle: j, type: date }\n',
+      'b',
+    )
+    expect(schema?.colonnes.map(avecHeure)).toEqual([false, true, false])
+    expect(schema?.colonnes[0]).not.toHaveProperty('heure')
   })
 
   it('réserve la clé id', () => {

@@ -74,7 +74,7 @@ function convertir(etat: EtatEspace, c: Colonne, brut: unknown): Valeur | undefi
       return typeof n === 'number' && Number.isFinite(n) ? n : refus('nombre attendu')
     }
     case 'date':
-      return (typeof brut === 'string' && lireDate(brut)) || refus('date AAAA-MM-JJ attendue')
+      return (typeof brut === 'string' && lireDate(brut)) || refus('date AAAA-MM-JJ ou AAAA-MM-JJTHH:mm attendue')
     case 'checkbox':
       if (typeof brut === 'boolean') return brut
       return brut === 'true' ? true : brut === 'false' ? false : refus('true ou false attendu')

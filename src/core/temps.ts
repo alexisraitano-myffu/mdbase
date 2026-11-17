@@ -240,3 +240,91 @@ export function graduations(e: Plage, echelle: Echelle): { haut: Graduation[]; b
     bas: mois.map((g) => ({ ...g, libelle: MOIS_COURTS[Number(g.debut.slice(5, 7)) - 1]! })),
   }
 }
+
+// ── Jours fériés (plan de charge §21, formules §6) ────────────────
+
+/** Dimanche de Pâques d'une année (calendrier grégorien, algorithme de Meeus). */
+export function paques(annee: number): string {
+  const a = annee % 19
+  const b = Math.floor(annee / 100)
+  const c = annee % 100
+  const d = Math.floor(b / 4)
+  const e = b % 4
+  const f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4)
+  const k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const mois = Math.floor((h + l - 7 * m + 114) / 31)
+  const jour = ((h + l - 7 * m + 114) % 31) + 1
+  return `${annee}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`
+}
+
+const cacheFeries = new Map<number, ReadonlySet<string>>()
+
+/** Jours fériés de France métropolitaine d'une année. */
+export function feriesFrance(annee: number): ReadonlySet<string> {
+  const deja = cacheFeries.get(annee)
+  if (deja) return deja
+  const p = paques(annee)
+  const fixes = ['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].map((j) => `${annee}-${j}`)
+  const jours = new Set([...fixes, decaler(p, 1), decaler(p, 39), decaler(p, 50)])
+  cacheFeries.set(annee, jours)
+  return jours
+}
+
+// ── Heures (spec §3 « Date avec heure ») ─────────────────────────
+
+/** Minutes depuis l'origine d'une date `AAAA-MM-JJ` ou `AAAA-MM-JJTHH:mm` (heure locale, sans fuseau ; sans heure : minuit). */
+export function minutesDe(v: string): number {
+  const h = Number(v.slice(11, 13)) || 0
+  const m = Number(v.slice(14, 16)) || 0
+  return enUTC(v.slice(0, 10)).getTime() / 60_000 + h * 60 + m
+}
+
+/** Heures de `a` à `b`, décimales comprises (négatif si `b` est avant). */
+export function ecartHeures(a: string, b: string): number {
+  return (minutesDe(b) - minutesDe(a)) / 60
+}
+
+/** Un jour ouvré : du lundi au vendredi, hors jours fériés de France. */
+function ouvre(jour: string): boolean {
+  const j = jourSemaine(jour)
+  return j !== 0 && j !== 6 && !feriesFrance(Number(jour.slice(0, 4))).has(jour)
+}
+
+/** Jours ouvrés de `a` à `b`, bornes comprises (négatif si `b` est avant). */
+export function joursOuvres(a: string, b: string): number {
+  const [debut, fin, signe] = a.slice(0, 10) <= b.slice(0, 10) ? [a.slice(0, 10), b.slice(0, 10), 1] : [b.slice(0, 10), a.slice(0, 10), -1]
+  let n = 0
+  for (let j = debut; j <= fin; j = decaler(j, 1)) if (ouvre(j)) n++
+  return signe * n
+}
+
+/** `HH:mm` → minutes depuis minuit ; `null` si ce n'est pas une heure. */
+export function lireHeure(h: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(h.trim())
+  if (!m || Number(m[1]) > 24 || Number(m[2]) > 59) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+/**
+ * Heures de `a` à `b` comptées dans la plage `[debut, fin]` (minutes depuis
+ * minuit) des jours ouvrés seulement ; négatif si `b` est avant.
+ */
+export function heuresOuvrees(a: string, b: string, debut: number, fin: number): number {
+  if (minutesDe(b) < minutesDe(a)) return -heuresOuvrees(b, a, debut, fin)
+  const de = minutesDe(a)
+  const a_ = minutesDe(b)
+  let total = 0
+  for (let j = a.slice(0, 10); j <= b.slice(0, 10); j = decaler(j, 1)) {
+    if (!ouvre(j)) continue
+    const minuit = minutesDe(j)
+    const d = Math.max(de, minuit + debut)
+    const f = Math.min(a_, minuit + fin)
+    if (f > d) total += f - d
+  }
+  return total / 60
+}

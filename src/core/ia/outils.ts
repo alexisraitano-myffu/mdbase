@@ -51,6 +51,7 @@ const COLONNE = {
     champ: { type: 'string', description: 'rollup : clé de la colonne remontée depuis la base liée' },
     calcul: { type: 'string', enum: [...CALCULS], description: 'rollup' },
     expression: { type: 'string', description: 'formula : expression, colonnes en prop("cle")' },
+    heure: { type: 'boolean', description: 'date : saisie avec l’heure (valeurs AAAA-MM-JJTHH:mm)' },
   },
   required: ['nom', 'type'],
 }
@@ -545,7 +546,7 @@ function typeLisible(c: Colonne): string {
     case 'number':
       return 'nombre'
     case 'date':
-      return 'date'
+      return c.heure ? 'date avec heure (AAAA-MM-JJTHH:mm)' : 'date'
     case 'checkbox':
       return 'case à cocher'
     case 'url':

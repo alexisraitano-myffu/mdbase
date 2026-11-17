@@ -1,7 +1,9 @@
 import type { LigneChargee } from './base'
 import type { Modifications } from './ligne'
 import { estSaisie, type Colonne, type ColonneRelation, type Schema } from './schema'
-import { ajouterMois, decaler, jourDe, jourSemaine, lundiDe } from './temps'
+import { ajouterMois, decaler, feriesFrance, jourDe, jourSemaine, lundiDe } from './temps'
+
+export { feriesFrance, paques } from './temps'
 import type { Valeur } from './valeurs'
 
 // Plan de charge (spec §21) : capacité, charge et couverture des besoins, en
@@ -74,38 +76,6 @@ export type ReglagesCharge = {
 export const SEUIL_PLEINE = 0.8
 
 // ── Calendrier ────────────────────────────────────────────────────
-
-/** Dimanche de Pâques d'une année (calendrier grégorien, algorithme de Meeus). */
-export function paques(annee: number): string {
-  const a = annee % 19
-  const b = Math.floor(annee / 100)
-  const c = annee % 100
-  const d = Math.floor(b / 4)
-  const e = b % 4
-  const f = Math.floor((b + 8) / 25)
-  const g = Math.floor((b - f + 1) / 3)
-  const h = (19 * a + b - d - g + 15) % 30
-  const i = Math.floor(c / 4)
-  const k = c % 4
-  const l = (32 + 2 * e + 2 * i - h - k) % 7
-  const m = Math.floor((a + 11 * h + 22 * l) / 451)
-  const mois = Math.floor((h + l - 7 * m + 114) / 31)
-  const jour = ((h + l - 7 * m + 114) % 31) + 1
-  return `${annee}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`
-}
-
-const cacheFeries = new Map<number, ReadonlySet<string>>()
-
-/** Jours fériés de France métropolitaine d'une année. */
-export function feriesFrance(annee: number): ReadonlySet<string> {
-  const deja = cacheFeries.get(annee)
-  if (deja) return deja
-  const p = paques(annee)
-  const fixes = ['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].map((j) => `${annee}-${j}`)
-  const jours = new Set([...fixes, decaler(p, 1), decaler(p, 39), decaler(p, 50)])
-  cacheFeries.set(annee, jours)
-  return jours
-}
 
 /** Un jour ouvré : du lundi au vendredi, hors jours fériés si on en tient compte. */
 export function estOuvre(jour: string, cal: Calendrier = 'france'): boolean {
