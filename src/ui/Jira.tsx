@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, Download, KeyRound, RefreshCw, Settings2, Terminal, TriangleAlert } from 'lucide-react'
+import { Check, Clock, Copy, Download, History, KeyRound, RefreshCw, Settings2, Terminal, TriangleAlert } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
 import { domaineJira, messageErreurJira } from '../core/jira/client'
 import type { Schema, Source } from '../core/schema'
@@ -11,6 +11,7 @@ import { Fenetre } from './fenetre'
 import { Flottant } from './flottant'
 import { Icone } from './icones'
 import { useModeConsultation } from './mode'
+import { Interrupteur } from './reglages'
 import { relireConnexion, synchroniserJiraMaintenant, useEtatSynchroJira, verifierScriptAuDemarrage } from './synchroJira'
 
 // Base Jira dans l'app (spec §16) : création, réglages de la source et état de
@@ -55,16 +56,30 @@ function ChampsSource(p: { site: string; projets: string; jql: string; changer: 
   )
 }
 
-function sourceDe(type: string, c: { site: string; projets: string; jql: string }): Source {
+type Options = { historique: boolean; temps: boolean }
+
+/** Ce que la synchro lit en plus des tickets (spec §16 « Historique, résolution et temps ») ; rien par défaut. */
+function OptionsSource(p: Options & { changer: (c: Partial<Options>) => void }) {
+  return (
+    <div className="options-source">
+      <Interrupteur icone={History} libelle="Historique des statuts" coche={p.historique} changer={(v) => p.changer({ historique: v })} />
+      <span className="discret aide-reglage">Chaque passage de statut, « Résolu le » et « Terminé le » à l’heure près : délais de résolution, burndown.</span>
+      <Interrupteur icone={Clock} libelle="Temps" coche={p.temps} changer={(v) => p.changer({ temps: v })} />
+      <span className="discret aide-reglage">Estimation initiale, temps passé et reste à faire de chaque ticket, en heures.</span>
+    </div>
+  )
+}
+
+function sourceDe(type: string, c: { site: string; projets: string; jql: string } & Partial<Options>): Source {
   const jql = c.jql.trim()
-  return { type, site: domaineJira(c.site), projets: lireProjets(c.projets), ...(jql && { jql }) }
+  return { type, site: domaineJira(c.site), projets: lireProjets(c.projets), ...(jql && { jql }), ...(c.historique && { historique: true }), ...(c.temps && { temps: true }) }
 }
 
 /** « Nouvelle base Jira » : nom, site et projets ; la base se remplit au premier passage du script. */
 export function FenetreBaseJira(p: { espace: DepotEspace; fermer: () => void; ouvrir: (id: string) => void }) {
   const lancer = useLancer()
   const [nom, setNom] = useState('Tickets Jira')
-  const [champs, setChamps] = useState({ site: '', projets: '', jql: '' })
+  const [champs, setChamps] = useState({ site: '', projets: '', jql: '', historique: false, temps: false })
   const source = sourceDe('jira', champs)
   const valide = nom.trim() !== '' && source.site !== '' && source.projets.length > 0
 
@@ -91,6 +106,7 @@ export function FenetreBaseJira(p: { espace: DepotEspace; fermer: () => void; ou
           </label>
         </div>
         <ChampsSource {...champs} auto changer={(c) => setChamps({ ...champs, ...c })} />
+        <OptionsSource {...champs} changer={(c) => setChamps({ ...champs, ...c })} />
         <div className="boutons">
           <button className="discret" onClick={p.fermer}>
             Annuler
@@ -340,13 +356,20 @@ function LancerScript() {
 
 function ReglagesSource(p: { espace: DepotEspace; base: string; source: Source; ancre: HTMLElement | null; fermer: () => void }) {
   const lancer = useLancer()
-  const [champs, setChamps] = useState({ site: p.source.site, projets: p.source.projets.join(', '), jql: p.source.jql ?? '' })
+  const [champs, setChamps] = useState({
+    site: p.source.site,
+    projets: p.source.projets.join(', '),
+    jql: p.source.jql ?? '',
+    historique: p.source.historique === true,
+    temps: p.source.temps === true,
+  })
   const suivante = sourceDe(p.source.type, champs)
   const valide = suivante.site !== '' && suivante.projets.length > 0
   return (
     <Flottant ancre={p.ancre} fermer={p.fermer} garderOuvert>
       <div className="titre-panneau">Source Jira</div>
       <ChampsSource {...champs} changer={(c) => setChamps({ ...champs, ...c })} />
+      <OptionsSource {...champs} changer={(c) => setChamps({ ...champs, ...c })} />
       <p className="discret aide-source">
         {BUREAU ? 'La prochaine synchro relira tous les tickets avec ces réglages.' : 'Le script relit ces réglages à son prochain passage, et relit alors tous les tickets.'}
       </p>

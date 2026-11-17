@@ -5,7 +5,7 @@ import { lireSchema } from '../schema'
 import { modifierSchema } from '../schema-ecriture'
 import { adfEnMarkdown } from './adf'
 import { basesJira, depuisPour, jqlSelection, lireEtatSynchro, synchroniser, type ClientJira } from './synchro'
-import { changement, schemaJira, valeursTicket, type TicketJira } from './ticket'
+import { changement, schemaJira, termineLe, texteHistorique, valeursTicket, type TicketJira, type Transition } from './ticket'
 
 const SOURCE = { type: 'jira', site: 'exemple.atlassian.net', projets: ['APP'] }
 
@@ -148,6 +148,24 @@ describe('ticket → ligne', () => {
   })
 })
 
+describe('historique des statuts', () => {
+  const categories = new Map([['new-1', 'new'], ['done-1', 'done'], ['done-2', 'done'], ['Clos', 'done']])
+  const fait = ticket('1', 'APP-1', { status: { id: 'done-2', name: 'Clos', statusCategory: { key: 'done' } } })
+  it('« Terminé le » : entrée dans la catégorie, pas un passage d’un statut terminé à un autre', () => {
+    const t: Transition[] = [
+      { quand: '2026-09-10T10:00', de: 'À faire', vers: 'Fait', deId: 'new-1', versId: 'done-1' },
+      { quand: '2026-09-12T10:00', de: 'Fait', vers: 'Clos', deId: 'done-1', versId: 'done-2' },
+    ]
+    expect(termineLe(fait, t, categories)).toBe('2026-09-10T10:00')
+  })
+  it('par le nom si l’id manque ; sans passage, la date de résolution ; pas terminé : vide', () => {
+    expect(termineLe(fait, [{ quand: '2026-09-11T08:00', de: 'À faire', vers: 'Clos' }], categories)).toBe('2026-09-11T08:00')
+    expect(termineLe(fait, [], categories, '2026-09-09T09:00')).toBe('2026-09-09T09:00')
+    expect(termineLe(ticket('2', 'APP-2'), [{ quand: '2026-09-11T08:00', vers: 'Clos' }], categories)).toBeUndefined()
+    expect(texteHistorique([])).toBeUndefined()
+  })
+})
+
 describe('JQL et bornes', () => {
   it('sélection par projets, filtre ajouté, incrémental', () => {
     expect(jqlSelection(['APP', 'ABC'], 'status != Abandonné', '2026/09/29 14:00')).toBe(
@@ -240,6 +258,64 @@ describe('synchro d’une base Jira', () => {
     expect(l!.cellules.projet).toEqual({ etat: 'ok', valeur: 'Prévente' })
     expect(l!.cellules.changement).toEqual({ etat: 'ok', valeur: 'Nouveau' })
     expect(l!.cellules.bouge).toEqual({ etat: 'ok', valeur: '2026-10-01T09:00' })
+  })
+
+  it('historique et temps activés sur une base existante : colonnes posées, tout l’historique lu une fois, puis seulement les tickets mis à jour', async () => {
+    const enCours = { status: { id: '3', name: 'En cours', statusCategory: { key: 'indeterminate' } } }
+    const fait = { status: { id: '10', name: 'Fait', statusCategory: { key: 'done' } } }
+    const { a, client, o, lignes } = await espace([ticket('1', 'APP-1', enCours), ticket('2', 'APP-2', { ...fait, resolutiondate: '2026-09-20T17:05:00.000+0200' })])
+    await synchroniser(a, 'jira', client, o)
+
+    // Le faux Jira garde l'historique de chaque ticket et note ceux qu'on lui demande.
+    const passages: Record<string, Transition[]> = {
+      '1': [{ quand: '2026-09-02T10:00', de: 'À faire', vers: 'En cours', deId: '1', versId: '3' }],
+      '2': [
+        { quand: '2026-09-03T09:00', de: 'À faire', vers: 'En cours', deId: '1', versId: '3' },
+        { quand: '2026-09-18T16:30', de: 'En cours', vers: 'Fait', deId: '3', versId: '10' },
+        { quand: '2026-09-19T08:00', de: 'Fait', vers: 'En cours', deId: '10', versId: '3' },
+        { quand: '2026-09-20T17:04', de: 'En cours', vers: 'Fait', deId: '3', versId: '10' },
+      ],
+    }
+    const demandes: string[][] = []
+    client.historiques = async (ids) => {
+      demandes.push(ids)
+      return new Map(ids.map((id) => [id, passages[id] ?? []]))
+    }
+    client.categoriesStatuts = async () => new Map([['1', 'new'], ['3', 'indeterminate'], ['10', 'done']])
+    const temps = { timeoriginalestimate: 28800, timespent: 9000, timeestimate: 19800 }
+    client.tickets = [ticket('1', 'APP-1', { ...enCours, ...temps }), ticket('2', 'APP-2', { ...fait, resolutiondate: '2026-09-20T17:05:00.000+0200' })]
+    await a.ecrire('jira/_schema.yaml', modifierSchema(await a.lire('jira/_schema.yaml'), { type: 'source', source: { ...SOURCE, historique: true, temps: true } }))
+
+    const bilan = await synchroniser(a, 'jira', client, o)
+    expect(bilan).toMatchObject({ modifies: 2, complete: true })
+    expect(demandes).toEqual([['1', '2']])
+    const schema = lireSchema(await a.lire('jira/_schema.yaml'), 'jira').schema!
+    expect(schema.colonnes.find((c) => c.cle === 'cree')).toMatchObject({ type: 'date', heure: true })
+    expect(schema.colonnes.map((c) => c.cle)).toEqual(expect.arrayContaining(['resolu', 'termine', 'historique', 'estimation', 'temps_passe', 'reste']))
+    const parCle = async (cle: string) => (await lignes()).find((l) => l.cellules.cle?.etat === 'ok' && l.cellules.cle.valeur === cle)!
+    const deux = await parCle('APP-2')
+    // Le dernier passage dans « Terminé », pas le premier ; remplir ces colonnes n'est pas un mouvement.
+    expect(deux.cellules.termine).toEqual({ etat: 'ok', valeur: '2026-09-20T17:04' })
+    expect(deux.cellules.resolu).toEqual({ etat: 'ok', valeur: '2026-09-20T17:05' })
+    expect(deux.cellules.bouge).toEqual({ etat: 'ok', valeur: '2026-10-01T09:00' })
+    expect(deux.cellules.historique).toEqual({ etat: 'ok', valeur: texteHistorique(passages['2']!) })
+    expect(await a.lire(deux.chemin)).toContain('historique: |-\n  2026-09-03T09:00 · À faire → En cours\n  2026-09-18T16:30 · En cours → Fait\n')
+    const un = await parCle('APP-1')
+    expect(un.cellules.termine).toBeUndefined()
+    expect([un.cellules.estimation, un.cellules.temps_passe, un.cellules.reste]).toEqual([
+      { etat: 'ok', valeur: 8 },
+      { etat: 'ok', valeur: 2.5 },
+      { etat: 'ok', valeur: 5.5 },
+    ])
+
+    // Synchro suivante : APP-2 est rouvert (mis à jour), APP-1 n'a pas bougé.
+    passages['2']!.push({ quand: '2026-09-30T14:00', de: 'Fait', vers: 'En cours', deId: '10', versId: '3' })
+    client.tickets = [ticket('1', 'APP-1', { ...enCours, ...temps }), ticket('2', 'APP-2', { ...enCours, updated: '2026-09-30T14:00:00.000+0200' })]
+    await synchroniser(a, 'jira', client, o)
+    expect(demandes.at(-1)).toEqual(['2'])
+    const rouvert = await parCle('APP-2')
+    expect(rouvert.cellules.termine).toBeUndefined()
+    expect(rouvert.cellules.historique).toEqual({ etat: 'ok', valeur: expect.stringMatching(/2026-09-30T14:00 · Fait → En cours$/) })
   })
 
   it('résumé changé : fichier renommé, même id ; une date de mise à jour seule ne compte pas comme « bougé »', async () => {

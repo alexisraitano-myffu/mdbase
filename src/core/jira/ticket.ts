@@ -43,6 +43,25 @@ export const COLONNES_JIRA: readonly Colonne[] = [
   { cle: 'jira_id', nom: 'Id Jira', type: 'text' },
 ]
 
+/** Avec `source.historique` (spec §16 « Historique, résolution et temps ») ; « Créé le » gagne alors l'heure. */
+export const COLONNES_HISTORIQUE: readonly Colonne[] = [
+  { cle: 'resolu', nom: 'Résolu le', type: 'date', heure: true },
+  { cle: 'termine', nom: 'Terminé le', type: 'date', heure: true },
+  { cle: 'historique', nom: 'Historique', type: 'text' },
+]
+
+/** Avec `source.temps` : les temps du ticket lui-même, en heures, sans ses sous-tâches. */
+export const COLONNES_TEMPS: readonly Colonne[] = [
+  { cle: 'estimation', nom: 'Estimation initiale (h)', type: 'number' },
+  { cle: 'temps_passe', nom: 'Temps passé (h)', type: 'number' },
+  { cle: 'reste', nom: 'Reste à faire (h)', type: 'number' },
+]
+
+/** Colonnes qu'une base Jira doit avoir, selon les réglages de sa source. */
+export function colonnesJira(source: Source): Colonne[] {
+  return [...COLONNES_JIRA, ...(source.historique ? COLONNES_HISTORIQUE : []), ...(source.temps ? COLONNES_TEMPS : [])]
+}
+
 /** Champs dont un changement compte comme « le ticket a bougé », avec leur libellé. */
 export const CHAMPS_SUIVIS: readonly (readonly [string, string])[] = [
   ['projet', 'Projet'],
@@ -62,15 +81,23 @@ export const CHAMPS_SUIVIS: readonly (readonly [string, string])[] = [
 const COULEUR_ETAT: Record<string, string> = { 'À faire': 'gris', 'En cours': 'bleu', Terminé: 'vert' }
 
 /** Champs Jira à demander à la recherche ; `sprint` est un champ personnalisé, propre à chaque site. */
-export function champsDemandes(champSprint?: string): string[] {
-  return ['summary', 'project', 'status', 'issuetype', 'priority', 'assignee', 'fixVersions', 'duedate', 'parent', 'labels', 'created', 'updated', 'description', ...(champSprint ? [champSprint] : [])]
+export function champsDemandes(champSprint?: string, source?: Pick<Source, 'historique' | 'temps'>): string[] {
+  return [
+    'summary', 'project', 'status', 'issuetype', 'priority', 'assignee', 'fixVersions', 'duedate', 'parent', 'labels', 'created', 'updated', 'description',
+    ...(champSprint ? [champSprint] : []),
+    ...(source?.historique ? ['resolutiondate'] : []),
+    ...(source?.temps ? ['timeoriginalestimate', 'timespent', 'timeestimate'] : []),
+  ]
 }
 
 /** Texte du schéma d'une nouvelle base Jira. */
 export function schemaJira(id: string, nom: string, source: Source): string {
   let texte = modifierSchema(nouveauSchema(id, nom), { type: 'source', source })
   texte = modifierSchema(texte, { type: 'supprimer_colonne', cle: 'titre' })
-  for (const colonne of COLONNES_JIRA) texte = modifierSchema(texte, { type: 'ajouter_colonne', colonne })
+  for (const colonne of colonnesJira(source)) {
+    const c = colonne.cle === 'cree' && source.historique ? { ...colonne, heure: true } : colonne
+    texte = modifierSchema(texte, { type: 'ajouter_colonne', colonne: c })
+  }
   return texte
 }
 
@@ -117,6 +144,10 @@ export function valeursTicket(t: TicketJira, site: string, champSprint?: string)
       labels: liste(f.labels, texte),
       cree: dateHeure(f.created),
       maj: dateHeure(f.updated),
+      resolu: dateHeure(f.resolutiondate),
+      estimation: heures(f.timeoriginalestimate),
+      temps_passe: heures(f.timespent),
+      reste: heures(f.timeestimate),
       lien: site ? `https://${site}/browse/${t.key}` : undefined,
       suivi: true,
       jira_id: String(t.id),
@@ -127,6 +158,55 @@ export function valeursTicket(t: TicketJira, site: string, champSprint?: string)
 }
 
 const ETATS: Record<string, string> = { new: 'À faire', indeterminate: 'En cours', done: 'Terminé' }
+
+/** Clé de la catégorie Jira du statut actuel d'un ticket : `new`, `indeterminate` ou `done`. */
+export function categorieTicket(t: TicketJira): string | undefined {
+  return texte(objet(objet(t.fields.status)?.statusCategory)?.key)
+}
+
+/** Secondes de Jira → heures, deux décimales. */
+function heures(x: unknown): number | undefined {
+  return typeof x === 'number' && Number.isFinite(x) ? Math.round((x / 3600) * 100) / 100 : undefined
+}
+
+// ── Historique des statuts ─────────────────────────────────────────
+
+/** Un passage de statut : quand (« AAAA-MM-JJTHH:mm »), de quel statut vers lequel (nom et id). */
+export type Transition = { quand: string; de?: string; vers?: string; deId?: string; versId?: string }
+
+/** Catégorie (`new`, `indeterminate`, `done`) de chaque statut du site, par id et par nom. */
+export type CategoriesStatuts = Map<string, string>
+
+/** « Historique » : un passage par ligne, du plus ancien au plus récent ; vide sans passage. */
+export function texteHistorique(transitions: readonly Transition[]): string | undefined {
+  if (transitions.length === 0) return undefined
+  return transitions.map((t) => `${t.quand} · ${t.de ?? '?'} → ${t.vers ?? '?'}`).join('\n')
+}
+
+/**
+ * « Terminé le » : le dernier passage dans la catégorie Terminé, vide si le
+ * ticket n'y est pas aujourd'hui (rouvert). La catégorie, pas le libellé :
+ * juste quels que soient le workflow et les statuts renommés. Sans passage
+ * trouvé (ticket créé terminé, historique incomplet), la date de résolution.
+ */
+export function termineLe(t: TicketJira, transitions: readonly Transition[], categories: CategoriesStatuts, resolu?: string): string | undefined {
+  if (categorieTicket(t) !== 'done') return undefined
+  const cat = (id?: string, nom?: string) => (id && categories.get(id)) ?? (nom && categories.get(nom)) ?? undefined
+  for (let i = transitions.length - 1; i >= 0; i--) {
+    const x = transitions[i]!
+    if (cat(x.versId, x.vers) === 'done' && cat(x.deId, x.de) !== 'done') return x.quand
+  }
+  return resolu
+}
+
+/** Date d'un changement lu dans Jira : texte ISO avec fuseau (heure de Jira gardée), ou nombre (secondes ou millisecondes, mis à l'heure du poste). */
+export function quandChangement(x: unknown): string | undefined {
+  if (typeof x === 'string') return dateHeure(x)
+  if (typeof x !== 'number' || !Number.isFinite(x)) return undefined
+  const d = new Date(x < 1e11 ? x * 1000 : x)
+  const deux = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}T${deux(d.getHours())}:${deux(d.getMinutes())}`
+}
 
 /**
  * Ce qui a changé dans les champs suivis, pour « Dernier changement » :

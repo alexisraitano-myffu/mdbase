@@ -61,7 +61,16 @@ export type Schema = {
  * Source d'une base (§16). Tout type inconnu garde la base en lecture seule :
  * mieux vaut ne pas écrire là où un script écrit.
  */
-export type Source = { type: string; site: string; projets: string[]; jql?: string }
+export type Source = {
+  type: string
+  site: string
+  projets: string[]
+  jql?: string
+  /** Jira : passages de statut, « Résolu le », « Terminé le » (spec §16 « Historique, résolution et temps »). */
+  historique?: boolean
+  /** Jira : estimation initiale, temps passé, reste à faire, en heures. */
+  temps?: boolean
+}
 
 /** Nom affiché d'une source : « Jira », ou le type tel qu'écrit. */
 export function nomSource(type: string): string {
@@ -77,6 +86,8 @@ function lireSource(brut: unknown): Source | undefined {
     site: typeof o.site === 'string' ? o.site : '',
     projets,
     ...(typeof o.jql === 'string' && o.jql.trim() !== '' && { jql: o.jql }),
+    ...(o.historique === true && { historique: true }),
+    ...(o.temps === true && { temps: true }),
   }
 }
 

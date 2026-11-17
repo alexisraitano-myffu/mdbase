@@ -1,7 +1,7 @@
 import { webcrypto } from 'node:crypto'
 import { AdaptateurMemoire } from '../src/core/adaptateur-memoire'
 import { synchroniser, type ClientJira } from '../src/core/jira/synchro'
-import type { TicketJira } from '../src/core/jira/ticket'
+import type { TicketJira, Transition } from '../src/core/jira/ticket'
 import { ajouterModule, expect, test, type Espace } from './espace'
 
 // Base Jira (spec §16) : créée dans l'app, remplie par le script (simulé ici
@@ -31,10 +31,15 @@ const TICKETS = [
 ]
 
 /** Un passage du script : la base est lue sur le disque de l'app, synchronisée en mémoire, réécrite sur le disque. */
-async function passerLeScript(espace: Espace, base: string, tickets: TicketJira[]) {
+async function passerLeScript(espace: Espace, base: string, tickets: TicketJira[], historiques: Record<string, Transition[]> = {}) {
   const a = new AdaptateurMemoire({ [`${base}/_schema.yaml`]: await espace.lire(`${base}/_schema.yaml`) })
   for (const nom of await espace.lister(base)) if (nom.endsWith('.md') || nom === '_synchro.yaml') await a.ecrire(`${base}/${nom}`, await espace.lire(`${base}/${nom}`))
-  const client: ClientJira = { chercher: async () => ({ tickets }), champSprint: async () => undefined }
+  const client: ClientJira = {
+    chercher: async () => ({ tickets }),
+    champSprint: async () => undefined,
+    historiques: async (ids) => new Map(ids.map((id) => [id, historiques[id] ?? []])),
+    categoriesStatuts: async () => new Map([['À faire', 'new'], ['En cours', 'indeterminate'], ['Terminé', 'done']]),
+  }
   await synchroniser(a, base, client, { maintenant: () => '2026-10-01T09:30', aleatoire: (n) => webcrypto.getRandomValues(new Uint8Array(n)) })
   for (const e of await a.lister(base)) if (e.type === 'fichier') await espace.ecrire(`${base}/${e.nom}`, await a.lire(`${base}/${e.nom}`))
   await espace.page.locator('.relire').click()
@@ -103,6 +108,31 @@ test('les tickets écrits par le script s’affichent en lecture seule ; vues et
   await page.getByRole('button', { name: 'Enregistrer' }).click()
   await expect.poll(() => espace.lire('tickets-jira/_schema.yaml')).toContain('projets: [ APP, OPS, DATA ]')
   expect(await espace.lire('tickets-jira/_schema.yaml')).toContain('jql: statusCategory != Done')
+})
+
+test('historique et temps : activés dans les réglages, colonnes remplies au passage suivant', async ({ espace, page }) => {
+  await creerBaseJira(espace)
+  await passerLeScript(espace, 'tickets-jira', TICKETS)
+  await page.locator('.bandeau-synchro').getByRole('button', { name: 'Réglages' }).click()
+  await page.getByRole('switch', { name: 'Historique des statuts' }).check()
+  await page.getByRole('switch', { name: 'Temps' }).check()
+  await page.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect.poll(() => espace.lire('tickets-jira/_schema.yaml')).toMatch(/historique: true\n\s+temps: true/)
+
+  const tickets = TICKETS.map((t) => (t.key === 'APP-103' ? { ...t, fields: { ...t.fields, timespent: 5400 } } : t))
+  await passerLeScript(espace, 'tickets-jira', tickets, {
+    '10003': [
+      { quand: '2026-09-10T09:15', de: 'À faire', vers: 'En cours' },
+      { quand: '2026-09-12T16:40', de: 'En cours', vers: 'Terminé' },
+    ],
+  })
+  const r = espace.rangee('APP-103')
+  await r.hover()
+  await r.locator('.bouton-ouvrir').click()
+  await expect(page.locator('h2.titre-page')).toHaveText('APP-103 Mettre à jour les dépendances')
+  await expect(page.getByText('12/09/2026 16:40').first()).toBeVisible()
+  await expect(page.getByText('1,5', { exact: true }).first()).toBeVisible()
+  expect(await espace.lire('tickets-jira/_schema.yaml')).toMatch(/cle: cree\n\s+nom: Créé le\n\s+type: date\n\s+heure: true/)
 })
 
 test('une erreur du script s’affiche dans le bandeau', async ({ espace, page }) => {

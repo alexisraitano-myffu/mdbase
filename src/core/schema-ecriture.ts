@@ -71,8 +71,8 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
         doc.delete('source')
         break
       }
-      const { type, site, projets, jql } = op.source
-      const noeud = doc.createNode({ type, site, projets, ...(jql && { jql }) }) as YAMLMap
+      const { type, site, projets, jql, historique, temps } = op.source
+      const noeud = doc.createNode({ type, site, projets, ...(jql && { jql }), ...(historique && { historique }), ...(temps && { temps }) }) as YAMLMap
       const p = noeud.get('projets', true)
       if (isSeq(p)) p.flow = true
       doc.set('source', noeud)
@@ -90,7 +90,10 @@ export function modifierSchema(texte: string, op: OperationSchema): string {
       const noeud = doc.createNode({ cle, nom, type, ...reste }) as YAMLMap
       const options = noeud.get('options')
       if (isSeq(options)) for (const o of options.items) if (isMap(o)) o.flow = true
-      colonnes(doc).items.push(noeud)
+      const seq = colonnes(doc)
+      // Une liste vidée s'écrit `[]` : sans ça, les colonnes ajoutées ensuite resteraient toutes sur une ligne.
+      if (seq.items.length === 0) seq.flow = false
+      seq.items.push(noeud)
       break
     }
     case 'renommer_colonne':

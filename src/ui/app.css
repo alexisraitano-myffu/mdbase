@@ -1102,6 +1102,8 @@ a.bouton:hover { background: var(--survol); }
 .champs-source .aide-reglage { padding: 0; margin: 0; }
 .aide-source { font-size: 0.82em; line-height: 1.4; margin: 0.6rem 0 0; max-width: 360px; }
 .champs-source input { font: inherit; padding: 4px 8px; border: 1px solid var(--bordure); border-radius: 6px; background: var(--fond); color: inherit; }
+.options-source { display: flex; flex-direction: column; margin-top: 0.6rem; min-width: min(360px, 80vw); }
+.options-source .aide-reglage { padding: 0 0 0.4rem; margin: 0; max-width: 360px; }
 .alerte-copies { text-align: left; color: var(--alerte); padding: 0.3rem 0.5rem; }
 .voile-fenetre {
   position: fixed;

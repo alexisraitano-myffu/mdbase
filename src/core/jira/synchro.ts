@@ -7,7 +7,19 @@ import { colonne, estObjet, lireSchema, type Schema } from '../schema'
 import { modifierSchema } from '../schema-ecriture'
 import { listerBases } from '../espace'
 import type { Valeur } from '../valeurs'
-import { champsDemandes, COLONNES_JIRA, COULEUR_ETAT, changement, memeValeur, valeursTicket, type TicketJira } from './ticket'
+import {
+  champsDemandes,
+  colonnesJira,
+  COULEUR_ETAT,
+  changement,
+  memeValeur,
+  termineLe,
+  texteHistorique,
+  valeursTicket,
+  type CategoriesStatuts,
+  type TicketJira,
+  type Transition,
+} from './ticket'
 
 // Synchro d'une base Jira (§16) : lit Jira par un client injecté (le cœur ne
 // fait pas de réseau) et écrit les tickets en lignes, en ne réécrivant que ce
@@ -16,10 +28,16 @@ import { champsDemandes, COLONNES_JIRA, COULEUR_ETAT, changement, memeValeur, va
 
 export const FICHIER_SYNCHRO = '_synchro.yaml'
 
-/** Ce que le script sait faire avec Jira : une page de recherche JQL, et trouver le champ Sprint. */
+/**
+ * Ce que le script sait faire avec Jira : une page de recherche JQL, trouver
+ * le champ Sprint ; avec `source.historique`, lire les passages de statut
+ * (par id de ticket) et la catégorie de chaque statut.
+ */
 export interface ClientJira {
   chercher(jql: string, champs: string[], suivant?: string): Promise<{ tickets: TicketJira[]; suivant?: string }>
   champSprint(): Promise<string | undefined>
+  historiques?(ids: string[]): Promise<Map<string, Transition[]>>
+  categoriesStatuts?(): Promise<CategoriesStatuts>
 }
 
 /** État de la dernière synchro, écrit dans `<base>/_synchro.yaml` et affiché par l'app. */
@@ -131,9 +149,12 @@ async function synchroniserSansEtat(a: AdaptateurFichiers, base: string, client:
   let schema = chargement.base.schema
   let texteSchema = await a.lire(joindre(base, '_schema.yaml'))
   const avant = texteSchema
-  const manquantes = COLONNES_JIRA.filter((c) => !schema.colonnes.some((x) => x.cle === c.cle))
+  const manquantes = colonnesJira(source).filter((c) => !schema.colonnes.some((x) => x.cle === c.cle))
   for (const colonne of manquantes) texteSchema = modifierSchema(texteSchema, { type: 'ajouter_colonne', colonne })
-  if (manquantes.length > 0) schema = lireSchema(texteSchema, base).schema!
+  // Avec l'historique, « Créé le » se lit à l'heure près (spec §16).
+  const cree = colonne(schema, 'cree')
+  if (source.historique && cree?.type === 'date' && !cree.heure) texteSchema = modifierSchema(texteSchema, { type: 'modifier_colonne', cle: 'cree', proprietes: { heure: true } })
+  if (texteSchema !== avant) schema = lireSchema(texteSchema, base).schema!
 
   const maintenant = o.maintenant()
   const signature = JSON.stringify([source.site, source.projets, source.jql ?? ''])
@@ -142,7 +163,7 @@ async function synchroniserSansEtat(a: AdaptateurFichiers, base: string, client:
 
   // 1. Lecture de Jira, page par page.
   const champSprint = await client.champSprint()
-  const champs = champsDemandes(champSprint)
+  const champs = champsDemandes(champSprint, source)
   const jql = jqlSelection(source.projets, source.jql, depuis)
   const tickets: TicketJira[] = []
   let suivant: string | undefined
@@ -185,6 +206,27 @@ async function synchroniserSansEtat(a: AdaptateurFichiers, base: string, client:
   for (const l of chargement.base.lignes) {
     const c = l.cellules.jira_id
     if (c?.etat === 'ok' && typeof c.valeur === 'string' && !parJiraId.has(c.valeur)) parJiraId.set(c.valeur, l)
+  }
+
+  // Historique des statuts : relu seulement pour les tickets nouveaux ou mis à
+  // jour (un passage de statut change « Mis à jour le »), ou pour tous quand la
+  // colonne vient d'être ajoutée.
+  if (source.historique) {
+    if (!client.historiques || !client.categoriesStatuts) throw new Error('Ce client Jira ne lit pas l’historique des statuts')
+    const tous = manquantes.some((c) => c.cle === 'historique')
+    const aRelire = converties.filter(({ t, valeurs }) => {
+      const l = parJiraId.get(String(t.id))
+      return tous || !l || !memeValeur(valeursDe(l).maj, valeurs.maj)
+    })
+    if (aRelire.length > 0) {
+      const historiques = await client.historiques(aRelire.map(({ t }) => String(t.id)))
+      const categories: CategoriesStatuts = await client.categoriesStatuts()
+      for (const x of aRelire) {
+        const transitions: Transition[] = historiques.get(String(x.t.id)) ?? []
+        x.valeurs.historique = texteHistorique(transitions)
+        x.valeurs.termine = termineLe(x.t, transitions, categories, x.valeurs.resolu as string | undefined)
+      }
+    }
   }
   const ids = new Set(chargement.base.lignes.map((l) => l.id))
   const vus = new Set<string>()
