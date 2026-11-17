@@ -133,6 +133,16 @@ test('historique et temps : activés dans les réglages, colonnes remplies au pa
   await expect(page.getByText('12/09/2026 16:40').first()).toBeVisible()
   await expect(page.getByText('1,5', { exact: true }).first()).toBeVisible()
   expect(await espace.lire('tickets-jira/_schema.yaml')).toMatch(/cle: cree\n\s+nom: Créé le\n\s+type: date\n\s+heure: true/)
+  await page.keyboard.press('Escape')
+
+  // Burndown : créé au premier clic, rouvert ensuite (jamais en double).
+  await page.locator('.bandeau-synchro').getByRole('button', { name: 'Burndown' }).click()
+  await expect(page.locator('h1', { hasText: 'Burndown Tickets Jira' })).toBeVisible()
+  expect(await espace.lire('_dashboards/burndown-tickets-jira.yaml')).toContain('from "tickets-jira" where list_contains(versions, {{version}})')
+  await page.locator('.entree-base', { hasText: /^Tickets Jira$/ }).click()
+  await page.locator('.bandeau-synchro').getByRole('button', { name: 'Burndown' }).click()
+  await expect(page.locator('h1', { hasText: 'Burndown Tickets Jira' })).toBeVisible()
+  expect((await espace.lister('_dashboards')).filter((n) => n.startsWith('burndown'))).toHaveLength(1)
 })
 
 test('une erreur du script s’affiche dans le bandeau', async ({ espace, page }) => {

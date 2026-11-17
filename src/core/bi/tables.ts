@@ -1,6 +1,6 @@
 import { avecCalculs, type SourceArbre } from '../arbre-temps'
 import type { EtatEspace } from '../depot-espace'
-import { natureDe, type Colonne } from '../schema'
+import { avecHeure, natureDe, type Colonne } from '../schema'
 import type { Cellule } from '../valeurs'
 import { identifiant, litteral, litteralDate } from './sql'
 
@@ -33,7 +33,7 @@ function typeDe(c: Colonne, cellules: (Cellule | undefined)[]): TypeSql {
     case 'liste':
       return 'VARCHAR[]'
     case 'date':
-      if (c.type === 'created' || c.type === 'modified') return 'TIMESTAMP'
+      if (c.type === 'created' || c.type === 'modified' || avecHeure(c)) return 'TIMESTAMP'
       return cellules.some((x) => x?.etat === 'ok' && typeof x.valeur === 'string' && x.valeur.includes('T')) ? 'TIMESTAMP' : 'DATE'
     default:
       return 'VARCHAR'

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Clock, Copy, Download, History, KeyRound, RefreshCw, Settings2, Terminal, TriangleAlert } from 'lucide-react'
+import { Check, Clock, Copy, Download, History, KeyRound, RefreshCw, Settings2, Terminal, TrendingDown, TriangleAlert } from 'lucide-react'
 import type { DepotEspace } from '../core/depot-espace'
+import { estBurndownDe } from '../core/jira/burndown'
 import { domaineJira, messageErreurJira } from '../core/jira/client'
 import type { Schema, Source } from '../core/schema'
 import { estBureau } from '../adapters/tauri/bureau'
@@ -142,8 +143,10 @@ function useMinute(): Date {
 }
 
 /** Bandeau d'une base Jira : dernière synchro, erreur éventuelle, réglages de la source. */
-export function BandeauSynchro({ espace, base, schema }: { espace: DepotEspace; base: string; schema: Schema }) {
-  const synchro = useEspace().etat.bases.get(base)?.synchro ?? {}
+export function BandeauSynchro({ espace, base, schema, ouvrirDashboard }: { espace: DepotEspace; base: string; schema: Schema; ouvrirDashboard?: (id: string) => void }) {
+  const { etat } = useEspace()
+  const synchro = etat.bases.get(base)?.synchro ?? {}
+  const lancer = useLancer()
   const maintenant = useMinute()
   const consultation = useModeConsultation()
   const [reglages, setReglages] = useState(false)
@@ -159,6 +162,13 @@ export function BandeauSynchro({ espace, base, schema }: { espace: DepotEspace; 
   }, [site])
   if (!schema.source) return null
   const email = jira.connexions[site]
+
+  // Burndown (spec §16) : ouvre celui de la base s'il existe, sinon le crée.
+  const burndown = etat.dashboards.find((d) => d.dashboard && estBurndownDe(d.dashboard.requetes, base))
+  const ouvrirBurndown = async () => {
+    const id = burndown?.id ?? (await lancer(espace.creerBurndown(base)))
+    if (id) ouvrirDashboard?.(id)
+  }
 
   const age = synchro.derniere ? quand(synchro.derniere, maintenant) : null
   const n = synchro.tickets ?? 0
@@ -187,6 +197,11 @@ export function BandeauSynchro({ espace, base, schema }: { espace: DepotEspace; 
         {!BUREAU && age && (
           <button ref={ancreScript} className="discret" onClick={() => setScript(true)} title="Télécharger le script, le lancer avec Windows">
             <Icone de={Terminal} /> Script
+          </button>
+        )}
+        {schema.source.historique && ouvrirDashboard && (burndown || !consultation) && (
+          <button className="discret" onClick={() => void ouvrirBurndown()} title="Tickets restants par version, jour par jour">
+            <Icone de={TrendingDown} /> Burndown
           </button>
         )}
         {!consultation && (

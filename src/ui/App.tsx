@@ -439,7 +439,7 @@ function Espace({ nom, espace, changer, surveiller }: ProprietesEspace) {
               </p>
             )}
             {base?.chargement.ok && base.depot && (
-              <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} pageDemandee={pageDemandee?.base === base.id ? pageDemandee : null} />
+              <VueBase key={base.id} espace={espace} etat={base} depot={base.depot} chargement={base.chargement} pageDemandee={pageDemandee?.base === base.id ? pageDemandee : null} ouvrirDashboard={(id) => setSelection({ type: 'dashboard', id })} />
             )}
           </main>
           {panneauIA && reglagesIA.actif && !consultation && (

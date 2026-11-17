@@ -24,10 +24,12 @@ type Props = {
   chargement: Extract<ChargementBase, { ok: true }>
   /** Page à ouvrir, demandée de l'extérieur (recherche globale) ; `jeton` change à chaque demande. */
   pageDemandee?: { id: string; jeton: number } | null
+  /** Ouvre un dashboard (le burndown d'une base Jira). */
+  ouvrirDashboard?: (id: string) => void
 }
 
 /** Une base ouverte : sa vue courante, filtrée et triée. */
-export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props) {
+export function VueBase({ espace, etat, depot, chargement, pageDemandee, ouvrirDashboard }: Props) {
   const erreur = useErreurDepot(depot)
   const lancer = useLancer()
   const [idVue, setIdVue] = useState(etat.vues[0]!.id)
@@ -70,7 +72,7 @@ export function VueBase({ espace, etat, depot, chargement, pageDemandee }: Props
           </details>
         )}
         {doublons && <BandeauDoublons depot={depot} doublons={doublons} />}
-        {depot.schema.source && jira && <BandeauSynchro espace={espace} base={etat.id} schema={depot.schema} />}
+        {depot.schema.source && jira && <BandeauSynchro espace={espace} base={etat.id} schema={depot.schema} ouvrirDashboard={ouvrirDashboard} />}
         <BarreVue espace={espace} base={etat.id} schema={depot.schema} vues={etat.vues} vue={vue} choisirVue={setIdVue} lignesVue={lignesVue} />
         <DonneesDe schema={depot.schema}>
           <ContenuVue

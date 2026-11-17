@@ -383,7 +383,9 @@ button:hover { background: var(--survol); }
   color: var(--discret);
   padding: 0 6px;
 }
-.valeur-propriete { flex: 1; min-width: 0; height: 34px; }
+.valeur-propriete { flex: 1; min-width: 0; min-height: 34px; }
+/* Un texte en lecture seule sur plusieurs lignes (historique d'un ticket Jira) les garde dans la page. */
+.valeur-propriete > .cellule.lecture:not(:has(a)) { white-space: pre-line; padding-block: 7px; line-height: 1.45; }
 .voir-masquees { align-self: flex-start; font-size: 0.9em; padding: 0.3rem 6px; }
 
 /* Corps */

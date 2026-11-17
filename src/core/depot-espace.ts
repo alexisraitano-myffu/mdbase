@@ -32,6 +32,7 @@ import { MemoireAssistant } from './ia/memoire'
 import { ErreurEcriture, type Modifications } from './ligne'
 import type { Valeur } from './valeurs'
 import { CALCULS, colonne, estObjet, estSaisie, lireSchema, nomSource, type Calcul, type Colonne, type ColonneHorodatage, type ColonneRelation, type Option, type Schema, type Source } from './schema'
+import { dashboardBurndown } from './jira/burndown'
 import { FICHIER_SYNCHRO, lireEtatSynchro, type EtatSynchro } from './jira/synchro'
 import { schemaJira, VUE_JIRA } from './jira/ticket'
 import { copierSchema, ErreurSchema, modifierSchema, nouveauSchema, type OperationSchema } from './schema-ecriture'
@@ -674,15 +675,24 @@ export class DepotEspace {
 
   // ── Dashboards ───────────────────────────────────────────────────
 
-  creerDashboard(nom: string): Promise<string> {
+  /** `contenu` : le texte d'un dashboard déjà rempli (burndown d'une base Jira…), sinon un dashboard vide. */
+  creerDashboard(nom: string, contenu?: (id: string, nom: string) => string): Promise<string> {
     return this.enFile(async () => {
       const id = idBase(nom, [...this.dashboards.keys()])
-      const texte = nouveauDashboard(id, nom.trim() || id)
+      const texte = (contenu ?? nouveauDashboard)(id, nom.trim() || id)
       await this.adaptateur.ecrire(cheminDashboard(id), texte)
       this.dashboards.set(id, { id, ...lireDashboard(texte, id) })
       await this.modifierEspace({ type: 'ajouter_dashboard', id })
       return id
     })
+  }
+
+  /** Dashboard « Burndown » d'une base Jira dont l'historique est lu (spec §16). */
+  async creerBurndown(base: string): Promise<string> {
+    const schema = this.schema(base)
+    if (schema.source?.type !== 'jira' || !schema.source.historique) throw new ErreurDashboard('Le burndown lit l’historique des statuts : active-le dans les réglages de la base Jira')
+    const source = schema.source
+    return this.creerDashboard(`Burndown ${schema.nom}`, (id, nom) => dashboardBurndown(id, nom, base, source))
   }
 
   /** Duplique un dashboard, placé juste après l'original dans la barre latérale. */
