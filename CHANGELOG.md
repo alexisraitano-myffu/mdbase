@@ -144,8 +144,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Outils du wiki pour l'assistant et le MCP (`lister_wiki`, `lire_wiki`, `chercher_wiki`, `ecrire_wiki`, `deplacer_wiki`), offerts seulement quand le module est actif. Les écritures de l'assistant passent par l'aperçu ; celles du MCP s'appliquent aussitôt.
 - Tableaux Markdown rendus dans les pages (corps d'une ligne et wiki) : hors du curseur, un vrai tableau (alignements, gras, code, liens), qui défile de côté s'il est large ; un clic rend le Markdown pour le modifier. Rien n'est réécrit.
 - Options d'affichage (bouton « Affichage » en haut à droite) : pleine largeur des pages, taille et police de leur texte, densité des lignes du tableau. Réglages de la machine, jamais dans le dossier.
+- Dates avec l'heure : « Inclure l'heure » dans le menu d'une colonne date (option `heure: true`, aucun fichier réécrit), saisie à la minute, filtres avant / après / entre à l'heure près, `TIMESTAMP` dans les tables SQL. L'assistant et le MCP créent une date avec l'heure.
+- Formules `ecart_heures`, `jours_ouvres` et `heures_ouvrees` (jours fériés de France, plage horaire au choix).
+- Synchro Jira : deux réglages de la base, « Historique des statuts » (colonnes Historique, Résolu le, Terminé le, Créé le à l'heure près) et « Temps » (estimation initiale, temps passé, reste à faire, en heures). L'historique se lit par la lecture groupée de Jira Cloud, seulement pour les tickets nouveaux ou mis à jour ; « Terminé le » est le dernier passage dans la catégorie Terminé.
+- Burndown par version d'une base Jira : bouton « Burndown » du bandeau, qui crée un dashboard d'analyse (tickets restants jour par jour, ligne idéale, heures estimées restantes), modifiable ensuite comme les autres.
 
 ### Changed
+- Une base Jira neuve écrit ses colonnes une par ligne dans `_schema.yaml` (elles étaient toutes sur une seule ligne).
+- Dans la page d'une ligne, un texte en lecture seule garde ses retours à la ligne.
 - Colonne « Créé le » : une ligne sans date de création enregistrée (créée avant cette colonne, ou hors de l'app) reste vide, au lieu de prendre la date de son fichier. « Modifié le » garde ce repli.
 - Assistant IA : le préréglage Anthropic propose Claude Haiku 5.5 (`claude-haiku-5-5`), plus capable et moins cher que Haiku 4.5. Une connexion déjà réglée garde son modèle : il se change depuis le pied du panneau.
 - Nouveau design « Îlots » : le contenu flotte dans un panneau arrondi sur un fond teinté, la barre latérale se fond dans ce fond, onglets et filtres en pilules, pastilles arrondies, accent vert. Les couleurs passent par des variables CSS (`:root` de `app.css`).
