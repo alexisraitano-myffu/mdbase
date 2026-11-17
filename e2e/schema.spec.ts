@@ -89,6 +89,28 @@ test.describe('bases, groupes et colonnes', () => {
     expect(await espace.lire('projets/_schema.yaml')).not.toContain('label: Terminé')
   })
 
+  test('« Inclure l’heure » sur une date : saisie à la minute, l’option retirée ne perd aucune heure', async ({ espace, page }) => {
+    await espace.base('Projets')
+    await menuColonne(page, 'Revue client')
+    await page.getByRole('switch', { name: 'Inclure l’heure' }).check()
+    await expect.poll(() => espace.lire('projets/_schema.yaml')).toMatch(/cle: revue, nom: Revue client, type: date, heure: true/)
+    await page.keyboard.press('Escape')
+    // Un jour seul vaut minuit ; le fichier n'est pas réécrit pour autant.
+    const cellule = espace.rangee('Site vitrine').locator('.cellule', { hasText: '25/09/2026' })
+    await expect(cellule).toHaveText('25/09/2026 00:00')
+    await cellule.click()
+    const champ = page.locator('input.editeur[type="datetime-local"]')
+    await expect(champ).toHaveValue('2026-09-25T00:00')
+    await champ.fill('2026-09-25T14:30')
+    await champ.press('Enter')
+    await expect.poll(() => espace.lire('projets/site-vitrine--psite001.md')).toContain('revue: 2026-09-25T14:30\n')
+    await menuColonne(page, 'Revue client')
+    await page.getByRole('switch', { name: 'Inclure l’heure' }).uncheck()
+    await expect.poll(() => espace.lire('projets/_schema.yaml')).not.toContain('heure: true')
+    await page.keyboard.press('Escape')
+    await expect(espace.rangee('Site vitrine').locator('.cellule', { hasText: '25/09/2026' })).toHaveText('25/09/2026 14:30')
+  })
+
   test('colonne « Créé le » : en lecture seule, vide pour les lignes d’avant, une ligne créée y montre sa date', async ({ espace, page }) => {
     await espace.base('Projets')
     await page.locator('.cellule-entete.ajout').click()

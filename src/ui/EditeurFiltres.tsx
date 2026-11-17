@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { operateursPour } from '../core/filtres'
 import { useEspace } from './contexte-espace'
-import { afficheValeurs, colonneOrigine, natureDe, type Colonne, type Schema } from '../core/schema'
+import { afficheValeurs, avecHeure, colonneOrigine, natureDe, type Colonne, type Schema } from '../core/schema'
 import type { Filtre, Operateur } from '../core/vue'
 import { ChevronDown, Plus, Search, X } from 'lucide-react'
 import { Flottant } from './flottant'
@@ -180,6 +180,8 @@ export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string;
   }
 
   if (natureDe(colonne) === 'date') {
+    // Colonne avec l'heure : avant, après et entre se règlent à la minute (spec §3) ; « égal » reste au jour.
+    const champ = (v: string) => (v.includes('T') || (op !== 'egal' && avecHeure(colonne)) ? 'datetime-local' : 'date')
     if (op === 'jours_passes' || op === 'jours_a_venir') {
       // [N, M] : de N à M jours (posé dans le fichier ou par l'assistant).
       if (Array.isArray(filtre.valeur)) {
@@ -198,9 +200,9 @@ export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string;
       const [a, b] = Array.isArray(filtre.valeur) ? filtre.valeur.map(String) : ['', '']
       return (
         <span className="valeurs-filtre">
-          <input type="date" value={a ?? ''} aria-label="Du" onChange={(e) => changer([e.target.value, b ?? ''])} />
+          <input type={champ(a ?? '')} value={a ?? ''} aria-label="Du" onChange={(e) => changer([e.target.value, b ?? ''])} />
           <span className="discret">et</span>
-          <input type="date" value={b ?? ''} aria-label="Au" onChange={(e) => changer([a ?? '', e.target.value])} />
+          <input type={champ(b ?? '')} value={b ?? ''} aria-label="Au" onChange={(e) => changer([a ?? '', e.target.value])} />
         </span>
       )
     }
@@ -216,7 +218,7 @@ export function ValeurFiltre({ base, colonne, filtre, changer }: { base: string;
           libelle="Type de date"
           changer={(v) => changer(v === 'aujourdhui' ? 'aujourdhui' : '')}
         />
-        {!estAujourdhui && <input type="date" value={String(filtre.valeur ?? '')} aria-label="Date" onChange={(e) => changer(e.target.value)} />}
+        {!estAujourdhui && <input type={champ(String(filtre.valeur ?? ''))} value={String(filtre.valeur ?? '')} aria-label="Date" onChange={(e) => changer(e.target.value)} />}
       </span>
     )
   }

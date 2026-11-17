@@ -239,7 +239,7 @@ Une date peut déjà porter une heure (`AAAA-MM-JJTHH:mm`, tableau ci-dessus) ; 
 
 - **Saisie** : avec `heure: true`, la cellule et la page proposent la date et l'heure. Sans, le jour seul ; une valeur qui a déjà une heure (écrite à la main, par Jira) la garde et l'affiche, comme aujourd'hui.
 - **Stockage** inchangé : `AAAA-MM-JJTHH:mm`, heure locale, sans fuseau, écrit comme aujourd'hui (YAML 1.2 le relit comme un texte, avec ou sans guillemets). Une valeur sans heure dans une colonne avec heure vaut minuit.
-- **Basculer l'option** ne réécrit aucun fichier : passer à `heure: true` laisse les valeurs telles quelles (minuit à l'affichage) ; retirer l'heure la cache seulement, sans effacer ce qui est écrit.
+- **Basculer l'option** (« Inclure l'heure », menu de la colonne) ne réécrit aucun fichier : passer à `heure: true` laisse les valeurs telles quelles (minuit à l'affichage) ; retirer l'option n'efface aucune heure déjà écrite, qui reste affichée comme sans l'option.
 - **Filtres** : mêmes opérateurs. `avant`, `apres` et `entre` tiennent compte de l'heure quand la valeur du filtre en a une ; les filtres relatifs (`aujourdhui`, `jours_passes`…) restent au jour.
 - **Tris, calendrier, timeline** : l'heure départage deux valeurs du même jour ; sans heure, une valeur passe avant celles du même jour qui en ont une.
 - **Formules** (§6), nouvelles fonctions :

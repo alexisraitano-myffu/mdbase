@@ -2,16 +2,16 @@ import { useRef, useState } from 'react'
 import type { DepotBase } from '../core/depot-base'
 import { TYPES_CREABLES, type DepotEspace, type TypeCreable } from '../core/depot-espace'
 import { calculsPour } from '../core/calcul'
-import { CALCULS, nomSource, TYPES_HORODATAGE, type Calcul, type Colonne, type ColonneChoix, type ColonneHorodatage, type ColonneRelation, type ColonneRollup } from '../core/schema'
+import { avecHeure, CALCULS, nomSource, TYPES_HORODATAGE, type Calcul, type Colonne, type ColonneChoix, type ColonneHorodatage, type ColonneRelation, type ColonneRollup } from '../core/schema'
 import { useLancer } from './actions'
 import { useEspace } from './contexte-espace'
 import { EditeurFormule } from './EditeurFormule'
 import { Flottant } from './flottant'
-import { ArrowRight, ChevronRight, Plus, TriangleAlert, X } from 'lucide-react'
+import { ArrowRight, ChevronRight, Clock, Plus, TriangleAlert, X } from 'lucide-react'
 import { Icone, ICONES } from './icones'
 import { Pastille } from './cellules'
 import { Choix } from './Choix'
-import { Reglage } from './reglages'
+import { Interrupteur, Reglage } from './reglages'
 
 export const NOMS_TYPES: Record<TypeCreable, string> = {
   text: 'Texte',
@@ -42,6 +42,8 @@ export function MenuColonne({
   const [confirmer, setConfirmer] = useState(false)
   const [formule, setFormule] = useState(false)
   const [options, setOptions] = useState(false)
+  // Suit le clic tout de suite, sans attendre l'écriture du schéma.
+  const [heure, setHeure] = useState(avecHeure(colonne))
   const estTitre = colonne.cle === depot.schema.champTitre
 
   const renommer = () => {
@@ -140,6 +142,18 @@ export function MenuColonne({
         onKeyDown={(e) => e.key === 'Enter' && renommer()}
       />
       {colonne.type === 'rollup' && <ReglagesRollup espace={espace} base={base} colonne={colonne} />}
+      {colonne.type === 'date' && (
+        // Ne touche que le schéma : une heure déjà écrite reste dans les lignes (spec §3).
+        <Interrupteur
+          icone={Clock}
+          libelle="Inclure l’heure"
+          coche={heure}
+          changer={(v) => {
+            setHeure(v)
+            void lancer(espace.regleHeure(base, colonne.cle, v))
+          }}
+        />
+      )}
       {colonne.type === 'formula' && (
         <button className="option" onClick={() => setFormule(true)}>
           <Icone de={ICONES.formula} />

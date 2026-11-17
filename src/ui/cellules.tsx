@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LigneChargee } from '../core/base'
 import type { DepotBase } from '../core/depot-base'
 import { adresseWeb } from '../core/valeurs'
-import { colonneOrigine, estSaisie, natureDe, type Colonne, type ColonneChoix, type ColonneRelation } from '../core/schema'
+import { avecHeure, colonneOrigine, estSaisie, natureDe, type Colonne, type ColonneChoix, type ColonneRelation } from '../core/schema'
 import { lireNombre, type Cellule as ValeurCellule, type Valeur } from '../core/valeurs'
 import { couleurOption } from './couleurs'
 import { Flottant } from './flottant'
@@ -97,7 +97,7 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
   if (edition) {
     const texte = cellule?.etat === 'ok' ? String(cellule.valeur) : cellule ? String(cellule.brut) : ''
     if (colonne.type === 'number') return <EditeurNombre initial={texte} modifier={modifier} quitter={quitter} />
-    if (colonne.type === 'date') return <EditeurDate initial={texte} modifier={modifier} quitter={quitter} />
+    if (colonne.type === 'date') return <EditeurDate initial={texte} heure={avecHeure(colonne)} modifier={modifier} quitter={quitter} />
     return (
       <input
         className="cellule editeur"
@@ -117,7 +117,7 @@ export function Cellule({ depot, ligne, colonne, editionInitiale = false, creerO
       ) : cellule && colonne.type === 'url' ? (
         <Lien url={String(cellule.valeur)} />
       ) : cellule && colonne.type === 'date' ? (
-        formaterDate(String(cellule.valeur))
+        formaterDate(String(cellule.valeur), avecHeure(colonne))
       ) : cellule && colonne.type === 'number' ? (
         Number(cellule.valeur).toLocaleString('fr-FR')
       ) : (
@@ -181,14 +181,16 @@ function EditeurNombre(p: { initial: string; modifier: (v: number | undefined) =
   )
 }
 
-function EditeurDate(p: { initial: string; modifier: (v: string | undefined) => void; quitter: () => void }) {
-  const avecHeure = p.initial.includes('T')
+/** Avec l'heure si la colonne la demande, ou si la valeur en a déjà une (écrite à la main, par Jira) : elle n'est jamais perdue. */
+function EditeurDate(p: { initial: string; heure: boolean; modifier: (v: string | undefined) => void; quitter: () => void }) {
+  const avecHeure = p.heure || p.initial.includes('T')
   return (
     <input
       className="cellule editeur"
       type={avecHeure ? 'datetime-local' : 'date'}
       autoFocus
-      defaultValue={p.initial}
+      // Un jour seul dans une colonne avec l'heure vaut minuit (spec §3).
+      defaultValue={avecHeure && /^\d{4}-\d{2}-\d{2}$/.test(p.initial) ? `${p.initial}T00:00` : p.initial}
       onChange={(e) => p.modifier(e.target.value || undefined)}
       onBlur={p.quitter}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === 'Escape') && e.currentTarget.blur()}
@@ -196,10 +198,12 @@ function EditeurDate(p: { initial: string; modifier: (v: string | undefined) => 
   )
 }
 
-function formaterDate(iso: string): string {
+/** JJ/MM/AAAA, et l'heure si la valeur en a une ; `avecHeure` : minuit pour un jour seul (colonne avec l'heure). */
+function formaterDate(iso: string, avecHeure = false): string {
   const [date, heure] = iso.split('T')
   const [a, m, j] = (date ?? '').split('-')
-  return `${j}/${m}/${a}${heure ? ` ${heure}` : ''}`
+  const h = heure ?? (avecHeure ? '00:00' : '')
+  return `${j}/${m}/${a}${h ? ` ${h}` : ''}`
 }
 
 export function Pastille({ label, couleur }: { label: string; couleur?: string | undefined }) {
